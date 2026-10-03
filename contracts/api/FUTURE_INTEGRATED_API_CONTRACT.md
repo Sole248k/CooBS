@@ -214,6 +214,8 @@ No other service-to-service call is allowed without Dev 1's approval.
 
 ## 4. auth-service (8081)
 
+> **Scope.** Registration is removed and members are seeded as KYC-verified. MFA is off by default, so `mfaRequired` is always `false`; A3 and A5 matter only if the optional email MFA is enabled. See section 0 of [`SERVICE_SCOPE_SCENARIOS_AND_ACTIONS.md`](../../integrated-capstone-plans/SERVICE_SCOPE_SCENARIOS_AND_ACTIONS.md).
+
 | # | Method and path | Status | Notes |
 | --- | --- | --- | --- |
 | A1 | `POST /api/v1/auth/customers/register` | **REMOVED** | Members are seeded |

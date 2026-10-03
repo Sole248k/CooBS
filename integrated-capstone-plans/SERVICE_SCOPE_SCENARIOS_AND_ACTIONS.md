@@ -6,6 +6,96 @@
 
 ---
 
+## 0. Scope boundaries: what is real, seeded, simulated or out
+
+Read this first. It says, for every capability, whether we actually build it. The sections after it describe behaviour only for what is in scope.
+
+| Label | Meaning |
+| --- | --- |
+| **BUILT** | Real code, real data changes, shown in the demo |
+| **EXISTING** | Already in the code today. Kept working, not extended, not a demo focus |
+| **SEEDED** | The data is loaded by the seed scripts. There is no screen or process that creates it |
+| **SIMULATED** | Looks real to the user but the behaviour is fixed or stubbed. Must be labelled as such in the presentation |
+| **OPTIONAL** | Only if time allows, after Checkpoint 1. The system works without it |
+| **OUT** | Not built. Do not design for it, do not let an AI assistant add it |
+
+### 0.1 Across the whole system
+
+| Capability | Status | What that means in practice |
+| --- | --- | --- |
+| Customer onboarding and self-registration | **OUT** | The register endpoint is removed. Every member exists because the seed created them |
+| KYC verification process | **SEEDED** | Every member is seeded as `VERIFIED`, `TIER_3_FULL`. Nobody is ever "pending". There is no document upload, ID check, OCR or reviewer queue |
+| KYC screen in the Flutter app | **SIMULATED** | A presentation-only screen showing the verified status and a mock upload. It calls no backend process |
+| KYC update requests (change of address and so on) | **EXISTING** | The React console can still submit and approve them. Not extended, not in the Flutter app, not in the demo script |
+| MFA at sign-in | **OUT** by default | `MFA_ENABLED=false`. The code path exists, but today the "delivery" only writes the code to the log |
+| MFA by email through Resend | **OPTIONAL** | See 0.3 |
+| MFA by SMS | **OUT** | Would need a paid SMS provider and the mobile number, which stays on-premises |
+| Password reset, password change, profile editing | **OUT** | Credentials are seeded |
+| Risk score and credit score | **SEEDED** | Fixed per member, for example 0.15 and 750. Nothing calculates or updates them |
+| Fraud and limit checks | **BUILT** | Simple, deterministic rules. No machine learning, no watch-lists, no real AML screening |
+| Manual review of a flagged transfer | **OUT** | A score in the review band is declined. There is no review queue |
+| Transfers between our own accounts | **BUILT** | The full saga with the eleven stages |
+| Holds: place, capture, release | **BUILT** | |
+| Automatic expiry of an old hold | **OPTIONAL** | |
+| Reversal of a posted transfer | **BUILT** | Full amount, by staff. No partial reversal and no dispute workflow |
+| Cash deposit and withdrawal at the counter | **EXISTING** | React staff console only |
+| Account opening, status change, flags, closure | **EXISTING** | React staff console only. Opening gains loan and current types |
+| Loan accounts and repayment schedules | **SEEDED** | No loan application, approval or disbursement |
+| Standing instructions | **SEEDED** | No screen to create or edit one |
+| Interest and fees | **BUILT** | One fixed rate and one fixed fee from configuration |
+| End-of-day batch | **BUILT** | On demand from a button. No scheduler, no calendar, no holidays |
+| GL accounts and chart of accounts | **SEEDED** | Five internal accounts. Reconciliation is debits equal credits only |
+| Inter-bank transfer, inbound and outbound | **BUILT** | Against our own loopback. A real partner is **OPTIONAL** and depends on that group |
+| Clearing house, real settlement of funds | **OUT** | Each bank only keeps a settlement total per partner |
+| In-app notifications | **BUILT** | |
+| Email, SMS or push notifications | **OUT** | |
+| Beneficiaries: list, add, remove | **BUILT** | |
+| Spending breakdown | **BUILT** | From the category the sender picks. No automatic categorisation |
+| Dead-letter queue and admin replay | **BUILT** | |
+| Ledger outbox | **BUILT** | First item to cut if Day 6 runs late |
+| Audit chain, verification, daily seal | **BUILT** | Chain and verification are **EXISTING**; the seal is new |
+| Currencies other than PHP | **OUT** | |
+| Cards, ATM, QR payments, bill payment | **OUT** | |
+| Flutter on iOS | **OUT** | Web and Android only |
+| Azure dev environment | **BUILT** if a subscription is confirmed | Otherwise the local stack is the demo |
+| VPN Gateway, Front Door, API Management | **OUT** | Shown in the target diagram only |
+
+### 0.2 Per service
+
+| Service | BUILT or changed | EXISTING, kept as is | SEEDED or SIMULATED | OUT |
+| --- | --- | --- | --- | --- |
+| auth-service | Move to `identity_db`; same login, refresh, revoke | Token issue and blacklist | Logins and roles seeded | Registration, MFA by default, password reset |
+| customer-service | Channel profile, Customer 360, beneficiaries, risk-profile lookup | — | Scores, tier, membership number seeded | Profile editing, onboarding, any KYC process |
+| account-service | Balance through the ledger; loan and current types; internal lookups | Open account, status, flags, closure, KYC update requests | KYC master seeded as verified | KYC verification, document handling, loan origination |
+| transaction-service | Transfer ingress, timeline, history, reversal request, DLQ replay, inter-bank endpoints | — | — | Scheduled or recurring transfers created by the customer |
+| orchestration-service | Transfer and reversal sagas, stage events, compensation | — | — | Manual intervention screens; sagas for anything other than transfers |
+| risk-engine | Score thresholds, daily limit, velocity counter | — | Deterministic rules stand in for real fraud detection (**SIMULATED**) | Machine learning, AML lists, case management |
+| ledger-service | Holds, capture, release, reversal, batch posting, outbox, GL legs | Debit, credit, transfer, balance, locking, audit dual-write | GL accounts seeded | Multi-currency; interest calculation inside the ledger |
+| batch-service | Six-step pipeline on demand; run and step log | — | Standing instructions and loan schedules seeded | Scheduler, re-run of a single step, report files |
+| notification-service | Move to `notification_db`; retry and dead-letter; dispatched event | In-app inbox, read flag, unread count | — | Email, SMS, push, user preferences |
+| audit-service | Daily seal read | Statement, forensic record, chain verification | — | Any write; export to file |
+| api-gateway | New routes; ledger route for staff only; Flutter origin | Rate limits, correlation ID, CORS | — | Token validation at the gateway; API Management |
+| Flutter app | Sign-in, Customer 360, accounts, transfer, tracker, beneficiaries, notifications, batch screen | — | KYC screen (**SIMULATED**) | Registration, staff back-office screens, iOS |
+| React console | Nothing new | All staff screens | — | Frozen: no new features |
+
+### 0.3 Optional: MFA by email through Resend
+
+Worth doing only after Checkpoint 1, and only if the team agrees on Day 1. Sign-in must keep working with it switched off.
+
+| Item | Detail |
+| --- | --- |
+| What exists | The MFA flow, the `mfaToken`, the verify endpoints (A3, A5) and a delivery class. `OtpDeliveryServiceImpl.sendEmail` only logs the code today |
+| What to add | A real send in that one method, calling Resend's email API with an API key from the environment |
+| Why email, not SMS | The login email is in `identity_db` in the cloud. The mobile number is in the KYC master on-premises, which `auth-service` no longer reads |
+| Configuration | `MFA_ENABLED=true`, `MFA_DEFAULT_CHANNEL=EMAIL`, `EMAIL_PROVIDER=RESEND`, `RESEND_API_KEY`, a sender address. The key goes in `.env`, later Key Vault, never in the repository |
+| Frontend | One code-entry screen in the Flutter sign-in flow, shown when the login response has `mfaRequired: true` |
+| Owners | Dev 2 (send), Dev 6 (screen), Dev 8 (secret and variables) |
+| To confirm first | Resend's free plan limits, and whether it needs a verified domain to send to addresses other than your own. Seeded members need inboxes the team can open |
+| Fallback for the demo | If the flag is off, sign-in proceeds without MFA. Keep at least one seeded user with MFA off |
+| Rule | A failed email must not lock anyone out during the presentation |
+
+---
+
 ## 1. Who can do what, at a glance
 
 | Action                                         | Customer     | Teller         | Admin | Partner bank |
@@ -64,7 +154,9 @@ Registration is not available to anyone: members are seeded.
 
 ## 3. auth-service (8081, cloud)
 
-**Scope.** Proves who the caller is. Checks username and password, runs MFA, issues and refreshes tokens, revokes tokens.
+**Scope.** Proves who the caller is. Checks username and password, issues and refreshes tokens, revokes tokens.
+
+**Scope note.** MFA is **out of scope by default** (`MFA_ENABLED=false`); the MFA rows below apply only if the optional email MFA in section 0.3 is switched on. Registration is removed.
 
 **Not in scope.** No customer profile, no KYC, no registration, no account data. Does not connect to Oracle.
 
@@ -125,6 +217,8 @@ Registration is not available to anyone: members are seeded.
 ## 5. account-service (8082, on-premises)
 
 **Scope.** The account as a record: opening, type, status, flags, closure requests. Also holds the KYC master and the KYC update workflow.
+
+**Scope note.** KYC is **not a process** in this build. Every member is seeded as verified, so the "KYC not verified" case cannot occur with seeded data. The KYC update rows below are existing behaviour kept for the React console; they are not extended and not part of the demo.
 
 **Not in scope.** Never changes a balance. Does not store credentials. Does not decide whether a transfer may proceed.
 
