@@ -9,6 +9,7 @@ The current planning set for the CooBS expansion. Older architecture documents a
 | 1   | [`ZERO_CONFLICT_8_DEV_EXECUTION_PLAN.md`](ZERO_CONFLICT_8_DEV_EXECUTION_PLAN.md)                           | Who does what on each of the nine days, and the rules that prevent merge conflicts                                |
 | 2   | [`PER_DEV_TECHNICAL_WORK_PACKAGES.md`](PER_DEV_TECHNICAL_WORK_PACKAGES.md)                                 | File-level work per developer, code review findings, and the handshakes between developers                        |
 | 3   | [`SERVICE_SCOPE_SCENARIOS_AND_ACTIONS.md`](SERVICE_SCOPE_SCENARIOS_AND_ACTIONS.md)                         | Per service: what it owns, what it must not do, which role can do which action, and what happens in each scenario |
+| 3b | [`BRANCH_POLICY_PLAN.md`](BRANCH_POLICY_PLAN.md) | Branch model, pull request policies and reviewer-by-path rules for Azure Repos. A plan; not applied yet |
 | 4   | [`../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`](../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md) | Every endpoint, payload, event, enumeration and error code                                                        |
 | 5   | [`../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md`](../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md)       | The bank-to-bank proposal for partner groups                                                                      |
 

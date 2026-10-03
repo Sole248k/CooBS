@@ -127,6 +127,18 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic account.created.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.submitted.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.evaluated.v1 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic transaction.stage.changed.v1 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.dispatched.v1 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic batch.eod.step.completed.v1 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic ledger.mutation.completed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic ledger.transfer.completed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic ledger.transfer.failed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic account.closure.completed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic account.created.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.submitted.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.evaluated.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic transaction.stage.changed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.dispatched.v1.DLT --partitions 3 --replication-factor 1
         echo "Available topics:"
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --list
     networks:
@@ -384,6 +396,9 @@ services:
       LEDGER_SERVICE_URL: http://ledger-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8084
       AUDIT_SERVICE_URL: http://audit-service:8085
+      CUSTOMER_SERVICE_URL: http://customer-service:8089
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      BATCH_SERVICE_URL: http://batch-service:8093
       REDIS_HOST: redis-cache
       REDIS_PORT: 6379
     healthcheck:
@@ -392,6 +407,174 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ============================================================================
+  # EXPANSION SERVICES (profile: expansion)
+  # Start with: docker compose --profile app --profile expansion up -d --build
+  # Skeletons only. Each owner adds datasource, Kafka and service URLs as needed.
+  # ============================================================================
+  postgres-cloud-db:
+    profiles:
+      - expansion
+    image: postgres:16-alpine
+    container_name: postgres-cloud-db
+    ports:
+      - "${POSTGRES_CLOUD_PORT:-5435}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: postgres
+    volumes:
+      - ./database/postgres-cloud:/docker-entrypoint-initdb.d:ro
+      - postgres_cloud_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_CLOUD_USER:-postgres} -d identity_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # customer-service (cloud) - Channel profile, beneficiaries and Customer 360 aggregator
+  # ----------------------------------------------------------------------------
+  customer-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/customer-service
+      dockerfile: Dockerfile
+    container_name: customer-service
+    ports:
+      - "${CUSTOMER_SERVICE_PORT:-8089}:8089"
+    environment:
+      SERVER_PORT: 8089
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8089/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # transaction-service (cloud) - Transfer ingress, timeline, inter-bank endpoints and DLQ replay
+  # ----------------------------------------------------------------------------
+  transaction-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/transaction-service
+      dockerfile: Dockerfile
+    container_name: transaction-service
+    ports:
+      - "${TRANSACTION_SERVICE_PORT:-8090}:8090"
+    environment:
+      SERVER_PORT: 8090
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # orchestration-service (cloud) - Transfer and reversal saga coordinator
+  # ----------------------------------------------------------------------------
+  orchestration-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/orchestration-service
+      dockerfile: Dockerfile
+    container_name: orchestration-service
+    ports:
+      - "${ORCHESTRATION_SERVICE_PORT:-8091}:8091"
+    environment:
+      SERVER_PORT: 8091
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8091/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # risk-engine (cloud) - Fraud and limit decision engine
+  # ----------------------------------------------------------------------------
+  risk-engine:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/risk-engine
+      dockerfile: Dockerfile
+    container_name: risk-engine
+    ports:
+      - "${RISK_ENGINE_PORT:-8092}:8092"
+    environment:
+      SERVER_PORT: 8092
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8092/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # batch-service (onprem) - On-demand end-of-day batch pipeline
+  # ----------------------------------------------------------------------------
+  batch-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/batch-service
+      dockerfile: Dockerfile
+    container_name: batch-service
+    ports:
+      - "${BATCH_SERVICE_PORT:-8093}:8093"
+    environment:
+      SERVER_PORT: 8093
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8093/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     restart: unless-stopped
     networks:
       - core-banking-net
@@ -511,6 +694,8 @@ volumes:
   oracle_data:
     driver: local
   postgres_data:
+    driver: local
+  postgres_cloud_data:
     driver: local
   redis_data:
     driver: local

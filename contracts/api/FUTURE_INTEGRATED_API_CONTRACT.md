@@ -1,6 +1,6 @@
 # CooBS Integrated API Contract (Target State)
 
-**Version:** 0.9 draft, for freeze as `contracts-v1` on Day 2  
+**Version:** 0.10 draft, for freeze as `contracts-v1` on Day 2  
 **Editor:** Dev 1. Change requests follow the handshake rules in [`PER_DEV_TECHNICAL_WORK_PACKAGES.md`](../../integrated-capstone-plans/PER_DEV_TECHNICAL_WORK_PACKAGES.md).  
 **Reads with:** [`CURRENT_API_INVENTORY_AND_USAGE_GUIDE.md`](CURRENT_API_INVENTORY_AND_USAGE_GUIDE.md) (what exists today) and [`INTERBANK_TRANSFER_PROPOSAL.md`](INTERBANK_TRANSFER_PROPOSAL.md) (what we send to other groups).
 
@@ -55,7 +55,7 @@ The inventory lists the right 38 endpoints, but several payloads in it do not ma
 
 | Header | Required on | Rule |
 | --- | --- | --- |
-| `Authorization: Bearer <jwt>` | Everything except login, token refresh and the inter-bank webhook | Internal calls forward the caller's token |
+| `Authorization: Bearer <jwt>` | Everything except login, token refresh and the inter-bank webhook | Internal calls use a service token, see 2.3 |
 | `X-Correlation-ID` | Every request | The gateway adds one if missing; every service passes it on and puts it in every event |
 | `Idempotency-Key` | Every `POST` that moves money | UUID from the client on public calls. On internal ledger calls it is `<transactionId>:<step>`, for example `…:hold`, `…:capture`, `…:release`, `…:reverse` |
 | `Content-Type: application/json` | Every body | UTF-8 |
@@ -73,6 +73,24 @@ The inventory lists the right 38 endpoints, but several payloads in it do not ma
 ```
 
 `userId` is the **customer ID** when `userType` is `CUSTOMER` and the **staff user ID** when it is `STAFF`. Roles: `ROLE_CUSTOMER`, `ROLE_TELLER`, `ROLE_ADMIN`.
+
+**Service token for internal calls.** A caller's token cannot be forwarded everywhere: the saga continues after the client's request has returned, events have no user, the batch has no customer, and partner banks send no JWT. So every `/internal/v1/**` call carries a token the calling service signs itself with the shared `JWT_SECRET`:
+
+```json
+{
+  "sub": "orchestration-service",
+  "userId": 0,
+  "roles": ["ROLE_SERVICE"],
+  "userType": "SERVICE",
+  "exp": 1791000300
+}
+```
+
+- Lifetime: five minutes; minted per call or cached until it expires.
+- Every `/internal/v1/**` endpoint requires `ROLE_SERVICE` and nothing else. A customer or staff token is rejected with 403.
+- The person who caused the action travels in the body as `actorId` and `actorType`, never in the token. That is why the saga and ledger payloads carry `actorId`.
+- `X-Correlation-ID` is always passed on.
+- Target state replaces the shared secret with per-service keys from Key Vault; out of scope for the nine days.
 
 ### 2.4 Money, time, IDs
 
@@ -110,7 +128,9 @@ Every service returns the existing problem shape. `errorCode` is the field clien
 | `AUTH_ACCESS_DENIED` | 403 | Any |
 | `AUTH_TOKEN_REVOKED` | 401 | Any |
 | `ACCOUNT_NOT_FOUND` | 404 | account, ledger, transaction |
-| `ACCOUNT_NOT_ACTIVE` | 409 | account, ledger, transaction |
+| `ACCOUNT_NOT_ACTIVE` | 422 | account, ledger, transaction |
+| `ACCOUNT_NON_ZERO_BALANCE` | 400 | account |
+| `ACCOUNT_ACTIVE_FLAG_EXISTS` | 422 | account |
 | `ACCOUNT_NOT_OWNED` (new) | 403 | transaction |
 | `INSUFFICIENT_FUNDS` | 422 | ledger |
 | `DUPLICATE_IDEMPOTENCY_KEY` | 409 | ledger, transaction |
@@ -127,7 +147,7 @@ Every service returns the existing problem shape. `errorCode` is the field clien
 | `INTERBANK_REJECTED`, `INTERBANK_TIMEOUT` (new) | 422, 504 | transaction |
 | `INTERNAL_SERVER_ERROR` | 500 | Any |
 
-HTTP codes for existing errors stay whatever each service returns today; the table shows the intent for new ones.
+HTTP codes for the existing error codes were checked against the ledger's exception handler. Codes marked new are proposals.
 
 ### 2.6 Paging
 
@@ -290,6 +310,8 @@ When `mfaRequired` is `true`, `authData` is `null` and `mfaToken` is set.
 | C7 | `GET /internal/v1/customers/{customerId}/risk-profile` | Service | NEW |
 
 **C1 / C2 response, 200.** The first six keys are today's shape, so the React console keeps working. The `kyc` object is fetched from `account-service` on each call and is never stored in the cloud.
+
+`username` is taken from the token for C1 and from the seeded channel profile for C2. `email` is seeded into the channel profile as well as into `identity_db`; `customer-service` never reads `identity_db`.
 
 ```json
 {
@@ -591,6 +613,7 @@ Customers never see `detail`, risk scores or internal reasons; `failureMessage` 
 | O1 | `POST /internal/v1/sagas/transfers` | transaction-service |
 | O2 | `POST /internal/v1/sagas/reversals` | transaction-service |
 | O3 | `GET /internal/v1/sagas/{transactionId}` | transaction-service, support |
+| O4 | `POST /internal/v1/sagas/inbound-interbank` | transaction-service |
 
 **O1 request**
 
@@ -628,6 +651,23 @@ Customers never see `detail`, risk scores or internal reasons; `failureMessage` 
 ```
 
 Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`, `FAILED`, `COMPENSATING`, `COMPENSATED`.
+
+**O4 request.** An inbound credit needs no risk check and no hold: the money is not leaving one of our customers. The saga posts once through L8 and publishes stages 1, 2, 8, 9, 10 and 11; stages 3 to 7 are published as `PASSED` with the detail `not applicable`.
+
+```json
+{
+  "transactionId": "9a2d6c1e-1f0b-4a7e-8f55-3c1e2d4b5a66",
+  "referenceNo": "IB-20261003-000045",
+  "messageId": "0b6c2f6e-6d1a-4d5c-9d1f-0f3a5e7b9c21",
+  "sourceBankCode": "BANKB",
+  "settlementAccountId": 9005,
+  "destinationAccountId": 2,
+  "amount": "2500.00",
+  "currency": "PHP"
+}
+```
+
+**O4 response, 200:** `{ "transactionId": "…", "sagaState": "COMPLETED", "referenceNo": "IB-20261003-000045" }`. This call is synchronous, because the partner bank is waiting for `ACCEPTED` or `REJECTED`.
 
 ---
 
@@ -706,6 +746,8 @@ Request and response shapes for L-S2 to L-S4 are today's: `{ accountId, amount, 
 
 ### 10.2 Internal endpoints (NEW)
 
+**GL accounts.** Five internal accounts are seeded with type `GL`: cash, interest expense, fee income, loan receivable, and one inter-bank settlement account per partner. Their account IDs are published in the seed ID table (handshake H2), and services read them from configuration, never hard-coded. `BALANCE` has a check that the available balance cannot go below zero, so the GL accounts that get debited are seeded with a large opening balance. Reconciliation compares the day's total debits with total credits and is not affected by that opening figure.
+
 | # | Method and path | Caller |
 | --- | --- | --- |
 | L1 | `POST /internal/v1/ledger/balances` | account-service |
@@ -715,7 +757,7 @@ Request and response shapes for L-S2 to L-S4 are today's: `{ accountId, amount, 
 | L5 | `POST /internal/v1/ledger/holds/{holdId}/release` | orchestration-service |
 | L6 | `GET /internal/v1/ledger/holds/{holdId}` | orchestration-service |
 | L7 | `POST /internal/v1/ledger/reversals` | orchestration-service |
-| L8 | `POST /internal/v1/ledger/postings` | batch-service |
+| L8 | `POST /internal/v1/ledger/postings` | batch-service; orchestration-service for inbound inter-bank |
 | L9 | `GET /internal/v1/ledger/gl/trial-balance?businessDate=` | batch-service |
 
 Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
@@ -802,6 +844,8 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
   "timestamp": "2026-10-03T12:10:00Z"
 }
 ```
+
+`batchRunId` and `stepName` are required for batch calls. For an inbound inter-bank credit they are omitted and `transactionId` is sent instead, with one posting: debit the partner's settlement GL account, credit the beneficiary.
 
 **L8 request**
 
@@ -893,6 +937,7 @@ If step 5 finds a variance, its status is `FAILED`, step 6 is `SKIPPED`, and the
 
 **N1 item (today's shape):** `{ "notificationId": 881, "title": "…", "message": "…", "channel": "IN_APP", "isRead": false, "createdAt": "2026-10-03T11:40:01Z" }`, in the page shape of section 2.6.  
 **N2 response:** `{ "notificationId": 881, "isRead": true }`
+**N3 response:** `{ "customerId": 1, "unreadCount": 3 }`
 
 **U1 row (today's shape)**
 
@@ -1014,7 +1059,7 @@ These three are not protected by our JWT. They require `X-Bank-Code`, `X-Timesta
 | 2 | `messageId` is the idempotency key; a repeat returns the stored response |
 | 3 | The beneficiary account is looked up by number (K7) and must be `ACTIVE` |
 | 4 | A transaction is created with `channel = INTERBANK` |
-| 5 | The ledger posts: debit our settlement GL account for that partner, credit the beneficiary |
+| 5 | `transaction-service` calls O4; the saga posts through L8: debit our settlement GL account for that partner, credit the beneficiary |
 | 6 | Response `ACCEPTED` with our `referenceNo`, or `REJECTED` with a reason code |
 
 **Outbound mapping** (T1 with a foreign `destinationBankCode`)

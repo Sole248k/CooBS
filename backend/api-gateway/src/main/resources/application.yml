@@ -71,6 +71,19 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
+        # KYC master stays in account-service. Must be listed before the general customers route.
+        - id: account-service-kyc-route
+          uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/customers/kyc/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
         - id: account-service-customers-route
           uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
           predicates:
@@ -124,6 +137,48 @@ spring:
                 redis-rate-limiter.burstCapacity: 60
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 6. Transaction Service Routes (transfer ingress, timeline, reversal, DLQ replay)
+        - id: transaction-service-route
+          uri: ${TRANSACTION_SERVICE_URL:http://localhost:8090}
+          predicates:
+            - Path=/api/v1/transactions/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 7. Inter-bank Routes (partner banks; signed requests, hosted by transaction-service)
+        - id: transaction-service-interbank-route
+          uri: ${TRANSACTION_SERVICE_URL:http://localhost:8090}
+          predicates:
+            - Path=/api/v1/interbank/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 8. Batch Service Routes (on-demand end-of-day pipeline)
+        - id: batch-service-route
+          uri: ${BATCH_SERVICE_URL:http://localhost:8093}
+          predicates:
+            - Path=/api/v1/batch/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # NOTE: /api/v1/customers/** still points at account-service. Dev 2 switches it to
+        # ${CUSTOMER_SERVICE_URL:http://localhost:8089} when customer-service serves it (Day 4).
 
 management:
   endpoints:

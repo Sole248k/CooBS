@@ -1,0 +1,448 @@
+# ==============================================================================
+# CooBS - Azure Pipelines
+#
+# Stages
+#   1. Validate   config, scripts, SQL files               (every run)
+#   2. Infra      audit-store triggers, Redis, Kafka       (every run)
+#   3. Test       all backend services against real infra  (every run)
+#   4. Package    container images                         (main, release/*, v* tags)
+#   5. Publish    push images to a registry                (only when publishImages = true)
+#   6. Deploy     placeholder for dev / prod environments  (only when deployEnabled = true)
+#
+# Pull requests: Azure Repos ignores a `pr:` block in YAML. PR validation is
+# switched on by a Build Validation branch policy that points at this pipeline.
+# See integrated-capstone-plans/BRANCH_POLICY_PLAN.md.
+#
+# Owner: Dev 8. To add a service, add one entry to the `services` parameter.
+# ==============================================================================
+
+trigger:
+  branches:
+    include:
+      - main
+      - dev
+      - release/*
+  tags:
+    include:
+      - v*
+  paths:
+    exclude:
+      - docs/*
+      - integrated-capstone-plans/*
+      - contracts/*
+      - '*.md'
+
+parameters:
+  # needsInfra records which test suites talk to Oracle / PostgreSQL / Redis / Kafka.
+  # Today every suite runs in one job with the infrastructure up; the flag is there
+  # so the fast suites can be moved to their own job later.
+  - name: services
+    type: object
+    default:
+      - { name: api-gateway,           needsInfra: false }
+      - { name: auth-service,          needsInfra: true  }
+      - { name: account-service,       needsInfra: true  }
+      - { name: ledger-service,        needsInfra: true  }
+      - { name: notification-service,  needsInfra: true  }
+      - { name: audit-service,         needsInfra: true  }
+      - { name: customer-service,      needsInfra: false }
+      - { name: transaction-service,   needsInfra: false }
+      - { name: orchestration-service, needsInfra: false }
+      - { name: risk-engine,           needsInfra: false }
+      - { name: batch-service,         needsInfra: false }
+
+  # Turn on once a container registry and its service connection exist.
+  - name: publishImages
+    displayName: Push images to the container registry
+    type: boolean
+    default: false
+  - name: registryServiceConnection
+    displayName: Docker registry service connection name
+    type: string
+    default: coobs-acr
+  - name: imageRepositoryPrefix
+    displayName: Image repository prefix
+    type: string
+    default: coobs
+
+  # Turn on once the Azure environment and its manifests exist under infra/.
+  - name: deployEnabled
+    displayName: Run deployment stages
+    type: boolean
+    default: false
+
+variables:
+  vmImage: ubuntu-latest
+  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
+  MAVEN_ARGS: -B --no-transfer-progress -Dmaven.repo.local=$(Pipeline.Workspace)/.m2/repository
+  isMain: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
+  isRelease: ${{ or(startsWith(variables['Build.SourceBranch'], 'refs/heads/release/'), startsWith(variables['Build.SourceBranch'], 'refs/tags/v')) }}
+  # Image tag: the git tag for a release tag, otherwise the build number.
+  ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/v') }}:
+    imageTag: $(Build.SourceBranchName)
+  ${{ else }}:
+    imageTag: $(Build.BuildNumber)
+
+pool:
+  vmImage: $(vmImage)
+
+stages:
+  # ============================================================================
+  # 1. VALIDATE
+  # ============================================================================
+  - stage: Validate
+    displayName: 1. Validate configuration
+    jobs:
+      - job: config
+        displayName: Compose, scripts and service layout
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - script: |
+              set -e
+              cp .env.example .env
+              test -f .env
+            displayName: Prepare .env from template
+
+          - script: |
+              set -e
+              docker compose config --quiet
+              docker compose --profile app --profile expansion --profile observability config --quiet
+              echo "docker-compose.yml is valid for every profile."
+            displayName: Validate docker-compose.yml
+
+          - script: |
+              set -e
+              for script in scripts/*.sh; do
+                [ -f "$script" ] || continue
+                bash -n "$script"
+                echo "  [VALID] $script"
+              done
+            displayName: Validate shell script syntax
+
+          - ${{ each svc in parameters.services }}:
+              - script: |
+                  set -e
+                  test -f "backend/${{ svc.name }}/pom.xml"    || { echo "pom.xml missing"; exit 1; }
+                  test -f "backend/${{ svc.name }}/mvnw"       || { echo "mvnw missing"; exit 1; }
+                  test -f "backend/${{ svc.name }}/Dockerfile" || { echo "Dockerfile missing"; exit 1; }
+                  grep -q "<module>${{ svc.name }}</module>" backend/pom.xml || { echo "not listed in backend/pom.xml"; exit 1; }
+                displayName: Check layout of ${{ svc.name }}
+
+      - job: sql
+        displayName: SQL files present
+        steps:
+          - checkout: self
+            fetchDepth: 1
+          - script: |
+              set -e
+              test -f database/oracle/01_init_user.sql
+              test -f database/oracle/02_create_tables.sql
+              test -f database/oracle/03_seed_data.sql
+              test -f database/postgres/01_init_db.sql
+              test -f database/postgres-cloud/01_create_databases.sql
+              # Tables every build must define. Dev 5 updates this list when the
+              # Oracle schema is rebuilt (ROLE and USER leave, HOLD and OUTBOX arrive).
+              TABLES="CUSTOMER KYC ACCOUNT BALANCE TRANSFER_REQUEST TRANSACTION"
+              for tbl in $TABLES; do
+                grep -qiE "CREATE TABLE[[:space:]]+\"?$tbl\"?" database/oracle/02_create_tables.sql \
+                  || { echo "  [MISSING] $tbl"; exit 1; }
+                echo "  [FOUND] $tbl"
+              done
+            displayName: Validate Oracle and PostgreSQL DDL files
+
+  # ============================================================================
+  # 2. INFRASTRUCTURE CHECKS
+  # ============================================================================
+  - stage: Infra
+    displayName: 2. Infrastructure checks
+    dependsOn: Validate
+    jobs:
+      - job: audit_store
+        displayName: PostgreSQL audit store and hash chain
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - script: |
+              set -e
+              docker run -d --name pg-ci \
+                -e POSTGRES_PASSWORD=ci-only-password \
+                -e POSTGRES_DB=audit_store \
+                -p 5432:5432 postgres:16-alpine
+              until docker exec pg-ci pg_isready -U postgres -d audit_store; do sleep 2; done
+            displayName: Start PostgreSQL 16
+
+          - script: |
+              set -e
+              for f in $(ls database/postgres/*.sql | sort); do
+                echo "Applying $f"
+                docker exec -i pg-ci psql -v ON_ERROR_STOP=1 -U postgres -d audit_store < "$f"
+              done
+            displayName: Apply every script in database/postgres in order
+
+          - script: |
+              set -e
+              COUNT=$(docker exec pg-ci psql -U postgres -d audit_store -t -A -c "SELECT count(*) FROM audit_store.ledger_mutation_audit;")
+              [ "$COUNT" -ge 3 ] || { echo "FAIL: expected >= 3 seed audit rows, found $COUNT"; exit 1; }
+              HASH=$(docker exec pg-ci psql -U postgres -d audit_store -t -A -c "SELECT current_hash FROM audit_store.ledger_mutation_audit ORDER BY audit_id DESC LIMIT 1;")
+              [ "${#HASH}" -eq 64 ] || { echo "FAIL: hash length ${#HASH}, expected 64"; exit 1; }
+              echo "PASS: $COUNT audit rows, SHA-256 chain present."
+            displayName: Verify SHA-256 hash chain
+
+          - script: |
+              OUTPUT=$(docker exec pg-ci psql -U postgres -d audit_store -c "UPDATE audit_store.ledger_mutation_audit SET amount = 999999 WHERE audit_id = (SELECT min(audit_id) FROM audit_store.ledger_mutation_audit);" 2>&1 || true)
+              echo "$OUTPUT"
+              echo "$OUTPUT" | grep -q "55000" || { echo "FAIL: UPDATE on the audit table was not blocked"; exit 1; }
+              OUTPUT=$(docker exec pg-ci psql -U postgres -d audit_store -c "DELETE FROM audit_store.ledger_mutation_audit;" 2>&1 || true)
+              echo "$OUTPUT" | grep -q "55000" || { echo "FAIL: DELETE on the audit table was not blocked"; exit 1; }
+              echo "PASS: audit table is append-only."
+            displayName: Verify immutability trigger
+
+      - job: seed
+        displayName: Seed scripts are in sync and load cleanly
+        steps:
+          - checkout: self
+            fetchDepth: 1
+          - script: |
+              set -e
+              python3 database/seed/generate_seed.py
+              git diff --exit-code -- database/ || { echo "FAIL: generated seed files differ from the generator. Re-run database/seed/generate_seed.py and commit."; exit 1; }
+            displayName: Generated seed matches the generator
+          - script: |
+              set -e
+              docker run -d --name pg-cloud-ci -e POSTGRES_PASSWORD=ci-only-password                 -v "$(Build.SourcesDirectory)/database/postgres-cloud:/docker-entrypoint-initdb.d:ro" postgres:16-alpine
+              docker run -d --name pg-target-ci -e POSTGRES_PASSWORD=ci-only-password -e POSTGRES_DB=audit_store                 -v "$(Build.SourcesDirectory)/database/next/postgres:/docker-entrypoint-initdb.d:ro" postgres:16-alpine
+              sleep 25
+              for c in pg-cloud-ci pg-target-ci; do
+                if docker logs "$c" 2>&1 | grep -iE "ERROR|FATAL"; then echo "FAIL: $c reported errors while loading"; exit 1; fi
+              done
+              docker exec pg-cloud-ci psql -U postgres -d identity_db -t -A -c "select count(*) from app_user" | grep -qE "^[1-9]"
+              docker exec pg-target-ci psql -U postgres -d audit_store -t -A -c "select count(*) from batch.batch_run" | grep -qE "^[1-9]"
+              echo "PASS: cloud and on-premises PostgreSQL seeds load without errors."
+            displayName: Load cloud and target PostgreSQL seeds
+
+      - job: redis_kafka
+        displayName: Redis idempotency and Kafka round trip
+        steps:
+          - checkout: self
+            fetchDepth: 1
+          - script: cp .env.example .env
+            displayName: Prepare .env
+          - script: |
+              set -e
+              docker compose up -d redis-cache kafka-broker kafka-init-topics
+              timeout 60s bash -c 'until docker exec redis-cache redis-cli ping | grep -q PONG; do sleep 2; done'
+              timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep -q "ledger.mutation.completed.v1"; do sleep 3; done'
+            displayName: Start Redis and Kafka
+          - script: |
+              set -e
+              KEY="idemp:txn:ci-$(date +%s)"
+              FIRST=$(docker exec redis-cache redis-cli SET "$KEY" PROCESSING EX 30 NX)
+              RETRY=$(docker exec redis-cache redis-cli SET "$KEY" PROCESSING EX 30 NX)
+              [ "$FIRST" = "OK" ] && [ -z "$RETRY" ] || { echo "FAIL: SETNX lock (first=$FIRST retry=$RETRY)"; exit 1; }
+              echo "PASS: Redis SETNX lock."
+            displayName: Redis SETNX idempotency lock
+          - script: |
+              set -e
+              echo '{"eventId":"ci-101","accountId":"ACC_1001","status":"COMPLETED"}' | docker exec -i kafka-broker \
+                /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic ledger.mutation.completed.v1
+              sleep 2
+              CONSUMED=$(docker exec kafka-broker /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+                --topic ledger.mutation.completed.v1 --from-beginning --max-messages 1 --timeout-ms 10000)
+              echo "$CONSUMED" | grep -q "ACC_1001" || { echo "FAIL: message not consumed"; exit 1; }
+              LIST=$(docker exec kafka-broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list)
+              for topic in transaction.stage.changed.v1 notification.dispatched.v1 ledger.transfer.completed.v1.DLT; do
+                echo "$LIST" | grep -qx "$topic" || { echo "FAIL: topic $topic was not created"; exit 1; }
+              done
+              echo "PASS: Kafka round trip and expansion topics."
+            displayName: Kafka produce, consume and topic list
+
+  # ============================================================================
+  # 3. BUILD AND TEST
+  # ============================================================================
+  - stage: Test
+    displayName: 3. Build and test services
+    dependsOn: Infra
+    jobs:
+      - job: backend
+        displayName: Backend services (Java 21)
+        timeoutInMinutes: 60
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: JavaToolInstaller@0
+            displayName: Use Java 21
+            inputs:
+              versionSpec: '21'
+              jdkArchitectureOption: x64
+              jdkSourceOption: PreInstalled
+
+          - task: Cache@2
+            displayName: Cache Maven repository
+            inputs:
+              key: 'maven | "$(Agent.OS)" | backend/**/pom.xml'
+              restoreKeys: |
+                maven | "$(Agent.OS)"
+              path: $(MAVEN_CACHE_FOLDER)
+
+          - script: cp .env.example .env
+            displayName: Prepare .env
+
+          - script: |
+              set -e
+              docker compose up -d oracle-core-db postgres-audit-db redis-cache kafka-broker kafka-init-topics
+              timeout 60s bash -c 'until docker exec redis-cache redis-cli ping | grep -q PONG; do sleep 2; done'
+              timeout 60s bash -c 'until docker exec postgres-audit-db pg_isready -U postgres -d audit_store; do sleep 2; done'
+              timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; do sleep 3; done'
+            displayName: Start Oracle, PostgreSQL, Redis and Kafka
+
+          - script: |
+              set -euo pipefail
+              set -a; source .env; set +a
+              timeout 300s bash -c '
+                until docker exec oracle-core-db bash -lc "
+                  printf \"WHENEVER SQLERROR EXIT SQL.SQLCODE\\nSELECT 1 FROM dual;\\nEXIT;\\n\" |
+                  sqlplus -L -s \"\${APP_USER}/\${APP_USER_PASSWORD}@//localhost:1521/\${ORACLE_DATABASE}\" |
+                  grep -Eq \"^[[:space:]]*1[[:space:]]*$\"
+                "; do
+                  echo "Oracle pluggable database still starting..."
+                  sleep 5
+                done
+              '
+              echo "Oracle is ready."
+            displayName: Wait for Oracle application user
+
+          - ${{ each svc in parameters.services }}:
+              - script: |
+                  set -e
+                  set -a; source .env; set +a
+                  cd backend/${{ svc.name }}
+                  chmod +x mvnw
+                  ./mvnw clean test $(MAVEN_ARGS)
+                displayName: Test ${{ svc.name }}
+
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: 'backend/*/target/surefire-reports/TEST-*.xml'
+              testRunTitle: Backend services
+              failTaskOnFailedTests: true
+
+          - script: |
+              docker ps -a
+              docker logs oracle-core-db --tail 200 || true
+            displayName: Dump infrastructure diagnostics
+            condition: failed()
+
+      # Flutter app (Dev 6). Enable once app/ exists.
+      # - job: flutter
+      #   displayName: Flutter app (web and Android)
+      #   steps:
+      #     - script: |
+      #         cd app
+      #         flutter pub get
+      #         flutter analyze
+      #         flutter test
+      #         flutter build web --dart-define=USE_FIXTURES=true
+
+  # ============================================================================
+  # 4. PACKAGE - build images to prove every Dockerfile works. No push.
+  # ============================================================================
+  - stage: Package
+    displayName: 4. Build container images
+    dependsOn: Test
+    condition: and(succeeded(), or(eq(variables.isMain, 'True'), eq(variables.isRelease, 'True')))
+    jobs:
+      - job: images
+        displayName: Build images
+        timeoutInMinutes: 60
+        steps:
+          - checkout: self
+            fetchDepth: 1
+          - ${{ each svc in parameters.services }}:
+              - script: |
+                  set -e
+                  docker build \
+                    -t ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:$(imageTag) \
+                    --label org.opencontainers.image.revision=$(Build.SourceVersion) \
+                    --label org.opencontainers.image.version=$(imageTag) \
+                    backend/${{ svc.name }}
+                displayName: Build image ${{ svc.name }}
+
+  # ============================================================================
+  # 5. PUBLISH - push images. Emitted only when publishImages is true.
+  # ============================================================================
+  - ${{ if eq(parameters.publishImages, true) }}:
+      - stage: Publish
+        displayName: 5. Push images to registry
+        dependsOn: Package
+        condition: and(succeeded(), or(eq(variables.isMain, 'True'), eq(variables.isRelease, 'True')))
+        jobs:
+          - job: push
+            displayName: Push images
+            timeoutInMinutes: 60
+            steps:
+              - checkout: self
+                fetchDepth: 1
+              - ${{ each svc in parameters.services }}:
+                  - task: Docker@2
+                    displayName: Build and push ${{ svc.name }}
+                    inputs:
+                      command: buildAndPush
+                      containerRegistry: ${{ parameters.registryServiceConnection }}
+                      repository: ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}
+                      dockerfile: backend/${{ svc.name }}/Dockerfile
+                      buildContext: backend/${{ svc.name }}
+                      tags: |
+                        $(imageTag)
+                        $(Build.SourceVersion)
+
+  # ============================================================================
+  # 6. DEPLOY - emitted only when deployEnabled is true.
+  # Each environment is an Azure DevOps Environment; add approvals and checks
+  # on the environment itself, not in this file.
+  # ============================================================================
+  - ${{ if eq(parameters.deployEnabled, true) }}:
+      - stage: Deploy_Dev
+        displayName: 6a. Deploy to dev
+        ${{ if eq(parameters.publishImages, true) }}:
+          dependsOn: Publish
+        ${{ else }}:
+          dependsOn: Package
+        condition: and(succeeded(), eq(variables.isMain, 'True'))
+        jobs:
+          - deployment: dev
+            displayName: Deploy to coobs-dev
+            environment: coobs-dev
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - checkout: self
+                    - script: |
+                        echo "Apply manifests under infra/ with image tag $(imageTag)."
+                        echo "Dev 8: replace this step with the real deployment task."
+                      displayName: Deploy (placeholder)
+                    - script: |
+                        echo "Run postman/e2e against the dev gateway and fail the stage on any failure."
+                      displayName: Smoke test (placeholder)
+
+      - stage: Deploy_Prod
+        displayName: 6b. Deploy release
+        dependsOn: Deploy_Dev
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
+        jobs:
+          - deployment: prod
+            displayName: Deploy to coobs-demo
+            environment: coobs-demo   # add a manual approval check on this environment
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - script: echo "Deploy release $(imageTag). Roll back by redeploying the previous tag."
+                      displayName: Deploy release (placeholder)
