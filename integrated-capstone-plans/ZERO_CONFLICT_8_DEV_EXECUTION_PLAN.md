@@ -190,7 +190,6 @@ graph TB
         Acct[account-service 8082]
         Batch[batch-service 8093]
         AuditVault[audit-service 8085]
-        Relay[Outbox Relay]
         Oracle[(Oracle Database Free 23ai\nSystem of Record + KYC Master)]
         PostgresAudit[(PostgreSQL 16\nAudit Store + batch schema)]
     end
@@ -218,8 +217,7 @@ graph TB
     CoreLedger --> PostgresAudit
     Batch --> PostgresAudit
     AuditVault --> PostgresAudit
-    Relay --> Oracle
-    Relay -.-> AzKafka
+    CoreLedger -.->|events via outbox, through the bridge| AzKafka
     AzKafka -.-> P_NOTIF
 ```
 
@@ -505,7 +503,7 @@ A timeout (150 ms) fails closed.
 ### 5.9 Ledger Outbox
 
 - The ledger writes each event to an Oracle `OUTBOX` row in the same transaction as the posting.
-- A relay publishes unsent rows to Kafka and marks them published.
+- A relay publishes unsent rows to Kafka and marks them published. The relay is **not a separate service**: it is a scheduled background job inside `ledger-service` (`outbox/OutboxRelay.java`), so it deploys, scales and fails with the ledger.
 - If the tunnel is down, postings still commit and events are delivered when it returns. First item to cut if Day 6 runs late; the fallback is the current direct publish.
 
 ### 5.10 Concessions
