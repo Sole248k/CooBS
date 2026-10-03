@@ -4,10 +4,8 @@
 
 **Document Version:** 2.2
 **Target Group:** Group 2 (Developers 1 through 8)
-**Master plan:** [`MASTER_ARCHITECTURE_AND_IMPLEMENTATION_PLAN.md`](MASTER_ARCHITECTURE_AND_IMPLEMENTATION_PLAN.md)  
-**API contract:** [`contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`](../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md)  
-**Per-developer file-level work:** [`PER_DEV_TECHNICAL_WORK_PACKAGES.md`](PER_DEV_TECHNICAL_WORK_PACKAGES.md)  
-**Diagram Sources:** [`ERASER_IO_CODE_TEMPLATES.md`](ERASER_IO_CODE_TEMPLATES.md)
+**API contract:** [`contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`](../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md)
+**Per-developer file-level work:** [`PER_DEV_TECHNICAL_WORK_PACKAGES.md`](PER_DEV_TECHNICAL_WORK_PACKAGES.md)
 **Target Deployment:** Azure Kubernetes Service (AKS) + On-Premises Sovereign Core Ledger
 
 ### What changed from version 1.0
@@ -52,16 +50,6 @@
 ---
 
 # 1. The Mandatory First Step: Architecture Diagrams
-
-### Why Architecture Diagrams MUST Be Completed on Day 1
-
-Before any developer writes feature code, **two canonical architecture diagrams must be reviewed and approved**.
-
-1. **Contract Collision Prevention:** Without a shared diagram, Dev 1 (Orchestration), Dev 3 (Transaction) and Dev 4 (Risk) will invent incompatible payloads, ports and paths.
-2. **Database Schema Isolation:** Dev 5 (Database) needs an approved model to separate the cloud PostgreSQL databases (`identity_db`, `customer_db`, `transaction_db`, `notification_db`) from the Oracle core tables and the on-premises audit store.
-3. **Frontend Unblocking:** Dev 6 and Dev 7 (Flutter) cannot build screens until endpoints, field names and status codes are fixed.
-
----
 
 ### 1.1 Diagram 1: System & Component Data Flow View (Logical View)
 
@@ -246,13 +234,13 @@ graph TB
 
 ### Rule 2: Single Editor for Shared Files
 
-| Shared files                                                                                                                                                    | Single editor |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Shared files                                                                                                                                                                                | Single editor |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | `docker-compose.yml`, `.env.example`, every `Dockerfile`, `backend/pom.xml`, `azure-pipelines.yml`, `.azuredevops/**`, `infra/**`, `monitoring/**`, `scripts/**`, gateway `application.yml` | **Dev 8**     |
-| `database/**` and every `db/migration/` folder                                                                                                                  | **Dev 5**     |
-| `contracts/**`, `README.md`                                                                                                                                     | **Dev 1**     |
-| `app/pubspec.yaml`, `app/lib/core/**`, platform folders                                                                                                         | **Dev 6**     |
-| `app/assets/fixtures/**`                                                                                                                                        | **Dev 7**     |
+| `database/**` and every `db/migration/` folder                                                                                                                                              | **Dev 5**     |
+| `contracts/**`, `README.md`                                                                                                                                                                 | **Dev 1**     |
+| `app/pubspec.yaml`, `app/lib/core/**`, platform folders                                                                                                                                     | **Dev 6**     |
+| `app/assets/fixtures/**`                                                                                                                                                                    | **Dev 7**     |
 
 Anyone who needs a port, environment variable, route, table or package requests it from the single editor: file, exact lines, reason.
 
@@ -283,7 +271,7 @@ Anyone who needs a port, environment variable, route, table or package requests 
 | Dev 5 | Database, EOD batch, audit seal               | `/database`, every `db/migration/`, `/backend/batch-service`, `/backend/audit-service`                                                | Sole schema editor                              |
 | Dev 6 | Flutter foundation and stepper                | `/app/lib/core`, `/app/pubspec.yaml`, `/app/lib/features/monitoring`                                                                  | Sole editor of Flutter core; frozen after Day 2 |
 | Dev 7 | Flutter feature screens and KYC UI            | `/app/lib/features/{customer360,accounts,transfer,batch,kyc}`, `/app/assets/fixtures`                                                 | Feature folders only                            |
-| Dev 8 | DevOps and cloud                              | `/infra`, Dockerfiles, Compose, `azure-pipelines.yml`, `/.azuredevops`, `/monitoring`, `/scripts`, `/backend/api-gateway`                                         | Sole editor of root and pipeline config         |
+| Dev 8 | DevOps and cloud                              | `/infra`, Dockerfiles, Compose, `azure-pipelines.yml`, `/.azuredevops`, `/monitoring`, `/scripts`, `/backend/api-gateway`             | Sole editor of root and pipeline config         |
 
 The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it. `auth-service` is no longer frozen: Dev 2 moves it onto `identity_db`. Its registration endpoint stays disabled, because members are seeded.
 

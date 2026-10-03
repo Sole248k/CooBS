@@ -4,15 +4,13 @@ The current planning set for the CooBS expansion. Older architecture documents a
 
 ## Read in this order
 
-| # | File | What it answers |
-| --- | --- | --- |
-| 1 | `MASTER_ARCHITECTURE_AND_IMPLEMENTATION_PLAN.md` | Why the system is shaped this way: baseline, service split, ownership, roadmap, Azure mapping, open decisions. **Not in the folder yet: export it from the shared plan document** |
-| 2 | [`ZERO_CONFLICT_8_DEV_EXECUTION_PLAN.md`](ZERO_CONFLICT_8_DEV_EXECUTION_PLAN.md) | Who does what on each of the nine days, and the rules that prevent merge conflicts |
-| 3 | [`PER_DEV_TECHNICAL_WORK_PACKAGES.md`](PER_DEV_TECHNICAL_WORK_PACKAGES.md) | File-level work per developer, code review findings, and the handshakes between developers |
-| 4 | [`../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`](../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md) | Every endpoint, payload, event, enumeration and error code |
-| 5 | [`../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md`](../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md) | The bank-to-bank proposal for partner groups |
-| 6 | [`ERASER_IO_CODE_TEMPLATES.md`](ERASER_IO_CODE_TEMPLATES.md) | Diagram code: cloud view, logical view, transfer sequence, EOD pipeline, ERD |
-| 7 | [`azure-boards/`](azure-boards/) | Backlog import files for Azure Boards. Use the one matching the project's process: Agile, Scrum or Basic |
+| #   | File                                                                                                       | What it answers                                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | [`ZERO_CONFLICT_8_DEV_EXECUTION_PLAN.md`](ZERO_CONFLICT_8_DEV_EXECUTION_PLAN.md)                           | Who does what on each of the nine days, and the rules that prevent merge conflicts                                |
+| 2   | [`PER_DEV_TECHNICAL_WORK_PACKAGES.md`](PER_DEV_TECHNICAL_WORK_PACKAGES.md)                                 | File-level work per developer, code review findings, and the handshakes between developers                        |
+| 3   | [`SERVICE_SCOPE_SCENARIOS_AND_ACTIONS.md`](SERVICE_SCOPE_SCENARIOS_AND_ACTIONS.md)                         | Per service: what it owns, what it must not do, which role can do which action, and what happens in each scenario |
+| 4   | [`../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`](../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md) | Every endpoint, payload, event, enumeration and error code                                                        |
+| 5   | [`../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md`](../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md)       | The bank-to-bank proposal for partner groups                                                                      |
 
 ## When two documents disagree
 
@@ -24,7 +22,7 @@ Report the disagreement to Dev 1 so the losing document gets fixed.
 
 ## Status
 
-- All of this is a **draft until the Day 1 session**. Owners must review their own sections.
+- All of this is a **draft until the we agree on it**. Owners must review their own sections.
 - Diagram code has not been test-rendered in Eraser. The Azure Boards files have not been test-imported.
 - The contract is prose with JSON examples; OpenAPI and AsyncAPI files are still to be written.
 
