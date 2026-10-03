@@ -1,0 +1,1028 @@
+# CooBS Integrated API Contract (Target State)
+
+**Version:** 0.9 draft, for freeze as `contracts-v1` on Day 2  
+**Editor:** Dev 1. Change requests follow the handshake rules in [`PER_DEV_TECHNICAL_WORK_PACKAGES.md`](../../integrated-capstone-plans/PER_DEV_TECHNICAL_WORK_PACKAGES.md).  
+**Reads with:** [`CURRENT_API_INVENTORY_AND_USAGE_GUIDE.md`](CURRENT_API_INVENTORY_AND_USAGE_GUIDE.md) (what exists today) and [`INTERBANK_TRANSFER_PROPOSAL.md`](INTERBANK_TRANSFER_PROPOSAL.md) (what we send to other groups).
+
+Every endpoint carries a status:
+
+| Status | Meaning |
+| --- | --- |
+| **SAME** | Exists today; path and payload do not change |
+| **CHANGED** | Exists today; something changes, stated in the row |
+| **NEW** | Does not exist today |
+| **REMOVED** | Exists today; goes away |
+
+---
+
+## 1. Review of the current inventory
+
+The inventory lists the right 38 endpoints, but several payloads in it do not match the code. Build against the shapes in this document, which were taken from the DTO classes.
+
+| # | Inventory says | Code says |
+| --- | --- | --- |
+| 1 | Login result has `authResponse` and `mfaSessionToken` | Fields are `authData`, `mfaToken`, `deliveryChannel`, `maskedDestination` |
+| 2 | Token response has `customerId` | It has `userId` and `userType`. For customers `userId` is the customer ID |
+| 3 | MFA verify takes `username`, `totpCode`, `mfaSessionToken` | It takes `mfaToken` and `code` |
+| 4 | Users are stored in `USERS` and `STAFF_USER` | Tables are `CUSTOMER` and `"USER"` |
+| 5 | Create account takes `initialDeposit` and calls the ledger | No such field; the service writes the balance row itself |
+| 6 | Account response has `balance` | Field is `availableBalance`; there is also `customerName` and `message` |
+| 7 | Account number looks like `ACC-1002-9915` | Seeded numbers look like `ACC_10000001` |
+| 8 | Flag request has `flagType` | Only `reason` |
+| 9 | Debit and credit take `channel`; response has `type`, `remainingBalance` | No `channel`; response has `transactionType`, `previousBalance`, `newBalance`, `status` |
+| 10 | Idempotency lock is 60 s | 30 s lock, 24 h result cache; `X-Idempotency-Key` is also accepted |
+| 11 | Notification page has `items`, each with `id` | `content`, each with `notificationId`; page fields as in section 2.6 |
+| 12 | Audit rows have `entryType`, `balanceAfter` | `transactionType`, `oldBalance`, `newBalance`, plus `actorId`, `clientIp` |
+| 13 | Chain check returns `verifiedEntries`, `brokenAtAuditId`, `computedHash`, `recordedHash` | Returns `totalRecordsVerified`, `isChainIntact`, `latestHash`, `verifiedAt`, `message` |
+| 14 | Frontend runs on 5173 | The preview runs on 3000; both origins are allowed |
+| 15 | Section 5 lists `interbank-gateway` and `eod-batch-runner` on 8093 | Superseded: see section 3 |
+
+`contracts/README.md` also describes the folder as `/docs/contracts/` and lists files that do not exist yet.
+
+---
+
+## 2. Conventions every service follows
+
+### 2.1 Paths
+
+| Prefix | Reachable from | Use |
+| --- | --- | --- |
+| `/api/v1/**` | Clients, through the gateway on 8080 | Public API |
+| `/internal/v1/**` | Other services only; **never routed by the gateway** | Service-to-service |
+| `/actuator/**` | Operations | Health and metrics |
+
+### 2.2 Headers
+
+| Header | Required on | Rule |
+| --- | --- | --- |
+| `Authorization: Bearer <jwt>` | Everything except login, token refresh and the inter-bank webhook | Internal calls forward the caller's token |
+| `X-Correlation-ID` | Every request | The gateway adds one if missing; every service passes it on and puts it in every event |
+| `Idempotency-Key` | Every `POST` that moves money | UUID from the client on public calls. On internal ledger calls it is `<transactionId>:<step>`, for example `…:hold`, `…:capture`, `…:release`, `…:reverse` |
+| `Content-Type: application/json` | Every body | UTF-8 |
+
+### 2.3 Token claims (unchanged)
+
+```json
+{
+  "sub": "john_doe",
+  "jti": "378c0fb9-f2d1-45f4-8168-05335260e02b",
+  "userId": 1,
+  "roles": ["ROLE_CUSTOMER"],
+  "userType": "CUSTOMER"
+}
+```
+
+`userId` is the **customer ID** when `userType` is `CUSTOMER` and the **staff user ID** when it is `STAFF`. Roles: `ROLE_CUSTOMER`, `ROLE_TELLER`, `ROLE_ADMIN`.
+
+### 2.4 Money, time, IDs
+
+| Item | Existing endpoints | New endpoints and all events |
+| --- | --- | --- |
+| Money | JSON number, as today | **String** with two to four decimals: `"2500.00"`. Never a float in Dart or JavaScript |
+| Currency | `"PHP"` | `"PHP"` |
+| Time | As today (some values have no zone) | ISO-8601 UTC with `Z`: `"2026-10-03T11:40:00Z"` |
+| Customer, account, staff IDs | JSON number | JSON number |
+| `transactionId` | — | UUID string, created by `transaction-service` |
+| `referenceNo` | Client-supplied on ledger calls | Server-generated on new transfers: `TX-20261003-8F3A21C0`, at most 36 characters |
+
+### 2.5 Errors
+
+Every service returns the existing problem shape. `errorCode` is the field clients switch on.
+
+```json
+{
+  "type": "https://api.corebank.local/errors/INSUFFICIENT_FUNDS",
+  "title": "Insufficient Funds",
+  "status": 422,
+  "detail": "Available balance is lower than the requested amount.",
+  "instance": "/api/v1/transactions/transfers",
+  "errorCode": "INSUFFICIENT_FUNDS",
+  "timestamp": "2026-10-03T11:40:00Z",
+  "invalidParams": [{ "field": "amount", "message": "amount must be greater than zero" }]
+}
+```
+
+`invalidParams` appears only on validation errors.
+
+| `errorCode` | HTTP | Raised by |
+| --- | --- | --- |
+| `INVALID_REQUEST_PARAMETERS` | 400 | Any |
+| `AUTH_ACCESS_DENIED` | 403 | Any |
+| `AUTH_TOKEN_REVOKED` | 401 | Any |
+| `ACCOUNT_NOT_FOUND` | 404 | account, ledger, transaction |
+| `ACCOUNT_NOT_ACTIVE` | 409 | account, ledger, transaction |
+| `ACCOUNT_NOT_OWNED` (new) | 403 | transaction |
+| `INSUFFICIENT_FUNDS` | 422 | ledger |
+| `DUPLICATE_IDEMPOTENCY_KEY` | 409 | ledger, transaction |
+| `CONCURRENT_TRANSACTION_IN_FLIGHT` | 409 | ledger, transaction |
+| `INVALID_TRANSACTION` | 400 | ledger |
+| `LEDGER_AUDIT_DUAL_WRITE_FAILED` | 500 | ledger |
+| `RISK_DECLINED` (new) | 422 | orchestration |
+| `LIMIT_EXCEEDED` (new) | 422 | orchestration |
+| `RISK_UNAVAILABLE` (new) | 503 | orchestration |
+| `HOLD_NOT_FOUND`, `HOLD_NOT_RESERVED` (new) | 404, 409 | ledger |
+| `ALREADY_REVERSED` (new) | 409 | ledger |
+| `LEDGER_UNAVAILABLE` (new) | 503 | orchestration, batch |
+| `BATCH_ALREADY_RUNNING` (new) | 409 | batch |
+| `INTERBANK_REJECTED`, `INTERBANK_TIMEOUT` (new) | 422, 504 | transaction |
+| `INTERNAL_SERVER_ERROR` | 500 | Any |
+
+HTTP codes for existing errors stay whatever each service returns today; the table shows the intent for new ones.
+
+### 2.6 Paging
+
+New list endpoints use the shape `account-service` and `notification-service` already return:
+
+```json
+{ "content": [], "pageNumber": 0, "pageSize": 20, "totalElements": 0, "totalPages": 0, "isLast": true }
+```
+
+Query: `page` (from 0), `size` (default 20, max 100).
+
+### 2.7 Enumerations (spelled once, here)
+
+| Name | Values |
+| --- | --- |
+| Account type | `SAVINGS`, `CHECKING`, `CURRENT`, `LOAN`, `GL` |
+| Account status | `ACTIVE`, `FROZEN`, `DORMANT`, `CLOSED` |
+| Transaction status (customer view) | `INITIATED`, `PROCESSING`, `POSTED`, `FAILED`, `REVERSED` |
+| Hold status | `RESERVED`, `POSTED`, `CANCELLED` |
+| Ledger transaction type | `DEBIT`, `CREDIT`, `REVERSAL_DEBIT`, `REVERSAL_CREDIT` |
+| Channel | `APP`, `TELLER`, `INTERBANK`, `BATCH` |
+| Category | `TRANSFER`, `BILLS`, `LOAN_REPAYMENT`, `FEES`, `SAVINGS`, `OTHER` |
+| Risk decision | `APPROVE`, `DECLINE` |
+| Stage outcome | `PASSED`, `FAILED`, `PENDING` |
+| Batch step status | `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `SKIPPED` |
+| KYC tier | `TIER_1_BASIC`, `TIER_2_STANDARD`, `TIER_3_FULL` |
+
+**Stages**
+
+| No | `stageName` | Emitted by |
+| --- | --- | --- |
+| 1 | `INITIATED` | transaction-service |
+| 2 | `VALIDATED` | transaction-service |
+| 3 | `AUTHENTICATED` | transaction-service |
+| 4 | `FRAUD_CHECK` | orchestration-service |
+| 5 | `LIMIT_CHECK` | orchestration-service |
+| 6 | `FUNDS_CHECK` | orchestration-service |
+| 7 | `AUTHORIZED` | orchestration-service |
+| 8 | `POSTED` | orchestration-service |
+| 9 | `LEDGER_UPDATE` | orchestration-service |
+| 10 | `NOTIFICATION` | orchestration-service |
+| 11 | `RECONCILIATION` | orchestration-service |
+
+Customer view: stage 1 is `INITIATED`; stages 2 to 7 are `PROCESSING`; stage 8 onward is `POSTED`.
+
+---
+
+## 3. Route map
+
+### 3.1 Public routes through the gateway
+
+Order matters: the gateway must match the more specific KYC route before the general customers route.
+
+| Path | Service | Zone | Status |
+| --- | --- | --- | --- |
+| `/api/v1/auth/**` | auth-service 8081 | Cloud | SAME path; service moves to the cloud |
+| `/api/v1/customers/kyc/**` | account-service 8082 | On-premises | SAME (KYC master stays here) |
+| `/api/v1/customers/**` | customer-service 8089 | Cloud | CHANGED target |
+| `/api/v1/accounts/**` | account-service 8082 | On-premises | SAME |
+| `/api/v1/transactions/**` | transaction-service 8090 | Cloud | NEW |
+| `/api/v1/interbank/**` | transaction-service 8090 | Cloud | NEW |
+| `/api/v1/batch/**` | batch-service 8093 | On-premises | NEW |
+| `/api/v1/ledger/**` | ledger-service 8083 | On-premises | CHANGED: staff roles only |
+| `/api/v1/notifications/**` | notification-service 8084 | Cloud | SAME path; service moves to the cloud |
+| `/api/v1/audit/**` | audit-service 8085 | On-premises | SAME |
+
+### 3.2 Internal calls
+
+| Caller | Calls | For |
+| --- | --- | --- |
+| transaction-service | account-service `/internal/v1/accounts/**` | Ownership, status, lookup by number |
+| transaction-service | orchestration-service `/internal/v1/sagas/**` | Start transfer or reversal saga |
+| orchestration-service | customer-service `/internal/v1/customers/{id}/risk-profile` | Score and tier |
+| orchestration-service | risk-engine `/internal/v1/risk/evaluate` | Decision |
+| orchestration-service | ledger-service `/internal/v1/ledger/**` | Hold, capture, release, reverse |
+| customer-service | account-service `/internal/v1/**` | Accounts and KYC master |
+| customer-service | transaction-service `/internal/v1/transactions` | Recent transactions |
+| account-service | ledger-service `/internal/v1/ledger/balances/**` | Open and read balances |
+| batch-service | ledger-service `/internal/v1/ledger/postings` | EOD postings |
+
+No other service-to-service call is allowed without Dev 1's approval.
+
+---
+
+## 4. auth-service (8081)
+
+| # | Method and path | Status | Notes |
+| --- | --- | --- | --- |
+| A1 | `POST /api/v1/auth/customers/register` | **REMOVED** | Members are seeded |
+| A2 | `POST /api/v1/auth/customers/login` | SAME | Reads `identity_db` |
+| A3 | `POST /api/v1/auth/customers/mfa/verify` | SAME | |
+| A4 | `POST /api/v1/auth/staff/login` | SAME | |
+| A5 | `POST /api/v1/auth/staff/mfa/verify` | SAME | |
+| A6 | `POST /api/v1/auth/token/refresh` | SAME | |
+| A7 | `POST /api/v1/auth/token/revoke` | SAME | |
+| A8 | `GET /api/v1/auth/token/me` | CHANGED | Name, mobile and KYC fields removed |
+
+**A2 / A4 request**
+
+```json
+{ "username": "john_doe", "password": "<password>", "preferredChannel": "SMS" }
+```
+
+`preferredChannel` is optional.
+
+**A2 / A4 response, 200**
+
+```json
+{
+  "mfaRequired": false,
+  "mfaToken": null,
+  "deliveryChannel": null,
+  "maskedDestination": null,
+  "authData": {
+    "accessToken": "<jwt>",
+    "refreshToken": "<opaque>",
+    "tokenType": "Bearer",
+    "expiresIn": 900,
+    "userId": 1,
+    "username": "john_doe",
+    "roles": ["ROLE_CUSTOMER"],
+    "userType": "CUSTOMER"
+  }
+}
+```
+
+When `mfaRequired` is `true`, `authData` is `null` and `mfaToken` is set.
+
+**A3 / A5 request:** `{ "mfaToken": "<token>", "code": "482910" }` → the `authData` object.  
+**A6 request:** `{ "refreshToken": "<opaque>" }` → the `authData` object.
+
+**A8 response, 200**
+
+```json
+{
+  "userId": 1,
+  "username": "john_doe",
+  "email": "john.doe@example.com",
+  "roles": ["ROLE_CUSTOMER"],
+  "userType": "CUSTOMER",
+  "status": "ACTIVE",
+  "createdAt": "2026-01-15T08:00:00Z"
+}
+```
+
+---
+
+## 5. customer-service (8089) — NEW
+
+| # | Method and path | Roles | Status |
+| --- | --- | --- | --- |
+| C1 | `GET /api/v1/customers/me` | Customer | CHANGED: served here; shape extended, old fields kept |
+| C2 | `GET /api/v1/customers/{customerId}` | Teller, Admin | CHANGED: same as C1 |
+| C3 | `GET /api/v1/customers/{customerId}/360` | Owner, Teller, Admin | NEW |
+| C4 | `GET /api/v1/customers/me/beneficiaries` | Customer | NEW |
+| C5 | `POST /api/v1/customers/me/beneficiaries` | Customer | NEW |
+| C6 | `DELETE /api/v1/customers/me/beneficiaries/{beneficiaryId}` | Customer | NEW |
+| C7 | `GET /internal/v1/customers/{customerId}/risk-profile` | Service | NEW |
+
+**C1 / C2 response, 200.** The first six keys are today's shape, so the React console keeps working. The `kyc` object is fetched from `account-service` on each call and is never stored in the cloud.
+
+```json
+{
+  "customerId": 1,
+  "username": "john_doe",
+  "email": "john.doe@example.com",
+  "kycStatus": "VERIFIED",
+  "createdAt": "2026-01-15T08:00:00",
+  "kyc": {
+    "kycId": 1,
+    "firstName": "John",
+    "middleInitial": "A",
+    "lastName": "Doe",
+    "address": "123 Ayala Avenue, Makati City",
+    "mobileNumber": "09171234567",
+    "civilStatus": "SINGLE",
+    "occupation": "Software Engineer",
+    "status": "VERIFIED",
+    "createdAt": "2026-01-15T08:00:00"
+  },
+  "membershipNumber": "MBR-000001",
+  "displayName": "John D.",
+  "kycTier": "TIER_3_FULL"
+}
+```
+
+**C3 response, 200**
+
+```json
+{
+  "customerId": 1,
+  "displayName": "John D.",
+  "membershipNumber": "MBR-000001",
+  "kycStatus": "VERIFIED",
+  "kycTier": "TIER_3_FULL",
+  "creditScore": 750,
+  "riskScore": "0.15",
+  "accounts": [
+    {
+      "accountId": 1,
+      "accountNumber": "ACC_10000001",
+      "accountType": "SAVINGS",
+      "currency": "PHP",
+      "status": "ACTIVE",
+      "availableBalance": "49625.00",
+      "ledgerBalance": "49625.00",
+      "heldAmount": "0.00"
+    },
+    {
+      "accountId": 7,
+      "accountNumber": "LN_10000007",
+      "accountType": "LOAN",
+      "currency": "PHP",
+      "status": "ACTIVE",
+      "outstandingPrincipal": "120000.00",
+      "nextDueDate": "2026-10-15",
+      "nextDueAmount": "5450.00"
+    }
+  ],
+  "totals": { "deposits": "49625.00", "loans": "120000.00" },
+  "recentTransactions": [
+    {
+      "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+      "referenceNo": "TX-20261003-8F3A21C0",
+      "direction": "OUT",
+      "counterpartyName": "Maria S.",
+      "counterpartyAccountNumber": "ACC_10000002",
+      "amount": "2500.00",
+      "category": "TRANSFER",
+      "status": "POSTED",
+      "createdAt": "2026-10-03T11:40:00Z"
+    }
+  ],
+  "spendingBreakdown": {
+    "periodDays": 30,
+    "items": [
+      { "category": "TRANSFER", "amount": "7500.00", "count": 3 },
+      { "category": "LOAN_REPAYMENT", "amount": "5450.00", "count": 1 }
+    ]
+  },
+  "beneficiaries": [
+    { "beneficiaryId": 11, "nickname": "Maria", "accountNumber": "ACC_10000002", "bankCode": "COOBS", "active": true }
+  ],
+  "asOf": "2026-10-03T11:45:00Z"
+}
+```
+
+`riskScore` is returned to staff only; for a customer caller the field is omitted.
+
+**C5 request**
+
+```json
+{ "nickname": "Maria", "accountNumber": "ACC_10000002", "bankCode": "COOBS" }
+```
+
+`bankCode` defaults to our own code. Response 201: the beneficiary object.
+
+**C7 response, 200**
+
+```json
+{ "customerId": 1, "riskScore": "0.15", "kycTier": "TIER_3_FULL", "kycStatus": "VERIFIED", "dailyLimit": "100000.00" }
+```
+
+---
+
+## 6. account-service (8082)
+
+All 20 existing endpoints keep their paths and payloads, with these exceptions.
+
+| # | Method and path | Status | Notes |
+| --- | --- | --- | --- |
+| K1 | `GET /api/v1/customers/me`, `GET /api/v1/customers/{id}` | **REMOVED** here | Now C1, C2 |
+| K2 | `POST /api/v1/customers/kyc/submit` and the four `kyc/update-request(s)` endpoints | SAME | Routed here by the more specific gateway rule |
+| K3 | `POST /api/v1/accounts` | CHANGED | `accountType` accepts `CURRENT`, `LOAN`; the balance row is opened through the ledger (L1) |
+| K4 | `GET /api/v1/accounts`, `/my-accounts`, `/{accountId}` | CHANGED | `availableBalance` is read from the ledger; shape unchanged |
+| K5 | Closure requests (5 endpoints), flags (3 endpoints), `PATCH /{accountId}/status` | SAME | `approvedBy`, `flaggedBy`, `removedBy` remain numbers |
+| K6 | `GET /internal/v1/accounts/{accountId}` | NEW | |
+| K7 | `GET /internal/v1/accounts/by-number/{accountNumber}` | NEW | |
+| K8 | `GET /internal/v1/customers/{customerId}/accounts` | NEW | |
+| K9 | `GET /internal/v1/customers/{customerId}/kyc` | NEW | The KYC master |
+
+**K3 request:** `{ "customerId": 1, "accountType": "SAVINGS", "currency": "PHP" }`
+
+**Account response (today's shape, unchanged)**
+
+```json
+{
+  "accountId": 1,
+  "customerId": 1,
+  "customerName": "John Doe",
+  "accountNumber": "ACC_10000001",
+  "accountType": "SAVINGS",
+  "currency": "PHP",
+  "status": "ACTIVE",
+  "availableBalance": 49625.00,
+  "createdAt": "2026-01-15T08:00:00",
+  "message": null
+}
+```
+
+**K6 / K7 response, 200**
+
+```json
+{
+  "accountId": 2,
+  "accountNumber": "ACC_10000002",
+  "customerId": 2,
+  "accountType": "CHECKING",
+  "currency": "PHP",
+  "status": "ACTIVE",
+  "hasActiveFlag": false,
+  "ownerDisplayName": "Maria S."
+}
+```
+
+**K9 response:** the `kyc` object shown in C1.
+
+---
+
+## 7. transaction-service (8090) — NEW
+
+| # | Method and path | Roles | Notes |
+| --- | --- | --- | --- |
+| T1 | `POST /api/v1/transactions/transfers` | Customer, Teller | Needs `Idempotency-Key`. Returns 202 |
+| T2 | `GET /api/v1/transactions/{transactionId}` | Owner, Teller, Admin | |
+| T3 | `GET /api/v1/transactions/{transactionId}/timeline` | Owner, Teller, Admin | Customers get three stages, staff eleven |
+| T4 | `GET /api/v1/transactions` | Customer (own), Teller, Admin | Filters: `accountId`, `status`, `from`, `to`, paging |
+| T5 | `POST /api/v1/transactions/{transactionId}/reversal` | Teller, Admin | Needs `Idempotency-Key` |
+| T6 | `GET /api/v1/transactions/admin/dlq` | Admin | Dead-letter records |
+| T7 | `POST /api/v1/transactions/admin/dlq/{recordId}/replay` | Admin | |
+| T8 | `GET /internal/v1/transactions?customerId=&limit=` | Service | For Customer 360 |
+| T9 | `GET /internal/v1/transactions/spending?customerId=&days=` | Service | For Customer 360 |
+| T10 | `POST /api/v1/interbank/transfers` and related | Partner bank | See section 14 |
+
+**T1 request**
+
+```json
+{
+  "sourceAccountId": 1,
+  "destinationAccountNumber": "ACC_10000002",
+  "destinationBankCode": "COOBS",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "category": "TRANSFER",
+  "remarks": "Lunch money"
+}
+```
+
+- `destinationBankCode` is optional and defaults to our own code. Any other value makes it an outbound inter-bank transfer.
+- `category` is optional and defaults to `TRANSFER`.
+- For an outbound inter-bank transfer, add `"beneficiaryName": "Juan Dela Cruz"`.
+
+**T1 response, 202**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "status": "INITIATED",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "createdAt": "2026-10-03T11:40:00Z",
+  "timelineUrl": "/api/v1/transactions/6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11/timeline"
+}
+```
+
+A repeat of the same `Idempotency-Key` returns the same body with 200.
+
+**T2 response, 200**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "channel": "APP",
+  "sourceAccountId": 1,
+  "sourceAccountNumber": "ACC_10000001",
+  "destinationAccountId": 2,
+  "destinationAccountNumber": "ACC_10000002",
+  "destinationBankCode": "COOBS",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "category": "TRANSFER",
+  "remarks": "Lunch money",
+  "status": "POSTED",
+  "failureCode": null,
+  "failureReason": null,
+  "reversedByTransactionId": null,
+  "createdAt": "2026-10-03T11:40:00Z",
+  "completedAt": "2026-10-03T11:40:01Z"
+}
+```
+
+**T3 response, 200 (staff)**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "status": "POSTED",
+  "view": "STAFF",
+  "currentStage": 11,
+  "stages": [
+    { "stageNo": 1, "stageName": "INITIATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.010Z", "detail": null },
+    { "stageNo": 2, "stageName": "VALIDATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.020Z", "detail": null },
+    { "stageNo": 4, "stageName": "FRAUD_CHECK", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.060Z", "detail": "score 0.15" },
+    { "stageNo": 11, "stageName": "RECONCILIATION", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:01.400Z", "detail": null }
+  ]
+}
+```
+
+All eleven stages are always present; one not reached yet has `"outcome": "PENDING"` and `"occurredAt": null`. The example is shortened.
+
+**T3 response, 200 (customer)**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "status": "PROCESSING",
+  "view": "CUSTOMER",
+  "stages": [
+    { "stageName": "INITIATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.010Z" },
+    { "stageName": "PROCESSING", "outcome": "PENDING", "occurredAt": null },
+    { "stageName": "POSTED", "outcome": "PENDING", "occurredAt": null }
+  ],
+  "failureMessage": null
+}
+```
+
+Customers never see `detail`, risk scores or internal reasons; `failureMessage` is a plain sentence.
+
+**T5 request:** `{ "reason": "Customer dispute approved" }`  
+**T5 response, 202:** the T1 response shape, for the new reversal transaction, plus `"reversesTransactionId"`.
+
+**T6 item**
+
+```json
+{
+  "recordId": "ledger.transfer.completed.v1.DLT-0-42",
+  "topic": "ledger.transfer.completed.v1.DLT",
+  "originalTopic": "ledger.transfer.completed.v1",
+  "key": "1",
+  "errorMessage": "Could not deserialize payload",
+  "attempts": 3,
+  "failedAt": "2026-10-03T11:41:00Z"
+}
+```
+
+**T7 response, 200:** `{ "recordId": "…", "replayed": true, "replayedAt": "2026-10-03T11:50:00Z" }`
+
+**T8 response:** an array of the `recentTransactions` items shown in C3.  
+**T9 response:** the `spendingBreakdown` object shown in C3.
+
+---
+
+## 8. orchestration-service (8091) — NEW, internal only
+
+| # | Method and path | Caller |
+| --- | --- | --- |
+| O1 | `POST /internal/v1/sagas/transfers` | transaction-service |
+| O2 | `POST /internal/v1/sagas/reversals` | transaction-service |
+| O3 | `GET /internal/v1/sagas/{transactionId}` | transaction-service, support |
+
+**O1 request**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "channel": "APP",
+  "customerId": 1,
+  "sourceAccountId": 1,
+  "destinationAccountId": 2,
+  "destinationBankCode": "COOBS",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "actorId": 1,
+  "actorType": "CUSTOMER"
+}
+```
+
+**O1 response, 202:** `{ "transactionId": "…", "sagaState": "STARTED" }`. Progress comes back as stage events, not in this response.
+
+**O2 request:** `{ "transactionId": "<new id>", "reversesTransactionId": "<original id>", "referenceNo": "RV-20261003-11AA22BB", "reason": "…", "actorId": 3 }`
+
+**O3 response**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "sagaState": "COMPLETED",
+  "holdId": 9001,
+  "riskDecision": "APPROVE",
+  "failureCode": null,
+  "updatedAt": "2026-10-03T11:40:01Z"
+}
+```
+
+Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`, `FAILED`, `COMPENSATING`, `COMPENSATED`.
+
+---
+
+## 9. risk-engine (8092) — NEW, internal only
+
+| # | Method and path | Caller |
+| --- | --- | --- |
+| R1 | `POST /internal/v1/risk/evaluate` | orchestration-service |
+
+**Request**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "customerId": 1,
+  "amount": "2500.00",
+  "currency": "PHP",
+  "channel": "APP",
+  "customerRiskScore": "0.15",
+  "kycTier": "TIER_3_FULL",
+  "dailyLimit": "100000.00",
+  "isNewBeneficiary": false
+}
+```
+
+**Response, 200**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "decision": "APPROVE",
+  "score": "0.18",
+  "fraudCheck": { "outcome": "PASSED", "reasons": [] },
+  "limitCheck": { "outcome": "PASSED", "usedToday": "5000.00", "dailyLimit": "100000.00" },
+  "evaluatedInMs": 12
+}
+```
+
+| Score | Decision | Reason code |
+| --- | --- | --- |
+| Below 0.60 | `APPROVE` | — |
+| 0.60 to 0.85 | `DECLINE` | `REVIEW_REQUIRED` |
+| Above 0.85 | `DECLINE` | `HIGH_RISK` |
+| Over daily limit | `DECLINE` | `LIMIT_EXCEEDED` |
+
+The caller times out at 150 ms and treats a timeout as `RISK_UNAVAILABLE`.
+
+---
+
+## 10. ledger-service (8083)
+
+### 10.1 Staff endpoints (existing, staff roles only)
+
+| # | Method and path | Status |
+| --- | --- | --- |
+| L-S1 | `GET /api/v1/ledger/accounts/{accountId}/balance` | CHANGED: response gains `ledgerBalance`, `heldAmount` |
+| L-S2 | `POST /api/v1/ledger/debits` | SAME; the counter-leg is the cash GL account |
+| L-S3 | `POST /api/v1/ledger/credits` | SAME; the counter-leg is the cash GL account |
+| L-S4 | `POST /api/v1/ledger/transfers` | SAME for the staff console. Customer transfers use T1 |
+
+Request and response shapes for L-S2 to L-S4 are today's: `{ accountId, amount, referenceNo, remarks }` and `{ sourceAccountId, destinationAccountId, amount, referenceNo, remarks }`.
+
+**L-S1 response**
+
+```json
+{
+  "accountId": 1,
+  "currency": "PHP",
+  "availableBalance": 49625.00,
+  "ledgerBalance": 49625.00,
+  "heldAmount": 0.00,
+  "asOfTimestamp": "2026-10-03T11:30:00Z",
+  "isCached": true
+}
+```
+
+### 10.2 Internal endpoints (NEW)
+
+| # | Method and path | Caller |
+| --- | --- | --- |
+| L1 | `POST /internal/v1/ledger/balances` | account-service |
+| L2 | `GET /internal/v1/ledger/balances/{accountId}` | account-service, batch-service |
+| L3 | `POST /internal/v1/ledger/holds` | orchestration-service |
+| L4 | `POST /internal/v1/ledger/holds/{holdId}/capture` | orchestration-service |
+| L5 | `POST /internal/v1/ledger/holds/{holdId}/release` | orchestration-service |
+| L6 | `GET /internal/v1/ledger/holds/{holdId}` | orchestration-service |
+| L7 | `POST /internal/v1/ledger/reversals` | orchestration-service |
+| L8 | `POST /internal/v1/ledger/postings` | batch-service |
+| L9 | `GET /internal/v1/ledger/gl/trial-balance?businessDate=` | batch-service |
+
+Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
+
+**L1 request:** `{ "accountId": 8, "currency": "PHP" }` → 201 `{ "accountId": 8, "availableBalance": "0.00", "ledgerBalance": "0.00" }`
+
+**L3 request**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "accountId": 1,
+  "amount": "2500.00",
+  "currency": "PHP",
+  "actorId": 1
+}
+```
+
+**L3 response, 201**
+
+```json
+{
+  "holdId": 9001,
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "accountId": 1,
+  "amount": "2500.00",
+  "status": "RESERVED",
+  "availableBalance": "47125.00",
+  "ledgerBalance": "49625.00",
+  "createdAt": "2026-10-03T11:40:00.200Z"
+}
+```
+
+**L4 request**
+
+```json
+{ "destinationAccountId": 2, "remarks": "Lunch money", "actorId": 1, "clientIp": "203.0.113.10" }
+```
+
+**L4 response, 200**
+
+```json
+{
+  "holdId": 9001,
+  "status": "POSTED",
+  "transferReference": "TX-20261003-8F3A21C0",
+  "debitTransactionId": 5001,
+  "creditTransactionId": 5002,
+  "sourceAccountId": 1,
+  "destinationAccountId": 2,
+  "amount": "2500.00",
+  "sourceNewBalance": "47125.00",
+  "destinationNewBalance": "27875.00",
+  "auditHash": "a3f5b8e9c1d0…",
+  "timestamp": "2026-10-03T11:40:00.900Z"
+}
+```
+
+**L5 request:** `{ "reason": "CAPTURE_FAILED" }` → 200 `{ "holdId": 9001, "status": "CANCELLED", "availableBalance": "49625.00" }`
+
+**L7 request**
+
+```json
+{
+  "originalReferenceNo": "TX-20261003-8F3A21C0",
+  "reversalReferenceNo": "RV-20261003-11AA22BB",
+  "reason": "Customer dispute approved",
+  "actorId": 3
+}
+```
+
+**L7 response, 201**
+
+```json
+{
+  "reversalReferenceNo": "RV-20261003-11AA22BB",
+  "originalReferenceNo": "TX-20261003-8F3A21C0",
+  "status": "POSTED",
+  "entries": [
+    { "transactionId": 5003, "accountId": 1, "transactionType": "REVERSAL_CREDIT", "amount": "2500.00", "newBalance": "49625.00" },
+    { "transactionId": 5004, "accountId": 2, "transactionType": "REVERSAL_DEBIT", "amount": "2500.00", "newBalance": "25375.00" }
+  ],
+  "timestamp": "2026-10-03T12:10:00Z"
+}
+```
+
+**L8 request**
+
+```json
+{
+  "batchRunId": 31,
+  "stepName": "INTEREST_ACCRUAL",
+  "postings": [
+    {
+      "referenceNo": "EOD-20261003-INT-000001",
+      "debitAccountId": 9002,
+      "creditAccountId": 1,
+      "amount": "4.08",
+      "remarks": "Daily savings interest"
+    }
+  ]
+}
+```
+
+**L8 response, 200**
+
+```json
+{
+  "batchRunId": 31,
+  "stepName": "INTEREST_ACCRUAL",
+  "posted": 1,
+  "failed": 0,
+  "totalAmount": "4.08",
+  "results": [ { "referenceNo": "EOD-20261003-INT-000001", "status": "POSTED", "errorCode": null } ]
+}
+```
+
+**L9 response, 200**
+
+```json
+{ "businessDate": "2026-10-03", "totalDebits": "125430.08", "totalCredits": "125430.08", "balanced": true, "variance": "0.00" }
+```
+
+---
+
+## 11. batch-service (8093) — NEW
+
+| # | Method and path | Roles |
+| --- | --- | --- |
+| B1 | `POST /api/v1/batch/eod/trigger` | Admin |
+| B2 | `GET /api/v1/batch/eod/runs/{batchRunId}` | Admin, Teller |
+| B3 | `GET /api/v1/batch/eod/runs` | Admin, Teller |
+
+**B1 request:** `{ "businessDate": "2026-10-03" }` (optional; defaults to today)
+
+**B1 response, 202:** `{ "batchRunId": 31, "businessDate": "2026-10-03", "status": "RUNNING", "startedAt": "2026-10-03T17:00:00Z" }`
+
+**B2 response, 200**
+
+```json
+{
+  "batchRunId": 31,
+  "businessDate": "2026-10-03",
+  "status": "COMPLETED",
+  "triggeredBy": 3,
+  "startedAt": "2026-10-03T17:00:00Z",
+  "finishedAt": "2026-10-03T17:00:06Z",
+  "steps": [
+    { "stepNo": 1, "stepName": "INTEREST_ACCRUAL", "status": "COMPLETED", "itemsProcessed": 3, "totalAmount": "12.24", "durationMs": 820, "message": null },
+    { "stepNo": 2, "stepName": "SERVICE_FEES", "status": "COMPLETED", "itemsProcessed": 1, "totalAmount": "50.00", "durationMs": 640, "message": null },
+    { "stepNo": 3, "stepName": "STANDING_INSTRUCTIONS", "status": "COMPLETED", "itemsProcessed": 1, "totalAmount": "1000.00", "durationMs": 910, "message": null },
+    { "stepNo": 4, "stepName": "LOAN_AMORTIZATION", "status": "COMPLETED", "itemsProcessed": 1, "totalAmount": "5450.00", "durationMs": 880, "message": null },
+    { "stepNo": 5, "stepName": "GL_RECONCILIATION", "status": "COMPLETED", "itemsProcessed": 0, "totalAmount": "0.00", "durationMs": 1200, "message": "Debits equal credits" },
+    { "stepNo": 6, "stepName": "AUDIT_SEAL", "status": "COMPLETED", "itemsProcessed": 1, "totalAmount": "0.00", "durationMs": 700, "message": "Seal a3f5b8…" }
+  ]
+}
+```
+
+If step 5 finds a variance, its status is `FAILED`, step 6 is `SKIPPED`, and the run status is `HALTED`. Run statuses: `RUNNING`, `COMPLETED`, `HALTED`, `FAILED`.
+
+---
+
+## 12. notification-service (8084) and audit-service (8085)
+
+| # | Method and path | Status |
+| --- | --- | --- |
+| N1 | `GET /api/v1/notifications/my-notifications` | SAME |
+| N2 | `PATCH /api/v1/notifications/{id}/read` | SAME |
+| N3 | `GET /api/v1/notifications/unread-count` | SAME |
+| U1 | `GET /api/v1/audit/accounts/{accountId}/statement` | SAME |
+| U2 | `GET /api/v1/audit/transactions/{transactionId}` | SAME |
+| U3 | `GET /api/v1/audit/verify-chain/{accountId}` | SAME |
+| U4 | `GET /api/v1/audit/seals/{businessDate}` | NEW |
+
+**N1 item (today's shape):** `{ "notificationId": 881, "title": "…", "message": "…", "channel": "IN_APP", "isRead": false, "createdAt": "2026-10-03T11:40:01Z" }`, in the page shape of section 2.6.  
+**N2 response:** `{ "notificationId": 881, "isRead": true }`
+
+**U1 row (today's shape)**
+
+```json
+{
+  "auditId": 9012, "transactionId": 5001, "accountId": 1, "referenceNo": "TX-20261003-8F3A21C0",
+  "transactionType": "DEBIT", "amount": 2500.00, "oldBalance": 49625.00, "newBalance": 47125.00,
+  "previousHash": "e8d2a1…", "currentHash": "a3f5b8…", "actorId": 1, "clientIp": "203.0.113.10",
+  "eventTimestamp": "2026-10-03T11:40:00"
+}
+```
+
+**U3 response (today's shape):** `{ "accountId": 1, "totalRecordsVerified": 42, "isChainIntact": true, "latestHash": "a3f5b8…", "verifiedAt": "2026-10-03T11:45:00", "message": "…" }`
+
+**U4 response, 200**
+
+```json
+{ "businessDate": "2026-10-03", "lastAuditId": 9040, "sealHash": "c7d1e2…", "sealedAt": "2026-10-03T17:00:06Z", "batchRunId": 31 }
+```
+
+---
+
+## 13. Events (Kafka)
+
+All events share one envelope, the one the ledger uses today:
+
+```json
+{
+  "eventId": "evt_3b1c…",
+  "eventType": "TRANSACTION_STAGE_CHANGED",
+  "timestamp": "2026-10-03T11:40:00.060Z",
+  "version": "1.0",
+  "correlationId": "e7b8c1…",
+  "payload": {}
+}
+```
+
+`correlationId` is new and optional for existing consumers.
+
+| Topic | Key | Producer | Consumers | Status |
+| --- | --- | --- | --- | --- |
+| `ledger.mutation.completed.v1` | accountId | ledger-service | notification-service | SAME |
+| `ledger.transfer.completed.v1` | sourceAccountId | ledger-service | notification-service, orchestration-service | SAME, plus `transactionId` and `auditHash` in the payload |
+| `ledger.transfer.failed.v1` | sourceAccountId | ledger-service | notification-service | SAME |
+| `account.created.v1`, `account.closure.completed.v1` | accountId | account-service | notification-service | SAME |
+| `kyc.request.submitted.v1`, `kyc.request.evaluated.v1` | customerId | account-service | notification-service | SAME |
+| `transaction.stage.changed.v1` | transactionId | transaction-service (1–3), orchestration-service (4–11) | transaction-service | NEW |
+| `notification.dispatched.v1` | transactionId | notification-service | orchestration-service | NEW |
+| `batch.eod.step.completed.v1` | batchRunId | batch-service | notification-service (optional) | NEW |
+| `<topic>.DLT` | as original | any consumer after 3 attempts | transaction-service (replay) | NEW |
+
+**`transaction.stage.changed.v1` payload**
+
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "stageNo": 4,
+  "stageName": "FRAUD_CHECK",
+  "outcome": "PASSED",
+  "transactionStatus": "PROCESSING",
+  "failureCode": null,
+  "detail": "score 0.15",
+  "customerMessage": null,
+  "occurredAt": "2026-10-03T11:40:00.060Z"
+}
+```
+
+**`ledger.transfer.completed.v1` payload (today's fields, two added)**
+
+```json
+{
+  "transferReference": "TX-20261003-8F3A21C0",
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "sourceAccountId": 1,
+  "destinationAccountId": 2,
+  "amount": 2500.00,
+  "sourcePreviousBalance": 49625.00,
+  "sourceNewBalance": 47125.00,
+  "destinationPreviousBalance": 25375.00,
+  "destinationNewBalance": 27875.00,
+  "sourceCustomerId": 1,
+  "destinationCustomerId": 2,
+  "auditHash": "a3f5b8e9c1d0…"
+}
+```
+
+Amounts in the three existing ledger events stay JSON numbers so the current consumer keeps working.
+
+**`notification.dispatched.v1` payload**
+
+```json
+{ "transactionId": "6f1c0e0a-…", "referenceNo": "TX-20261003-8F3A21C0", "sourceEventId": "evt_9a…", "customerIds": [1, 2], "channel": "IN_APP", "dispatchedAt": "2026-10-03T11:40:01.200Z" }
+```
+
+**`batch.eod.step.completed.v1` payload:** one element of the `steps` array in B2, plus `batchRunId` and `businessDate`.
+
+**Dead-letter rule:** exponential backoff of 1 s, 2 s, 4 s; after the third failure the record goes to `<topic>.DLT` with the original key and headers `x-original-topic`, `x-exception-message`, `x-attempts`.
+
+---
+
+## 14. Inter-bank transfers
+
+The full proposal for partner groups is in [`INTERBANK_TRANSFER_PROPOSAL.md`](INTERBANK_TRANSFER_PROPOSAL.md). This section is what **we** expose and how it maps inside.
+
+| # | Method and path | Direction | Purpose |
+| --- | --- | --- | --- |
+| I1 | `POST /api/v1/interbank/transfers` | Partner → us | Credit one of our accounts |
+| I2 | `GET /api/v1/interbank/transfers/{messageId}` | Partner → us | Status of a transfer they sent |
+| I3 | `GET /api/v1/interbank/accounts/{accountNumber}` | Partner → us | Optional name check before sending |
+
+These three are not protected by our JWT. They require `X-Bank-Code`, `X-Timestamp` and `X-Signature` as defined in the proposal.
+
+**Inbound mapping**
+
+| Step | What happens |
+| --- | --- |
+| 1 | `InterbankAuthFilter` checks the bank code, timestamp window and signature |
+| 2 | `messageId` is the idempotency key; a repeat returns the stored response |
+| 3 | The beneficiary account is looked up by number (K7) and must be `ACTIVE` |
+| 4 | A transaction is created with `channel = INTERBANK` |
+| 5 | The ledger posts: debit our settlement GL account for that partner, credit the beneficiary |
+| 6 | Response `ACCEPTED` with our `referenceNo`, or `REJECTED` with a reason code |
+
+**Outbound mapping** (T1 with a foreign `destinationBankCode`)
+
+| Step | What happens |
+| --- | --- |
+| 1 | Normal saga up to the hold on the sender's account |
+| 2 | `InterbankClient` calls the partner's endpoint, translating our fields to theirs |
+| 3 | `ACCEPTED`: capture the hold against the settlement GL account for that partner |
+| 4 | `REJECTED`: release the hold; the transaction fails with `INTERBANK_REJECTED` |
+| 5 | No answer: query the partner's status endpoint up to three times, then keep the hold and flag for staff. Never release on a timeout alone |
+
+One adapter class per partner sits behind `InterbankClient`, so a partner whose payload differs from the proposal needs only its own mapping.
