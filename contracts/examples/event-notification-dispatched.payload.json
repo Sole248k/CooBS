@@ -1,0 +1,11 @@
+{
+  "transactionId": "6f1c0e0a-…",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "sourceEventId": "evt_9a…",
+  "customerIds": [
+    1,
+    2
+  ],
+  "channel": "IN_APP",
+  "dispatchedAt": "2026-10-03T11:40:01.200Z"
+}

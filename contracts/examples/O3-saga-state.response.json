@@ -1,0 +1,8 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "sagaState": "COMPLETED",
+  "holdId": 9001,
+  "riskDecision": "APPROVE",
+  "failureCode": null,
+  "updatedAt": "2026-10-03T11:40:01Z"
+}

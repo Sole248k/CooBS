@@ -13,7 +13,7 @@
 # switched on by a Build Validation branch policy that points at this pipeline.
 # See integrated-capstone-plans/BRANCH_POLICY_PLAN.md.
 #
-# Owner: Dev 8. To add a service, add one entry to the `services` parameter.
+# Owner: Carl & Jared. To add a service, add one entry to the `services` parameter.
 # ==============================================================================
 
 trigger:

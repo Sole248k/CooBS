@@ -1,0 +1,8 @@
+{
+  "eventId": "evt_3b1c…",
+  "eventType": "TRANSACTION_STAGE_CHANGED",
+  "timestamp": "2026-10-03T11:40:00.060Z",
+  "version": "1.0",
+  "correlationId": "e7b8c1…",
+  "payload": {}
+}

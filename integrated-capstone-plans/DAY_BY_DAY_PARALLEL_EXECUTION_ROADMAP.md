@@ -20,7 +20,7 @@ Following the commit `6a4c293` (*"feat: add backend microservices, security conf
 | :--- | :--- | :--- | :--- |
 | **All 11 Microservices** | Scaffolding for `batch-service`, `customer-service`, `orchestration-service`, `risk-engine`, and `transaction-service` with Java 21, Spring Boot, Security, JWT, Dockerfiles, and Maven wrappers. | **PR 1 Completed** (Dev 8) | Section 3 Merge Order #1 |
 | **Database Schemas & Seeds** | `database/next/oracle/`, `database/next/postgres/`, `database/postgres-cloud/` schemas, and `generate_seed.py` (1,192 lines deterministic synthetic generator). | **PR 2 Completed** (Dev 5) | Section 3 Merge Order #2 |
-| **API & Architecture Contracts** | `contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`, interactive topology visualizer `docs/interactive-architecture.html`. | **PR 3 Completed** (Dev 1) | Section 3 Merge Order #3 |
+| **API & Architecture Contracts** | `contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`, its examples exported to `contracts/examples/`, interactive topology visualizer `docs/interactive-architecture.html`. | **Merged; `contracts-v1` tag not yet created** (Dev 1) | Section 3 Merge Order #3 |
 | **CI/CD & Local Runtime** | Multi-stage `azure-pipelines.yml` (448 lines) and `docker-compose.yml` (Oracle 23ai, Postgres Cloud & On-Prem, Redis, Kafka KRaft). | **Merged & Active** (Dev 8) | Handshake H13 & H14 |
 
 > **Current Checkpoint:** We have completed **Day 1** and the foundational scaffolding of **Day 2 (PR 1, PR 2, and PR 3)**. The team is now transitioning into **Day 2 Wrap-Up (PR 4: Flutter Shell & PR 5: PostingEngine Extraction)** and **Day 3 (Independent Vertical Slices & Unit Tests)**.
@@ -90,7 +90,7 @@ graph TD
 | **Dev 1** | Implement the 11 saga transitions in `orchestration-service` with correlation IDs against mock downstream clients. | Saga Stages 4–11 |
 | **Dev 2** | Cut `auth-service` over to `identity_db` (remove Oracle dependencies, disable public self-registration). Implement `customer-service` profile endpoints and internal `/internal/v1/customers/{id}/risk-profile`. | Handshake H6, H8 |
 | **Dev 3** | Implement transfer validation & idempotency guard (Redis `SETNX`) in `transaction-service`. Add `/internal/v1/ledger/holds` in `ledger-service`. Repoint `notification-service` to `notification_db`. | Handshake H3, H7 |
-| **Dev 4** | Implement rule checks in `risk-engine` (daily limit velocity from Redis counters, score thresholds: `<0.60` Approve, `0.60–0.85` Review/Decline, `>0.85` High Risk). | Handshake H5 |
+| **Dev 4** | Implement rule checks in `risk-engine` (daily limit velocity from Redis counters, score thresholds: below 0.60 `APPROVE`; 0.60 to 0.85 `DECLINE` with `REVIEW_REQUIRED`; above 0.85 `DECLINE` with `HIGH_RISK`). | Handshake H5 |
 | **Dev 5** | Generate final production seed dataset. Verify all foreign keys, constraints, and audit trigger hash chains on `audit_store`. | Handshake H2 |
 | **Dev 6** | Build the 11-stage staff stepper and 3-stage customer tracker in Flutter against fixture timelines. | Handshake H7 |
 | **Dev 7** | Complete Customer 360 screen (cards for accounts, recent activity, spending breakdown, tier). | Handshake H9 |
@@ -205,6 +205,6 @@ graph TD
   ├── Dev 3: Pull dev, extract PostingEngine (H4) in ledger-service -> Unblocks Dev 4
   ├── Dev 6: Push /app Flutter foundational shell (H18) with fixture mode -> Unblocks Dev 7
   ├── Dev 5: Validate generate_seed.py against local Oracle & Postgres containers -> Unblocks Dev 2 & 3 entities
-  ├── Dev 1: Confirm contracts-v1 tag and export JSON fixtures to app/assets/fixtures/
+  ├── Dev 1: Create the contracts-v1 tag. Examples are exported to contracts/examples/; Dev 7 curates them into app/assets/fixtures/ (H15)
   └── Dev 2 & 4: Begin Day 3 vertical slices inside customer-service & risk-engine
 ```

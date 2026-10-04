@@ -1,0 +1,12 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "stageNo": 4,
+  "stageName": "FRAUD_CHECK",
+  "outcome": "PASSED",
+  "transactionStatus": "PROCESSING",
+  "failureCode": null,
+  "detail": "score 0.15",
+  "customerMessage": null,
+  "occurredAt": "2026-10-03T11:40:00.060Z"
+}

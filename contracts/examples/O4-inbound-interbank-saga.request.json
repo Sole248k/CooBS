@@ -1,0 +1,10 @@
+{
+  "transactionId": "9a2d6c1e-1f0b-4a7e-8f55-3c1e2d4b5a66",
+  "referenceNo": "IB-20261003-000045",
+  "messageId": "0b6c2f6e-6d1a-4d5c-9d1f-0f3a5e7b9c21",
+  "sourceBankCode": "BANKB",
+  "settlementAccountId": 9005,
+  "destinationAccountId": 2,
+  "amount": "2500.00",
+  "currency": "PHP"
+}

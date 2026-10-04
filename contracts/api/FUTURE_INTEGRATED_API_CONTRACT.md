@@ -37,7 +37,7 @@ The inventory lists the right 38 endpoints, but several payloads in it do not ma
 | 14 | Frontend runs on 5173 | The preview runs on 3000; both origins are allowed |
 | 15 | Section 5 lists `interbank-gateway` and `eod-batch-runner` on 8093 | Superseded: see section 3 |
 
-`contracts/README.md` also describes the folder as `/docs/contracts/` and lists files that do not exist yet.
+The JSON examples in this document are exported to [`../examples/`](../examples/), one file each; the marker above each block names its file.
 
 ---
 
@@ -62,6 +62,7 @@ The inventory lists the right 38 endpoints, but several payloads in it do not ma
 
 ### 2.3 Token claims (unchanged)
 
+<!-- example: common-token-claims.customer.json -->
 ```json
 {
   "sub": "john_doe",
@@ -76,6 +77,7 @@ The inventory lists the right 38 endpoints, but several payloads in it do not ma
 
 **Service token for internal calls.** A caller's token cannot be forwarded everywhere: the saga continues after the client's request has returned, events have no user, the batch has no customer, and partner banks send no JWT. So every `/internal/v1/**` call carries a token the calling service signs itself with the shared `JWT_SECRET`:
 
+<!-- example: common-token-claims.service.json -->
 ```json
 {
   "sub": "orchestration-service",
@@ -107,6 +109,7 @@ The inventory lists the right 38 endpoints, but several payloads in it do not ma
 
 Every service returns the existing problem shape. `errorCode` is the field clients switch on.
 
+<!-- example: common-error.json -->
 ```json
 {
   "type": "https://api.corebank.local/errors/INSUFFICIENT_FUNDS",
@@ -153,6 +156,7 @@ HTTP codes for the existing error codes were checked against the ledger's except
 
 New list endpoints use the shape `account-service` and `notification-service` already return:
 
+<!-- example: common-page.json -->
 ```json
 { "content": [], "pageNumber": 0, "pageSize": 20, "totalElements": 0, "totalPages": 0, "isLast": true }
 ```
@@ -249,6 +253,7 @@ No other service-to-service call is allowed without Dev 1's approval.
 
 **A2 / A4 request**
 
+<!-- example: A2-A4-login.request.json -->
 ```json
 { "username": "john_doe", "password": "<password>", "preferredChannel": "SMS" }
 ```
@@ -257,6 +262,7 @@ No other service-to-service call is allowed without Dev 1's approval.
 
 **A2 / A4 response, 200**
 
+<!-- example: A2-A4-login.response.json -->
 ```json
 {
   "mfaRequired": false,
@@ -278,11 +284,32 @@ No other service-to-service call is allowed without Dev 1's approval.
 
 When `mfaRequired` is `true`, `authData` is `null` and `mfaToken` is set.
 
-**A3 / A5 request:** `{ "mfaToken": "<token>", "code": "482910" }` → the `authData` object.  
-**A6 request:** `{ "refreshToken": "<opaque>" }` → the `authData` object.
+**A3 / A5 request**
+
+<!-- example: A3-A5-mfa-verify.request.json -->
+```json
+{
+  "mfaToken": "<token>",
+  "code": "482910"
+}
+```
+
+Response: the `authData` object.
+
+**A6 request**
+
+<!-- example: A6-token-refresh.request.json -->
+```json
+{
+  "refreshToken": "<opaque>"
+}
+```
+
+Response: the `authData` object.
 
 **A8 response, 200**
 
+<!-- example: A8-token-me.response.json -->
 ```json
 {
   "userId": 1,
@@ -313,6 +340,7 @@ When `mfaRequired` is `true`, `authData` is `null` and `mfaToken` is set.
 
 `username` is taken from the token for C1 and from the seeded channel profile for C2. `email` is seeded into the channel profile as well as into `identity_db`; `customer-service` never reads `identity_db`.
 
+<!-- example: C1-C2-customer-profile.response.json -->
 ```json
 {
   "customerId": 1,
@@ -340,6 +368,7 @@ When `mfaRequired` is `true`, `authData` is `null` and `mfaToken` is set.
 
 **C3 response, 200**
 
+<!-- example: C3-customer-360.response.json -->
 ```json
 {
   "customerId": 1,
@@ -403,6 +432,7 @@ When `mfaRequired` is `true`, `authData` is `null` and `mfaToken` is set.
 
 **C5 request**
 
+<!-- example: C5-add-beneficiary.request.json -->
 ```json
 { "nickname": "Maria", "accountNumber": "ACC_10000002", "bankCode": "COOBS" }
 ```
@@ -411,6 +441,7 @@ When `mfaRequired` is `true`, `authData` is `null` and `mfaToken` is set.
 
 **C7 response, 200**
 
+<!-- example: C7-risk-profile.response.json -->
 ```json
 { "customerId": 1, "riskScore": "0.15", "kycTier": "TIER_3_FULL", "kycStatus": "VERIFIED", "dailyLimit": "100000.00" }
 ```
@@ -433,10 +464,20 @@ All 20 existing endpoints keep their paths and payloads, with these exceptions.
 | K8 | `GET /internal/v1/customers/{customerId}/accounts` | NEW | |
 | K9 | `GET /internal/v1/customers/{customerId}/kyc` | NEW | The KYC master |
 
-**K3 request:** `{ "customerId": 1, "accountType": "SAVINGS", "currency": "PHP" }`
+**K3 request**
+
+<!-- example: K3-open-account.request.json -->
+```json
+{
+  "customerId": 1,
+  "accountType": "SAVINGS",
+  "currency": "PHP"
+}
+```
 
 **Account response (today's shape, unchanged)**
 
+<!-- example: K3-K4-account.response.json -->
 ```json
 {
   "accountId": 1,
@@ -454,6 +495,7 @@ All 20 existing endpoints keep their paths and payloads, with these exceptions.
 
 **K6 / K7 response, 200**
 
+<!-- example: K6-K7-account-lookup.response.json -->
 ```json
 {
   "accountId": 2,
@@ -488,6 +530,7 @@ All 20 existing endpoints keep their paths and payloads, with these exceptions.
 
 **T1 request**
 
+<!-- example: T1-transfer.request.json -->
 ```json
 {
   "sourceAccountId": 1,
@@ -506,6 +549,7 @@ All 20 existing endpoints keep their paths and payloads, with these exceptions.
 
 **T1 response, 202**
 
+<!-- example: T1-transfer.response.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -522,6 +566,7 @@ A repeat of the same `Idempotency-Key` returns the same body with 200.
 
 **T2 response, 200**
 
+<!-- example: T2-transaction.response.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -547,6 +592,7 @@ A repeat of the same `Idempotency-Key` returns the same body with 200.
 
 **T3 response, 200 (staff)**
 
+<!-- example: T3-timeline-staff.response.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -556,16 +602,24 @@ A repeat of the same `Idempotency-Key` returns the same body with 200.
   "stages": [
     { "stageNo": 1, "stageName": "INITIATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.010Z", "detail": null },
     { "stageNo": 2, "stageName": "VALIDATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.020Z", "detail": null },
+    { "stageNo": 3, "stageName": "AUTHENTICATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.030Z", "detail": null },
     { "stageNo": 4, "stageName": "FRAUD_CHECK", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.060Z", "detail": "score 0.15" },
+    { "stageNo": 5, "stageName": "LIMIT_CHECK", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.065Z", "detail": null },
+    { "stageNo": 6, "stageName": "FUNDS_CHECK", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.120Z", "detail": null },
+    { "stageNo": 7, "stageName": "AUTHORIZED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.130Z", "detail": null },
+    { "stageNo": 8, "stageName": "POSTED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.210Z", "detail": null },
+    { "stageNo": 9, "stageName": "LEDGER_UPDATE", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.450Z", "detail": null },
+    { "stageNo": 10, "stageName": "NOTIFICATION", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:01.100Z", "detail": null },
     { "stageNo": 11, "stageName": "RECONCILIATION", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:01.400Z", "detail": null }
   ]
 }
 ```
 
-All eleven stages are always present; one not reached yet has `"outcome": "PENDING"` and `"occurredAt": null`. The example is shortened.
+All eleven stages are always present; one not reached yet has `"outcome": "PENDING"` and `"occurredAt": null`.
 
 **T3 response, 200 (customer)**
 
+<!-- example: T3-timeline-customer.response.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -582,11 +636,34 @@ All eleven stages are always present; one not reached yet has `"outcome": "PENDI
 
 Customers never see `detail`, risk scores or internal reasons; `failureMessage` is a plain sentence.
 
-**T5 request:** `{ "reason": "Customer dispute approved" }`  
-**T5 response, 202:** the T1 response shape, for the new reversal transaction, plus `"reversesTransactionId"`.
+**T5 request**
+
+<!-- example: T5-reversal.request.json -->
+```json
+{
+  "reason": "Customer dispute approved"
+}
+```
+
+**T5 response, 202.** The T1 response shape, for the new reversal transaction, plus `reversesTransactionId`.
+
+<!-- example: T5-reversal.response.json -->
+```json
+{
+  "transactionId": "c4b7e2d9-5a13-4f86-b0c2-7d9e1a3f5b64",
+  "referenceNo": "RV-20261003-11AA22BB",
+  "status": "INITIATED",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "createdAt": "2026-10-03T11:55:00Z",
+  "timelineUrl": "/api/v1/transactions/c4b7e2d9-5a13-4f86-b0c2-7d9e1a3f5b64/timeline",
+  "reversesTransactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11"
+}
+```
 
 **T6 item**
 
+<!-- example: T6-dlq-item.json -->
 ```json
 {
   "recordId": "ledger.transfer.completed.v1.DLT-0-42",
@@ -599,7 +676,16 @@ Customers never see `detail`, risk scores or internal reasons; `failureMessage` 
 }
 ```
 
-**T7 response, 200:** `{ "recordId": "…", "replayed": true, "replayedAt": "2026-10-03T11:50:00Z" }`
+**T7 response, 200**
+
+<!-- example: T7-dlq-replay.response.json -->
+```json
+{
+  "recordId": "ledger.transfer.completed.v1.DLT-0-42",
+  "replayed": true,
+  "replayedAt": "2026-10-03T11:50:00Z"
+}
+```
 
 **T8 response:** an array of the `recentTransactions` items shown in C3.  
 **T9 response:** the `spendingBreakdown` object shown in C3.
@@ -617,6 +703,7 @@ Customers never see `detail`, risk scores or internal reasons; `failureMessage` 
 
 **O1 request**
 
+<!-- example: O1-start-transfer-saga.request.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -633,12 +720,32 @@ Customers never see `detail`, risk scores or internal reasons; `failureMessage` 
 }
 ```
 
-**O1 response, 202:** `{ "transactionId": "…", "sagaState": "STARTED" }`. Progress comes back as stage events, not in this response.
+**O1 response, 202.** Progress comes back as stage events, not in this response.
 
-**O2 request:** `{ "transactionId": "<new id>", "reversesTransactionId": "<original id>", "referenceNo": "RV-20261003-11AA22BB", "reason": "…", "actorId": 3 }`
+<!-- example: O1-start-transfer-saga.response.json -->
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "sagaState": "STARTED"
+}
+```
+
+**O2 request.** `transactionId` is the new reversal transaction; `reversesTransactionId` is the original.
+
+<!-- example: O2-start-reversal-saga.request.json -->
+```json
+{
+  "transactionId": "c4b7e2d9-5a13-4f86-b0c2-7d9e1a3f5b64",
+  "reversesTransactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "RV-20261003-11AA22BB",
+  "reason": "Customer dispute approved",
+  "actorId": 3
+}
+```
 
 **O3 response**
 
+<!-- example: O3-saga-state.response.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -654,6 +761,7 @@ Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`
 
 **O4 request.** An inbound credit needs no risk check and no hold: the money is not leaving one of our customers. The saga posts once through L8 and publishes stages 1, 2, 8, 9, 10 and 11; stages 3 to 7 are published as `PASSED` with the detail `not applicable`.
 
+<!-- example: O4-inbound-interbank-saga.request.json -->
 ```json
 {
   "transactionId": "9a2d6c1e-1f0b-4a7e-8f55-3c1e2d4b5a66",
@@ -667,7 +775,16 @@ Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`
 }
 ```
 
-**O4 response, 200:** `{ "transactionId": "…", "sagaState": "COMPLETED", "referenceNo": "IB-20261003-000045" }`. This call is synchronous, because the partner bank is waiting for `ACCEPTED` or `REJECTED`.
+**O4 response, 200.** This call is synchronous, because the partner bank is waiting for `ACCEPTED` or `REJECTED`.
+
+<!-- example: O4-inbound-interbank-saga.response.json -->
+```json
+{
+  "transactionId": "9a2d6c1e-1f0b-4a7e-8f55-3c1e2d4b5a66",
+  "sagaState": "COMPLETED",
+  "referenceNo": "IB-20261003-000045"
+}
+```
 
 ---
 
@@ -679,6 +796,7 @@ Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`
 
 **Request**
 
+<!-- example: R1-risk-evaluate.request.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -695,6 +813,7 @@ Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`
 
 **Response, 200**
 
+<!-- example: R1-risk-evaluate.response.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -732,6 +851,7 @@ Request and response shapes for L-S2 to L-S4 are today's: `{ accountId, amount, 
 
 **L-S1 response**
 
+<!-- example: L-S1-balance.response.json -->
 ```json
 {
   "accountId": 1,
@@ -762,10 +882,30 @@ Request and response shapes for L-S2 to L-S4 are today's: `{ accountId, amount, 
 
 Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 
-**L1 request:** `{ "accountId": 8, "currency": "PHP" }` → 201 `{ "accountId": 8, "availableBalance": "0.00", "ledgerBalance": "0.00" }`
+**L1 request**
+
+<!-- example: L1-open-balance.request.json -->
+```json
+{
+  "accountId": 8,
+  "currency": "PHP"
+}
+```
+
+**L1 response, 201**
+
+<!-- example: L1-open-balance.response.json -->
+```json
+{
+  "accountId": 8,
+  "availableBalance": "0.00",
+  "ledgerBalance": "0.00"
+}
+```
 
 **L3 request**
 
+<!-- example: L3-place-hold.request.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -779,6 +919,7 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 
 **L3 response, 201**
 
+<!-- example: L3-place-hold.response.json -->
 ```json
 {
   "holdId": 9001,
@@ -794,12 +935,14 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 
 **L4 request**
 
+<!-- example: L4-capture-hold.request.json -->
 ```json
 { "destinationAccountId": 2, "remarks": "Lunch money", "actorId": 1, "clientIp": "203.0.113.10" }
 ```
 
 **L4 response, 200**
 
+<!-- example: L4-capture-hold.response.json -->
 ```json
 {
   "holdId": 9001,
@@ -817,10 +960,29 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 }
 ```
 
-**L5 request:** `{ "reason": "CAPTURE_FAILED" }` → 200 `{ "holdId": 9001, "status": "CANCELLED", "availableBalance": "49625.00" }`
+**L5 request**
+
+<!-- example: L5-release-hold.request.json -->
+```json
+{
+  "reason": "CAPTURE_FAILED"
+}
+```
+
+**L5 response, 200**
+
+<!-- example: L5-release-hold.response.json -->
+```json
+{
+  "holdId": 9001,
+  "status": "CANCELLED",
+  "availableBalance": "49625.00"
+}
+```
 
 **L7 request**
 
+<!-- example: L7-reversal.request.json -->
 ```json
 {
   "originalReferenceNo": "TX-20261003-8F3A21C0",
@@ -832,6 +994,7 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 
 **L7 response, 201**
 
+<!-- example: L7-reversal.response.json -->
 ```json
 {
   "reversalReferenceNo": "RV-20261003-11AA22BB",
@@ -849,6 +1012,7 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 
 **L8 request**
 
+<!-- example: L8-postings.request.json -->
 ```json
 {
   "batchRunId": 31,
@@ -867,6 +1031,7 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 
 **L8 response, 200**
 
+<!-- example: L8-postings.response.json -->
 ```json
 {
   "batchRunId": 31,
@@ -880,6 +1045,7 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 
 **L9 response, 200**
 
+<!-- example: L9-trial-balance.response.json -->
 ```json
 { "businessDate": "2026-10-03", "totalDebits": "125430.08", "totalCredits": "125430.08", "balanced": true, "variance": "0.00" }
 ```
@@ -894,12 +1060,30 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 | B2 | `GET /api/v1/batch/eod/runs/{batchRunId}` | Admin, Teller |
 | B3 | `GET /api/v1/batch/eod/runs` | Admin, Teller |
 
-**B1 request:** `{ "businessDate": "2026-10-03" }` (optional; defaults to today)
+**B1 request.** `businessDate` is optional and defaults to today.
 
-**B1 response, 202:** `{ "batchRunId": 31, "businessDate": "2026-10-03", "status": "RUNNING", "startedAt": "2026-10-03T17:00:00Z" }`
+<!-- example: B1-eod-trigger.request.json -->
+```json
+{
+  "businessDate": "2026-10-03"
+}
+```
+
+**B1 response, 202**
+
+<!-- example: B1-eod-trigger.response.json -->
+```json
+{
+  "batchRunId": 31,
+  "businessDate": "2026-10-03",
+  "status": "RUNNING",
+  "startedAt": "2026-10-03T17:00:00Z"
+}
+```
 
 **B2 response, 200**
 
+<!-- example: B2-eod-run.response.json -->
 ```json
 {
   "batchRunId": 31,
@@ -935,12 +1119,52 @@ If step 5 finds a variance, its status is `FAILED`, step 6 is `SKIPPED`, and the
 | U3 | `GET /api/v1/audit/verify-chain/{accountId}` | SAME |
 | U4 | `GET /api/v1/audit/seals/{businessDate}` | NEW |
 
-**N1 item (today's shape):** `{ "notificationId": 881, "title": "…", "message": "…", "channel": "IN_APP", "isRead": false, "createdAt": "2026-10-03T11:40:01Z" }`, in the page shape of section 2.6.  
-**N2 response:** `{ "notificationId": 881, "isRead": true }`
-**N3 response:** `{ "customerId": 1, "unreadCount": 3 }`
+**N1 response, 200 (today's shape).** Items in the page shape of section 2.6.
+
+<!-- example: N1-notifications.response.json -->
+```json
+{
+  "content": [
+    {
+      "notificationId": 881,
+      "title": "Funds Transfer Sent",
+      "message": "PHP 2500.00 was transferred to account ACC_10000002. Reference: TX-20261003-8F3A21C0. New balance: PHP 47125.00.",
+      "channel": "IN_APP",
+      "isRead": false,
+      "createdAt": "2026-10-03T11:40:01Z"
+    }
+  ],
+  "pageNumber": 0,
+  "pageSize": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "isLast": true
+}
+```
+
+**N2 response, 200**
+
+<!-- example: N2-mark-read.response.json -->
+```json
+{
+  "notificationId": 881,
+  "isRead": true
+}
+```
+
+**N3 response, 200**
+
+<!-- example: N3-unread-count.response.json -->
+```json
+{
+  "customerId": 1,
+  "unreadCount": 3
+}
+```
 
 **U1 row (today's shape)**
 
+<!-- example: U1-statement-row.json -->
 ```json
 {
   "auditId": 9012, "transactionId": 5001, "accountId": 1, "referenceNo": "TX-20261003-8F3A21C0",
@@ -950,10 +1174,23 @@ If step 5 finds a variance, its status is `FAILED`, step 6 is `SKIPPED`, and the
 }
 ```
 
-**U3 response (today's shape):** `{ "accountId": 1, "totalRecordsVerified": 42, "isChainIntact": true, "latestHash": "a3f5b8…", "verifiedAt": "2026-10-03T11:45:00", "message": "…" }`
+**U3 response, 200 (today's shape)**
+
+<!-- example: U3-verify-chain.response.json -->
+```json
+{
+  "accountId": 1,
+  "totalRecordsVerified": 42,
+  "isChainIntact": true,
+  "latestHash": "a3f5b8…",
+  "verifiedAt": "2026-10-03T11:45:00",
+  "message": "Audit chain integrity verified successfully."
+}
+```
 
 **U4 response, 200**
 
+<!-- example: U4-daily-seal.response.json -->
 ```json
 { "businessDate": "2026-10-03", "lastAuditId": 9040, "sealHash": "c7d1e2…", "sealedAt": "2026-10-03T17:00:06Z", "batchRunId": 31 }
 ```
@@ -964,6 +1201,7 @@ If step 5 finds a variance, its status is `FAILED`, step 6 is `SKIPPED`, and the
 
 All events share one envelope, the one the ledger uses today:
 
+<!-- example: event-envelope.json -->
 ```json
 {
   "eventId": "evt_3b1c…",
@@ -991,6 +1229,7 @@ All events share one envelope, the one the ledger uses today:
 
 **`transaction.stage.changed.v1` payload**
 
+<!-- example: event-transaction-stage-changed.payload.json -->
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
@@ -1008,6 +1247,7 @@ All events share one envelope, the one the ledger uses today:
 
 **`ledger.transfer.completed.v1` payload (today's fields, two added)**
 
+<!-- example: event-ledger-transfer-completed.payload.json -->
 ```json
 {
   "transferReference": "TX-20261003-8F3A21C0",
@@ -1029,11 +1269,27 @@ Amounts in the three existing ledger events stay JSON numbers so the current con
 
 **`notification.dispatched.v1` payload**
 
+<!-- example: event-notification-dispatched.payload.json -->
 ```json
 { "transactionId": "6f1c0e0a-…", "referenceNo": "TX-20261003-8F3A21C0", "sourceEventId": "evt_9a…", "customerIds": [1, 2], "channel": "IN_APP", "dispatchedAt": "2026-10-03T11:40:01.200Z" }
 ```
 
-**`batch.eod.step.completed.v1` payload:** one element of the `steps` array in B2, plus `batchRunId` and `businessDate`.
+**`batch.eod.step.completed.v1` payload.** One element of the `steps` array in B2, plus `batchRunId` and `businessDate`.
+
+<!-- example: event-batch-eod-step-completed.payload.json -->
+```json
+{
+  "batchRunId": 31,
+  "businessDate": "2026-10-03",
+  "stepNo": 1,
+  "stepName": "INTEREST_ACCRUAL",
+  "status": "COMPLETED",
+  "itemsProcessed": 3,
+  "totalAmount": "12.24",
+  "durationMs": 820,
+  "message": null
+}
+```
 
 **Dead-letter rule:** exponential backoff of 1 s, 2 s, 4 s; after the third failure the record goes to `<topic>.DLT` with the original key and headers `x-original-topic`, `x-exception-message`, `x-attempts`.
 

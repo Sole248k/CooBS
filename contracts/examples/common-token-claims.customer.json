@@ -1,0 +1,9 @@
+{
+  "sub": "john_doe",
+  "jti": "378c0fb9-f2d1-45f4-8168-05335260e02b",
+  "userId": 1,
+  "roles": [
+    "ROLE_CUSTOMER"
+  ],
+  "userType": "CUSTOMER"
+}

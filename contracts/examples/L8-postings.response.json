@@ -1,0 +1,14 @@
+{
+  "batchRunId": 31,
+  "stepName": "INTEREST_ACCRUAL",
+  "posted": 1,
+  "failed": 0,
+  "totalAmount": "4.08",
+  "results": [
+    {
+      "referenceNo": "EOD-20261003-INT-000001",
+      "status": "POSTED",
+      "errorCode": null
+    }
+  ]
+}

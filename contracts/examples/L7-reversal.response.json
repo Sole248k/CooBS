@@ -1,0 +1,22 @@
+{
+  "reversalReferenceNo": "RV-20261003-11AA22BB",
+  "originalReferenceNo": "TX-20261003-8F3A21C0",
+  "status": "POSTED",
+  "entries": [
+    {
+      "transactionId": 5003,
+      "accountId": 1,
+      "transactionType": "REVERSAL_CREDIT",
+      "amount": "2500.00",
+      "newBalance": "49625.00"
+    },
+    {
+      "transactionId": 5004,
+      "accountId": 2,
+      "transactionType": "REVERSAL_DEBIT",
+      "amount": "2500.00",
+      "newBalance": "25375.00"
+    }
+  ],
+  "timestamp": "2026-10-03T12:10:00Z"
+}

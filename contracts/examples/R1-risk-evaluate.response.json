@@ -1,0 +1,15 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "decision": "APPROVE",
+  "score": "0.18",
+  "fraudCheck": {
+    "outcome": "PASSED",
+    "reasons": []
+  },
+  "limitCheck": {
+    "outcome": "PASSED",
+    "usedToday": "5000.00",
+    "dailyLimit": "100000.00"
+  },
+  "evaluatedInMs": 12
+}

@@ -1,0 +1,11 @@
+{
+  "userId": 1,
+  "username": "john_doe",
+  "email": "john.doe@example.com",
+  "roles": [
+    "ROLE_CUSTOMER"
+  ],
+  "userType": "CUSTOMER",
+  "status": "ACTIVE",
+  "createdAt": "2026-01-15T08:00:00Z"
+}

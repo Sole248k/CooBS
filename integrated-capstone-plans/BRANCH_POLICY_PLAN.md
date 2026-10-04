@@ -58,7 +58,7 @@ Use the same settings for `release/*` by adding the policy to the branch pattern
 
 ## 4. Automatically included reviewers by path
 
-One rule per row, each set to **Required**. Replace the role with the real person once names are assigned. Where a pull request touches two owners' folders, both are added.
+One rule per row, each set to **Required**. Roles map to people as follows: Dev 1 Carl, Dev 2 Hans, Dev 3 Wayne, Dev 4 Ysa, Dev 5 April, Dev 6 Neo, Dev 7 Gabo, Dev 8 Jared. Carl also supports Dev 8, so add him as the second reviewer on the Dev 8 rules. Where a pull request touches two owners' folders, both are added.
 
 | Path filter | Required reviewer |
 | --- | --- |
@@ -183,7 +183,8 @@ az repos policy work-item-linking create --repository-id <repo-id> --branch dev 
 
 ## 9. Open points
 
-1. Real names for Dev 1 to Dev 8, so the reviewer rules can be created.
-2. Whether a hosted parallel job is available (section 7, step 2).
-3. Whether squash-only on `dev` suits the team; the alternative is to allow rebase as well.
-4. Which imported branches can be deleted.
+1. Whether a hosted parallel job is available (section 7, step 2).
+2. Whether squash-only on `dev` suits the team; the alternative is to allow rebase as well.
+3. Which imported branches can be deleted.
+
+These are tracked with the other open decisions in section 7 of the zero-conflict plan.

@@ -1,0 +1,15 @@
+{
+  "type": "https://api.corebank.local/errors/INSUFFICIENT_FUNDS",
+  "title": "Insufficient Funds",
+  "status": 422,
+  "detail": "Available balance is lower than the requested amount.",
+  "instance": "/api/v1/transactions/transfers",
+  "errorCode": "INSUFFICIENT_FUNDS",
+  "timestamp": "2026-10-03T11:40:00Z",
+  "invalidParams": [
+    {
+      "field": "amount",
+      "message": "amount must be greater than zero"
+    }
+  ]
+}

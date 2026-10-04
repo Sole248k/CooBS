@@ -26,7 +26,8 @@ Report the disagreement to Dev 1 so the losing document gets fixed.
 
 - All of this is a **draft until the we agree on it**. Owners must review their own sections.
 - Diagram code has not been test-rendered in Eraser. The Azure Boards files have not been test-imported.
-- The contract is prose with JSON examples; OpenAPI and AsyncAPI files are still to be written.
+- The contract is prose with JSON examples. The examples are exported to `contracts/examples/`, one file each. OpenAPI and AsyncAPI files are still to be written.
+- The contract is not frozen yet: the `contracts-v1` tag has not been created.
 
 ## Settled decisions
 

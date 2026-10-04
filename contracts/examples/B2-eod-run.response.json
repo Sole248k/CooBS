@@ -1,0 +1,64 @@
+{
+  "batchRunId": 31,
+  "businessDate": "2026-10-03",
+  "status": "COMPLETED",
+  "triggeredBy": 3,
+  "startedAt": "2026-10-03T17:00:00Z",
+  "finishedAt": "2026-10-03T17:00:06Z",
+  "steps": [
+    {
+      "stepNo": 1,
+      "stepName": "INTEREST_ACCRUAL",
+      "status": "COMPLETED",
+      "itemsProcessed": 3,
+      "totalAmount": "12.24",
+      "durationMs": 820,
+      "message": null
+    },
+    {
+      "stepNo": 2,
+      "stepName": "SERVICE_FEES",
+      "status": "COMPLETED",
+      "itemsProcessed": 1,
+      "totalAmount": "50.00",
+      "durationMs": 640,
+      "message": null
+    },
+    {
+      "stepNo": 3,
+      "stepName": "STANDING_INSTRUCTIONS",
+      "status": "COMPLETED",
+      "itemsProcessed": 1,
+      "totalAmount": "1000.00",
+      "durationMs": 910,
+      "message": null
+    },
+    {
+      "stepNo": 4,
+      "stepName": "LOAN_AMORTIZATION",
+      "status": "COMPLETED",
+      "itemsProcessed": 1,
+      "totalAmount": "5450.00",
+      "durationMs": 880,
+      "message": null
+    },
+    {
+      "stepNo": 5,
+      "stepName": "GL_RECONCILIATION",
+      "status": "COMPLETED",
+      "itemsProcessed": 0,
+      "totalAmount": "0.00",
+      "durationMs": 1200,
+      "message": "Debits equal credits"
+    },
+    {
+      "stepNo": 6,
+      "stepName": "AUDIT_SEAL",
+      "status": "COMPLETED",
+      "itemsProcessed": 1,
+      "totalAmount": "0.00",
+      "durationMs": 700,
+      "message": "Seal a3f5b8…"
+    }
+  ]
+}

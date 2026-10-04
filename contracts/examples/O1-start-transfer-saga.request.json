@@ -1,0 +1,13 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "channel": "APP",
+  "customerId": 1,
+  "sourceAccountId": 1,
+  "destinationAccountId": 2,
+  "destinationBankCode": "COOBS",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "actorId": 1,
+  "actorType": "CUSTOMER"
+}

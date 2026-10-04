@@ -45,7 +45,7 @@
 4. [Day-by-Day Plan for Each Developer (Days 1 to 9)](#4-day-by-day-plan-for-each-developer-days-1-to-9)
 5. [Specification of Newly Added Features &amp; Concessions](#5-specification-of-newly-added-features--concessions)
 6. [Azure Hybrid Cloud Alignment Checklist](#6-azure-hybrid-cloud-alignment-checklist)
-7. [Decisions Still Open for Day 1](#7-decisions-still-open-for-day-1)
+7. [Decisions Still Open](#7-decisions-still-open)
 
 ---
 
@@ -273,6 +273,17 @@ Anyone who needs a port, environment variable, route, table or package requests 
 | Dev 7 | Flutter feature screens and KYC UI            | `/app/lib/features/{customer360,accounts,transfer,batch,kyc}`, `/app/assets/fixtures`                                                 | Feature folders only                            |
 | Dev 8 | DevOps and cloud                              | `/infra`, Dockerfiles, Compose, `azure-pipelines.yml`, `/.azuredevops`, `/monitoring`, `/scripts`, `/backend/api-gateway`             | Sole editor of root and pipeline config         |
 
+**Who holds each role**
+
+| Role | Name | Role | Name |
+| --- | --- | --- | --- |
+| Dev 1 | Carl | Dev 5 | April |
+| Dev 2 | Hans | Dev 6 | Neo |
+| Dev 3 | Wayne | Dev 7 | Gabo |
+| Dev 4 | Ysa | Dev 8 | Jared |
+
+Carl also supports Dev 8: he takes on and reviews DevOps and cloud work, with Jared as its lead.
+
 The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it. `auth-service` is no longer frozen: Dev 2 moves it onto `identity_db`. Its registration endpoint stays disabled, because members are seeded.
 
 **Load note:** Dev 2 now carries three services. The customer extraction is smaller than in version 2.0, because KYC stays in `account-service`; if Day 3 still shows slippage, `account-service` changes move to Dev 3.
@@ -458,7 +469,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
 - **Customer view:** Initiated → Processing → Posted (or Failed).
 - **Staff view, eleven stages:**
   `[1. Initiated]` → `[2. Validated]` → `[3. Authenticated]` → `[4. Fraud Check]` → `[5. Limit Check]` → `[6. Funds Check]` → `[7. Authorized]` → `[8. Posted]` → `[9. Ledger Update]` → `[10. Notification]` → `[11. Reconciliation]`
-- Stages 1 to 3 belong to `transaction-service`, 4 and 5 to `risk-engine`, 6 and 8 to `ledger-service`, 7 to `orchestration-service`. Stages 9 to 11 complete by event after the customer sees Posted.
+- `transaction-service` publishes stages 1 to 3. `orchestration-service` publishes stages 4 to 11: it reports 4 and 5 from the `risk-engine` response and 6 and 8 from the ledger's hold and capture responses, and decides 7 itself. Neither `risk-engine` nor `ledger-service` publishes a stage event. Stages 9 to 11 complete by event after the customer sees Posted.
 - The client polls `GET /api/v1/transactions/{id}/timeline` once a second.
 
 ### 5.5 Customer 360 Dashboard
@@ -471,13 +482,14 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
 
 ### 5.6 Risk Decision Thresholds
 
-| Score        | Decision                                                                                                                     |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| Below 0.60   | `APPROVE`                                                                                                                    |
-| 0.60 to 0.85 | **Undefined in version 1.0.** Recommended: `DECLINE` with reason `REVIEW_REQUIRED`, since no manual review queue is in scope |
-| Above 0.85   | `DECLINE`                                                                                                                    |
+| Score            | Decision  | Reason code       |
+| ---------------- | --------- | ----------------- |
+| Below 0.60       | `APPROVE` | —                 |
+| 0.60 to 0.85     | `DECLINE` | `REVIEW_REQUIRED` |
+| Above 0.85       | `DECLINE` | `HIGH_RISK`       |
+| Over daily limit | `DECLINE` | `LIMIT_EXCEEDED`  |
 
-A timeout (150 ms) fails closed.
+The middle band is a decline because no manual review queue is in scope. A timeout (150 ms) fails closed with `RISK_UNAVAILABLE`. These match section 9 of the API contract, which is the source.
 
 ### 5.7 Dead-Letter Queue & Retry
 
@@ -528,3 +540,20 @@ A timeout (150 ms) fails closed.
 - [ ] **Every outbound call has a timeout,** so a VPN outage leaves transactions at a visible stage.
 - [ ] **Events survive a tunnel outage** through the ledger outbox.
 - [ ] **Cost:** re-estimate before claiming a figure. The version 1.0 figure of $96 did not account for the AKS nodes, VPN Gateway and Front Door together.
+---
+
+# 7. Decisions Still Open
+
+Each of these is stated as open somewhere in the planning set. Record the outcome here when it is made, and move it to the settled decisions in [`README.md`](README.md).
+
+| # | Decision | Owner | Needed by | Source |
+| --- | --- | --- | --- | --- |
+| 1 | Whether the on-premises zone is a separate network in the demo. Compose still has one network; the work packages call for `cloud-net` and `onprem-net` | Jared | Day 4 | Section 1.2; work packages R14, H13 |
+| 2 | Kafka on AKS or Azure Event Hubs | Jared | Day 4 | Section 1.2 |
+| 3 | Azure cost estimate, replacing the removed $96 figure | Jared | Day 4 | Section 6 |
+| 4 | Whether a Microsoft-hosted parallel job is available, or a self-hosted agent is needed | Jared | Before build validation is switched on | Branch policy plan, section 7 |
+| 5 | Squash-only merges on `dev`, or rebase allowed as well | Carl | Before branch policies are applied | Branch policy plan, section 9 |
+| 6 | Which imported branches to delete | Jared, with each branch's author | Day 3 | Branch policy plan, section 9 |
+| 7 | Whether `batch.eod.step.completed.v1` is published through the ledger outbox or by `batch-service` itself | April and Wayne | Day 4 (handshake H11) | Work packages, Dev 5 |
+| 8 | Whether to build the optional email MFA through Resend | Whole team; Hans builds it | After Checkpoint 1 | Service scope, section 0.3 |
+| 9 | Whether `account-service` changes move from Hans to Wayne | Carl | End of Day 3, only if Dev 2's work is slipping | Section 3, load note |

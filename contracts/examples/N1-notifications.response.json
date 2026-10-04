@@ -1,0 +1,17 @@
+{
+  "content": [
+    {
+      "notificationId": 881,
+      "title": "Funds Transfer Sent",
+      "message": "PHP 2500.00 was transferred to account ACC_10000002. Reference: TX-20261003-8F3A21C0. New balance: PHP 47125.00.",
+      "channel": "IN_APP",
+      "isRead": false,
+      "createdAt": "2026-10-03T11:40:01Z"
+    }
+  ],
+  "pageNumber": 0,
+  "pageSize": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "isLast": true
+}
