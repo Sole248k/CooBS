@@ -13,6 +13,7 @@ The current planning set for the CooBS expansion. Older architecture documents a
 | 3b | [`BRANCH_POLICY_PLAN.md`](BRANCH_POLICY_PLAN.md) | Branch model, pull request policies and reviewer-by-path rules for Azure Repos. A plan; not applied yet |
 | 4   | [`../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`](../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md) | Every endpoint, payload, event, enumeration and error code                                                        |
 | 5   | [`../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md`](../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md)       | The bank-to-bank proposal for partner groups                                                                      |
+| 6   | [`../contracts/runtime/RUNTIME_SETTINGS.md`](../contracts/runtime/RUNTIME_SETTINGS.md)                     | Ports, service URL variables, database names and connection variables (handshakes H12 and H13)                    |
 
 ## When two documents disagree
 
@@ -27,7 +28,7 @@ Report the disagreement to Dev 1 so the losing document gets fixed.
 - All of this is a **draft until the we agree on it**. Owners must review their own sections.
 - Diagram code has not been test-rendered in Eraser. The Azure Boards files have not been test-imported.
 - The contract is prose with JSON examples. The examples are exported to `contracts/examples/`, one file each. OpenAPI and AsyncAPI files are still to be written.
-- The contract is not frozen yet: the `contracts-v1` tag has not been created.
+- The contract is frozen at the tag `contracts-v1`.
 
 ## Settled decisions
 
@@ -35,5 +36,7 @@ Report the disagreement to Dev 1 so the losing document gets fixed.
 - Roles follow the v2 workbook: Dev 5 database, Dev 8 DevOps and cloud, no QA role.
 - Cloud: gateway, auth (`identity_db`), customer (channel profile only), transaction, orchestration, risk, notification. On-premises: ledger, account (KYC master), batch, audit.
 - One API gateway: Spring Cloud Gateway. No Azure API Management.
-- Schemas and data are disposable: rebuilt from one seed source, never migrated in place.
+- Schemas and data are disposable: rebuilt from one seed source, never migrated in place. Tables are created by the init scripts under `database/`; services carry no migration files.
+- Development is local first, on one Docker network. Splitting the cloud and on-premises zones into separate networks is deferred to a later phase.
+- A handshake change does not wait for consumers to agree. It is written into `contracts/`, updates the consumers it affects, and is announced.
 - Source control, boards and pipelines are in Azure DevOps.

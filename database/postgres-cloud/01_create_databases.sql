@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- Cloud-side PostgreSQL: one empty database per owning service.
--- Tables are created by each service's Flyway migrations (owned by Dev 5).
+-- Tables are created by the other scripts in this folder (owned by Dev 5). Services carry no migrations.
 -- This folder is separate from database/postgres/, which the audit container mounts whole.
 -- ==============================================================================
 CREATE DATABASE identity_db;      -- auth-service

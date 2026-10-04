@@ -24,12 +24,12 @@ These come from the existing code, not from the plan. Each one changes somebody'
 | R6  | `account-service` reads and writes `BALANCE` directly, including creating the balance row when an account is opened.                                            | `AccountServiceImpl.java:69,98-143`, `AccountClosureServiceImpl.java:51-61`            | Balance belongs to the ledger. Account opening and closure checks must call the ledger. See H3.                                                        | Dev 2, Dev 3        |
 | R7  | `auth-service` login reads `CUSTOMER` and `KYC`; registration writes both.                                                                                      | `CustomerAuthServiceImpl.java:42-80,86,174`                                            | Login moves to`identity_db`. Registration is removed. The KYC name fields leave the login response; React does not use them.                           | Dev 2               |
 | R8  | Three services carry a hard-coded fallback JWT secret, and the values differ.                                                                                   | `application.properties` in `account-service`, `notification-service`, `audit-service` | Remove the fallbacks so a missing secret fails at startup.                                                                                             | Dev 2, Dev 3, Dev 5 |
-| R9  | `notification-service` defaults to an in-memory H2 database with `ddl-auto=update`; Compose points it at the audit PostgreSQL.                                  | `application.properties`, `docker-compose.yml:305`                                     | Repoint to`notification_db`, switch to migrations.                                                                                                     | Dev 3, Dev 5, Dev 8 |
+| R9  | `notification-service` defaults to an in-memory H2 database with `ddl-auto=update`; Compose points it at the audit PostgreSQL.                                  | `application.properties`, `docker-compose.yml:305`                                     | Repoint to `notification_db`; tables come from the init scripts, with `ddl-auto=validate`.                                                                                                     | Dev 3, Dev 5, Dev 8 |
 | R10 | The Kafka error handler retries three times at one second, then logs and drops.                                                                                 | `KafkaConsumerConfig.java:72-80`                                                       | Replaced by exponential backoff and a dead-letter publisher.                                                                                           | Dev 3               |
 | R11 | Event classes are copied by hand between`ledger-service` and `notification-service`.                                                                            | `event/LedgerTransferEvent.java` in both                                               | The AsyncAPI file becomes the single source; a change to one copy needs the other owner told. Both are Dev 3.                                          | Dev 3, Dev 1        |
 | R12 | A fallback customer ID of`1` is used when no principal is present.                                                                                              | `AccountController.java:63`                                                            | Remove; an unauthenticated call must fail.                                                                                                             | Dev 2               |
 | R13 | `ledger-service` has SQL logging on and a startup test runner in main sources.                                                                                  | `application.properties` (`show-sql=true`), `PostgresTestRunner.java`                  | Turn off; remove.                                                                                                                                      | Dev 3               |
-| R14 | One Docker network holds everything; both SQL folders are mounted whole.                                                                                        | `docker-compose.yml:19,44`                                                             | Split into two networks. The cloud PostgreSQL needs its own init folder, or audit scripts run in it. See H13.                                          | Dev 8, Dev 5        |
+| R14 | One Docker network holds everything; both SQL folders are mounted whole.                                                                                        | `docker-compose.yml:19,44`                                                             | The network split is deferred to a later phase; development is local on one network. The cloud PostgreSQL needs its own init folder, or audit scripts run in it. See H13.                                          | Dev 8, Dev 5        |
 | R15 | CI names the six services in two places and builds each in its own step.                                                                                        | `ci.yml:47`, `ci.yml:384-435`                                                          | Both lists need the five new services.                                                                                                                 | Dev 8               |
 | R16 | The demo script registers a customer, then falls back to a user called`customer1` that is not seeded. Test scripts log in as `john_doe`.                        | `scripts/demo_golden_path.ps1:123-126`                                                 | Registration is going away; the script and the seeded user names must agree.                                                                           | Dev 8, Dev 5        |
 
@@ -37,7 +37,7 @@ These come from the existing code, not from the plan. Each one changes somebody'
 
 ## 2. Handshakes: who must agree with whom
 
-A handshake is one agreed interface between developers. The **provider** writes it into `contracts/` and posts in the team channel when it merges; **consumers** build against it. Nobody changes a handshake without telling every consumer listed.
+A handshake is one agreed interface between developers. The **provider** writes it into `contracts/` and posts in the team channel when it merges; **consumers** build against it. Nobody changes a handshake without telling every consumer listed. Telling is required; waiting for agreement is not.
 
 | ID  | What is agreed                                                                                                                                                                                                  | Provider                            | Consumers                                                                             | Agreed by              |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------- | ---------------------- |
@@ -52,8 +52,8 @@ A handshake is one agreed interface between developers. The **provider** writes 
 | H9  | **Customer 360 payload.**                                                                                                                                                                                       | Dev 2                               | Dev 7                                                                                 | Day 2                  |
 | H10 | **Transaction history and category.** Recent transactions per customer; the `category` values.                                                                                                                  | Dev 3                               | Dev 2 (360), Dev 7 (chart)                                                            | Day 2                  |
 | H11 | **Batch API.** Trigger, run status, six step names, `batch.eod.step.completed.v1`.                                                                                                                              | Dev 5                               | Dev 7 (EOD deck), Dev 8 (route)                                                       | Day 3                  |
-| H12 | **Database settings.** Database names, users, environment variable names, init folder layout.                                                                                                                   | Dev 5                               | Dev 8, all backend owners                                                             | Day 2                  |
-| H13 | **Runtime settings.** Ports, service URL variable names, network names, Compose profiles.                                                                                                                       | Dev 8                               | Everyone                                                                              | Day 2                  |
+| H12 | **Database settings.** Database names, users, environment variable names, init folder layout. Written in `contracts/runtime/RUNTIME_SETTINGS.md`.                                                                                                                   | Dev 5                               | Dev 8, all backend owners                                                             | Day 2                  |
+| H13 | **Runtime settings.** Ports, service URL variable names, network names, Compose profiles. Written in `contracts/runtime/RUNTIME_SETTINGS.md`.                                                                                                                       | Dev 8                               | Everyone                                                                              | Day 2                  |
 | H14 | **Gateway routes and CORS.** New paths, the Flutter web origin, the staff-only ledger route.                                                                                                                    | Dev 8                               | Dev 1, 2, 3, 5, 6                                                                     | Day 2                  |
 | H15 | **Fixtures.** Dev 1 exports contract examples; Dev 7 curates them.                                                                                                                                              | Dev 1 → Dev 7                       | Dev 6, Dev 7                                                                          | Day 2                  |
 | H16 | **Inter-bank payload and settlement account.**                                                                                                                                                                  | Dev 4                               | Dev 3 (host service), Dev 5 (GL account), Dev 1                                       | Day 5                  |
@@ -65,7 +65,7 @@ A handshake is one agreed interface between developers. The **provider** writes 
 
 1. One channel thread per handshake, titled with its ID.
 2. The provider posts the contract file path when it merges.
-3. A change request states: field, old value, new value, reason. It needs a thumbs-up from every consumer before merge.
+3. A change notice states: field, old value, new value, reason, whether it is compatible, and every known consumer. It does not need approval before merge. The change itself must update `contracts/` and, where it can, the consumer-side code, tests and fixtures it affects, so no known consumer is left broken.
 4. Daily 15-minute sync: each developer names the handshakes they are waiting on.
 
 ---
@@ -74,7 +74,7 @@ A handshake is one agreed interface between developers. The **provider** writes 
 
 | Order | Pull request                                                                                       | Owner | Why it goes first                                    |
 | ----- | -------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------- |
-| 1     | Scaffold five services, split networks, add cloud PostgreSQL, CI lists, gateway route placeholders | Dev 8 | Everyone else builds inside the folders this creates |
+| 1     | Scaffold five services, add cloud PostgreSQL, CI lists, gateway route placeholders, runtime variables | Dev 8 | Everyone else builds inside the folders this creates |
 | 2     | Rebuilt Oracle schema, cloud databases, seed source                                                | Dev 5 | Entities are written against it                      |
 | 3     | `contracts-v1` tag                                                                                 | Dev 1 | All DTOs follow it                                   |
 | 4     | Flutter core                                                                                       | Dev 6 | Dev 7 builds on it                                   |
@@ -91,7 +91,6 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 | `ledger-service/.../entity/Transaction.java`                           | Dev 3, Dev 4                         | Dev 3 adds`reversesTransactionId` in the H4 pull request, so Dev 4 never opens the file.           |
 | `transaction-service/.../security/config/SecurityConfig.java`          | Dev 3, Dev 4                         | Dev 4 requests one rule for`/api/v1/interbank/**`; Dev 3 adds it.                                  |
 | `database/oracle/02_create_tables.sql`                                 | Dev 5, and requests from Dev 2, 3, 4 | Only Dev 5 edits. Requests list table, column, type.                                               |
-| `backend/<service>/src/main/resources/db/migration/`                   | Dev 5, service owner                 | Dev 5 writes migrations; the owner writes entities to match and reviews.                           |
 | `backend/<service>/src/main/resources/application.properties`          | Service owner, Dev 8                 | The owner edits. Dev 8 supplies variable names (H13) and never edits the file.                     |
 | `docker-compose.yml`, gateway `application.yml`, `azure-pipelines.yml` | Dev 8, requests from all             | Only Dev 8 edits.                                                                                  |
 | `app/pubspec.yaml`, `app/lib/core/**`                                  | Dev 6, requests from Dev 7           | Only Dev 6 edits.                                                                                  |
@@ -132,7 +131,7 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 
 **`auth-service`**
 
-- **CHANGE** `pom.xml`: PostgreSQL driver and Flyway in place of the Oracle driver.
+- **CHANGE** `pom.xml`: PostgreSQL driver in place of the Oracle driver. No Flyway: tables come from `database/postgres-cloud/`.
 - **CHANGE** `application.properties`: datasource to `identity_db`; PostgreSQL dialect.
 - **CHANGE** `entity/User.java` → `AppUser` on table `app_user` with `userType`, `customerId`; `entity/Role.java` on table `role`.
 - **CHANGE** `service/impl/CustomerAuthServiceImpl.java`: login through `AppUserRepository` filtered by `userType = CUSTOMER`; put `customerId` in the `userId` claim (H1); drop the KYC lookup at line 174.
@@ -165,7 +164,7 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 - **REMOVE** `entity/Balance.java`, `BalanceRepository`, `entity/User.java`, `entity/Role.java`, `UserRepository`, `RoleRepository`.
 - **Tests to update:** `AccountServiceTest`, `AccountClosureServiceTest`, `AccountFlagServiceTest`, `CustomerServiceTest`, both controller tests.
 
-**Waits on:** H2 and the `identity_db` migration (Dev 5); H3 (Dev 3); H10 (Dev 3).
+**Waits on:** H2 and the `identity_db` init script (Dev 5); H3 (Dev 3); H10 (Dev 3).
 **Must tell:** Dev 1, 3, 4, 5, 6 if any token claim changes (H1); Dev 7 of the 360 payload (H9); Dev 8 when the gateway customer route can flip.
 **Order inside this package:** `auth-service` first, since nobody can log in until it works.
 
@@ -208,7 +207,7 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 - **CHANGE** `config/KafkaConsumerConfig.java:72-80`: `DeadLetterPublishingRecoverer` with exponential backoff, three attempts.
 - **ADD** producer configuration and `event/NotificationDispatchedEvent.java`; publish after a notification is stored.
 
-**Waits on:** schema and migrations (Dev 5); H8 (Dev 2); H7 event shape (Dev 1); topics created (Dev 8).
+**Waits on:** schema init scripts (Dev 5); H8 (Dev 2); H7 event shape (Dev 1); topics created (Dev 8).
 **Must tell:** Dev 4 the moment H4 merges; Dev 1, 2, 4, 5 of any change to H3; Dev 8 the list of `.DLT` topics (H17).
 **Heaviest file risk in the project:** the H4 extraction. Do it alone, early, with no feature mixed in.
 
@@ -253,9 +252,9 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 - **ADD** `postgres/06_batch_schema.sql`: `batch_run`, `batch_step`, `standing_instruction`, `loan_schedule`; `postgres/07_daily_audit_seal.sql`.
 - **REMOVE** `postgres/05_create_notifications.sql`.
 
-**Migration folders in other owners' services**
+**No migration files in services**
 
-- **ADD** `db/migration/V1__init.sql` in `auth-service`, `customer-service`, `transaction-service`, `orchestration-service`, `notification-service`. The service owner reviews each.
+- Tables for every service are created by the init scripts under `database/`. Services carry no `db/migration/` folder and run with `ddl-auto=validate`. The service owner reviews the script for their database and writes entities to match.
 
 **`batch-service` (new, on-premises)**
 
@@ -308,8 +307,8 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 
 **CHANGE**
 
-- `docker-compose.yml`: two networks (`cloud-net`, `onprem-net`); `postgres-cloud-db` container mounting `database/postgres-cloud/`; five new service blocks; `auth-service` and `notification-service` moved to the cloud network with new datasource variables; new topics and `.DLT` twins in `kafka-init-topics`; profiles per slice with heap caps.
-- `.env.example`: new database, URL and port variables (H13).
+- `docker-compose.yml`: one network for now (the split into `cloud-net` and `onprem-net` is deferred to a later phase); `postgres-cloud-db` container mounting `database/postgres-cloud/`; five new service blocks; `auth-service` and `notification-service` moved to the cloud network with new datasource variables; new topics and `.DLT` twins in `kafka-init-topics`; profiles per slice with heap caps.
+- `.env.example`: new database, URL and port variables (H13). The names are published in `contracts/runtime/RUNTIME_SETTINGS.md`.
 - `backend/pom.xml`: five module lines.
 - **ADD** `azure-pipelines.yml`: the six jobs of `.github/workflows/ci.yml` ported to Azure Pipelines, with the five new services in the service list (line 47 there) and the build steps (lines 384–435 there); Postman shape tests as a gate. The GitHub workflow stops running once the repository lives in Azure DevOps.
 - `backend/api-gateway/src/main/resources/application.yml`: routes for customers, transactions, interbank, batch; ledger route kept and marked staff-only; Flutter origin in CORS.

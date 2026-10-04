@@ -20,7 +20,7 @@ Following the commit `6a4c293` (*"feat: add backend microservices, security conf
 | :--- | :--- | :--- | :--- |
 | **All 11 Microservices** | Scaffolding for `batch-service`, `customer-service`, `orchestration-service`, `risk-engine`, and `transaction-service` with Java 21, Spring Boot, Security, JWT, Dockerfiles, and Maven wrappers. | **PR 1 Completed** (Dev 8) | Section 3 Merge Order #1 |
 | **Database Schemas & Seeds** | `database/next/oracle/`, `database/next/postgres/`, `database/postgres-cloud/` schemas, and `generate_seed.py` (1,192 lines deterministic synthetic generator). | **PR 2 Completed** (Dev 5) | Section 3 Merge Order #2 |
-| **API & Architecture Contracts** | `contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`, its examples exported to `contracts/examples/`, interactive topology visualizer `docs/interactive-architecture.html`. | **Merged; `contracts-v1` tag not yet created** (Dev 1) | Section 3 Merge Order #3 |
+| **API & Architecture Contracts** | `contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`, its examples exported to `contracts/examples/`, interactive topology visualizer `docs/interactive-architecture.html`. | **Frozen at tag `contracts-v1`** (Dev 1) | Section 3 Merge Order #3 |
 | **CI/CD & Local Runtime** | Multi-stage `azure-pipelines.yml` (448 lines) and `docker-compose.yml` (Oracle 23ai, Postgres Cloud & On-Prem, Redis, Kafka KRaft). | **Merged & Active** (Dev 8) | Handshake H13 & H14 |
 
 > **Current Checkpoint:** We have completed **Day 1** and the foundational scaffolding of **Day 2 (PR 1, PR 2, and PR 3)**. The team is now transitioning into **Day 2 Wrap-Up (PR 4: Flutter Shell & PR 5: PostingEngine Extraction)** and **Day 3 (Independent Vertical Slices & Unit Tests)**.
@@ -52,7 +52,7 @@ graph TD
    - Dev 4 contributes to `ledger-service` and `transaction-service` strictly through isolated sub-packages (`com.group2.fse.ledger_service.reversal` and `com.group2.fse.transaction_service.interbank`), preventing collisions with Dev 3's core controllers.
 2. **Single-Editor Gatekeeper Rule:**
    - Root configuration (`docker-compose.yml`, `azure-pipelines.yml`, gateway `application.yml`) $\rightarrow$ **Dev 8 only**.
-   - DDL scripts, migrations, and seed scripts (`database/**`) $\rightarrow$ **Dev 5 only**.
+   - DDL init scripts and seed scripts (`database/**`) $\rightarrow$ **Dev 5 only**.
    - API & Event contracts (`contracts/**`) $\rightarrow$ **Dev 1 only**.
    - Flutter core architecture (`app/pubspec.yaml`, `app/lib/core/**`) $\rightarrow$ **Dev 6 only**.
    - Any developer needing an env variable, port, route, or dependency submits a request to the gatekeeper (file, exact lines, reason).
@@ -205,6 +205,6 @@ graph TD
   ├── Dev 3: Pull dev, extract PostingEngine (H4) in ledger-service -> Unblocks Dev 4
   ├── Dev 6: Push /app Flutter foundational shell (H18) with fixture mode -> Unblocks Dev 7
   ├── Dev 5: Validate generate_seed.py against local Oracle & Postgres containers -> Unblocks Dev 2 & 3 entities
-  ├── Dev 1: Create the contracts-v1 tag. Examples are exported to contracts/examples/; Dev 7 curates them into app/assets/fixtures/ (H15)
+  ├── Dev 1: contracts-v1 is tagged. Examples are in contracts/examples/; Dev 7 curates them into app/assets/fixtures/ (H15)
   └── Dev 2 & 4: Begin Day 3 vertical slices inside customer-service & risk-engine
 ```

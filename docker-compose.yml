@@ -272,6 +272,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8082
+      LEDGER_SERVICE_URL: http://ledger-service:8083
       ORACLE_HOST: oracle-core-db
       ORACLE_PORT: 1521
       ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
@@ -414,7 +415,9 @@ services:
   # ============================================================================
   # EXPANSION SERVICES (profile: expansion)
   # Start with: docker compose --profile app --profile expansion up -d --build
-  # Skeletons only. Each owner adds datasource, Kafka and service URLs as needed.
+  # Datasource, Redis, Kafka and service URL variables are defined here for every service.
+  # The names are handshakes H12 and H13: see contracts/runtime/RUNTIME_SETTINGS.md.
+  # Each owner reads them from the service's own application.properties.
   # ============================================================================
   postgres-cloud-db:
     profiles:
@@ -451,8 +454,22 @@ services:
     container_name: customer-service
     ports:
       - "${CUSTOMER_SERVICE_PORT:-8089}:8089"
+    depends_on:
+      postgres-cloud-db:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8089
+      POSTGRES_CLOUD_HOST: postgres-cloud-db
+      POSTGRES_CLOUD_PORT: 5432
+      POSTGRES_CLOUD_DB: customer_db
+      POSTGRES_CLOUD_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_CLOUD_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis-cache
+      REDIS_PORT: 6379
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
@@ -479,8 +496,27 @@ services:
     container_name: transaction-service
     ports:
       - "${TRANSACTION_SERVICE_PORT:-8090}:8090"
+    depends_on:
+      postgres-cloud-db:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8090
+      POSTGRES_CLOUD_HOST: postgres-cloud-db
+      POSTGRES_CLOUD_PORT: 5432
+      POSTGRES_CLOUD_DB: transaction_db
+      POSTGRES_CLOUD_SCHEMA: txn
+      POSTGRES_CLOUD_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_CLOUD_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis-cache
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka-broker:29092
+      KAFKA_CONSUMER_GROUP: transaction-service-group
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      ORCHESTRATION_SERVICE_URL: http://orchestration-service:8091
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
@@ -507,8 +543,24 @@ services:
     container_name: orchestration-service
     ports:
       - "${ORCHESTRATION_SERVICE_PORT:-8091}:8091"
+    depends_on:
+      postgres-cloud-db:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8091
+      POSTGRES_CLOUD_HOST: postgres-cloud-db
+      POSTGRES_CLOUD_PORT: 5432
+      POSTGRES_CLOUD_DB: transaction_db
+      POSTGRES_CLOUD_SCHEMA: saga
+      POSTGRES_CLOUD_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_CLOUD_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka-broker:29092
+      KAFKA_CONSUMER_GROUP: orchestration-service-group
+      CUSTOMER_SERVICE_URL: http://customer-service:8089
+      RISK_ENGINE_URL: http://risk-engine:8092
+      LEDGER_SERVICE_URL: http://ledger-service:8083
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
@@ -535,8 +587,13 @@ services:
     container_name: risk-engine
     ports:
       - "${RISK_ENGINE_PORT:-8092}:8092"
+    depends_on:
+      redis-cache:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8092
+      REDIS_HOST: redis-cache
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
@@ -563,8 +620,18 @@ services:
     container_name: batch-service
     ports:
       - "${BATCH_SERVICE_PORT:-8093}:8093"
+    depends_on:
+      postgres-audit-db:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8093
+      POSTGRES_HOST: postgres-audit-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-audit_store}
+      POSTGRES_SCHEMA: batch
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      LEDGER_SERVICE_URL: http://ledger-service:8083
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}

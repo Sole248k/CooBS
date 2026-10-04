@@ -74,7 +74,6 @@ One rule per row, each set to **Required**. Roles map to people as follows: Dev 
 | `/backend/risk-engine/*` | Dev 4 |
 | `/backend/core-mock/*` | Dev 4 |
 | `/database/*` | Dev 5 |
-| `/backend/*/src/main/resources/db/migration/*` | Dev 5 |
 | `/backend/batch-service/*` | Dev 5 |
 | `/backend/audit-service/*` | Dev 5 |
 | `/app/pubspec.yaml;/app/lib/core/*;/app/android/*;/app/web/*` | Dev 6 |
@@ -115,7 +114,7 @@ Two packages sit inside another owner's service. Azure Repos adds both reviewers
 - **Size:** aim for under 400 changed lines. Split anything larger.
 - **Title:** `<area>: <what changed>`, for example `ledger: place and release holds`.
 - **Description:** what, why, how it was tested. Link the work item with `AB#<id>`.
-- **Contract changes:** a pull request that changes an agreed payload links the handshake thread and waits for each consumer's approval.
+- **Contract changes:** a pull request that changes an agreed payload updates `contracts/` in the same change, lists every known consumer and what was updated for them, and links the handshake thread. It does not wait for each consumer's approval; a silent change is what is not allowed.
 - **Shared files:** requested from the single editor; do not include them in a feature pull request.
 - **Review time:** a reviewer responds within two working hours during the sprint. After that the author pings the pairing partner.
 - **Template:** move `.github/pull_request_template.md` to `.azuredevops/pull_request_template.md` so Azure Repos picks it up.

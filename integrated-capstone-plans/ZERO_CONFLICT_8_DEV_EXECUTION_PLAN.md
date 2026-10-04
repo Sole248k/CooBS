@@ -237,7 +237,7 @@ graph TB
 | Shared files                                                                                                                                                                                | Single editor |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | `docker-compose.yml`, `.env.example`, every `Dockerfile`, `backend/pom.xml`, `azure-pipelines.yml`, `.azuredevops/**`, `infra/**`, `monitoring/**`, `scripts/**`, gateway `application.yml` | **Dev 8**     |
-| `database/**` and every `db/migration/` folder                                                                                                                                              | **Dev 5**     |
+| `database/**`                                                                                                                                                                               | **Dev 5**     |
 | `contracts/**`, `README.md`                                                                                                                                                                 | **Dev 1**     |
 | `app/pubspec.yaml`, `app/lib/core/**`, platform folders                                                                                                                                     | **Dev 6**     |
 | `app/assets/fixtures/**`                                                                                                                                                                    | **Dev 7**     |
@@ -268,7 +268,7 @@ Anyone who needs a port, environment variable, route, table or package requests 
 | Dev 2 | Identity, customer and account                | `/backend/auth-service`, `/backend/customer-service`, `/backend/account-service`                                                      | Owns identity, customer and account entities    |
 | Dev 3 | Transactions, holds, events, DLQ              | `/backend/transaction-service` (except `interbank/`), `/backend/ledger-service` (except `reversal/`), `/backend/notification-service` | Owns the balance path                           |
 | Dev 4 | Risk, core mock, reversals, inter-bank        | `/backend/risk-engine`, `/backend/core-mock`, `ledger-service/**/reversal/`, `transaction-service/**/interbank/`                      | Works inside Dev 3's services by package only   |
-| Dev 5 | Database, EOD batch, audit seal               | `/database`, every `db/migration/`, `/backend/batch-service`, `/backend/audit-service`                                                | Sole schema editor                              |
+| Dev 5 | Database, EOD batch, audit seal               | `/database`, `/backend/batch-service`, `/backend/audit-service`                                                | Sole schema editor                              |
 | Dev 6 | Flutter foundation and stepper                | `/app/lib/core`, `/app/pubspec.yaml`, `/app/lib/features/monitoring`                                                                  | Sole editor of Flutter core; frozen after Day 2 |
 | Dev 7 | Flutter feature screens and KYC UI            | `/app/lib/features/{customer360,accounts,transfer,batch,kyc}`, `/app/assets/fixtures`                                                 | Feature folders only                            |
 | Dev 8 | DevOps and cloud                              | `/infra`, Dockerfiles, Compose, `azure-pipelines.yml`, `/.azuredevops`, `/monitoring`, `/scripts`, `/backend/api-gateway`             | Sole editor of root and pipeline config         |
@@ -315,7 +315,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
   - **Dev 2:** Scaffold `customer-service` (8089) APIs and DTOs. Map `auth-service` entities to `identity_db` (`app_user`, `role`).
   - **Dev 3:** Scaffold `transaction-service` (8090): API, event schema, validation shell.
   - **Dev 4:** Scaffold `risk-engine` (8092) with deterministic mock scoring; start the core mock.
-  - **Dev 5:** Create schemas, constraints and migrations for all four cloud databases and the on-premises `batch` schema, including the `HOLD` and `OUTBOX` tables and internal GL accounts. Rebuild the Oracle schema without `USER`, `ROLE` and the credential columns on `CUSTOMER`; no in-place migration is needed. Move `notification-service` off `ddl-auto=update`. Hand connection settings to Dev 8.
+  - **Dev 5:** Create schemas and constraints, as init scripts under `database/`, for all four cloud databases and the on-premises `batch` schema, including the `HOLD` and `OUTBOX` tables and internal GL accounts. Rebuild the Oracle schema without `USER`, `ROLE` and the credential columns on `CUSTOMER`; no in-place migration is needed. Move `notification-service` off `ddl-auto=update`. Hand connection settings to Dev 8.
   - **Dev 6:** Flutter shell, routing, theme, API client with fixture mode. **Freeze core by agreement.**
   - **Dev 7:** Isolated screens on JSON fixtures.
   - **Dev 8:** Scaffold all five new services in one commit (directory, `pom.xml`, Dockerfile, Compose block, CI entry, gateway route). Add the Flutter web origin to gateway CORS.
@@ -345,7 +345,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
   - **Dev 2:** Flip the gateway customer route to `customer-service`; start the Customer 360 endpoint, reading the KYC master from `account-service`.
   - **Dev 3:** `transaction-service` hands off to the saga; capture and release in the ledger.
   - **Dev 4:** Risk endpoint live; core mock switchable by configuration.
-  - **Dev 5:** Fix query and migration issues; verify integrity constraints; scaffold `batch-service`.
+  - **Dev 5:** Fix query and schema issues; verify integrity constraints; scaffold `batch-service`.
   - **Dev 6:** Connect the client to live endpoints with fixture fallback; stepper on the live timeline.
   - **Dev 7:** Wire customer and account screens; loading, empty and error states.
   - **Dev 8:** Deploy the shared dev environment from CI; routing, environment variables, logging.
@@ -401,7 +401,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
 ### Day 8: Feature Freeze, Data Reset & Timed Rehearsal
 
 - **ALL DEVS:** **Hard feature freeze.** P1 and P2 fixes only, each reviewed by Dev 1.
-- **Dev 5:** Final migration check; demo data reset script; database backup.
+- **Dev 5:** Final schema and seed check; demo data reset script; database backup.
 - **Dev 8:** Tag and deploy the release; freeze the pipeline; prepare the fallback local stack.
 - **Dev 1 & Dev 6:** Timed rehearsal of the presentation and live demo.
 - **Dev 7:** Slides, backup screenshots and screen recording.
@@ -510,7 +510,7 @@ The middle band is a decline because no manual review queue is in scope. A timeo
 - The cloud never stores the KYC master. `customer-service` fetches it on demand for Customer 360 and may cache it in Redis for a few minutes only.
 - Oracle `CUSTOMER` keeps `customer_id` and `kyc_status`; its `username`, `password_hash` and `email` columns move to `identity_db`.
 - Oracle no longer has `USER` or `ROLE`. Columns such as `approved_by` store the `user_id` from `identity_db` as a plain number.
-- Schemas and data are disposable: Dev 5 rebuilds every database from the seed source, so there is no ordered migration to manage.
+- Schemas and data are disposable: Dev 5 rebuilds every database from the init scripts and seed source under `database/`. Services carry no migration files and run with `ddl-auto=validate`.
 - All stores are seeded from one source so `user_id` and `customer_id` match everywhere.
 - A breach of the cloud side yields password hashes and display names, not identity records or balances.
 
@@ -548,12 +548,11 @@ Each of these is stated as open somewhere in the planning set. Record the outcom
 
 | # | Decision | Owner | Needed by | Source |
 | --- | --- | --- | --- | --- |
-| 1 | Whether the on-premises zone is a separate network in the demo. Compose still has one network; the work packages call for `cloud-net` and `onprem-net` | Jared | Day 4 | Section 1.2; work packages R14, H13 |
-| 2 | Kafka on AKS or Azure Event Hubs | Jared | Day 4 | Section 1.2 |
-| 3 | Azure cost estimate, replacing the removed $96 figure | Jared | Day 4 | Section 6 |
-| 4 | Whether a Microsoft-hosted parallel job is available, or a self-hosted agent is needed | Jared | Before build validation is switched on | Branch policy plan, section 7 |
-| 5 | Squash-only merges on `dev`, or rebase allowed as well | Carl | Before branch policies are applied | Branch policy plan, section 9 |
-| 6 | Which imported branches to delete | Jared, with each branch's author | Day 3 | Branch policy plan, section 9 |
-| 7 | Whether `batch.eod.step.completed.v1` is published through the ledger outbox or by `batch-service` itself | April and Wayne | Day 4 (handshake H11) | Work packages, Dev 5 |
-| 8 | Whether to build the optional email MFA through Resend | Whole team; Hans builds it | After Checkpoint 1 | Service scope, section 0.3 |
-| 9 | Whether `account-service` changes move from Hans to Wayne | Carl | End of Day 3, only if Dev 2's work is slipping | Section 3, load note |
+| 1 | Kafka on AKS or Azure Event Hubs | Jared | Day 4 | Section 1.2 |
+| 2 | Azure cost estimate, replacing the removed $96 figure | Jared | Day 4 | Section 6 |
+| 3 | Whether a Microsoft-hosted parallel job is available, or a self-hosted agent is needed | Jared | Before build validation is switched on | Branch policy plan, section 7 |
+| 4 | Squash-only merges on `dev`, or rebase allowed as well | Carl | Before branch policies are applied | Branch policy plan, section 9 |
+| 5 | Which imported branches to delete | Jared, with each branch's author | Day 3 | Branch policy plan, section 9 |
+| 6 | Whether `batch.eod.step.completed.v1` is published through the ledger outbox or by `batch-service` itself | April and Wayne | Day 4 (handshake H11) | Work packages, Dev 5 |
+| 7 | Whether to build the optional email MFA through Resend | Whole team; Hans builds it | After Checkpoint 1 | Service scope, section 0.3 |
+| 8 | Whether `account-service` changes move from Hans to Wayne | Carl | End of Day 3, only if Dev 2's work is slipping | Section 3, load note |
