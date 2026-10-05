@@ -1,0 +1,33 @@
+package com.group2.fse.ledger_service.dto;
+
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+import java.math.BigDecimal;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class PlaceHoldRequestDto {
+
+    private String transactionId;
+
+    @NotBlank(message = "Reference number is required")
+    private String referenceNo;
+
+    @NotNull(message = "Account ID is required")
+    private Long accountId;
+
+    @NotNull(message = "Amount is required")
+    @DecimalMin(value = "0.01", message = "Amount must be strictly positive")
+    private BigDecimal amount;
+
+    @Builder.Default
+    private String currency = "PHP";
+
+    private Long actorId;
+}

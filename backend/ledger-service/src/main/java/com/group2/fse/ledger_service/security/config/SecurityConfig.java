@@ -65,6 +65,7 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers("/internal/v1/**").hasRole("SERVICE")
                         .requestMatchers("/api/v1/ledger/**").authenticated()
                         .anyRequest().authenticated()
                 )
