@@ -275,7 +275,6 @@ CREATE TABLE LEDGER_MUTATION_AUDIT (
     transaction_type VARCHAR2(30) NOT NULL,
     amount NUMBER(18, 4) NOT NULL,
     old_balance NUMBER(18, 4) NOT NULL,
-    old_ibalanance NUMBER(18, 4) GENERATED ALWAYS AS (old_balance + 0) VIRTUAL,
     new_balance NUMBER(18, 4) NOT NULL,
     previous_hash VARCHAR2(64) NOT NULL,
     current_hash VARCHAR2(64) NOT NULL UNIQUE,
