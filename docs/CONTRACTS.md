@@ -129,7 +129,7 @@ All external client traffic enters strictly via the **Spring Cloud Gateway Rever
 | Service | Container Port | Gateway Base Route | Ingress Type | Primary Domain Responsibility |
 | :--- | :---: | :--- | :--- | :--- |
 | **`api-gateway`** | `8080` | `/api/v1/**` | Public Edge | SSL Termination, Rate Limiting, Route Forwarding |
-| **`mobile-bff`** | `8093` | `/api/v1/mobile/**` | Secured Edge | Mobile App Orchestration Middleware, Screen Aggregation & 3-Stage Stepper Adapter |
+| **`mobile-bff`** | `8094` | `/api/v1/mobile/**` | Secured Edge | Mobile App Orchestration Middleware, Screen Aggregation & 3-Stage Stepper Adapter |
 | **`auth-service`** | `8081` | `/api/v1/auth/**` | Public / Edge | JWT Authentication, Key Distribution, Session Revocation |
 | **`customer-service`**| `8089` | `/api/v1/customers/**` | Secured Edge | Member Profile, Demographic KYC Submissions & Updates |
 | **`account-service`** | `8082` | `/api/v1/accounts/**` | Secured Edge | Account Lifecycle, Flags, Cached Balance Lookups |

@@ -1,7 +1,7 @@
 # Flutter Foundation Architecture & API Strategy Specification
 
 **Project:** Capstone 2: Omnichannel Real-Time Remittance & Fraud Screening  
-**Component:** Mobile Applications Layer (Flutter Retail Member App targeting Android & Web Dev)  
+**Component:** Mobile Applications Layer (Flutter Retail Member App strictly targeting Native Android & iOS)  
 **Role / Assignee:** Neo: Dev 6 (Flutter Foundation)  
 **Track:** Mobile Applications Track (Integrated with React Web Lead & DevSecOps Lead)  
 **Reference Document:** `int.pdf` (Sections 1.B, 2, 3), `docs/CONTRACTS.md`, & `docs/API_ENDPOINT_CATALOG.md`  
@@ -13,14 +13,15 @@
 The **Mobile Applications Layer (`app/`)** provides the cross-platform omnichannel interface for retail banking members to perform real-time peer-to-peer (P2P) remittances, query account balances, and view transaction status progress. 
 
 In the CooBS Omnichannel Architecture:
-* **React Web Frontend (`http://localhost:3000` / `:5173`):** Dedicated to Branch Staff, Tellers, and Administrators for operational account management and 11-stage deep transaction audit. Interfaces via Spring Cloud Gateway CORS.
-* **Flutter Mobile App (`app/` — Android `10.0.2.2:8080`):** Dedicated to Retail Cooperative Members for fast, seamless, and resilient mobile banking. Interfaces directly via native OS network sockets, bypassing browser Same-Origin Policy (zero CORS enforcement).
+* **React Web Frontend (`http://localhost:3000` / `:5173`):** The **sole web frontend** for the entire platform, dedicated to Branch Staff, Tellers, and Administrators for operational account management and 11-stage deep transaction audit. Interfaces via Spring Cloud Gateway CORS.
+* **Flutter Mobile App (`app/` — Android `10.0.2.2:8080`):** Dedicated **strictly to native mobile devices** (Android and iOS) for fast, seamless, and resilient mobile banking. **Flutter Web is not used or deployed** since React is the platform's exclusive web portal. The native Flutter mobile client interfaces directly via native OS network sockets, completely bypassing browser Same-Origin Policy (zero CORS enforcement). Routes `/api/v1/mobile/**` through **`mobile-bff` (:8094)** for multi-service composite screen aggregation and 3-stage customer milestones.
 
 To satisfy **Neo's Deliverables** (`docs/TEAM_STATUS.md`):
 1. **Push Flutter Core to `app/`:** Routing (`app_router.dart`), Theme (`app_theme.dart`), API client with Fixture Mode (`fixture_api_client.dart`), and Dart models built from `contracts/examples/`.
-2. **Fixed Port / Gateway CORS Alignment (H14):** Fixed port `8088` for optional Chrome development (`flutter run -d chrome --web-port=8088`) ensuring zero collision with React on `:3000`.
-3. **Stepper Visual Experience:** The **3-Stage Customer View** (`T3-timeline-customer.response.json`) in the mobile remittance receipt view, complemented by the **11-Stage Staff Stepper** in the teller portal.
-4. **Air-Gapped Fixture Loading (H15):** Curating `contracts/examples/` into `app/assets/fixtures/` for zero-backend offline UI testing.
+2. **Native Mobile Ingress Alignment:** Direct native OS network socket communication targeting Android Emulator loopback (`10.0.2.2:8080`) or physical device LAN IP (`adb reverse tcp:8080 tcp:8080`), with zero browser CORS overhead.
+3. **Mobile BFF Middleware Integration:** Orchestrates `mobile-bff` (`:8094`) to collapse 11 technical backend stages into the **3-Stage Customer View** (`T3-timeline-customer.response.json` / `M2`) and provide composite dashboard aggregation (`M1`).
+4. **Stepper Visual Experience:** The **3-Stage Customer View** in the mobile remittance receipt view, complemented by the **11-Stage Staff Stepper** in the teller portal.
+5. **Air-Gapped Fixture Loading (H15):** Curating `contracts/examples/` into `app/assets/fixtures/` for zero-backend offline UI testing.
 
 ---
 
@@ -82,10 +83,11 @@ flowchart TB
     classDef flutterLogic fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
     classDef flutterResilience fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#b45309;
     classDef edgeGateway fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#b91c1c;
+    classDef bffMiddleware fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#854d0e;
     classDef microservice fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#6d28d9;
     classDef datastore fill:#ffedd5,stroke:#ea580c,stroke-width:2px,color:#c2410c;
 
-    subgraph TIER_FLUTTER ["Tier 1: Cross-Platform Flutter Client (Android & Web)"]
+    subgraph TIER_FLUTTER ["Tier 1: Native Mobile Flutter Client (Android & iOS)"]
         UI_REMITTANCE["RemittanceFormScreen<br/>- P2P Transfer Inputs<br/>- Real-time Balance Validation<br/>- Idempotent Submit"]:::flutterUI
         UI_DASHBOARD["Dashboard & Balance View<br/>- Account Selector<br/>- Live / Cached Balances"]:::flutterUI
         UI_CIRCUIT["ServiceUnavailableView<br/>(Fail-Fast Screen)<br/>- 'Service Temporarily Unavailable'<br/>- Cooldown Countdown & Retry"]:::flutterResilience
@@ -99,15 +101,20 @@ flowchart TB
 
     subgraph TIER_GATEWAY ["Tier 2: Spring Cloud Gateway Reverse Proxy (:8080)"]
         GW["API Gateway Ingress Proxy"]:::edgeGateway
-        GW_RATELIMIT["Redis Token-Bucket Rate Limiter<br/>(10 req/s Auth, 20 req/s Ledger)"]:::edgeGateway
+        GW_RATELIMIT["Redis Token-Bucket Rate Limiter<br/>(10 req/s Auth, 20 req/s Ledger, 50 req/s Mobile)"]:::edgeGateway
         GW_AUTH["Token Blacklist Filter (jti)"]:::edgeGateway
     end
 
-    subgraph TIER_SERVICES ["Tier 3: Backend Microservices Tier"]
-        SRV_AUTH["auth-service (:8081)"]:::microservice
+    subgraph TIER_BFF ["Tier 2.5: Mobile Backend-for-Frontend (BFF) Middleware (:8094)"]
+        BFF["mobile-bff Application Middleware<br/>- Multi-Service Screen Aggregation (M1)<br/>- 3-Stage Stepper Adapter (M2)<br/>- Remittance Relay (M3)"]:::bffMiddleware
+    end
+
+    subgraph TIER_SERVICES ["Tier 3: Backend Microservices & Domain Tier"]
+        SRV_AUTH["auth-service (:8081) / customer-service (:8089)"]:::microservice
         SRV_ACCT["account-service (:8082)"]:::microservice
-        SRV_LEDGER["ledger-service (:8083)<br/>Double-Entry Engine"]:::microservice
-        SRV_RISK["Async Risk Engine (Python)<br/>Score &lt;= 0.85; SLA &lt;= 200ms"]:::microservice
+        SRV_TX["transaction-service (:8090) / ledger-service (:8083)<br/>Double-Entry Engine"]:::microservice
+        SRV_NOTIF["notification-service (:8084)"]:::microservice
+        SRV_RISK["Async Risk Engine (Python :8092)<br/>Score &lt;= 0.85; SLA &lt;= 200ms"]:::microservice
     end
 
     UI_REMITTANCE --> API_INTERFACE
@@ -117,15 +124,20 @@ flowchart TB
 
     CLIENT_LIVE <--> CB
     CB -.->|"Trips on 3 Failures"| UI_CIRCUIT
-    CLIENT_LIVE ==>|"HTTP Loopback (10.0.2.2:8080 / 127.0.0.1:8080)<br/>Authorization, Idempotency-Key, X-Correlation-ID"| GW
+    CLIENT_LIVE ==>|"Native OS Socket (10.0.2.2:8080 / LAN IP:8080)<br/>Authorization, Idempotency-Key, X-Correlation-ID"| GW
 
     GW <--> GW_RATELIMIT
     GW <--> GW_AUTH
-    GW --> SRV_AUTH
-    GW --> SRV_ACCT
-    GW --> SRV_LEDGER
 
-    SRV_LEDGER ==>|"Async Fraud Check"| SRV_RISK
+    GW ==>|"Route: /api/v1/mobile/**"| BFF
+    GW -.->|"Route: /api/v1/auth/**"| SRV_AUTH
+
+    BFF -->|"M1: Member KYC Profile"| SRV_AUTH
+    BFF -->|"M1: Account Balances"| SRV_ACCT
+    BFF -->|"M2: Timeline & M3: Remittance"| SRV_TX
+    BFF -->|"M1: Unread Notifications"| SRV_NOTIF
+
+    SRV_TX ==>|"Async Fraud Check"| SRV_RISK
 ```
 
 ---

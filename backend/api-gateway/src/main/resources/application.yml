@@ -177,6 +177,19 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
+        # 9. Mobile BFF Routes (Screen Aggregation & Stepper Adapter)
+        - id: mobile-bff-route
+          uri: ${MOBILE_BFF_URL:http://localhost:8094}
+          predicates:
+            - Path=/api/v1/mobile/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
         # NOTE: /api/v1/customers/** still points at account-service. Dev 2 switches it to
         # ${CUSTOMER_SERVICE_URL:http://localhost:8089} when customer-service serves it (Day 4).
 
