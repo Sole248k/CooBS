@@ -2,14 +2,10 @@ package com.group2.fse.auth_service.service.impl;
 
 import com.group2.fse.auth_service.dto.AuthResponseDto;
 import com.group2.fse.auth_service.dto.UserProfileDto;
-import com.group2.fse.auth_service.entity.Customer;
-import com.group2.fse.auth_service.entity.Kyc;
-import com.group2.fse.auth_service.entity.User;
+import com.group2.fse.auth_service.entity.AppUser;
 import com.group2.fse.auth_service.exception.InvalidTokenException;
 import com.group2.fse.auth_service.exception.UserNotFoundException;
-import com.group2.fse.auth_service.repository.CustomerRepository;
-import com.group2.fse.auth_service.repository.KycRepository;
-import com.group2.fse.auth_service.repository.UserRepository;
+import com.group2.fse.auth_service.repository.AppUserRepository;
 import com.group2.fse.auth_service.security.blacklist.TokenBlacklistService;
 import com.group2.fse.auth_service.security.jwt.JwtTokenProvider;
 import com.group2.fse.auth_service.security.session.RedisRefreshTokenService;
@@ -30,9 +26,7 @@ public class TokenServiceImpl implements TokenService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisRefreshTokenService refreshTokenService;
     private final TokenBlacklistService tokenBlacklistService;
-    private final CustomerRepository customerRepository;
-    private final KycRepository kycRepository;
-    private final UserRepository userRepository;
+    private final AppUserRepository appUserRepository;
 
     @Override
     public AuthResponseDto refreshAccessToken(String refreshToken) {
@@ -91,42 +85,23 @@ public class TokenServiceImpl implements TokenService {
         }
 
         String username = jwtTokenProvider.getUsername(jwt);
-        String userType = jwtTokenProvider.getUserType(jwt);
         List<String> roles = jwtTokenProvider.getRoles(jwt);
-        Long userId = jwtTokenProvider.getUserId(jwt);
 
-        if ("STAFF".equalsIgnoreCase(userType)) {
-            User staff = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new UserNotFoundException("Staff user not found: " + username));
+        AppUser appUser = appUserRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
 
-            return UserProfileDto.builder()
-                    .userId(staff.getUserId())
-                    .username(staff.getUsername())
-                    .email(staff.getEmail())
-                    .roles(roles)
-                    .userType("STAFF")
-                    .status(staff.getStatus())
-                    .createdAt(staff.getCreatedAt())
-                    .build();
-        } else {
-            Customer customer = customerRepository.findByUsername(username)
-                    .orElseThrow(() -> new UserNotFoundException("Customer user not found: " + username));
+        Long resolvedUserId = "CUSTOMER".equalsIgnoreCase(appUser.getUserType())
+                ? appUser.getCustomerId()
+                : appUser.getUserId();
 
-            Kyc kyc = kycRepository.findByCustomerCustomerId(customer.getCustomerId()).orElse(null);
-
-            return UserProfileDto.builder()
-                    .userId(customer.getCustomerId())
-                    .username(customer.getUsername())
-                    .email(customer.getEmail())
-                    .roles(roles)
-                    .userType("CUSTOMER")
-                    .status("ACTIVE")
-                    .kycStatus(customer.getKycStatus())
-                    .firstName(kyc != null ? kyc.getFirstName() : null)
-                    .lastName(kyc != null ? kyc.getLastName() : null)
-                    .mobileNumber(kyc != null ? kyc.getMobileNumber() : null)
-                    .createdAt(customer.getCreatedAt())
-                    .build();
-        }
+        return UserProfileDto.builder()
+                .userId(resolvedUserId)
+                .username(appUser.getUsername())
+                .email(appUser.getEmail())
+                .roles(roles)
+                .userType(appUser.getUserType())
+                .status(appUser.getStatus())
+                .createdAt(appUser.getCreatedAt())
+                .build();
     }
 }
