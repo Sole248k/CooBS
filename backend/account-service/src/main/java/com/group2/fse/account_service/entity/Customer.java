@@ -20,18 +20,9 @@ public class Customer {
     @Column(name = "customer_id")
     private Long customerId;
 
-    @Column(name = "username", length = 100, nullable = false, unique = true)
-    private String username;
-
-    @Column(name = "password_hash", length = 255, nullable = false)
-    private String passwordHash;
-
-    @Column(name = "email", length = 150, nullable = false, unique = true)
-    private String email;
-
     @Builder.Default
     @Column(name = "kyc_status", length = 20, nullable = false)
-    private String kycStatus = "PENDING";
+    private String kycStatus = "VERIFIED";
 
     @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -40,13 +31,22 @@ public class Customer {
     @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Kyc kyc;
 
+    public String getDisplayName() {
+        if (kyc != null && kyc.getFirstName() != null) {
+            String mid = (kyc.getMiddleInitial() != null && !kyc.getMiddleInitial().isBlank()) 
+                    ? kyc.getMiddleInitial() + " " : "";
+            return (kyc.getFirstName() + " " + mid + (kyc.getLastName() != null ? kyc.getLastName() : "")).trim();
+        }
+        return "Customer #" + customerId;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
         if (kycStatus == null) {
-            kycStatus = "PENDING";
+            kycStatus = "VERIFIED";
         }
     }
 
@@ -60,6 +60,6 @@ public class Customer {
 
     @Override
     public int hashCode() {
-        return getClass().hashCode();
+        return Objects.hash(customerId);
     }
 }
