@@ -31,7 +31,7 @@ public class BatchController {
      * Roles: ADMIN
      */
     @PostMapping("/eod/trigger")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<EodTriggerResponseDto> triggerEod(
             @RequestBody(required = false) EodTriggerRequestDto request,
             Authentication authentication) {
@@ -46,7 +46,7 @@ public class BatchController {
      * Roles: ADMIN, TELLER
      */
     @GetMapping("/eod/runs/{batchRunId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'ROLE_ADMIN', 'ROLE_TELLER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER')")
     public ResponseEntity<BatchRunDetailsResponseDto> getBatchRun(@PathVariable Long batchRunId) {
         log.info("REST request to get batch run details for batchRunId={}", batchRunId);
         BatchRunDetailsResponseDto response = batchService.getBatchRun(batchRunId);
@@ -58,7 +58,7 @@ public class BatchController {
      * Roles: ADMIN, TELLER
      */
     @GetMapping("/eod/runs")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER', 'ROLE_ADMIN', 'ROLE_TELLER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TELLER')")
     public ResponseEntity<List<BatchRunDetailsResponseDto>> listBatchRuns() {
         log.info("REST request to list all batch runs");
         List<BatchRunDetailsResponseDto> response = batchService.listBatchRuns();
