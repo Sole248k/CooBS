@@ -62,10 +62,12 @@ CREATE TABLE IF NOT EXISTS txn.interbank_message (
 CREATE TABLE IF NOT EXISTS saga.saga_instance (
     saga_id UUID PRIMARY KEY,
     transaction_id UUID NOT NULL UNIQUE,
+    reference_no VARCHAR(40),
     state VARCHAR(30) NOT NULL,
     hold_id BIGINT,
     risk_decision VARCHAR(20),
     failure_code VARCHAR(60),
+    payload TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -429,39 +431,39 @@ VALUES ('5d2f0c5e-0c1b-4f6b-9a1e-000000000001', 'INBOUND', 'BANKB', 'd5651f01-a5
 INSERT INTO txn.interbank_message (message_id, direction, partner_bank_code, transaction_id, counterparty_account, counterparty_name, status, created_at)
 VALUES ('5d2f0c5e-0c1b-4f6b-9a1e-000000000002', 'OUTBOUND', 'BANKB', 'c096d937-ad1a-58a0-85b2-3fbce5ca292d', '1000-2000-3000', 'Ana Lim', 'ACCEPTED', now() - interval '1840 minutes');
 
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('c24e130f-da31-5dec-9ab6-0152158e148a', '326f4233-136d-56a5-9382-86b9be1f3498', 'COMPLETED', 2, 'APPROVE', NULL, now() - interval '36599 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('97f47e1d-c240-55ba-938f-1af059432f1f', '591aa362-f042-51b4-a1dc-9800eecaf52d', 'COMPLETED', 3, 'APPROVE', NULL, now() - interval '29339 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('e3f57605-f071-51f4-b3ae-f6df1b26481d', '1211e0fd-5b1d-5618-8eb2-cbbcc66eb2cb', 'COMPLETED', 4, 'APPROVE', NULL, now() - interval '22079 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('ad799ae3-1e79-5e83-8c73-04aee409b00e', '24a3b722-fbc3-5a98-a132-6ad3720ed7f3', 'COMPLETED', NULL, NULL, NULL, now() - interval '14459 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('0ac7c623-9bbb-5eaf-a50b-7c323ec1b04a', 'd3789485-6204-5e3a-a5a9-d275ee583145', 'COMPLETED', 5, 'APPROVE', NULL, now() - interval '10499 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('e29c9c55-03d3-5ac2-9e22-6249070897e1', '7099af05-b179-5c7b-b4cc-f25bb2cb7ba3', 'COMPLETED', NULL, NULL, NULL, now() - interval '8689 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('6b588e5e-d04e-5f0f-908b-802ea6043281', 'b9861d6a-6325-5754-a5ec-f36cf66595bf', 'COMPLETED', NULL, NULL, NULL, now() - interval '8688 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('e724efba-a3c2-5572-9eba-29cacb03da9a', 'dcb6a119-10d9-547b-bb06-c816fc78260f', 'COMPLETED', 6, 'APPROVE', NULL, now() - interval '7499 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('e0aed7d9-80b9-5862-85be-fe0086287beb', '06f41c04-8872-55eb-bbfb-536f511bc5f3', 'COMPLETED', NULL, NULL, NULL, now() - interval '5959 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('6bbee2c1-f20a-5798-ad6d-73019651729f', 'eb766f16-c0b8-5019-9841-d1a7d9d1da2a', 'FAILED', NULL, 'DECLINE', 'RISK_DECLINED', now() - interval '4559 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('9d683b5d-de81-55f2-8847-047f48fc49d8', '943391c0-541a-561b-a4b1-f043f06ff4a6', 'FAILED', NULL, 'DECLINE', 'RISK_DECLINED', now() - interval '4499 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('f8c64bee-736c-5c04-8708-4f02f59ed9f5', '3fb4950d-709d-5f0e-be06-b2eddd3b0f91', 'FAILED', NULL, 'APPROVE', 'INSUFFICIENT_FUNDS', now() - interval '3239 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('88b86df2-4415-51d6-84b4-fab0b7d60c9c', '1ea9447f-53fd-5132-b53b-8fccae77cb81', 'FAILED', NULL, 'DECLINE', 'LIMIT_EXCEEDED', now() - interval '2999 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('78e4d295-32f0-5ae2-aa5d-962d0634e6cb', 'd5651f01-a58b-5d3e-ab64-9a15aafaba89', 'COMPLETED', NULL, NULL, NULL, now() - interval '1939 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('ca07851e-e80c-549b-840c-95c0bf6c38b9', 'c096d937-ad1a-58a0-85b2-3fbce5ca292d', 'COMPLETED', 7, 'APPROVE', NULL, now() - interval '1839 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('dcf0582e-7c4f-51d3-a7d1-e518a7277320', 'd319be27-186a-5b44-b5d5-84f15b3a3256', 'COMPLETED', NULL, 'APPROVE', NULL, now() - interval '1529 minutes');
-INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)
-VALUES ('0e331198-138c-5fc8-bd6d-aea929b52627', '0406cded-d5e7-5805-995d-acaef3887283', 'FUNDS_RESERVED', 1, 'APPROVE', NULL, now() - interval '35 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('c24e130f-da31-5dec-9ab6-0152158e148a', '326f4233-136d-56a5-9382-86b9be1f3498', 'TX-SEED-0001', 'COMPLETED', 2, 'APPROVE', NULL, NULL, now() - interval '36599 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('97f47e1d-c240-55ba-938f-1af059432f1f', '591aa362-f042-51b4-a1dc-9800eecaf52d', 'TX-SEED-0002', 'COMPLETED', 3, 'APPROVE', NULL, NULL, now() - interval '29339 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('e3f57605-f071-51f4-b3ae-f6df1b26481d', '1211e0fd-5b1d-5618-8eb2-cbbcc66eb2cb', 'TX-SEED-0003', 'COMPLETED', 4, 'APPROVE', NULL, NULL, now() - interval '22079 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('ad799ae3-1e79-5e83-8c73-04aee409b00e', '24a3b722-fbc3-5a98-a132-6ad3720ed7f3', 'EOD-SEED-LOAN-0001', 'COMPLETED', NULL, NULL, NULL, NULL, now() - interval '14459 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('0ac7c623-9bbb-5eaf-a50b-7c323ec1b04a', 'd3789485-6204-5e3a-a5a9-d275ee583145', 'TX-SEED-0004', 'COMPLETED', 5, 'APPROVE', NULL, NULL, now() - interval '10499 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('e29c9c55-03d3-5ac2-9e22-6249070897e1', '7099af05-b179-5c7b-b4cc-f25bb2cb7ba3', 'EOD-SEED-INT-0001', 'COMPLETED', NULL, NULL, NULL, NULL, now() - interval '8689 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('6b588e5e-d04e-5f0f-908b-802ea6043281', 'b9861d6a-6325-5754-a5ec-f36cf66595bf', 'EOD-SEED-FEE-0001', 'COMPLETED', NULL, NULL, NULL, NULL, now() - interval '8688 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('e724efba-a3c2-5572-9eba-29cacb03da9a', 'dcb6a119-10d9-547b-bb06-c816fc78260f', 'TX-SEED-0005', 'COMPLETED', 6, 'APPROVE', NULL, NULL, now() - interval '7499 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('e0aed7d9-80b9-5862-85be-fe0086287beb', '06f41c04-8872-55eb-bbfb-536f511bc5f3', 'RV-SEED-0001', 'COMPLETED', NULL, NULL, NULL, NULL, now() - interval '5959 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('6bbee2c1-f20a-5798-ad6d-73019651729f', 'eb766f16-c0b8-5019-9841-d1a7d9d1da2a', 'TX-SEED-0006', 'FAILED', NULL, 'DECLINE', 'RISK_DECLINED', NULL, now() - interval '4559 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('9d683b5d-de81-55f2-8847-047f48fc49d8', '943391c0-541a-561b-a4b1-f043f06ff4a6', 'TX-SEED-0007', 'FAILED', NULL, 'DECLINE', 'RISK_DECLINED', NULL, now() - interval '4499 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('f8c64bee-736c-5c04-8708-4f02f59ed9f5', '3fb4950d-709d-5f0e-be06-b2eddd3b0f91', 'TX-SEED-0008', 'FAILED', NULL, 'APPROVE', 'INSUFFICIENT_FUNDS', NULL, now() - interval '3239 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('88b86df2-4415-51d6-84b4-fab0b7d60c9c', '1ea9447f-53fd-5132-b53b-8fccae77cb81', 'TX-SEED-0009', 'FAILED', NULL, 'DECLINE', 'LIMIT_EXCEEDED', NULL, now() - interval '2999 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('78e4d295-32f0-5ae2-aa5d-962d0634e6cb', 'd5651f01-a58b-5d3e-ab64-9a15aafaba89', 'IB-SEED-IN-0001', 'COMPLETED', NULL, NULL, NULL, NULL, now() - interval '1939 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('ca07851e-e80c-549b-840c-95c0bf6c38b9', 'c096d937-ad1a-58a0-85b2-3fbce5ca292d', 'TX-SEED-0011', 'COMPLETED', 7, 'APPROVE', NULL, NULL, now() - interval '1839 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('dcf0582e-7c4f-51d3-a7d1-e518a7277320', 'd319be27-186a-5b44-b5d5-84f15b3a3256', 'TX-SEED-0012', 'COMPLETED', NULL, 'APPROVE', NULL, NULL, now() - interval '1529 minutes');
+INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)
+VALUES ('0e331198-138c-5fc8-bd6d-aea929b52627', '0406cded-d5e7-5805-995d-acaef3887283', 'TX-SEED-0013', 'FUNDS_RESERVED', 1, 'APPROVE', NULL, NULL, now() - interval '35 minutes');
 
 SELECT setval(pg_get_serial_sequence('txn.txn_stage_event', 'stage_event_id'), 10000, false);

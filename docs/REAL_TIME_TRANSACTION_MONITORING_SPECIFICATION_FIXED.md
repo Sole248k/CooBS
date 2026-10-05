@@ -50,7 +50,8 @@ flowchart TD
 | **`notification-service`** | **`8084`** | Asynchronous member SMS, email, and in-app alerts upon ledger completion. |
 | **`audit-service`** | **`8085`** | Immutable forensic audit log and SHA-256 Merkle chain verification. |
 | **`mobile-bff`** | **`8094`** | Mobile application middleware adapter; collapses 11 technical stages into 3 member milestones (`M2`). |
-| **`flutter-app` (Web)** | **`8088`** | Member and teller cross-platform UI client (`FLUTTER_WEB_PORT=8088`). |
+| **`react-web`** | **`3000`** / **`5173`** | Exclusive platform web frontend for staff, tellers, admins, and transaction audit. |
+| **`flutter-app` (Mobile)** | Native (`10.0.2.2:8080`) | Retail member native mobile banking app (zero CORS / native OS sockets). |
 
 ---
 

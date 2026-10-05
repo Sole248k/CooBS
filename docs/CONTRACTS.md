@@ -46,7 +46,7 @@ flowchart TD
 
     subgraph PRIVATE_MESH ["Private Core Banking Mesh: core-banking-net"]
         Orchestrator["Orchestration Service :8091<br/>- Saga State Machine Coordinator"]:::coreService
-        RiskEngine["Risk Engine :8092<br/>- Python Sub-40ms AML & Velocity Checks"]:::coreService
+        RiskEngine["Risk Engine :8092<br/>- Java Sub-40ms AML & Velocity Checks"]:::coreService
         LedgerSrv["Ledger Service :8083 SoR<br/>- Deadlock-Free Ordered Locks<br/>- Zero-Overdraft Invariant<br/>- Double-Entry General Ledger"]:::coreService
     end
 
@@ -129,7 +129,7 @@ All external client traffic enters strictly via the **Spring Cloud Gateway Rever
 | Service | Container Port | Gateway Base Route | Ingress Type | Primary Domain Responsibility |
 | :--- | :---: | :--- | :--- | :--- |
 | **`api-gateway`** | `8080` | `/api/v1/**` | Public Edge | SSL Termination, Rate Limiting, Route Forwarding |
-| **`mobile-bff`** | `8093` | `/api/v1/mobile/**` | Secured Edge | Mobile App Orchestration Middleware, Screen Aggregation & 3-Stage Stepper Adapter |
+| **`mobile-bff`** | `8094` | `/api/v1/mobile/**` | Secured Edge | Mobile App Orchestration Middleware, Screen Aggregation & 3-Stage Stepper Adapter |
 | **`auth-service`** | `8081` | `/api/v1/auth/**` | Public / Edge | JWT Authentication, Key Distribution, Session Revocation |
 | **`customer-service`**| `8089` | `/api/v1/customers/**` | Secured Edge | Member Profile, Demographic KYC Submissions & Updates |
 | **`account-service`** | `8082` | `/api/v1/accounts/**` | Secured Edge | Account Lifecycle, Flags, Cached Balance Lookups |

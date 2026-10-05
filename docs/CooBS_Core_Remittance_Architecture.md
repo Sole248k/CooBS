@@ -45,7 +45,7 @@
                                                               v                       v
                                                     +-------------------+   +-------------------+
                                                     |    Risk Engine    |   |  Ledger Service   |
-                                                    |  (Python/Async)   |   | (Port 8083 - SoR) |
+                                                    |   (Java/Async)    |   | (Port 8083 - SoR) |
                                                     |    (Port 8092)    |   |                   |
                                                     +-------------------+   +--------+----------+
                                                                                       |

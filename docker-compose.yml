@@ -420,6 +420,7 @@ services:
       CUSTOMER_SERVICE_URL: http://customer-service:8089
       TRANSACTION_SERVICE_URL: http://transaction-service:8090
       BATCH_SERVICE_URL: http://batch-service:8093
+      MOBILE_BFF_URL: http://mobile-bff:8094
       REDIS_HOST: redis-cache
       REDIS_PORT: 6379
     healthcheck:

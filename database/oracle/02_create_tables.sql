@@ -188,11 +188,13 @@ CREATE TABLE TXN_TRANSACTION (
 CREATE TABLE SAGA_INSTANCE (
     saga_id VARCHAR2(36) PRIMARY KEY,
     transaction_id VARCHAR2(36) NOT NULL UNIQUE,
+    reference_no VARCHAR2(40),
     state VARCHAR2(30) NOT NULL,
     hold_id NUMBER(19),
     risk_decision VARCHAR2(20),
     failure_reason VARCHAR2(255),
     failure_code VARCHAR2(60),
+    payload CLOB,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT fk_saga_txn FOREIGN KEY (transaction_id) REFERENCES TXN_TRANSACTION(transaction_id)
 );
