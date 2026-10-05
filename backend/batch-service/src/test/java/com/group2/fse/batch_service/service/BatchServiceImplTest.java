@@ -39,6 +39,9 @@ class BatchServiceImplTest {
     @Mock
     private BatchStepRepository batchStepRepository;
 
+    @Mock
+    private EodPipeline eodPipeline;
+
     @InjectMocks
     private BatchServiceImpl batchService;
 
@@ -93,6 +96,7 @@ class BatchServiceImplTest {
         assertThat(response.getStartedAt()).isNotNull();
 
         verify(batchRunRepository, times(2)).save(any(BatchRun.class));
+        verify(eodPipeline).executePipeline(eq(31L), eq(LocalDate.of(2026, 10, 3)));
     }
 
     @Test
