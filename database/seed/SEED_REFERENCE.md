@@ -8,55 +8,55 @@ Timestamps are relative to the moment the database is created, so "due today" it
 
 ## Staff logins
 
-| userId (token) | Username       | Role        | Status |
-| -------------- | -------------- | ----------- | ------ |
-| 1              | `admin`        | ROLE_ADMIN  | ACTIVE |
-| 2              | `teller_alice` | ROLE_TELLER | ACTIVE |
-| 3              | `teller_bob`   | ROLE_TELLER | ACTIVE |
+| userId (token) | Username | Role | Status |
+| --- | --- | --- | --- |
+| 1 | `admin` | ROLE_ADMIN | ACTIVE |
+| 2 | `teller_alice` | ROLE_TELLER | ACTIVE |
+| 3 | `teller_bob` | ROLE_TELLER | ACTIVE |
 
 ## Members
 
 For a customer the token's `userId` is the customer ID.
 
-| Customer ID | Username           | Name                  | Tier            | Risk | Credit | Daily limit (PHP) | Login    | Scenario                                                                                                                                              |
-| ----------- | ------------------ | --------------------- | --------------- | ---- | ------ | ----------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1           | `john_doe`         | John D. Doe           | TIER_3_FULL     | 0.15 | 750    | 100,000.00        | ACTIVE   | Baseline sender. Untouched balances for the existing test suites.                                                                                     |
-| 2           | `maria_santos`     | Maria S. Santos       | TIER_3_FULL     | 0.10 | 790    | 100,000.00        | ACTIVE   | Baseline recipient.                                                                                                                                   |
-| 3           | `david_kim`        | David K. Kim          | TIER_3_FULL     | 0.18 | 735    | 100,000.00        | ACTIVE   | High balance. Used by the JMeter concurrency test.                                                                                                    |
-| 4           | `juan_delacruz`    | Juan P. Dela Cruz     | TIER_3_FULL     | 0.12 | 780    | 100,000.00        | ACTIVE   | Customer 360 showcase: savings, current and loan accounts, 30 days of history, beneficiaries, a standing instruction and a loan instalment due today. |
-| 5           | `andrea_reyes`     | Andrea L. Reyes       | TIER_3_FULL     | 0.92 | 540    | 100,000.00        | ACTIVE   | Risk score above 0.85: every transfer is declined as HIGH_RISK.                                                                                       |
-| 6           | `jose_bautista`    | Jose Mari C. Bautista | TIER_3_FULL     | 0.72 | 640    | 100,000.00        | ACTIVE   | Risk score in the 0.60 to 0.85 band: declined as REVIEW_REQUIRED. Has a pending KYC update request.                                                   |
-| 7           | `liza_mercado`     | Liza M. Mercado       | TIER_3_FULL     | 0.20 | 610    | 100,000.00        | ACTIVE   | Low balance: insufficient funds. Her loan instalment and standing instruction due today both fail in the end-of-day batch.                            |
-| 8           | `ramon_villanueva` | Ramon T. Villanueva   | TIER_3_FULL     | 0.25 | 700    | 100,000.00        | ACTIVE   | Frozen account with an active flag: ACCOUNT_NOT_ACTIVE, and closure is blocked.                                                                       |
-| 9           | `grace_pangilinan` | Grace A. Pangilinan   | TIER_1_BASIC    | 0.22 | 600    | 5,000.00          | ACTIVE   | Basic tier with a PHP 5,000 daily limit: LIMIT_EXCEEDED. Has an approved KYC update request and an inactive beneficiary.                              |
-| 10          | `carmela_garcia`   | Carmela R. Garcia     | TIER_3_FULL     | 0.14 | 720    | 100,000.00        | ACTIVE   | Dormant account: charged the service fee by the end-of-day batch.                                                                                     |
-| 11          | `paolo_navarro`    | Paolo G. Navarro      | TIER_3_FULL     | 0.16 | 705    | 100,000.00        | ACTIVE   | One closed account (closure approved) and one empty account with a pending closure request.                                                           |
-| 12          | `teresita_ramos`   | Teresita B. Ramos     | TIER_3_FULL     | 0.11 | 765    | 100,000.00        | ACTIVE   | A transfer in flight with a RESERVED hold, and one transfer that was reversed.                                                                        |
-| 13          | `ricardo_magbanua` | Ricardo N. Magbanua   | TIER_2_STANDARD | 0.19 | 660    | 25,000.00         | ACTIVE   | New member: no beneficiaries and no outgoing history. First-time beneficiary case.                                                                    |
-| 14          | `lourdes_salazar`  | Lourdes V. Salazar    | TIER_3_FULL     | 0.17 | 690    | 100,000.00        | INACTIVE | Login is INACTIVE: sign-in is refused.                                                                                                                |
+| Customer ID | Username | Name | Tier | Risk | Credit | Daily limit (PHP) | Login | Scenario |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `john_doe` | John D. Doe | TIER_3_FULL | 0.15 | 750 | 100,000.00 | ACTIVE | Baseline sender. Untouched balances for the existing test suites. |
+| 2 | `maria_santos` | Maria S. Santos | TIER_3_FULL | 0.10 | 790 | 100,000.00 | ACTIVE | Baseline recipient. |
+| 3 | `david_kim` | David K. Kim | TIER_3_FULL | 0.18 | 735 | 100,000.00 | ACTIVE | High balance. Used by the JMeter concurrency test. |
+| 4 | `juan_delacruz` | Juan P. Dela Cruz | TIER_3_FULL | 0.12 | 780 | 100,000.00 | ACTIVE | Customer 360 showcase: savings, current and loan accounts, 30 days of history, beneficiaries, a standing instruction and a loan instalment due today. |
+| 5 | `andrea_reyes` | Andrea L. Reyes | TIER_3_FULL | 0.92 | 540 | 100,000.00 | ACTIVE | Risk score above 0.85: every transfer is declined as HIGH_RISK. |
+| 6 | `jose_bautista` | Jose Mari C. Bautista | TIER_3_FULL | 0.72 | 640 | 100,000.00 | ACTIVE | Risk score in the 0.60 to 0.85 band: declined as REVIEW_REQUIRED. Has a pending KYC update request. |
+| 7 | `liza_mercado` | Liza M. Mercado | TIER_3_FULL | 0.20 | 610 | 100,000.00 | ACTIVE | Low balance: insufficient funds. Her loan instalment and standing instruction due today both fail in the end-of-day batch. |
+| 8 | `ramon_villanueva` | Ramon T. Villanueva | TIER_3_FULL | 0.25 | 700 | 100,000.00 | ACTIVE | Frozen account with an active flag: ACCOUNT_NOT_ACTIVE, and closure is blocked. |
+| 9 | `grace_pangilinan` | Grace A. Pangilinan | TIER_1_BASIC | 0.22 | 600 | 5,000.00 | ACTIVE | Basic tier with a PHP 5,000 daily limit: LIMIT_EXCEEDED. Has an approved KYC update request and an inactive beneficiary. |
+| 10 | `carmela_garcia` | Carmela R. Garcia | TIER_3_FULL | 0.14 | 720 | 100,000.00 | ACTIVE | Dormant account: charged the service fee by the end-of-day batch. |
+| 11 | `paolo_navarro` | Paolo G. Navarro | TIER_3_FULL | 0.16 | 705 | 100,000.00 | ACTIVE | One closed account (closure approved) and one empty account with a pending closure request. |
+| 12 | `teresita_ramos` | Teresita B. Ramos | TIER_3_FULL | 0.11 | 765 | 100,000.00 | ACTIVE | A transfer in flight with a RESERVED hold, and one transfer that was reversed. |
+| 13 | `ricardo_magbanua` | Ricardo N. Magbanua | TIER_2_STANDARD | 0.19 | 660 | 25,000.00 | ACTIVE | New member: no beneficiaries and no outgoing history. First-time beneficiary case. |
+| 14 | `lourdes_salazar` | Lourdes V. Salazar | TIER_3_FULL | 0.17 | 690 | 100,000.00 | INACTIVE | Login is INACTIVE: sign-in is refused. |
 
 ## Accounts
 
-| Account ID | Number         | Type     | Status  | Owner                | Ledger balance (PHP) | Held (PHP) | Available (PHP) |
-| ---------- | -------------- | -------- | ------- | -------------------- | -------------------- | ---------- | --------------- |
-| 1          | `ACC_10000001` | SAVINGS  | ACTIVE  | 1`john_doe`          | 50,000.00            | 0.00       | 50,000.00       |
-| 2          | `ACC_10000002` | CHECKING | ACTIVE  | 2`maria_santos`      | 25,000.00            | 0.00       | 25,000.00       |
-| 3          | `ACC_10000003` | SAVINGS  | ACTIVE  | 3`david_kim`         | 100,000.00           | 0.00       | 100,000.00      |
-| 4          | `ACC_10000004` | SAVINGS  | ACTIVE  | 4`juan_delacruz`     | 73,361.64            | 0.00       | 73,361.64       |
-| 5          | `ACC_10000005` | CURRENT  | ACTIVE  | 4`juan_delacruz`     | 41,200.00            | 0.00       | 41,200.00       |
-| 6          | `LN_10000006`  | LOAN     | ACTIVE  | 4`juan_delacruz`     | 120,000.00           | 0.00       | 120,000.00      |
-| 7          | `ACC_10000007` | SAVINGS  | ACTIVE  | 5`andrea_reyes`      | 62,500.00            | 0.00       | 62,500.00       |
-| 8          | `ACC_10000008` | SAVINGS  | ACTIVE  | 6`jose_bautista`     | 48,800.00            | 0.00       | 48,800.00       |
-| 9          | `ACC_10000009` | SAVINGS  | ACTIVE  | 7`liza_mercado`      | 150.00               | 0.00       | 150.00          |
-| 10         | `LN_10000010`  | LOAN     | ACTIVE  | 7`liza_mercado`      | 30,000.00            | 0.00       | 30,000.00       |
-| 11         | `ACC_10000011` | SAVINGS  | FROZEN  | 8`ramon_villanueva`  | 20,000.00            | 0.00       | 20,000.00       |
-| 12         | `ACC_10000012` | SAVINGS  | ACTIVE  | 9`grace_pangilinan`  | 30,000.00            | 0.00       | 30,000.00       |
-| 13         | `ACC_10000013` | SAVINGS  | DORMANT | 10`carmela_garcia`   | 8,000.00             | 0.00       | 8,000.00        |
-| 14         | `ACC_10000014` | CHECKING | CLOSED  | 11`paolo_navarro`    | 0.00                 | 0.00       | 0.00            |
-| 15         | `ACC_10000015` | SAVINGS  | ACTIVE  | 11`paolo_navarro`    | 0.00                 | 0.00       | 0.00            |
-| 16         | `ACC_10000016` | SAVINGS  | ACTIVE  | 12`teresita_ramos`   | 35,000.00            | 3,000.00   | 32,000.00       |
-| 17         | `ACC_10000017` | SAVINGS  | ACTIVE  | 13`ricardo_magbanua` | 13,700.00            | 0.00       | 13,700.00       |
-| 18         | `ACC_10000018` | SAVINGS  | ACTIVE  | 14`lourdes_salazar`  | 5,000.00             | 0.00       | 5,000.00        |
+| Account ID | Number | Type | Status | Owner | Ledger balance (PHP) | Held (PHP) | Available (PHP) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `ACC_10000001` | SAVINGS | ACTIVE | 1 `john_doe` | 50,000.00 | 0.00 | 50,000.00 |
+| 2 | `ACC_10000002` | CHECKING | ACTIVE | 2 `maria_santos` | 25,000.00 | 0.00 | 25,000.00 |
+| 3 | `ACC_10000003` | SAVINGS | ACTIVE | 3 `david_kim` | 100,000.00 | 0.00 | 100,000.00 |
+| 4 | `ACC_10000004` | SAVINGS | ACTIVE | 4 `juan_delacruz` | 73,361.64 | 0.00 | 73,361.64 |
+| 5 | `ACC_10000005` | CURRENT | ACTIVE | 4 `juan_delacruz` | 41,200.00 | 0.00 | 41,200.00 |
+| 6 | `LN_10000006` | LOAN | ACTIVE | 4 `juan_delacruz` | 120,000.00 | 0.00 | 120,000.00 |
+| 7 | `ACC_10000007` | SAVINGS | ACTIVE | 5 `andrea_reyes` | 62,500.00 | 0.00 | 62,500.00 |
+| 8 | `ACC_10000008` | SAVINGS | ACTIVE | 6 `jose_bautista` | 48,800.00 | 0.00 | 48,800.00 |
+| 9 | `ACC_10000009` | SAVINGS | ACTIVE | 7 `liza_mercado` | 150.00 | 0.00 | 150.00 |
+| 10 | `LN_10000010` | LOAN | ACTIVE | 7 `liza_mercado` | 30,000.00 | 0.00 | 30,000.00 |
+| 11 | `ACC_10000011` | SAVINGS | FROZEN | 8 `ramon_villanueva` | 20,000.00 | 0.00 | 20,000.00 |
+| 12 | `ACC_10000012` | SAVINGS | ACTIVE | 9 `grace_pangilinan` | 30,000.00 | 0.00 | 30,000.00 |
+| 13 | `ACC_10000013` | SAVINGS | DORMANT | 10 `carmela_garcia` | 8,000.00 | 0.00 | 8,000.00 |
+| 14 | `ACC_10000014` | CHECKING | CLOSED | 11 `paolo_navarro` | 0.00 | 0.00 | 0.00 |
+| 15 | `ACC_10000015` | SAVINGS | ACTIVE | 11 `paolo_navarro` | 0.00 | 0.00 | 0.00 |
+| 16 | `ACC_10000016` | SAVINGS | ACTIVE | 12 `teresita_ramos` | 35,000.00 | 3,000.00 | 32,000.00 |
+| 17 | `ACC_10000017` | SAVINGS | ACTIVE | 13 `ricardo_magbanua` | 13,700.00 | 0.00 | 13,700.00 |
+| 18 | `ACC_10000018` | SAVINGS | ACTIVE | 14 `lourdes_salazar` | 5,000.00 | 0.00 | 5,000.00 |
 
 For a `LOAN` account the balance is the outstanding principal.
 
@@ -64,87 +64,88 @@ For a `LOAN` account the balance is the outstanding principal.
 
 Owned by internal customer 900. Each opens with PHP 1,000,000,000.00 because `BALANCE` forbids a negative available balance and these accounts are debited. Services read these IDs from configuration.
 
-| Account ID | Number                | Used for                                                  | Ledger balance (PHP) |
-| ---------- | --------------------- | --------------------------------------------------------- | -------------------- |
-| 9001       | `GL_CASH_VAULT`       | Counter-leg of deposits, withdrawals and opening deposits | 999,487,300.00       |
-| 9002       | `GL_INTEREST_EXPENSE` | Debited when interest is paid                             | 999,999,988.36       |
-| 9003       | `GL_FEE_INCOME`       | Credited when fees are charged                            | 1,000,000,050.00     |
-| 9004       | `GL_LOAN_RECEIVABLE`  | Loan booking and repayments                               | 999,855,450.00       |
-| 9005       | `GL_SETTLEMENT_BANKB` | Inter-bank settlement with partner`BANKB`                 | 999,994,500.00       |
+| Account ID | Number | Used for | Ledger balance (PHP) |
+| --- | --- | --- | --- |
+| 9001 | `GL_CASH_VAULT` | Counter-leg of deposits, withdrawals and opening deposits | 999,487,300.00 |
+| 9002 | `GL_INTEREST_EXPENSE` | Debited when interest is paid | 999,999,988.36 |
+| 9003 | `GL_FEE_INCOME` | Credited when fees are charged | 1,000,000,050.00 |
+| 9004 | `GL_LOAN_RECEIVABLE` | Loan booking and repayments | 999,855,450.00 |
+| 9005 | `GL_SETTLEMENT_BANKB` | Inter-bank settlement with partner `BANKB` | 999,994,500.00 |
 
 ## Seeded money history
 
-| Reference            | When        | From                  | To                    | Amount (PHP) | Category       | Channel   | Result                                |
-| -------------------- | ----------- | --------------------- | --------------------- | ------------ | -------------- | --------- | ------------------------------------- |
-| `TX-SEED-0001`       | 25 days ago | `ACC_10000004`        | `ACC_10000007`        | 2,500.00     | TRANSFER       | APP       | Posted                                |
-| `TX-SEED-0002`       | 20 days ago | `ACC_10000004`        | `ACC_10000017`        | 1,200.00     | BILLS          | APP       | Posted                                |
-| `TX-SEED-0003`       | 15 days ago | `ACC_10000005`        | `ACC_10000008`        | 3,800.00     | TRANSFER       | APP       | Posted                                |
-| `EOD-SEED-LOAN-0001` | 10 days ago | `ACC_10000004`        | `GL_LOAN_RECEIVABLE`  | 5,450.00     | LOAN_REPAYMENT | BATCH     | Posted                                |
-| `TX-SEED-0004`       | 7 days ago  | `ACC_10000004`        | `ACC_10000005`        | 10,000.00    | SAVINGS        | APP       | Posted                                |
-| `EOD-SEED-INT-0001`  | 6 days ago  | `GL_INTEREST_EXPENSE` | `ACC_10000004`        | 11.64        | OTHER          | BATCH     | Posted                                |
-| `EOD-SEED-FEE-0001`  | 6 days ago  | `ACC_10000013`        | `GL_FEE_INCOME`       | 50.00        | FEES           | BATCH     | Posted                                |
-| `TX-SEED-0005`       | 5 days ago  | `ACC_10000016`        | `ACC_10000005`        | 1,500.00     | TRANSFER       | APP       | Posted, then reversed                 |
-| `TX-SEED-0006`       | 3 days ago  | `ACC_10000007`        | `ACC_10000004`        | 5,000.00     | TRANSFER       | APP       | Failed at stage 4: RISK_DECLINED      |
-| `TX-SEED-0007`       | 3 days ago  | `ACC_10000008`        | `ACC_10000004`        | 4,000.00     | TRANSFER       | APP       | Failed at stage 4: RISK_DECLINED      |
-| `TX-SEED-0008`       | 2 days ago  | `ACC_10000009`        | `ACC_10000002`        | 1,000.00     | TRANSFER       | APP       | Failed at stage 6: INSUFFICIENT_FUNDS |
-| `TX-SEED-0009`       | 2 days ago  | `ACC_10000012`        | `ACC_10000004`        | 8,000.00     | TRANSFER       | APP       | Failed at stage 5: LIMIT_EXCEEDED     |
-| `TX-SEED-0010`       | 2 days ago  | `ACC_10000011`        | `ACC_10000004`        | 500.00       | TRANSFER       | TELLER    | Failed at stage 2: ACCOUNT_NOT_ACTIVE |
-| `IB-SEED-IN-0001`    | 1 day ago   | `GL_SETTLEMENT_BANKB` | `ACC_10000004`        | 7,500.00     | TRANSFER       | INTERBANK | Posted                                |
-| `TX-SEED-0011`       | 1 day ago   | `ACC_10000005`        | `GL_SETTLEMENT_BANKB` | 2,000.00     | TRANSFER       | APP       | Posted                                |
-| `TX-SEED-0012`       | 1 day ago   | `ACC_10000005`        | `GL_CASH_VAULT`       | 3,000.00     | OTHER          | TELLER    | Posted                                |
-| `TX-SEED-0013`       | today       | `ACC_10000016`        | `ACC_10000009`        | 3,000.00     | TRANSFER       | APP       | Processing: hold RESERVED             |
+| Reference | When | From | To | Amount (PHP) | Category | Channel | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `TX-SEED-0001` | 25 days ago | `ACC_10000004` | `ACC_10000007` | 2,500.00 | TRANSFER | APP | Posted |
+| `TX-SEED-0002` | 20 days ago | `ACC_10000004` | `ACC_10000017` | 1,200.00 | BILLS | APP | Posted |
+| `TX-SEED-0003` | 15 days ago | `ACC_10000005` | `ACC_10000008` | 3,800.00 | TRANSFER | APP | Posted |
+| `EOD-SEED-LOAN-0001` | 10 days ago | `ACC_10000004` | `GL_LOAN_RECEIVABLE` | 5,450.00 | LOAN_REPAYMENT | BATCH | Posted |
+| `TX-SEED-0004` | 7 days ago | `ACC_10000004` | `ACC_10000005` | 10,000.00 | SAVINGS | APP | Posted |
+| `EOD-SEED-INT-0001` | 6 days ago | `GL_INTEREST_EXPENSE` | `ACC_10000004` | 11.64 | OTHER | BATCH | Posted |
+| `EOD-SEED-FEE-0001` | 6 days ago | `ACC_10000013` | `GL_FEE_INCOME` | 50.00 | FEES | BATCH | Posted |
+| `TX-SEED-0005` | 5 days ago | `ACC_10000016` | `ACC_10000005` | 1,500.00 | TRANSFER | APP | Posted, then reversed |
+| `TX-SEED-0006` | 3 days ago | `ACC_10000007` | `ACC_10000004` | 5,000.00 | TRANSFER | APP | Failed at stage 4: RISK_DECLINED |
+| `TX-SEED-0007` | 3 days ago | `ACC_10000008` | `ACC_10000004` | 4,000.00 | TRANSFER | APP | Failed at stage 4: RISK_DECLINED |
+| `TX-SEED-0008` | 2 days ago | `ACC_10000009` | `ACC_10000002` | 1,000.00 | TRANSFER | APP | Failed at stage 6: INSUFFICIENT_FUNDS |
+| `TX-SEED-0009` | 2 days ago | `ACC_10000012` | `ACC_10000004` | 8,000.00 | TRANSFER | APP | Failed at stage 5: LIMIT_EXCEEDED |
+| `TX-SEED-0010` | 2 days ago | `ACC_10000011` | `ACC_10000004` | 500.00 | TRANSFER | TELLER | Failed at stage 2: ACCOUNT_NOT_ACTIVE |
+| `IB-SEED-IN-0001` | 1 day ago | `GL_SETTLEMENT_BANKB` | `ACC_10000004` | 7,500.00 | TRANSFER | INTERBANK | Posted |
+| `TX-SEED-0011` | 1 day ago | `ACC_10000005` | `GL_SETTLEMENT_BANKB` | 2,000.00 | TRANSFER | APP | Posted |
+| `TX-SEED-0012` | 1 day ago | `ACC_10000005` | `GL_CASH_VAULT` | 3,000.00 | OTHER | TELLER | Posted |
+| `TX-SEED-0013` | today | `ACC_10000016` | `ACC_10000009` | 3,000.00 | TRANSFER | APP | Processing: hold RESERVED |
 
 Ledger totals: debits PHP 714,211.64, credits PHP 714,211.64. 58 ledger rows, each with an audit row.
 
 ## Scenario coverage
 
-| Scenario                       | Use                                               | Expected                                                             |
-| ------------------------------ | ------------------------------------------------- | -------------------------------------------------------------------- |
-| Happy-path transfer            | `juan_delacruz`, `ACC_10000004` to `ACC_10000007` | Posted; eleven stages                                                |
-| Baseline suites                | `john_doe`, `maria_santos`, `david_kim`           | Balances 50,000 / 25,000 / 100,000 as before                         |
-| Customer 360 with every widget | `juan_delacruz`                                   | Savings, current, loan, history, spending by category, beneficiaries |
-| Risk decline, high risk        | `andrea_reyes` sends anything                     | `RISK_DECLINED`, reason `HIGH_RISK`                                  |
-| Risk decline, review band      | `jose_bautista` sends anything                    | `RISK_DECLINED`, reason `REVIEW_REQUIRED`                            |
-| Daily limit                    | `grace_pangilinan` sends more than 5,000          | `LIMIT_EXCEEDED`                                                     |
-| Insufficient funds             | `liza_mercado` sends more than 150                | `INSUFFICIENT_FUNDS`; balance unchanged                              |
-| Frozen account                 | Any transfer from or to`ACC_10000011`             | `ACCOUNT_NOT_ACTIVE`                                                 |
-| Dormant account                | `ACC_10000013`                                    | Charged the service fee at end of day                                |
-| Closed account                 | `ACC_10000014`                                    | `ACCOUNT_NOT_ACTIVE`; closure request APPROVED                       |
-| Closure request pending        | `ACC_10000015`, balance zero                      | Admin can approve                                                    |
-| Closure blocked by flag        | `ACC_10000011`                                    | `ACCOUNT_ACTIVE_FLAG_EXISTS`; one request already REJECTED           |
-| Closure blocked by balance     | `ACC_10000012`                                    | `ACCOUNT_NON_ZERO_BALANCE`                                           |
-| Hold in flight                 | `teresita_ramos`, `TX-SEED-0013`                  | Ledger 35,000, held 3,000, available 32,000; stages 1 to 6 passed    |
-| Hold captured / released       | Any posted APP transfer /`TX-SEED-RELEASED`       | Hold`POSTED` / `CANCELLED`                                           |
-| Reversal                       | `TX-SEED-0005` reversed by `RV-SEED-0001`         | Original`REVERSED`; four ledger rows; chain still verifies           |
-| Reverse again                  | `TX-SEED-0005`                                    | `ALREADY_REVERSED`                                                   |
-| Inter-bank inbound             | `IB-SEED-IN-0001`                                 | Credited from settlement account 9005                                |
-| Inter-bank outbound            | `TX-SEED-0011`                                    | Debited to settlement account 9005                                   |
-| Inter-bank duplicate           | Repeat message`…000000000001`                     | Same answer; no second credit                                        |
-| Counter withdrawal             | `TX-SEED-0012` by `teller_alice`                  | Debit against the cash GL account                                    |
-| EOD standing instruction       | Instruction 1                                     | Executes today                                                       |
-| EOD standing instruction fails | Instruction 2 (`liza_mercado`)                    | Item fails; step continues                                           |
-| EOD loan instalment            | Schedule 2 (`juan_delacruz`)                      | Collected today                                                      |
-| EOD loan instalment fails      | Schedule 5 (`liza_mercado`)                       | Item fails; step continues                                           |
-| EOD completed run              | Batch run 2                                       | Six steps`COMPLETED`; seal for that date                             |
-| EOD halted run                 | Batch run 1                                       | Step 5`FAILED`, step 6 `SKIPPED`, run `HALTED`                       |
-| First-time beneficiary         | `ricardo_magbanua`                                | No beneficiaries yet                                                 |
-| Inactive beneficiary           | `grace_pangilinan`                                | One beneficiary with`active = false`                                 |
-| External beneficiary           | `juan_delacruz`                                   | One beneficiary at`BANKB`                                            |
-| Inactive login                 | `lourdes_salazar`                                 | Sign-in refused                                                      |
-| Staff acting for a customer    | `teller_alice`                                    | May send from any account                                            |
-| KYC update pending / approved  | `jose_bautista` / `grace_pangilinan`              | Existing React console feature                                       |
-| Flag removed                   | `ACC_10000008`                                    | One flag with status`REMOVED`                                        |
-| Notifications read and unread  | `juan_delacruz`                                   | Older ones read, recent ones unread                                  |
-| Audit chain verification       | Any account                                       | Intact                                                               |
-| GL reconciliation              | Whole ledger                                      | Total debits equal total credits                                     |
+| Scenario | Use | Expected |
+| --- | --- | --- |
+| Happy-path transfer | `juan_delacruz`, `ACC_10000004` to `ACC_10000007` | Posted; eleven stages |
+| Baseline suites | `john_doe`, `maria_santos`, `david_kim` | Balances 50,000 / 25,000 / 100,000 as before |
+| Customer 360 with every widget | `juan_delacruz` | Savings, current, loan, history, spending by category, beneficiaries |
+| Risk decline, high risk | `andrea_reyes` sends anything | `RISK_DECLINED`, reason `HIGH_RISK` |
+| Risk decline, review band | `jose_bautista` sends anything | `RISK_DECLINED`, reason `REVIEW_REQUIRED` |
+| Daily limit | `grace_pangilinan` sends more than 5,000 | `LIMIT_EXCEEDED` |
+| Insufficient funds | `liza_mercado` sends more than 150 | `INSUFFICIENT_FUNDS`; balance unchanged |
+| Frozen account | Any transfer from or to `ACC_10000011` | `ACCOUNT_NOT_ACTIVE` |
+| Dormant account | `ACC_10000013` | Charged the service fee at end of day |
+| Closed account | `ACC_10000014` | `ACCOUNT_NOT_ACTIVE`; closure request APPROVED |
+| Closure request pending | `ACC_10000015`, balance zero | Admin can approve |
+| Closure blocked by flag | `ACC_10000011` | `ACCOUNT_ACTIVE_FLAG_EXISTS`; one request already REJECTED |
+| Closure blocked by balance | `ACC_10000012` | `ACCOUNT_NON_ZERO_BALANCE` |
+| Hold in flight | `teresita_ramos`, `TX-SEED-0013` | Ledger 35,000, held 3,000, available 32,000; stages 1 to 6 passed |
+| Hold captured / released | Any posted APP transfer / `TX-SEED-RELEASED` | Hold `POSTED` / `CANCELLED` |
+| Reversal | `TX-SEED-0005` reversed by `RV-SEED-0001` | Original `REVERSED`; four ledger rows; chain still verifies |
+| Reverse again | `TX-SEED-0005` | `ALREADY_REVERSED` |
+| Inter-bank inbound | `IB-SEED-IN-0001` | Credited from settlement account 9005 |
+| Inter-bank outbound | `TX-SEED-0011` | Debited to settlement account 9005 |
+| Inter-bank duplicate | Repeat message `…000000000001` | Same answer; no second credit |
+| Counter withdrawal | `TX-SEED-0012` by `teller_alice` | Debit against the cash GL account |
+| EOD standing instruction | Instruction 1 | Executes today |
+| EOD standing instruction fails | Instruction 2 (`liza_mercado`) | Item fails; step continues |
+| EOD loan instalment | Schedule 2 (`juan_delacruz`) | Collected today |
+| EOD loan instalment fails | Schedule 5 (`liza_mercado`) | Item fails; step continues |
+| EOD completed run | Batch run 2 | Six steps `COMPLETED`; seal for that date |
+| EOD halted run | Batch run 1 | Step 5 `FAILED`, step 6 `SKIPPED`, run `HALTED` |
+| First-time beneficiary | `ricardo_magbanua` | No beneficiaries yet |
+| Inactive beneficiary | `grace_pangilinan` | One beneficiary with `active = false` |
+| External beneficiary | `juan_delacruz` | One beneficiary at `BANKB` |
+| Inactive login | `lourdes_salazar` | Sign-in refused |
+| Staff acting for a customer | `teller_alice` | May send from any account |
+| KYC update pending / approved | `jose_bautista` / `grace_pangilinan` | Existing React console feature |
+| Flag removed | `ACC_10000008` | One flag with status `REMOVED` |
+| Notifications read and unread | `juan_delacruz` | Older ones read, recent ones unread |
+| Audit chain verification | Any account | Intact |
+| GL reconciliation | Whole ledger | Total debits equal total credits |
 
 ## Files
 
-| File                             | Loaded by                                         | Status                                                                                                                  |
-| -------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `database/postgres-cloud/01..05` | `postgres-cloud-db` (Compose profile `expansion`) | Live: nothing else uses these databases yet                                                                             |
-| `database/next/oracle/`          | Not mounted yet                                   | Replaces`database/oracle/` when `auth-service`, `account-service` and `ledger-service` are ready for the rebuilt schema |
-| `database/next/postgres/`        | Not mounted yet                                   | Replaces`database/postgres/` at the same moment; its audit rows match the rebuilt Oracle seed                           |
+| File | Loaded by | Status |
+| --- | --- | --- |
+| `database/postgres-cloud/01..05` | `postgres-cloud-db` (Compose profile `expansion`) | Live: nothing else uses these databases yet |
+| `database/oracle/` | `oracle-core-db` | Master System of Record (Rebuilt 22-Table Architecture) |
+| `database/next/oracle/` | Backup / Next mirror | Mirrors database/oracle/ |
+| `database/next/postgres/` | Not mounted yet | Replaces `database/postgres/` at the same moment; its audit rows match the rebuilt Oracle seed |
 
 ## Switching the on-premises databases to the target set
 
