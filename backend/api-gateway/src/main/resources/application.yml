@@ -57,7 +57,7 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@ipKeyResolver}"
 
-        # 2. Account Service Routes (Customers & Accounts Lifecycle)
+        # 2. Account Service Routes (Accounts Lifecycle, Closure & Holds)
         # Operational query limits: 50 req/s, burst 100
         - id: account-service-accounts-route
           uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
@@ -71,21 +71,9 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
-        # KYC master stays in account-service. Must be listed before the general customers route.
-        - id: account-service-kyc-route
-          uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
-          predicates:
-            - Path=/api/v1/customers/kyc/**
-          filters:
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: 50
-                redis-rate-limiter.burstCapacity: 100
-                redis-rate-limiter.requestedTokens: 1
-                key-resolver: "#{@userOrIpKeyResolver}"
-
-        - id: account-service-customers-route
-          uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+        # 2b. Customer Service Routes (Profile, KYC & Beneficiaries)
+        - id: customer-service-route
+          uri: ${CUSTOMER_SERVICE_URL:http://localhost:8089}
           predicates:
             - Path=/api/v1/customers/**
           filters:
@@ -176,9 +164,6 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
-
-        # NOTE: /api/v1/customers/** still points at account-service. Dev 2 switches it to
-        # ${CUSTOMER_SERVICE_URL:http://localhost:8089} when customer-service serves it (Day 4).
 
 management:
   endpoints:

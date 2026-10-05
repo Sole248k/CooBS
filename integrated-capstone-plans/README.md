@@ -34,7 +34,7 @@ Report the disagreement to Dev 1 so the losing document gets fixed.
 
 - Frontend is Flutter for web and Android in `app/`. The React dashboard in `frontend/` is frozen as the staff console and fallback.
 - Roles follow the v2 workbook: Dev 5 database, Dev 8 DevOps and cloud, no QA role.
-- Cloud: gateway, auth (`identity_db`), customer (channel profile only), transaction, orchestration, risk, notification. On-premises: ledger, account (KYC master), batch, audit.
+- Cloud: gateway, auth (`identity_db`), customer (`customer_db` - profile, KYC, beneficiaries), transaction, orchestration, risk, notification. On-premises: ledger, account (account lifecycle, flags, closures), batch, audit.
 - One API gateway: Spring Cloud Gateway. No Azure API Management.
 - Schemas and data are disposable: rebuilt from one seed source, never migrated in place. Tables are created by the init scripts under `database/`; services carry no migration files.
 - Development is local first, on one Docker network. Splitting the cloud and on-premises zones into separate networks is deferred to a later phase.
