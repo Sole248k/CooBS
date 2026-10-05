@@ -103,6 +103,8 @@ generate_report*.py
 # Temporary docs staging and archive files
 docs/docs-new/
 docs/*.zip
+docs/
+graphify-out/
 
 
 tasks/
