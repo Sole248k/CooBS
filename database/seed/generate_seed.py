@@ -1335,8 +1335,8 @@ for c in CUSTOMERS:
 
 o.append("\n-- 6. BENEFICIARIES")
 for n_, (cid, number, nick, bank, active) in enumerate(BENEFICIARIES, 1):
-    o.append("INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)\n"
-             f"VALUES ({n_}, {cid}, {q(number)}, {q(nick)}, {q(bank)}, {'TRUE' if active else 'FALSE'});")
+    o.append("INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)\n"
+             f"VALUES ({n_}, {cid}, {q(number)}, {q(nick)}, {'TRUE' if active else 'FALSE'});")
 
 o.append("\n-- 7. ACCOUNTS")
 for aid in sorted(acct.keys()):
@@ -1354,8 +1354,8 @@ for aid in sorted(acct.keys()):
 o.append("\n-- 9. HOLDS")
 for h in holds:
     res = ora_ts(h["resolved_mins"]) if "resolved_mins" in h else "NULL"
-    o.append("INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)\n"
-             f"VALUES ({h['id']}, {h['account']}, {q(h['txn'])}, {q(h['ref'])}, {m4(h['amount'])}, {q(h['status'])}, {ora_ts(h['mins'])}, {res});")
+    o.append("INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)\n"
+             f"VALUES ({h['id']}, {h['account']}, {q(h['ref'])}, {m4(h['amount'])}, {q(h['status'])}, {ora_ts(h['mins'])}, {res});")
 
 transfer_reqs = []
 req_id = 1
@@ -1371,8 +1371,8 @@ for h in HISTORY:
 
 o.append("\n-- 10. TRANSFER_REQUESTS")
 for r in transfer_reqs:
-    o.append("INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)\n"
-             f"VALUES ({r['id']}, {r['account']}, {q(r['dst'])}, {q(r['bank'])}, {m4(r['amount'])}, {q(r['channel'])}, {q(r['status'])}, {q(r['ref'])}, {ora_ts(r['mins'])});")
+    o.append("INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)\n"
+             f"VALUES ({r['id']}, {r['account']}, {q(r['dst'])}, {m4(r['amount'])}, {q(r['channel'])}, {q(r['status'])}, {q(r['ref'])}, {ora_ts(r['mins'])});")
 
 o.append("\n-- 11. TRANSACTION (Posting Journal)")
 for r in txn_rows:
@@ -1403,8 +1403,8 @@ for tid, ref, h, status, mins, completed, failure, reverses, channel, category, 
     dst = None if dst_is_partner else h["dst"]
     dst_no = h["interbank"]["counterparty_account"] if dst_is_partner else acct[h["dst"]]["number"]
     bank = PARTNER_BANK if dst_is_partner else OUR_BANK
-    o.append("INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)\n"
-             f"VALUES ({q(tid)}, {q(ref)}, {q('seed-' + ref) if key else 'NULL'}, {q(channel or h['channel'])}, {n(h['customer'])}, {n(src)}, {n(dst)}, {q(dst_no)}, {q(bank)}, {m4(h['amount'])}, 'PHP', {q(category or h['category'])}, {q(remarks or h['remarks'])}, {q(status)}, {q(failure)}, {q(reverses)}, {ora_ts(mins)}, {ora_ts(completed) if completed is not None else 'NULL'});")
+    o.append("INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)\n"
+             f"VALUES ({q(tid)}, {q(ref)}, {q('seed-' + ref) if key else 'NULL'}, {q(channel or h['channel'])}, {n(h['customer'])}, {n(src)}, {n(dst)}, {q(dst_no)}, {m4(h['amount'])}, 'PHP', {q(category or h['category'])}, {q(remarks or h['remarks'])}, {q(status)}, {q(failure)}, {q(reverses)}, {ora_ts(mins)}, {ora_ts(completed) if completed is not None else 'NULL'});")
 
 o.append("\n-- 16. TXN_STAGE_EVENT")
 for stage_ev_id, tid, no, name, outcome, detail, mins in all_stages_meta:
@@ -1430,8 +1430,8 @@ for s in STANDING:
 o.append("\n-- 20. LOAN_SCHEDULE")
 for ls in LOAN_SCHEDULES:
     paid = ora_ts(10 * DAY + 60) if ls[6] == "PAID" else "NULL"
-    o.append("INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)\n"
-             f"VALUES ({ls[0]}, {ls[1]}, {ls[2]}, TRUNC(CURRENT_DATE) + ({ls[3]}), {m4(ls[4])}, {m4(ls[5])}, {q(ls[6])}, {paid});")
+    o.append("INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, due_date, principal_due, interest_due, status, paid_at)\n"
+             f"VALUES ({ls[0]}, {ls[1]}, TRUNC(CURRENT_DATE) + ({ls[3]}), {m4(ls[4])}, {m4(ls[5])}, {q(ls[6])}, {paid});")
 
 o.append("\n-- 21. BATCH_RUN & BATCH_STEP")
 o.append(f"INSERT INTO BATCH_RUN (batch_run_id, business_date, triggered_by, status, started_at, finished_at) VALUES (1, TRUNC(CURRENT_DATE) - 13, 1, 'HALTED', {ora_ts(13 * DAY)}, {ora_ts(13 * DAY - 1)});")
@@ -1469,10 +1469,11 @@ for i, k in enumerate(KYC_UPDATES, 1):
 o.append("\nINSERT INTO SYSTEM_LOG (user_id, action, service_name) VALUES (1, 'SEED_DATABASE_INITIALIZATION', 'INTEGRATED_CAPSTONE_SEED');")
 o.append("\nCOMMIT;")
 
-# Write Oracle DDL and Seed to BOTH active (database/oracle) and next (database/next/oracle) directories
-write(os.path.join(DB, "oracle", "02_create_tables.sql"), ORACLE_DDL)
+# Write Oracle Seed to BOTH active (database/oracle) and next (database/next/oracle) directories
+# (02_create_tables.sql is maintained manually or per user edit, do not overwrite)
+# write(os.path.join(DB, "oracle", "02_create_tables.sql"), ORACLE_DDL)
 write(os.path.join(DB, "oracle", "03_seed_data.sql"), "\n".join(o))
-write(os.path.join(DB, "next", "oracle", "02_create_tables.sql"), ORACLE_DDL)
+# write(os.path.join(DB, "next", "oracle", "02_create_tables.sql"), ORACLE_DDL)
 write(os.path.join(DB, "next", "oracle", "03_seed_data.sql"), "\n".join(o))
 shutil.copyfile(os.path.join(DB, "oracle", "01_init_user.sql"), os.path.join(DB, "next", "oracle", "01_init_user.sql"))
 

@@ -123,26 +123,26 @@ INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_n
 VALUES (14, 'MBR-000014', 'lourdes_salazar', 'Lourdes S.', 'lourdes.salazar@example.com', 'fil', 'TIER_3_FULL', 'VERIFIED', 0.17, 690, 100000.0000);
 
 -- 6. BENEFICIARIES
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (1, 1, 'ACC_10000002', 'Maria', 'COOBS', TRUE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (2, 2, 'ACC_10000001', 'John', 'COOBS', TRUE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (3, 4, 'ACC_10000007', 'Andrea (supplier)', 'COOBS', TRUE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (4, 4, 'ACC_10000008', 'Mang Jose', 'COOBS', TRUE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (5, 4, 'ACC_10000017', 'Kuya Ricardo', 'COOBS', TRUE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (6, 4, '1000-2000-3000', 'Ate Ana (BANKB)', 'BANKB', TRUE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (7, 12, 'ACC_10000005', 'Juan Dela Cruz', 'COOBS', TRUE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (8, 12, 'ACC_10000009', 'Liza', 'COOBS', TRUE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (9, 9, 'ACC_10000004', 'Tito Juan', 'COOBS', FALSE);
-INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, bank_code, active)
-VALUES (10, 7, 'ACC_10000002', 'Ma''am Maria', 'COOBS', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (1, 1, 'ACC_10000002', 'Maria', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (2, 2, 'ACC_10000001', 'John', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (3, 4, 'ACC_10000007', 'Andrea (supplier)', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (4, 4, 'ACC_10000008', 'Mang Jose', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (5, 4, 'ACC_10000017', 'Kuya Ricardo', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (6, 4, '1000-2000-3000', 'Ate Ana (BANKB)', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (7, 12, 'ACC_10000005', 'Juan Dela Cruz', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (8, 12, 'ACC_10000009', 'Liza', TRUE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (9, 9, 'ACC_10000004', 'Tito Juan', FALSE);
+INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
+VALUES (10, 7, 'ACC_10000002', 'Ma''am Maria', TRUE);
 
 -- 7. ACCOUNTS
 INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
@@ -241,56 +241,56 @@ INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
 VALUES (9005, 9005, 999994500.0000, 999994500.0000);
 
 -- 9. HOLDS
-INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)
-VALUES (1, 16, '0406cded-d5e7-5805-995d-acaef3887283', 'TX-SEED-0013', 3000.0000, 'RESERVED', SYSTIMESTAMP - NUMTODSINTERVAL(35, 'MINUTE'), NULL);
-INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)
-VALUES (2, 4, '326f4233-136d-56a5-9382-86b9be1f3498', 'TX-SEED-0001', 2500.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'), NULL);
-INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)
-VALUES (3, 4, '591aa362-f042-51b4-a1dc-9800eecaf52d', 'TX-SEED-0002', 1200.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'), NULL);
-INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)
-VALUES (4, 5, '1211e0fd-5b1d-5618-8eb2-cbbcc66eb2cb', 'TX-SEED-0003', 3800.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'), NULL);
-INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)
-VALUES (5, 4, 'd3789485-6204-5e3a-a5a9-d275ee583145', 'TX-SEED-0004', 10000.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'), NULL);
-INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)
-VALUES (6, 16, 'dcb6a119-10d9-547b-bb06-c816fc78260f', 'TX-SEED-0005', 1500.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'), NULL);
-INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)
-VALUES (7, 5, 'c096d937-ad1a-58a0-85b2-3fbce5ca292d', 'TX-SEED-0011', 2000.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'), NULL);
-INSERT INTO HOLD (hold_id, account_id, transaction_id, reference_no, amount, status, created_at, resolved_at)
-VALUES (8, 4, '7ac0479e-dd41-5277-a5e9-2099710fe1dd', 'TX-SEED-RELEASED', 900.0000, 'CANCELLED', SYSTIMESTAMP - NUMTODSINTERVAL(12960, 'MINUTE'), NULL);
+INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)
+VALUES (1, 16, 'TX-SEED-0013', 3000.0000, 'RESERVED', SYSTIMESTAMP - NUMTODSINTERVAL(35, 'MINUTE'), NULL);
+INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)
+VALUES (2, 4, 'TX-SEED-0001', 2500.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'), NULL);
+INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)
+VALUES (3, 4, 'TX-SEED-0002', 1200.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'), NULL);
+INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)
+VALUES (4, 5, 'TX-SEED-0003', 3800.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'), NULL);
+INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)
+VALUES (5, 4, 'TX-SEED-0004', 10000.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'), NULL);
+INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)
+VALUES (6, 16, 'TX-SEED-0005', 1500.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'), NULL);
+INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)
+VALUES (7, 5, 'TX-SEED-0011', 2000.0000, 'POSTED', SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'), NULL);
+INSERT INTO HOLD (hold_id, account_id, reference_no, amount, status, created_at, resolved_at)
+VALUES (8, 4, 'TX-SEED-RELEASED', 900.0000, 'CANCELLED', SYSTIMESTAMP - NUMTODSINTERVAL(12960, 'MINUTE'), NULL);
 
 -- 10. TRANSFER_REQUESTS
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (1, 4, 'ACC_10000007', 'COOBS', 2500.0000, 'APP', 'COMPLETED', 'TX-SEED-0001', SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (2, 4, 'ACC_10000017', 'COOBS', 1200.0000, 'APP', 'COMPLETED', 'TX-SEED-0002', SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (3, 5, 'ACC_10000008', 'COOBS', 3800.0000, 'APP', 'COMPLETED', 'TX-SEED-0003', SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (4, 4, 'GL_LOAN_RECEIVABLE', 'COOBS', 5450.0000, 'BATCH', 'COMPLETED', 'EOD-SEED-LOAN-0001', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (5, 4, 'ACC_10000005', 'COOBS', 10000.0000, 'APP', 'COMPLETED', 'TX-SEED-0004', SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (6, 9002, 'ACC_10000004', 'COOBS', 11.6400, 'BATCH', 'COMPLETED', 'EOD-SEED-INT-0001', SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (7, 13, 'GL_FEE_INCOME', 'COOBS', 50.0000, 'BATCH', 'COMPLETED', 'EOD-SEED-FEE-0001', SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (8, 16, 'ACC_10000005', 'COOBS', 1500.0000, 'APP', 'REVERSED', 'TX-SEED-0005', SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (9, 7, 'ACC_10000004', 'COOBS', 5000.0000, 'APP', 'FAILED', 'TX-SEED-0006', SYSTIMESTAMP - NUMTODSINTERVAL(4560, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (10, 8, 'ACC_10000004', 'COOBS', 4000.0000, 'APP', 'FAILED', 'TX-SEED-0007', SYSTIMESTAMP - NUMTODSINTERVAL(4500, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (11, 9, 'ACC_10000002', 'COOBS', 1000.0000, 'APP', 'FAILED', 'TX-SEED-0008', SYSTIMESTAMP - NUMTODSINTERVAL(3240, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (12, 12, 'ACC_10000004', 'COOBS', 8000.0000, 'APP', 'FAILED', 'TX-SEED-0009', SYSTIMESTAMP - NUMTODSINTERVAL(3000, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (13, 11, 'ACC_10000004', 'COOBS', 500.0000, 'TELLER', 'FAILED', 'TX-SEED-0010', SYSTIMESTAMP - NUMTODSINTERVAL(2940, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (14, 5, '1000-2000-3000', 'BANKB', 2000.0000, 'APP', 'COMPLETED', 'TX-SEED-0011', SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (15, 5, 'GL_CASH_VAULT', 'COOBS', 3000.0000, 'TELLER', 'COMPLETED', 'TX-SEED-0012', SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
-INSERT INTO TRANSFER_REQUEST (request_id, source_account_id, destination_account_number, destination_bank_code, amount, channel, status, id_reference_no, created_at)
-VALUES (16, 16, 'ACC_10000009', 'COOBS', 3000.0000, 'APP', 'PENDING', 'TX-SEED-0013', SYSTIMESTAMP - NUMTODSINTERVAL(35, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (1, 4, 'ACC_10000007', 2500.0000, 'APP', 'COMPLETED', 'TX-SEED-0001', SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (2, 4, 'ACC_10000017', 1200.0000, 'APP', 'COMPLETED', 'TX-SEED-0002', SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (3, 5, 'ACC_10000008', 3800.0000, 'APP', 'COMPLETED', 'TX-SEED-0003', SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (4, 4, 'GL_LOAN_RECEIVABLE', 5450.0000, 'BATCH', 'COMPLETED', 'EOD-SEED-LOAN-0001', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (5, 4, 'ACC_10000005', 10000.0000, 'APP', 'COMPLETED', 'TX-SEED-0004', SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (6, 9002, 'ACC_10000004', 11.6400, 'BATCH', 'COMPLETED', 'EOD-SEED-INT-0001', SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (7, 13, 'GL_FEE_INCOME', 50.0000, 'BATCH', 'COMPLETED', 'EOD-SEED-FEE-0001', SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (8, 16, 'ACC_10000005', 1500.0000, 'APP', 'REVERSED', 'TX-SEED-0005', SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (9, 7, 'ACC_10000004', 5000.0000, 'APP', 'FAILED', 'TX-SEED-0006', SYSTIMESTAMP - NUMTODSINTERVAL(4560, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (10, 8, 'ACC_10000004', 4000.0000, 'APP', 'FAILED', 'TX-SEED-0007', SYSTIMESTAMP - NUMTODSINTERVAL(4500, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (11, 9, 'ACC_10000002', 1000.0000, 'APP', 'FAILED', 'TX-SEED-0008', SYSTIMESTAMP - NUMTODSINTERVAL(3240, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (12, 12, 'ACC_10000004', 8000.0000, 'APP', 'FAILED', 'TX-SEED-0009', SYSTIMESTAMP - NUMTODSINTERVAL(3000, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (13, 11, 'ACC_10000004', 500.0000, 'TELLER', 'FAILED', 'TX-SEED-0010', SYSTIMESTAMP - NUMTODSINTERVAL(2940, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (14, 5, '1000-2000-3000', 2000.0000, 'APP', 'COMPLETED', 'TX-SEED-0011', SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (15, 5, 'GL_CASH_VAULT', 3000.0000, 'TELLER', 'COMPLETED', 'TX-SEED-0012', SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
+INSERT INTO TRANSFER_REQUEST (transfer_request_id, source_account_id, destination_account_number, amount, channel, status, id_reference_no, created_at)
+VALUES (16, 16, 'ACC_10000009', 3000.0000, 'APP', 'PENDING', 'TX-SEED-0013', SYSTIMESTAMP - NUMTODSINTERVAL(35, 'MINUTE'));
 
 -- 11. TRANSACTION (Posting Journal)
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
@@ -557,42 +557,42 @@ INSERT INTO DAILY_AUDIT_SEAL (seal_id, business_date, last_audit_id, seal_hash, 
 VALUES (1, TRUNC(CURRENT_DATE) - 6, 48, 'e5e7dcc665981b3f3223ae3961a67647c64467e76e4936c8d2facedaf5e53e9a', SYSTIMESTAMP - NUMTODSINTERVAL(8640, 'MINUTE'));
 
 -- 15. TXN_TRANSACTION
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('326f4233-136d-56a5-9382-86b9be1f3498', 'TX-SEED-0001', 'seed-TX-SEED-0001', 'APP', 4, 4, 7, 'ACC_10000007', 'COOBS', 2500.0000, 'PHP', 'TRANSFER', 'Bayad sa hiniram', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(36599, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('591aa362-f042-51b4-a1dc-9800eecaf52d', 'TX-SEED-0002', 'seed-TX-SEED-0002', 'APP', 4, 4, 17, 'ACC_10000017', 'COOBS', 1200.0000, 'PHP', 'BILLS', 'Hati sa kuryente at tubig', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(29339, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('1211e0fd-5b1d-5618-8eb2-cbbcc66eb2cb', 'TX-SEED-0003', 'seed-TX-SEED-0003', 'APP', 4, 5, 8, 'ACC_10000008', 'COOBS', 3800.0000, 'PHP', 'TRANSFER', 'Bayad sa paninda', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(22079, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('24a3b722-fbc3-5a98-a132-6ad3720ed7f3', 'EOD-SEED-LOAN-0001', 'seed-EOD-SEED-LOAN-0001', 'BATCH', 4, 4, 9004, 'GL_LOAN_RECEIVABLE', 'COOBS', 5450.0000, 'PHP', 'LOAN_REPAYMENT', 'Loan instalment 1 of 24', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(14459, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('d3789485-6204-5e3a-a5a9-d275ee583145', 'TX-SEED-0004', 'seed-TX-SEED-0004', 'APP', 4, 4, 5, 'ACC_10000005', 'COOBS', 10000.0000, 'PHP', 'SAVINGS', 'Lipat sa current account', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(10499, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('7099af05-b179-5c7b-b4cc-f25bb2cb7ba3', 'EOD-SEED-INT-0001', 'seed-EOD-SEED-INT-0001', 'BATCH', 4, 9002, 4, 'ACC_10000004', 'COOBS', 11.6400, 'PHP', 'OTHER', 'Daily savings interest', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('b9861d6a-6325-5754-a5ec-f36cf66595bf', 'EOD-SEED-FEE-0001', 'seed-EOD-SEED-FEE-0001', 'BATCH', 10, 13, 9003, 'GL_FEE_INCOME', 'COOBS', 50.0000, 'PHP', 'FEES', 'Dormant account service fee', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(8688, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('dcb6a119-10d9-547b-bb06-c816fc78260f', 'TX-SEED-0005', 'seed-TX-SEED-0005', 'APP', 12, 16, 5, 'ACC_10000005', 'COOBS', 1500.0000, 'PHP', 'TRANSFER', 'Padala para sa handaan', 'REVERSED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(7499, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('06f41c04-8872-55eb-bbfb-536f511bc5f3', 'RV-SEED-0001', 'seed-RV-SEED-0001', 'TELLER', 12, 5, 16, 'ACC_10000016', 'COOBS', 1500.0000, 'PHP', 'TRANSFER', 'Customer dispute approved: sent to the wrong account', 'POSTED', NULL, 'dcb6a119-10d9-547b-bb06-c816fc78260f', SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(5959, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('eb766f16-c0b8-5019-9841-d1a7d9d1da2a', 'TX-SEED-0006', 'seed-TX-SEED-0006', 'APP', 5, 7, 4, 'ACC_10000004', 'COOBS', 5000.0000, 'PHP', 'TRANSFER', 'Bayad sa order', 'FAILED', 'RISK_DECLINED', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(4560, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(4559, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('943391c0-541a-561b-a4b1-f043f06ff4a6', 'TX-SEED-0007', 'seed-TX-SEED-0007', 'APP', 6, 8, 4, 'ACC_10000004', 'COOBS', 4000.0000, 'PHP', 'TRANSFER', 'Bayad sa pamasahe', 'FAILED', 'RISK_DECLINED', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(4500, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(4499, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('3fb4950d-709d-5f0e-be06-b2eddd3b0f91', 'TX-SEED-0008', 'seed-TX-SEED-0008', 'APP', 7, 9, 2, 'ACC_10000002', 'COOBS', 1000.0000, 'PHP', 'TRANSFER', 'Ambag sa regalo', 'FAILED', 'INSUFFICIENT_FUNDS', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(3240, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(3239, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('1ea9447f-53fd-5132-b53b-8fccae77cb81', 'TX-SEED-0009', 'seed-TX-SEED-0009', 'APP', 9, 12, 4, 'ACC_10000004', 'COOBS', 8000.0000, 'PHP', 'TRANSFER', 'Bayad sa matrikula', 'FAILED', 'LIMIT_EXCEEDED', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(3000, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(2999, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('0333188b-d108-5ba5-85cf-4051f71decc4', 'TX-SEED-0010', 'seed-TX-SEED-0010', 'TELLER', 8, 11, 4, 'ACC_10000004', 'COOBS', 500.0000, 'PHP', 'TRANSFER', 'Bayad sa renta', 'FAILED', 'ACCOUNT_NOT_ACTIVE', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(2940, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(2939, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('d5651f01-a58b-5d3e-ab64-9a15aafaba89', 'IB-SEED-IN-0001', 'seed-IB-SEED-IN-0001', 'INTERBANK', 4, NULL, 4, 'ACC_10000004', 'COOBS', 7500.0000, 'PHP', 'TRANSFER', 'Padala mula sa BANKB', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(1939, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('c096d937-ad1a-58a0-85b2-3fbce5ca292d', 'TX-SEED-0011', 'seed-TX-SEED-0011', 'APP', 4, 5, NULL, '1000-2000-3000', 'BANKB', 2000.0000, 'PHP', 'TRANSFER', 'Padala sa kapatid', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(1839, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('d319be27-186a-5b44-b5d5-84f15b3a3256', 'TX-SEED-0012', 'seed-TX-SEED-0012', 'TELLER', 4, 5, 9001, 'GL_CASH_VAULT', 'COOBS', 3000.0000, 'PHP', 'OTHER', 'Over-the-counter withdrawal', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(1529, 'MINUTE'));
-INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, destination_bank_code, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
-VALUES ('0406cded-d5e7-5805-995d-acaef3887283', 'TX-SEED-0013', 'seed-TX-SEED-0013', 'APP', 12, 16, 9, 'ACC_10000009', 'COOBS', 3000.0000, 'PHP', 'TRANSFER', 'Tulong sa gastusin', 'PROCESSING', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(35, 'MINUTE'), NULL);
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('326f4233-136d-56a5-9382-86b9be1f3498', 'TX-SEED-0001', 'seed-TX-SEED-0001', 'APP', 4, 4, 7, 'ACC_10000007', 2500.0000, 'PHP', 'TRANSFER', 'Bayad sa hiniram', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(36599, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('591aa362-f042-51b4-a1dc-9800eecaf52d', 'TX-SEED-0002', 'seed-TX-SEED-0002', 'APP', 4, 4, 17, 'ACC_10000017', 1200.0000, 'PHP', 'BILLS', 'Hati sa kuryente at tubig', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(29339, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('1211e0fd-5b1d-5618-8eb2-cbbcc66eb2cb', 'TX-SEED-0003', 'seed-TX-SEED-0003', 'APP', 4, 5, 8, 'ACC_10000008', 3800.0000, 'PHP', 'TRANSFER', 'Bayad sa paninda', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(22079, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('24a3b722-fbc3-5a98-a132-6ad3720ed7f3', 'EOD-SEED-LOAN-0001', 'seed-EOD-SEED-LOAN-0001', 'BATCH', 4, 4, 9004, 'GL_LOAN_RECEIVABLE', 5450.0000, 'PHP', 'LOAN_REPAYMENT', 'Loan instalment 1 of 24', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(14459, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('d3789485-6204-5e3a-a5a9-d275ee583145', 'TX-SEED-0004', 'seed-TX-SEED-0004', 'APP', 4, 4, 5, 'ACC_10000005', 10000.0000, 'PHP', 'SAVINGS', 'Lipat sa current account', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(10499, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('7099af05-b179-5c7b-b4cc-f25bb2cb7ba3', 'EOD-SEED-INT-0001', 'seed-EOD-SEED-INT-0001', 'BATCH', 4, 9002, 4, 'ACC_10000004', 11.6400, 'PHP', 'OTHER', 'Daily savings interest', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('b9861d6a-6325-5754-a5ec-f36cf66595bf', 'EOD-SEED-FEE-0001', 'seed-EOD-SEED-FEE-0001', 'BATCH', 10, 13, 9003, 'GL_FEE_INCOME', 50.0000, 'PHP', 'FEES', 'Dormant account service fee', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(8688, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('dcb6a119-10d9-547b-bb06-c816fc78260f', 'TX-SEED-0005', 'seed-TX-SEED-0005', 'APP', 12, 16, 5, 'ACC_10000005', 1500.0000, 'PHP', 'TRANSFER', 'Padala para sa handaan', 'REVERSED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(7499, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('06f41c04-8872-55eb-bbfb-536f511bc5f3', 'RV-SEED-0001', 'seed-RV-SEED-0001', 'TELLER', 12, 5, 16, 'ACC_10000016', 1500.0000, 'PHP', 'TRANSFER', 'Customer dispute approved: sent to the wrong account', 'POSTED', NULL, 'dcb6a119-10d9-547b-bb06-c816fc78260f', SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(5959, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('eb766f16-c0b8-5019-9841-d1a7d9d1da2a', 'TX-SEED-0006', 'seed-TX-SEED-0006', 'APP', 5, 7, 4, 'ACC_10000004', 5000.0000, 'PHP', 'TRANSFER', 'Bayad sa order', 'FAILED', 'RISK_DECLINED', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(4560, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(4559, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('943391c0-541a-561b-a4b1-f043f06ff4a6', 'TX-SEED-0007', 'seed-TX-SEED-0007', 'APP', 6, 8, 4, 'ACC_10000004', 4000.0000, 'PHP', 'TRANSFER', 'Bayad sa pamasahe', 'FAILED', 'RISK_DECLINED', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(4500, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(4499, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('3fb4950d-709d-5f0e-be06-b2eddd3b0f91', 'TX-SEED-0008', 'seed-TX-SEED-0008', 'APP', 7, 9, 2, 'ACC_10000002', 1000.0000, 'PHP', 'TRANSFER', 'Ambag sa regalo', 'FAILED', 'INSUFFICIENT_FUNDS', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(3240, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(3239, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('1ea9447f-53fd-5132-b53b-8fccae77cb81', 'TX-SEED-0009', 'seed-TX-SEED-0009', 'APP', 9, 12, 4, 'ACC_10000004', 8000.0000, 'PHP', 'TRANSFER', 'Bayad sa matrikula', 'FAILED', 'LIMIT_EXCEEDED', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(3000, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(2999, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('0333188b-d108-5ba5-85cf-4051f71decc4', 'TX-SEED-0010', 'seed-TX-SEED-0010', 'TELLER', 8, 11, 4, 'ACC_10000004', 500.0000, 'PHP', 'TRANSFER', 'Bayad sa renta', 'FAILED', 'ACCOUNT_NOT_ACTIVE', NULL, SYSTIMESTAMP - NUMTODSINTERVAL(2940, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(2939, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('d5651f01-a58b-5d3e-ab64-9a15aafaba89', 'IB-SEED-IN-0001', 'seed-IB-SEED-IN-0001', 'INTERBANK', 4, NULL, 4, 'ACC_10000004', 7500.0000, 'PHP', 'TRANSFER', 'Padala mula sa BANKB', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(1939, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('c096d937-ad1a-58a0-85b2-3fbce5ca292d', 'TX-SEED-0011', 'seed-TX-SEED-0011', 'APP', 4, 5, NULL, '1000-2000-3000', 2000.0000, 'PHP', 'TRANSFER', 'Padala sa kapatid', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(1839, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('d319be27-186a-5b44-b5d5-84f15b3a3256', 'TX-SEED-0012', 'seed-TX-SEED-0012', 'TELLER', 4, 5, 9001, 'GL_CASH_VAULT', 3000.0000, 'PHP', 'OTHER', 'Over-the-counter withdrawal', 'POSTED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(1529, 'MINUTE'));
+INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
+VALUES ('0406cded-d5e7-5805-995d-acaef3887283', 'TX-SEED-0013', 'seed-TX-SEED-0013', 'APP', 12, 16, 9, 'ACC_10000009', 3000.0000, 'PHP', 'TRANSFER', 'Tulong sa gastusin', 'PROCESSING', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(35, 'MINUTE'), NULL);
 
 -- 16. TXN_STAGE_EVENT
 INSERT INTO TXN_STAGE_EVENT (stage_event_id, transaction_id, stage_no, stage_name, outcome, detail, occurred_at)
@@ -967,18 +967,18 @@ INSERT INTO STANDING_INSTRUCTION (instruction_id, source_account_id, destination
 VALUES (4, 16, 4, 750.0000, 'WEEKLY', TRUNC(CURRENT_DATE) + 0, FALSE);
 
 -- 20. LOAN_SCHEDULE
-INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (1, 6, 4, TRUNC(CURRENT_DATE) + (-10), 5000.0000, 450.0000, 'PAID', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
-INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (2, 6, 4, TRUNC(CURRENT_DATE) + (0), 5000.0000, 450.0000, 'DUE', NULL);
-INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (3, 6, 4, TRUNC(CURRENT_DATE) + (30), 5000.0000, 450.0000, 'PENDING', NULL);
-INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (4, 6, 4, TRUNC(CURRENT_DATE) + (60), 5000.0000, 450.0000, 'PENDING', NULL);
-INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (5, 10, 9, TRUNC(CURRENT_DATE) + (0), 2500.0000, 250.0000, 'DUE', NULL);
-INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (6, 10, 9, TRUNC(CURRENT_DATE) + (30), 2500.0000, 250.0000, 'PENDING', NULL);
+INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, due_date, principal_due, interest_due, status, paid_at)
+VALUES (1, 6, TRUNC(CURRENT_DATE) + (-10), 5000.0000, 450.0000, 'PAID', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, due_date, principal_due, interest_due, status, paid_at)
+VALUES (2, 6, TRUNC(CURRENT_DATE) + (0), 5000.0000, 450.0000, 'DUE', NULL);
+INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, due_date, principal_due, interest_due, status, paid_at)
+VALUES (3, 6, TRUNC(CURRENT_DATE) + (30), 5000.0000, 450.0000, 'PENDING', NULL);
+INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, due_date, principal_due, interest_due, status, paid_at)
+VALUES (4, 6, TRUNC(CURRENT_DATE) + (60), 5000.0000, 450.0000, 'PENDING', NULL);
+INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, due_date, principal_due, interest_due, status, paid_at)
+VALUES (5, 10, TRUNC(CURRENT_DATE) + (0), 2500.0000, 250.0000, 'DUE', NULL);
+INSERT INTO LOAN_SCHEDULE (schedule_id, loan_account_id, due_date, principal_due, interest_due, status, paid_at)
+VALUES (6, 10, TRUNC(CURRENT_DATE) + (30), 2500.0000, 250.0000, 'PENDING', NULL);
 
 -- 21. BATCH_RUN & BATCH_STEP
 INSERT INTO BATCH_RUN (batch_run_id, business_date, triggered_by, status, started_at, finished_at) VALUES (1, TRUNC(CURRENT_DATE) - 13, 1, 'HALTED', SYSTIMESTAMP - NUMTODSINTERVAL(18720, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(18719, 'MINUTE'));
