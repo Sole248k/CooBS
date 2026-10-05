@@ -33,6 +33,7 @@ Dev 7 curates these into `app/assets/fixtures/` (handshake H15). To change one, 
 | `T5-reversal.response.json` | 7. transaction-service (8090) — NEW |
 | `T6-dlq-item.json` | 7. transaction-service (8090) — NEW |
 | `T7-dlq-replay.response.json` | 7. transaction-service (8090) — NEW |
+| `M1-mobile-dashboard.response.json` | 7.1 mobile-bff (8094) — NEW |
 | `O1-start-transfer-saga.request.json` | 8. orchestration-service (8091) — NEW, internal only |
 | `O1-start-transfer-saga.response.json` | 8. orchestration-service (8091) — NEW, internal only |
 | `O2-start-reversal-saga.request.json` | 8. orchestration-service (8091) — NEW, internal only |

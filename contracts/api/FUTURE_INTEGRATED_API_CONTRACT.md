@@ -211,7 +211,8 @@ Order matters: the gateway must match the more specific KYC route before the gen
 | `/api/v1/customers/kyc/**` | account-service 8082 | On-premises | SAME (KYC master stays here) |
 | `/api/v1/customers/**` | customer-service 8089 | Cloud | CHANGED target |
 | `/api/v1/accounts/**` | account-service 8082 | On-premises | SAME |
-| `/api/v1/transactions/**` | transaction-service 8090 | Cloud | NEW |
+| `/api/v1/transactions/**` | transaction-service 8090 | Cloud | NEW (transfer intake & timeline) |
+| `/api/v1/mobile/**` | mobile-bff 8094 | Cloud | NEW (mobile screen aggregation & adapters) |
 | `/api/v1/interbank/**` | transaction-service 8090 | Cloud | NEW |
 | `/api/v1/batch/**` | batch-service 8093 | On-premises | NEW |
 | `/api/v1/ledger/**` | ledger-service 8083 | On-premises | CHANGED: staff roles only |
@@ -222,6 +223,7 @@ Order matters: the gateway must match the more specific KYC route before the gen
 
 | Caller | Calls | For |
 | --- | --- | --- |
+| mobile-bff | customer, account, transaction, notification services | Screen aggregation & mobile composite responses |
 | transaction-service | account-service `/internal/v1/accounts/**` | Ownership, status, lookup by number |
 | transaction-service | orchestration-service `/internal/v1/sagas/**` | Start transfer or reversal saga |
 | orchestration-service | customer-service `/internal/v1/customers/{id}/risk-profile` | Score and tier |
@@ -517,10 +519,10 @@ All 20 existing endpoints keep their paths and payloads, with these exceptions.
 
 | # | Method and path | Roles | Notes |
 | --- | --- | --- | --- |
-| T1 | `POST /api/v1/transactions/transfers` | Customer, Teller | Needs `Idempotency-Key`. Returns 202 |
-| T2 | `GET /api/v1/transactions/{transactionId}` | Owner, Teller, Admin | |
+| T1 | `POST /api/v1/transactions/transfers` | Customer, Teller | Needs `Idempotency-Key`. Returns 202. Alias: `/api/v1/transactions/remittance` |
+| T2 | `GET /api/v1/transactions/{transactionId}` | Owner, Teller, Admin | Path param also accepts `trackingReference` |
 | T3 | `GET /api/v1/transactions/{transactionId}/timeline` | Owner, Teller, Admin | Customers get three stages, staff eleven |
-| T4 | `GET /api/v1/transactions` | Customer (own), Teller, Admin | Filters: `accountId`, `status`, `from`, `to`, paging |
+| T4 | `GET /api/v1/transactions` | Customer (own), Teller, Admin | Filters: `accountId`, `status`, `from`, `to`, paging. Alias: `/my-transactions` |
 | T5 | `POST /api/v1/transactions/{transactionId}/reversal` | Teller, Admin | Needs `Idempotency-Key` |
 | T6 | `GET /api/v1/transactions/admin/dlq` | Admin | Dead-letter records |
 | T7 | `POST /api/v1/transactions/admin/dlq/{recordId}/replay` | Admin | |
@@ -596,21 +598,24 @@ A repeat of the same `Idempotency-Key` returns the same body with 200.
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "trackingReference": "TX-20261003-8F3A21C0",
   "status": "POSTED",
   "view": "STAFF",
   "currentStage": 11,
+  "totalStages": 11,
+  "overallStatus": "COMPLETED",
   "stages": [
-    { "stageNo": 1, "stageName": "INITIATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.010Z", "detail": null },
-    { "stageNo": 2, "stageName": "VALIDATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.020Z", "detail": null },
-    { "stageNo": 3, "stageName": "AUTHENTICATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.030Z", "detail": null },
-    { "stageNo": 4, "stageName": "FRAUD_CHECK", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.060Z", "detail": "score 0.15" },
-    { "stageNo": 5, "stageName": "LIMIT_CHECK", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.065Z", "detail": null },
-    { "stageNo": 6, "stageName": "FUNDS_CHECK", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.120Z", "detail": null },
-    { "stageNo": 7, "stageName": "AUTHORIZED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.130Z", "detail": null },
-    { "stageNo": 8, "stageName": "POSTED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.210Z", "detail": null },
-    { "stageNo": 9, "stageName": "LEDGER_UPDATE", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.450Z", "detail": null },
-    { "stageNo": 10, "stageName": "NOTIFICATION", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:01.100Z", "detail": null },
-    { "stageNo": 11, "stageName": "RECONCILIATION", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:01.400Z", "detail": null }
+    { "stageNo": 1, "stageNumber": 1, "stageKey": "INGRESS_ACCEPTED", "stageName": "INGRESS_ACCEPTED", "title": "Ingress Accepted", "service": "transaction-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.010Z", "timestamp": "2026-10-03T11:40:00.010Z", "detail": null },
+    { "stageNo": 2, "stageNumber": 2, "stageKey": "PREFLIGHT_VALIDATED", "stageName": "PREFLIGHT_VALIDATED", "title": "Pre-flight Solvency Checked", "service": "transaction-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.020Z", "timestamp": "2026-10-03T11:40:00.020Z", "detail": null },
+    { "stageNo": 3, "stageNumber": 3, "stageKey": "DISPATCHED_TO_ORCHESTRATOR", "stageName": "DISPATCHED_TO_ORCHESTRATOR", "title": "Dispatched to Orchestrator", "service": "transaction-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.030Z", "timestamp": "2026-10-03T11:40:00.030Z", "detail": null },
+    { "stageNo": 4, "stageNumber": 4, "stageKey": "SAGA_INITIALIZED", "stageName": "SAGA_INITIALIZED", "title": "Saga State Machine Initialized", "service": "orchestration-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.040Z", "timestamp": "2026-10-03T11:40:00.040Z", "detail": null },
+    { "stageNo": 5, "stageNumber": 5, "stageKey": "RISK_EVALUATION_REQUESTED", "stageName": "RISK_EVALUATION_REQUESTED", "title": "Risk Evaluation Requested", "service": "orchestration-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.050Z", "timestamp": "2026-10-03T11:40:00.050Z", "detail": null },
+    { "stageNo": 6, "stageNumber": 6, "stageKey": "RISK_EVALUATION_COMPLETED", "stageName": "RISK_EVALUATION_COMPLETED", "title": "Risk Screening Passed", "service": "orchestration-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.060Z", "timestamp": "2026-10-03T11:40:00.060Z", "detail": "score 0.15 (Low Risk)" },
+    { "stageNo": 7, "stageNumber": 7, "stageKey": "LEDGER_HOLD_RESERVED", "stageName": "LEDGER_HOLD_RESERVED", "title": "Ledger Balance Hold Reserved", "service": "orchestration-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.120Z", "timestamp": "2026-10-03T11:40:00.120Z", "detail": null },
+    { "stageNo": 8, "stageNumber": 8, "stageKey": "LEDGER_POSTED", "stageName": "LEDGER_POSTED", "title": "Double-Entry SoR Committed", "service": "orchestration-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.210Z", "timestamp": "2026-10-03T11:40:00.210Z", "detail": "Journal Ref: TRF-TX20261003" },
+    { "stageNo": 9, "stageNumber": 9, "stageKey": "EVENT_EMITTED", "stageName": "EVENT_EMITTED", "title": "Domain Event Emitted", "service": "orchestration-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.450Z", "timestamp": "2026-10-03T11:40:00.450Z", "detail": "Topic: ledger.transfer.completed.v1" },
+    { "stageNo": 10, "stageNumber": 10, "stageKey": "NOTIFICATIONS_DISPATCHED", "stageName": "NOTIFICATIONS_DISPATCHED", "title": "Member Notifications Sent", "service": "orchestration-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:01.100Z", "timestamp": "2026-10-03T11:40:01.100Z", "detail": null },
+    { "stageNo": 11, "stageNumber": 11, "stageKey": "COMPLETED", "stageName": "COMPLETED", "title": "Saga Fully Reconciled", "service": "orchestration-service", "status": "COMPLETED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:01.400Z", "timestamp": "2026-10-03T11:40:01.400Z", "detail": null }
   ]
 }
 ```
@@ -623,18 +628,52 @@ All eleven stages are always present; one not reached yet has `"outcome": "PENDI
 ```json
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "trackingReference": "TX-20261003-8F3A21C0",
   "status": "PROCESSING",
+  "overallStatus": "PROCESSING",
   "view": "CUSTOMER",
+  "currentStage": 1,
+  "totalStages": 3,
   "stages": [
-    { "stageName": "INITIATED", "outcome": "PASSED", "occurredAt": "2026-10-03T11:40:00.010Z" },
-    { "stageName": "PROCESSING", "outcome": "PENDING", "occurredAt": null },
-    { "stageName": "POSTED", "outcome": "PENDING", "occurredAt": null }
+    {
+      "stageNumber": 1,
+      "stageKey": "SUBMITTED",
+      "stageName": "INITIATED",
+      "title": "Transfer Submitted",
+      "subtitle": "Your transfer request has been received and verified.",
+      "status": "COMPLETED",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.010Z",
+      "timestamp": "2026-10-03T11:40:00.010Z"
+    },
+    {
+      "stageNumber": 2,
+      "stageKey": "IN_REVIEW",
+      "stageName": "PROCESSING",
+      "title": "Security & Clearing",
+      "subtitle": "Automated security screening and cooperative network clearing.",
+      "status": "IN_PROGRESS",
+      "outcome": "PENDING",
+      "occurredAt": null,
+      "timestamp": null
+    },
+    {
+      "stageNumber": 3,
+      "stageKey": "COMPLETED",
+      "stageName": "POSTED",
+      "title": "Transfer Completed",
+      "subtitle": "Funds have been successfully deposited into the recipient's account.",
+      "status": "PENDING",
+      "outcome": "PENDING",
+      "occurredAt": null,
+      "timestamp": null
+    }
   ],
   "failureMessage": null
 }
 ```
 
-Customers never see `detail`, risk scores or internal reasons; `failureMessage` is a plain sentence.
+Customers never see internal technical details or raw risk scores; `failureMessage` is a plain, user-friendly sentence.
 
 **T5 request**
 
@@ -689,6 +728,53 @@ Customers never see `detail`, risk scores or internal reasons; `failureMessage` 
 
 **T8 response:** an array of the `recentTransactions` items shown in C3.  
 **T9 response:** the `spendingBreakdown` object shown in C3.
+
+---
+
+## 7.1 mobile-bff (8094) — NEW, mobile middleware
+
+The **Mobile Backend-for-Frontend (BFF)** is an application-level orchestration middleware deployed on the cloud network. It sits behind Spring Cloud Gateway (:8080) at `/api/v1/mobile/**` to eliminate high-latency cellular round-trips over 4G/5G mobile connections, minimize battery and bandwidth drain, and adapt complex microservice states for the Flutter mobile client.
+
+| # | Method and path | Roles | Notes |
+| --- | --- | --- | --- |
+| M1 | `GET /api/v1/mobile/dashboard` | Customer | Concurrently aggregates member profile, primary account, balance, unread notifications count, and recent transactions in a single round-trip (< 150ms) |
+| M2 | `GET /api/v1/mobile/transactions/{trackingReference}/timeline` | Customer | 3-stage customer progress adapter translating microservice saga states into member milestones (`SUBMITTED`, `IN_REVIEW`, `COMPLETED`) |
+| M3 | `POST /api/v1/mobile/transactions/remittance` | Customer | Mobile remittance submission intake; validates client DTO and dispatches to `transaction-service`, returning `202 Accepted` |
+
+**M1 response, 200**
+
+<!-- example: M1-mobile-dashboard.response.json -->
+```json
+{
+  "member": {
+    "customerId": 1,
+    "displayName": "John D. Doe",
+    "email": "john.doe@example.com",
+    "kycStatus": "VERIFIED"
+  },
+  "primaryAccount": {
+    "accountId": 1,
+    "accountNumber": "ACC_10000001",
+    "accountType": "SAVINGS",
+    "currency": "PHP",
+    "availableBalance": 50000.00,
+    "formattedBalance": "₱50,000.00",
+    "status": "ACTIVE"
+  },
+  "unreadNotifications": 2,
+  "recentTransactions": [
+    {
+      "trackingReference": "TX-20261003-8F3A21C0",
+      "amount": 2500.00,
+      "formattedAmount": "-₱2,500.00",
+      "currency": "PHP",
+      "status": "POSTED",
+      "remarks": "Lunch money",
+      "submittedAt": "2026-10-03T11:40:00Z"
+    }
+  ]
+}
+```
 
 ---
 

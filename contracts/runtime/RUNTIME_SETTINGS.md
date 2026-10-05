@@ -21,6 +21,7 @@ Inside Compose a service is reached by its container name. From the host, and wh
 | orchestration-service | `orchestration-service` | 8091 | Cloud | `expansion` |
 | risk-engine | `risk-engine` | 8092 | Cloud | `expansion` |
 | batch-service | `batch-service` | 8093 | On-premises | `expansion` |
+| mobile-bff | `mobile-bff` | 8094 | Cloud | `expansion` |
 
 | Data store | Container name | Port inside Compose | Host port | Compose profile |
 | --- | --- | --- | --- | --- |
@@ -46,17 +47,19 @@ One variable per target service, holding the base URL with no trailing slash and
 | `ORCHESTRATION_SERVICE_URL` | `http://orchestration-service:8091` |
 | `RISK_ENGINE_URL` | `http://risk-engine:8092` |
 | `BATCH_SERVICE_URL` | `http://batch-service:8093` |
+| `MOBILE_BFF_URL` | `http://mobile-bff:8094` |
 
 Which service receives which URL follows section 3.2 of the API contract, the list of allowed internal calls:
 
 | Service | Receives |
 | --- | --- |
-| api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch |
+| api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch, mobile-bff |
 | customer-service | `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL` |
 | transaction-service | `ACCOUNT_SERVICE_URL`, `ORCHESTRATION_SERVICE_URL` |
 | orchestration-service | `CUSTOMER_SERVICE_URL`, `RISK_ENGINE_URL`, `LEDGER_SERVICE_URL` |
 | account-service | `LEDGER_SERVICE_URL` |
 | batch-service | `LEDGER_SERVICE_URL` |
+| mobile-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
 
 In `application.properties`, give the local default so the service also runs from an IDE:
 
@@ -132,7 +135,7 @@ Whether `batch-service` publishes its step event itself or through the ledger ou
 | --- | --- |
 | `JWT_SECRET` | The same value in every service. No fallback in any `application.properties`: a missing secret fails at startup |
 | `JWT_EXPIRATION_MS` | Default 86400000 |
-| `CORS_ALLOWED_ORIGINS` | Default `http://localhost:3000,http://localhost:5173`. The Flutter web origin is added once its port is fixed (H14) |
+| `CORS_ALLOWED_ORIGINS` | Default `http://localhost:3000,http://localhost:5173,http://localhost:8088,http://127.0.0.1:8088`. Fixed port `8088` handles Flutter web development (H14). Native Android (`10.0.2.2:8080`) uses direct OS sockets, bypassing browser SOP with zero CORS friction |
 
 ## 6. Changing a setting
 
