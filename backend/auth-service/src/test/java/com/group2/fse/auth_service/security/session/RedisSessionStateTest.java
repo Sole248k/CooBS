@@ -3,8 +3,6 @@ package com.group2.fse.auth_service.security.session;
 import com.group2.fse.auth_service.security.blacklist.TokenBlacklistService;
 import com.group2.fse.auth_service.security.blacklist.impl.RedisTokenBlacklistServiceImpl;
 import com.group2.fse.auth_service.security.jwt.JwtTokenProvider;
-import com.group2.fse.auth_service.security.mfa.MfaChallenge;
-import com.group2.fse.auth_service.security.mfa.MfaChallengeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +16,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@DisplayName("Phase 3: Redis Session State, Blacklist & MFA Challenge Tests")
+@DisplayName("Phase 3: Redis Session State & Token Blacklist Tests")
 class RedisSessionStateTest {
 
     @Autowired
@@ -26,9 +24,6 @@ class RedisSessionStateTest {
 
     @Autowired
     private RedisRefreshTokenService redisRefreshTokenService;
-
-    @Autowired
-    private MfaChallengeService mfaChallengeService;
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
@@ -81,30 +76,5 @@ class RedisSessionStateTest {
         redisRefreshTokenService.revokeRefreshToken(refreshToken);
         Optional<RefreshTokenData> revokedOpt = redisRefreshTokenService.getRefreshTokenData(refreshToken);
         assertThat(revokedOpt).isEmpty();
-    }
-
-    @Test
-    @DisplayName("Should create, verify, and consume MFA OTP challenge in Redis")
-    void shouldManageMfaChallengeLifecycle() {
-        Long userId = 301L;
-        String username = "mfa_user";
-        List<String> roles = List.of("ROLE_CUSTOMER");
-
-        MfaChallenge challenge = mfaChallengeService.createChallenge(userId, username, roles, "CUSTOMER");
-        assertThat(challenge.getMfaToken()).isNotBlank();
-        assertThat(challenge.getCode()).hasSize(6);
-
-        // Verify with invalid code should fail
-        Optional<MfaChallenge> invalidVerify = mfaChallengeService.verifyChallenge(challenge.getMfaToken(), "000000");
-        assertThat(invalidVerify).isEmpty();
-
-        // Verify with correct code should succeed
-        Optional<MfaChallenge> validVerify = mfaChallengeService.verifyChallenge(challenge.getMfaToken(), challenge.getCode());
-        assertThat(validVerify).isPresent();
-        assertThat(validVerify.get().getUsername()).isEqualTo(username);
-
-        // Second verification should fail because challenge was consumed
-        Optional<MfaChallenge> secondVerify = mfaChallengeService.verifyChallenge(challenge.getMfaToken(), challenge.getCode());
-        assertThat(secondVerify).isEmpty();
     }
 }

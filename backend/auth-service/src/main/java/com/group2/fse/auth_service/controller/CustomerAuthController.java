@@ -1,9 +1,7 @@
 package com.group2.fse.auth_service.controller;
 
-import com.group2.fse.auth_service.dto.AuthResponseDto;
 import com.group2.fse.auth_service.dto.LoginRequestDto;
 import com.group2.fse.auth_service.dto.LoginResultDto;
-import com.group2.fse.auth_service.dto.MfaVerifyRequestDto;
 import com.group2.fse.auth_service.service.CustomerAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,12 +28,5 @@ public class CustomerAuthController {
         log.info("REST request for customer login: {}", request.getUsername());
         LoginResultDto result = customerAuthService.login(request);
         return ResponseEntity.ok(result);
-    }
-
-    @PostMapping("/mfa/verify")
-    public ResponseEntity<AuthResponseDto> verifyMfa(@Valid @RequestBody MfaVerifyRequestDto request) {
-        log.info("REST request for customer MFA verification");
-        AuthResponseDto response = customerAuthService.verifyMfa(request);
-        return ResponseEntity.ok(response);
     }
 }
