@@ -9,8 +9,8 @@ This directory (`/contracts/`) is the source of truth for API paths, payloads an
 | `api/CURRENT_API_INVENTORY_AND_USAGE_GUIDE.md` | The 38 endpoints that exist today and who calls them. Some payloads in it differ from the code; see section 1 of the target contract |
 | `api/FUTURE_INTEGRATED_API_CONTRACT.md` | The target contract: every public and internal endpoint, payloads, events, enumerations and error codes |
 | `api/INTERBANK_TRANSFER_PROPOSAL.md` | The bank-to-bank transfer proposal to send to partner groups |
-| `runtime/RUNTIME_SETTINGS.md` | Ports, service URL variables, database names and connection variables every service uses (handshakes H12 and H13) |
-| `examples/*.json` | One file per example in the target contract, for Flutter fixtures, Postman bodies and tests. See below |
+| `runtime/RUNTIME_SETTINGS.md` | Ports, service URL variables, database names and connection variables every service uses (handshakes H12, H13, and mobile-bff on 8094) |
+| `examples/*.json` | 62 files, one per example in the target contract (including M1 mobile dashboard and T3 customer/staff timelines), for Flutter fixtures, Postman bodies and tests. See below |
 
 ## Examples
 
