@@ -1,0 +1,211 @@
+package com.group2.fse.risk_engine.service;
+
+import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.Mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.group2.fse.risk_engine.dto.RiskEvaluationRequest;
+import com.group2.fse.risk_engine.dto.RiskEvaluationResponse;
+
+@ExtendWith(MockitoExtension.class)
+class RiskEvaluatorTest {
+
+    private LimitPolicy limitPolicy;
+
+    @Mock
+    private VelocityCounter velocityCounter;
+
+    private RiskEvaluator riskEvaluator;
+
+    @BeforeEach
+    void setUp() {
+        limitPolicy = new LimitPolicy();
+        riskEvaluator = new RiskEvaluator(limitPolicy, velocityCounter);
+    }
+
+    @Test
+    @DisplayName("Should APPROVE low-risk transfer when score < 0.60 (Clean contract example)")
+    void testApproveLowRiskTransfer() {
+        // Given: TIER_3 customer transferring 2500 PHP with 0 velocity
+        when(velocityCounter.getVelocityState(1L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(new BigDecimal("5000.00"))
+                        .redisAvailable(true)
+                        .build()
+        );
+
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11")
+                .customerId(1L)
+                .amount(new BigDecimal("2500.00"))
+                .currency("PHP")
+                .channel("APP")
+                .kycTier("TIER_3_FULL")
+                .dailyLimit(new BigDecimal("100000.00"))
+                .isNewBeneficiary(false)
+                .build();
+
+        // When
+        RiskEvaluationResponse response = riskEvaluator.evaluate(request);
+
+        // Then
+        assertNotNull(response);
+        assertEquals("APPROVE", response.getDecision());
+        assertEquals("PASSED", response.getFraudCheck().getOutcome());
+        assertEquals("PASSED", response.getLimitCheck().getOutcome());
+        assertTrue(response.getFraudCheck().getReasons().isEmpty(), "Approved transfer reasons must be empty");
+        assertTrue(Double.parseDouble(response.getScore()) < 0.60);
+
+        verify(velocityCounter).recordApprovedTransfer(eq(1L), eq(new BigDecimal("2500.00")));
+    }
+
+    @Test
+    @DisplayName("Should DECLINE with REVIEW_REQUIRED when score is between 0.60 and 0.85")
+    void testDeclineMiddleBandReviewRequired() {
+        // Given: TIER_2 (sTier=0.50 -> 0.15), amount 25,000 / 50,000 (sAmount=0.50 -> 0.175), velocity=2 (sVelocity=0.50 -> 0.175), newBeneficiary=+0.15 => Score = 0.65
+        when(velocityCounter.getVelocityState(2L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(2)
+                        .usedToday(BigDecimal.ZERO)
+                        .redisAvailable(true)
+                        .build()
+        );
+
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("tx-review-001")
+                .customerId(2L)
+                .amount(new BigDecimal("25000.00"))
+                .currency("PHP")
+                .channel("APP")
+                .kycTier("TIER_2_STANDARD")
+                .dailyLimit(new BigDecimal("50000.00"))
+                .isNewBeneficiary(true)
+                .build();
+
+        // When
+        RiskEvaluationResponse response = riskEvaluator.evaluate(request);
+
+        // Then
+        assertEquals("DECLINE", response.getDecision());
+        assertEquals("FAILED", response.getFraudCheck().getOutcome());
+        assertTrue(response.getFraudCheck().getReasons().contains("REVIEW_REQUIRED"));
+        double score = Double.parseDouble(response.getScore());
+        assertTrue(score >= 0.60 && score <= 0.85, "Score should fall into 0.60 - 0.85 band");
+
+        // Must not record transfer in Redis on decline
+        verify(velocityCounter, never()).recordApprovedTransfer(any(), any());
+    }
+
+    @Test
+    @DisplayName("Should DECLINE with HIGH_RISK when score > 0.85 (e.g. TIER_1 basic + burst velocity + max amount)")
+    void testDeclineHighRiskScore() {
+        // Given: TIER_1 (sTier=1.00 -> 0.30), velocity=4 (sVelocity=1.00 -> 0.35), amount=5000/5000 (sAmount=1.00 -> 0.35) => Score = 1.00
+        when(velocityCounter.getVelocityState(3L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(4)
+                        .usedToday(BigDecimal.ZERO)
+                        .redisAvailable(true)
+                        .build()
+        );
+
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("tx-highrisk-001")
+                .customerId(3L)
+                .amount(new BigDecimal("5000.00"))
+                .currency("PHP")
+                .channel("APP")
+                .kycTier("TIER_1_BASIC")
+                .dailyLimit(new BigDecimal("5000.00"))
+                .isNewBeneficiary(false)
+                .build();
+
+        // When
+        RiskEvaluationResponse response = riskEvaluator.evaluate(request);
+
+        // Then
+        assertEquals("DECLINE", response.getDecision());
+        assertEquals("FAILED", response.getFraudCheck().getOutcome());
+        assertTrue(response.getFraudCheck().getReasons().contains("HIGH_RISK"));
+        assertTrue(response.getFraudCheck().getReasons().contains("BURST_VELOCITY_LIMIT_EXCEEDED"));
+        assertTrue(Double.parseDouble(response.getScore()) > 0.85);
+    }
+
+    @Test
+    @DisplayName("Should DECLINE immediately when daily limit is exceeded")
+    void testDeclineDailyLimitExceeded() {
+        // Given: Daily limit 50,000, already used 45,000, attempting 10,000 (Total 55,000 > 50,000)
+        when(velocityCounter.getVelocityState(4L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(new BigDecimal("45000.00"))
+                        .redisAvailable(true)
+                        .build()
+        );
+
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("tx-limit-001")
+                .customerId(4L)
+                .amount(new BigDecimal("10000.00"))
+                .currency("PHP")
+                .channel("APP")
+                .kycTier("TIER_2_STANDARD")
+                .dailyLimit(new BigDecimal("50000.00"))
+                .isNewBeneficiary(false)
+                .build();
+
+        // When
+        RiskEvaluationResponse response = riskEvaluator.evaluate(request);
+
+        // Then
+        assertEquals("DECLINE", response.getDecision());
+        assertEquals("FAILED", response.getLimitCheck().getOutcome());
+        assertTrue(response.getFraudCheck().getReasons().contains("LIMIT_EXCEEDED"));
+        assertTrue(response.getFraudCheck().getReasons().contains("TIER_DAILY_CEILING_REACHED"));
+    }
+
+    @Test
+    @DisplayName("Should flag REDIS_UNAVAILABLE when Redis is down without failing open silently")
+    void testRedisDownHandling() {
+        // Given: Redis is unreachable
+        when(velocityCounter.getVelocityState(5L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(BigDecimal.ZERO)
+                        .redisAvailable(false)
+                        .build()
+        );
+
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("tx-redis-down-001")
+                .customerId(5L)
+                .amount(new BigDecimal("25000.00"))
+                .currency("PHP")
+                .channel("APP")
+                .kycTier("TIER_2_STANDARD")
+                .dailyLimit(new BigDecimal("50000.00"))
+                .isNewBeneficiary(true)
+                .build();
+
+        // When
+        RiskEvaluationResponse response = riskEvaluator.evaluate(request);
+
+        // Then
+        assertTrue(response.getFraudCheck().getReasons().contains("REDIS_UNAVAILABLE"),
+                "Should include REDIS_UNAVAILABLE flag in reasons");
+    }
+}
