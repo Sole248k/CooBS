@@ -7,6 +7,7 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.group2.fse.orchestration_service.client.CustomerClient;
 import com.group2.fse.orchestration_service.client.DownstreamException;
 import com.group2.fse.orchestration_service.client.InternalApi;
@@ -42,11 +43,13 @@ public class TransferSaga {
     private final StageEventPublisher events;
     private final int captureAttempts;
     private final Duration captureBackoff;
+    private final ObjectMapper objectMapper;
 
     public TransferSaga(SagaRepository sagas, CustomerClient customers, RiskClient risk, LedgerClient ledger,
             StageEventPublisher events,
             @Value("${app.saga.capture-attempts}") int captureAttempts,
-            @Value("${app.saga.capture-backoff}") Duration captureBackoff) {
+            @Value("${app.saga.capture-backoff}") Duration captureBackoff,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) ObjectMapper objectMapper) {
         this.sagas = sagas;
         this.customers = customers;
         this.risk = risk;
@@ -54,20 +57,32 @@ public class TransferSaga {
         this.events = events;
         this.captureAttempts = captureAttempts;
         this.captureBackoff = captureBackoff;
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
     }
 
     /**
      * Runs the saga for this transfer from whatever state its row is in.
-     *
-     * ponytail: saga_instance holds no transfer details, so a stopped saga is resumed by
-     * transaction-service repeating O1, not by a startup sweep here. Two runs of the same
-     * saga at once are harmless (same idempotency keys) but publish duplicate stage events.
-     * Add the request columns and a scheduled sweep when Dev 5 extends the table.
      */
     public void run(StartTransferRequest transfer, String correlationId) {
         MDC.put(InternalApi.CORRELATION_MDC_KEY, correlationId);
         try {
             SagaInstance saga = sagas.findOrCreate(transfer.transactionId());
+            boolean dirty = false;
+            if (saga.getReferenceNo() == null && transfer.referenceNo() != null) {
+                saga.setReferenceNo(transfer.referenceNo());
+                dirty = true;
+            }
+            if (saga.getPayload() == null) {
+                try {
+                    saga.setPayload(objectMapper.writeValueAsString(transfer));
+                    dirty = true;
+                } catch (Exception e) {
+                    log.warn("Failed to serialize transfer payload for {}: {}", transfer.transactionId(), e.getMessage());
+                }
+            }
+            if (dirty) {
+                sagas.saveAndFlush(saga);
+            }
             if (saga.getState() == SagaState.STARTED) {
                 checkRisk(saga, transfer);
             }

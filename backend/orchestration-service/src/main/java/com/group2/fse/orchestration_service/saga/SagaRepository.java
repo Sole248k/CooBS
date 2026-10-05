@@ -10,6 +10,8 @@ public interface SagaRepository extends JpaRepository<SagaInstance, UUID> {
 
     Optional<SagaInstance> findByTransactionId(UUID transactionId);
 
+    Optional<SagaInstance> findByReferenceNo(String referenceNo);
+
     /** A repeated start for the same transaction returns the existing saga instead of a second one. */
     default SagaInstance findOrCreate(UUID transactionId) {
         return findByTransactionId(transactionId).orElseGet(() -> {

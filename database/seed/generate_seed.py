@@ -621,11 +621,13 @@ CREATE TABLE TXN_TRANSACTION (
 CREATE TABLE SAGA_INSTANCE (
     saga_id VARCHAR2(36) PRIMARY KEY,
     transaction_id VARCHAR2(36) NOT NULL UNIQUE,
+    reference_no VARCHAR2(40),
     state VARCHAR2(30) NOT NULL,
     hold_id NUMBER(19),
     risk_decision VARCHAR2(20),
     failure_reason VARCHAR2(255),
     failure_code VARCHAR2(60),
+    payload CLOB,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT fk_saga_txn FOREIGN KEY (transaction_id) REFERENCES TXN_TRANSACTION(transaction_id)
 );
@@ -1141,10 +1143,12 @@ CREATE TABLE IF NOT EXISTS txn.interbank_message (
 CREATE TABLE IF NOT EXISTS saga.saga_instance (
     saga_id UUID PRIMARY KEY,
     transaction_id UUID NOT NULL UNIQUE,
+    reference_no VARCHAR(40),
     state VARCHAR(30) NOT NULL,
     hold_id BIGINT,
     risk_decision VARCHAR(20),
     failure_code VARCHAR(60),
+    payload TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 """]
@@ -1194,27 +1198,27 @@ for h in HISTORY:
         if h["channel"] == "INTERBANK":
             det = {3: "not applicable", 4: "not applicable", 5: "not applicable", 6: "not applicable", 7: "not applicable"}
         t += stages(tid, h["mins"], 11, details=det)
-        sagas.append((tid, "COMPLETED", h.get("hold_id"), None if h["channel"] in ("INTERBANK", "BATCH") else "APPROVE", None, h["mins"] - 1))
+        sagas.append((tid, h["ref"], "COMPLETED", h.get("hold_id"), None if h["channel"] in ("INTERBANK", "BATCH") else "APPROVE", None, h["mins"] - 1))
     elif h["kind"] == "REVERSED":
         r = h["reversal"]
         t.append(txn_insert(tid, h["ref"], h, "REVERSED", h["mins"], h["mins"] - 1))
         t += stages(tid, h["mins"], 11, details=det)
-        sagas.append((tid, "COMPLETED", h.get("hold_id"), "APPROVE", None, h["mins"] - 1))
+        sagas.append((tid, h["ref"], "COMPLETED", h.get("hold_id"), "APPROVE", None, h["mins"] - 1))
         rev = dict(h, src=h["dst"], dst=h["src"], customer=h["customer"])
         t.append(txn_insert(r["transaction_id"], r["ref"], rev, "POSTED", r["mins"], r["mins"] - 1, reverses=tid,
                             channel="TELLER", remarks=r["reason"]))
         t += stages(r["transaction_id"], r["mins"], 11, details={4: "not applicable", 5: "not applicable", 6: "not applicable"})
-        sagas.append((r["transaction_id"], "COMPLETED", None, None, None, r["mins"] - 1))
+        sagas.append((r["transaction_id"], r["ref"], "COMPLETED", None, None, None, r["mins"] - 1))
     elif h["kind"] == "FAILED":
         t.append(txn_insert(tid, h["ref"], h, "FAILED", h["mins"], h["mins"] - 1, failure=h["fail_code"]))
         t += stages(tid, h["mins"], h["fail_stage"], fail_at=h["fail_stage"], fail_detail=h["fail_detail"], details=det)
         if h["fail_stage"] >= 4:
             decision = "DECLINE" if h["fail_stage"] in (4, 5) else "APPROVE"
-            sagas.append((tid, "FAILED", None, decision, h["fail_code"], h["mins"] - 1))
+            sagas.append((tid, h["ref"], "FAILED", None, decision, h["fail_code"], h["mins"] - 1))
     elif h["kind"] == "INFLIGHT":
         t.append(txn_insert(tid, h["ref"], h, "PROCESSING", h["mins"], None))
         t += stages(tid, h["mins"], 6, details=det)
-        sagas.append((tid, "FUNDS_RESERVED", h["hold_id"], "APPROVE", None, h["mins"]))
+        sagas.append((tid, h["ref"], "FUNDS_RESERVED", h["hold_id"], "APPROVE", None, h["mins"]))
     if "interbank" in h:
         x = h["interbank"]
         all_ib_meta.append((x["message_id"], x["direction"], PARTNER_BANK, tid, x["counterparty_account"], x["counterparty_name"], "ACCEPTED", h["mins"]))
@@ -1223,9 +1227,9 @@ for h in HISTORY:
 t.append("")
 t += ib
 t.append("")
-for tid, state, hold, decision, failure, mins in sagas:
-    t.append("INSERT INTO saga.saga_instance (saga_id, transaction_id, state, hold_id, risk_decision, failure_code, updated_at)\n"
-             f"VALUES ({q(str(uuid.uuid5(NS, 'saga-' + tid)))}, {q(tid)}, {q(state)}, {n(hold)}, {q(decision)}, {q(failure)}, {pg_ts(mins)});")
+for tid, ref, state, hold, decision, failure, mins in sagas:
+    t.append("INSERT INTO saga.saga_instance (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_code, payload, updated_at)\n"
+             f"VALUES ({q(str(uuid.uuid5(NS, 'saga-' + tid)))}, {q(tid)}, {q(ref)}, {q(state)}, {n(hold)}, {q(decision)}, {q(failure)}, NULL, {pg_ts(mins)});")
 t.append("\nSELECT setval(pg_get_serial_sequence('txn.txn_stage_event', 'stage_event_id'), 10000, false);")
 write(os.path.join(pc, "04_transaction_db.sql"), "\n".join(t))
 
@@ -1413,9 +1417,9 @@ for stage_ev_id, tid, no, name, outcome, detail, mins in all_stages_meta:
              f"VALUES ({stage_ev_id}, {q(tid)}, {no}, {q(name)}, {q(outcome)}, {q(detail)}, {time_expr});")
 
 o.append("\n-- 17. SAGA_INSTANCE")
-for tid, state, hold, decision, failure, mins in sagas:
-    o.append("INSERT INTO SAGA_INSTANCE (saga_id, transaction_id, state, hold_id, risk_decision, failure_reason, failure_code, updated_at)\n"
-             f"VALUES ({q(str(uuid.uuid5(NS, 'saga-' + tid)))}, {q(tid)}, {q(state)}, {n(hold)}, {q(decision)}, {q(failure)}, {q(failure)}, {ora_ts(mins)});")
+for tid, ref, state, hold, decision, failure, mins in sagas:
+    o.append("INSERT INTO SAGA_INSTANCE (saga_id, transaction_id, reference_no, state, hold_id, risk_decision, failure_reason, failure_code, payload, updated_at)\n"
+             f"VALUES ({q(str(uuid.uuid5(NS, 'saga-' + tid)))}, {q(tid)}, {q(ref)}, {q(state)}, {n(hold)}, {q(decision)}, {q(failure)}, {q(failure)}, NULL, {ora_ts(mins)});")
 
 o.append("\n-- 18. INTERBANK_MESSAGE")
 for msg_id, direction, p_bank, tid, c_acct, c_name, status, mins in all_ib_meta:

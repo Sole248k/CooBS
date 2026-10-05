@@ -33,6 +33,9 @@ public class SagaInstance {
     @Column(name = "transaction_id", nullable = false, unique = true)
     private UUID transactionId;
 
+    @Column(name = "reference_no", length = 40)
+    private String referenceNo;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "state", nullable = false, length = 30)
     private SagaState state;
@@ -45,6 +48,9 @@ public class SagaInstance {
 
     @Column(name = "failure_code", length = 60)
     private String failureCode;
+
+    @Column(name = "payload", columnDefinition = "TEXT")
+    private String payload;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;

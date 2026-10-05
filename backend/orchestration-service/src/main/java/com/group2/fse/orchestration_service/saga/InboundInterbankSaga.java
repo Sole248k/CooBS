@@ -36,6 +36,9 @@ public class InboundInterbankSaga {
         MDC.put(InternalApi.CORRELATION_MDC_KEY, correlationId);
         try {
             SagaInstance saga = sagas.findOrCreate(r.transactionId());
+            if (saga.getReferenceNo() == null && r.referenceNo() != null) {
+                saga.setReferenceNo(r.referenceNo());
+            }
             if (saga.getState() != SagaState.STARTED) {
                 return saga;
             }
