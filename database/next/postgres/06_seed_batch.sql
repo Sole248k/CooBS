@@ -5,30 +5,42 @@ SET search_path TO batch, audit_store, public;
 -- Run 1: completed six days ago. Run 2: halted thirteen days ago by a reconciliation variance.
 INSERT INTO batch.batch_run (batch_run_id, business_date, triggered_by, status, started_at, finished_at) VALUES (1, CURRENT_DATE - 13, 1, 'HALTED', now() - interval '18720 minutes', now() - interval '18719 minutes');
 INSERT INTO batch.batch_run (batch_run_id, business_date, triggered_by, status, started_at, finished_at) VALUES (2, CURRENT_DATE - 6, 1, 'COMPLETED', now() - interval '8690 minutes', now() - interval '8689 minutes');
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (1, 1, 1, 'INTEREST_ACCRUAL', 'COMPLETED', 3, 12.2400, 810, NULL);
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (2, 1, 2, 'SERVICE_FEES', 'COMPLETED', 1, 50.0000, 640, NULL);
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (3, 1, 3, 'STANDING_INSTRUCTIONS', 'COMPLETED', 1, 2000.0000, 900, NULL);
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (4, 1, 4, 'LOAN_AMORTIZATION', 'COMPLETED', 0, 0.0000, 300, 'No instalments due');
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (5, 1, 5, 'GL_RECONCILIATION', 'FAILED', 0, 0.0000, 1150, 'Variance detected: debits 2062.24, credits 2012.24');
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (6, 1, 6, 'AUDIT_SEAL', 'SKIPPED', 0, 0.0000, NULL, 'Not run: reconciliation failed');
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (7, 2, 1, 'INTEREST_ACCRUAL', 'COMPLETED', 1, 11.6400, 820, NULL);
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (8, 2, 2, 'SERVICE_FEES', 'COMPLETED', 1, 50.0000, 640, NULL);
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (9, 2, 3, 'STANDING_INSTRUCTIONS', 'COMPLETED', 0, 0.0000, 410, 'No instructions due');
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (10, 2, 4, 'LOAN_AMORTIZATION', 'COMPLETED', 0, 0.0000, 380, 'No instalments due');
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (11, 2, 5, 'GL_RECONCILIATION', 'COMPLETED', 0, 0.0000, 1200, 'Debits equal credits');
-INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, total_amount, duration_ms, message)
-VALUES (12, 2, 6, 'AUDIT_SEAL', 'COMPLETED', 1, 0.0000, 700, 'Seal written');
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (1, 1, 1, 'INTEREST_ACCRUAL', 'COMPLETED', 3, 810);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (2, 1, 2, 'SERVICE_FEES', 'COMPLETED', 1, 640);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (3, 1, 3, 'STANDING_INSTRUCTIONS', 'COMPLETED', 1, 900);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (4, 1, 4, 'LOAN_AMORTIZATION', 'COMPLETED', 0, 300);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (5, 1, 5, 'GL_RECONCILIATION', 'FAILED', 0, 1150);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (6, 1, 6, 'AUDIT_SEAL', 'SKIPPED', 0, NULL);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (7, 2, 1, 'INTEREST_ACCRUAL', 'COMPLETED', 1, 820);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (8, 2, 2, 'SERVICE_FEES', 'COMPLETED', 1, 640);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (9, 2, 3, 'STANDING_INSTRUCTIONS', 'COMPLETED', 0, 410);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (10, 2, 4, 'LOAN_AMORTIZATION', 'COMPLETED', 0, 380);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (11, 2, 5, 'GL_RECONCILIATION', 'COMPLETED', 0, 1200);
+
+INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)
+VALUES (12, 2, 6, 'AUDIT_SEAL', 'COMPLETED', 1, 700);
+
 
 -- Standing instructions
 INSERT INTO batch.standing_instruction (instruction_id, source_account_id, destination_account_id, amount, frequency, next_run_date, active)
@@ -41,22 +53,22 @@ INSERT INTO batch.standing_instruction (instruction_id, source_account_id, desti
 VALUES (4, 16, 4, 750.0000, 'WEEKLY', CURRENT_DATE + 0, FALSE);  -- Inactive: skipped
 
 -- Loan schedules
-INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (1, 6, 4, CURRENT_DATE + (-10), 5000.0000, 450.0000, 'PAID', now() - interval '14460 minutes');
-INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (2, 6, 4, CURRENT_DATE + (0), 5000.0000, 450.0000, 'DUE', NULL);
-INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (3, 6, 4, CURRENT_DATE + (30), 5000.0000, 450.0000, 'PENDING', NULL);
-INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (4, 6, 4, CURRENT_DATE + (60), 5000.0000, 450.0000, 'PENDING', NULL);
-INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (5, 10, 9, CURRENT_DATE + (0), 2500.0000, 250.0000, 'DUE', NULL);
-INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, repayment_account_id, due_date, principal_due, interest_due, status, paid_at)
-VALUES (6, 10, 9, CURRENT_DATE + (30), 2500.0000, 250.0000, 'PENDING', NULL);
+INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, due_date, principal_due, interest_due, status)
+VALUES (1, 6, CURRENT_DATE + (-10), 5000.0000, 450.0000, 'PAID');
+INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, due_date, principal_due, interest_due, status)
+VALUES (2, 6, CURRENT_DATE + (0), 5000.0000, 450.0000, 'DUE');
+INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, due_date, principal_due, interest_due, status)
+VALUES (3, 6, CURRENT_DATE + (30), 5000.0000, 450.0000, 'PENDING');
+INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, due_date, principal_due, interest_due, status)
+VALUES (4, 6, CURRENT_DATE + (60), 5000.0000, 450.0000, 'PENDING');
+INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, due_date, principal_due, interest_due, status)
+VALUES (5, 10, CURRENT_DATE + (0), 2500.0000, 250.0000, 'DUE');
+INSERT INTO batch.loan_schedule (schedule_id, loan_account_id, due_date, principal_due, interest_due, status)
+VALUES (6, 10, CURRENT_DATE + (30), 2500.0000, 250.0000, 'PENDING');
 
 -- Daily seal written by run 2: the hash of the business date and the last audit hash of that day
-INSERT INTO audit_store.daily_audit_seal (seal_id, business_date, batch_run_id, last_audit_id, seal_hash, sealed_at)
-SELECT 1, CURRENT_DATE - 6, 2, a.audit_id, encode(digest((CURRENT_DATE - 6)::text || '|' || a.current_hash, 'sha256'), 'hex'), now() - interval '8689 minutes'
+INSERT INTO audit_store.daily_audit_seal (seal_id, business_date, last_audit_id, seal_hash, sealed_at)
+SELECT 1, CURRENT_DATE - 6, a.audit_id, encode(digest((CURRENT_DATE - 6)::text || '|' || a.current_hash, 'sha256'), 'hex'), now() - interval '8689 minutes'
 FROM audit_store.ledger_mutation_audit a WHERE a.transaction_id = 48;
 
 -- Runtime IDs start above the seeded range

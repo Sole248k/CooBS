@@ -66,4 +66,16 @@ public class AuditController {
         ChainVerificationResponseDto verification = auditQueryService.verifyChainIntegrity(accountId);
         return ResponseEntity.ok(verification);
     }
+
+    /**
+     * U4: Get Daily Audit Seal for a given business date.
+     * Roles: CUSTOMER, TELLER, ADMIN, AUDITOR
+     */
+    @GetMapping("/seals/{businessDate}")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'TELLER', 'ADMIN', 'AUDITOR')")
+    public ResponseEntity<com.group2.fse.audit_service.dto.DailySealResponseDto> getDailySeal(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate businessDate) {
+        com.group2.fse.audit_service.dto.DailySealResponseDto response = auditQueryService.getDailySeal(businessDate);
+        return ResponseEntity.ok(response);
+    }
 }
