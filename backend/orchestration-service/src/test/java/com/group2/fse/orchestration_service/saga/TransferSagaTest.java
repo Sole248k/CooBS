@@ -3,6 +3,7 @@ package com.group2.fse.orchestration_service.saga;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -30,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -38,6 +40,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.group2.fse.orchestration_service.dto.SagaDtos.InboundInterbankRequest;
+import com.group2.fse.orchestration_service.dto.SagaDtos.StartReversalRequest;
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartTransferRequest;
 import com.group2.fse.orchestration_service.security.jwt.JwtTokenProvider;
 import com.sun.net.httpserver.HttpServer;
@@ -60,6 +63,7 @@ class TransferSagaTest {
     private static final String CAPTURE = "/internal/v1/ledger/holds/9001/capture";
     private static final String RELEASE = "/internal/v1/ledger/holds/9001/release";
     private static final String POSTINGS = "/internal/v1/ledger/postings";
+    private static final String REVERSAL = "/internal/v1/ledger/reversals";
 
     private record Stub(int status, String body, long delayMs) {
     }
@@ -74,6 +78,8 @@ class TransferSagaTest {
     @Autowired
     private TransferSaga saga;
     @Autowired
+    private ReversalSaga reversalSaga;
+    @Autowired
     private InboundInterbankSaga inboundSaga;
     @Autowired
     private SagaRepository sagas;
@@ -85,6 +91,8 @@ class TransferSagaTest {
     private JwtTokenProvider tokens;
     @MockitoBean
     private KafkaTemplate<String, String> kafkaTemplate;
+    @MockitoBean
+    private AsyncTaskExecutor applicationTaskExecutor;
 
     @DynamicPropertySource
     static void downstreamUrls(DynamicPropertyRegistry registry) {
@@ -101,6 +109,7 @@ class TransferSagaTest {
 
     @BeforeEach
     void everythingPasses() {
+        reset(kafkaTemplate);
         CALLS.clear();
         STUBS.clear();
         STUBS.put("/internal/v1/customers/1/risk-profile", ok("C7-risk-profile.response.json"));
@@ -111,6 +120,7 @@ class TransferSagaTest {
         STUBS.put(POSTINGS, new Stub(200, """
                 {"posted":1,"failed":0,"totalAmount":"2500.00",
                  "results":[{"referenceNo":"IB-20261003-000045","status":"POSTED","errorCode":null}]}""", 0));
+        STUBS.put(REVERSAL, ok("L7-reversal.response.json"));
         when(kafkaTemplate.send(anyString(), anyString(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(null));
     }
@@ -344,6 +354,86 @@ class TransferSagaTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"amount\":\"-1\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST_PARAMETERS"));
+    }
+
+    @Test
+    void reversalOfPostedTransfer_callsLedgerReverseAndCompletes() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-20261003-8F3A21C0");
+        original.setState(SagaState.COMPLETED);
+        sagas.saveAndFlush(original);
+
+        UUID revId = UUID.randomUUID();
+        StartReversalRequest revReq = new StartReversalRequest(
+                revId, origId, "RV-20261003-11AA22BB", "Customer dispute approved", 3L);
+
+        reversalSaga.run(revReq, "corr-rev-1");
+
+        SagaInstance revSaved = sagas.findByTransactionId(revId).orElseThrow();
+        assertThat(revSaved.getState()).isEqualTo(SagaState.COMPLETED);
+        assertThat(revSaved.getReferenceNo()).isEqualTo("RV-20261003-11AA22BB");
+
+        List<Call> calls = ledgerCalls();
+        assertThat(calls).hasSize(1);
+        assertThat(calls.get(0).path()).isEqualTo("/internal/v1/ledger/reversals");
+        assertThat(calls.get(0).idempotencyKey()).isEqualTo(revId + ":reversal");
+    }
+
+    @Test
+    void reversalOfHeldTransfer_releasesHoldAndCompensatesOriginal() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-HELD-001");
+        original.setHoldId(9001L);
+        original.setState(SagaState.FUNDS_RESERVED);
+        sagas.saveAndFlush(original);
+
+        UUID revId = UUID.randomUUID();
+        StartReversalRequest revReq = new StartReversalRequest(
+                revId, origId, "RV-CANCEL-001", "Interbank drop cancellation", 3L);
+
+        reversalSaga.run(revReq, "corr-rev-2");
+
+        SagaInstance origSaved = sagas.findByTransactionId(origId).orElseThrow();
+        assertThat(origSaved.getState()).isEqualTo(SagaState.COMPENSATED);
+
+        SagaInstance revSaved = sagas.findByTransactionId(revId).orElseThrow();
+        assertThat(revSaved.getState()).isEqualTo(SagaState.COMPLETED);
+
+        List<Call> calls = ledgerCalls();
+        assertThat(calls).hasSize(1);
+        assertThat(calls.get(0).path()).isEqualTo("/internal/v1/ledger/holds/9001/release");
+        assertThat(calls.get(0).idempotencyKey()).isEqualTo(origId + ":release");
+    }
+
+    @Test
+    void reversalOfUnknownTransfer_failsWithTransactionNotFound() {
+        UUID revId = UUID.randomUUID();
+        StartReversalRequest revReq = new StartReversalRequest(
+                revId, UUID.randomUUID(), "RV-MISSING-001", "Dispute unknown", 3L);
+
+        reversalSaga.run(revReq, "corr-rev-3");
+
+        SagaInstance revSaved = sagas.findByTransactionId(revId).orElseThrow();
+        assertThat(revSaved.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(revSaved.getFailureCode()).isEqualTo("TRANSACTION_NOT_FOUND");
+    }
+
+    @Test
+    void reversalEndpoint_withServiceToken_acceptsO2() throws Exception {
+        String service = tokens.generateToken(0L, "transaction-service", List.of("ROLE_SERVICE"));
+        String body = example("O2-start-reversal-saga.request.json");
+
+        mockMvc.perform(post("/internal/v1/sagas/reversals").header("Authorization", "Bearer " + service)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.transactionId").value("c4b7e2d9-5a13-4f86-b0c2-7d9e1a3f5b64"))
+                .andExpect(jsonPath("$.sagaState").value("STARTED"));
+
+        mockMvc.perform(post("/internal/v1/sagas/reversals")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnauthorized());
     }
 
     // --- helpers ---

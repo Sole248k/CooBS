@@ -37,6 +37,15 @@ public final class SagaDtos {
     public record SagaStartedResponse(UUID transactionId, SagaState sagaState) {
     }
 
+    /** O2 request. */
+    public record StartReversalRequest(
+            @NotNull UUID transactionId,
+            @NotNull UUID reversesTransactionId,
+            @NotBlank String referenceNo,
+            @NotBlank String reason,
+            @NotNull Long actorId) {
+    }
+
     /** O3 response. */
     public record SagaStateResponse(
             UUID transactionId,

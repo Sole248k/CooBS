@@ -19,8 +19,10 @@ import com.group2.fse.orchestration_service.dto.SagaDtos.InboundInterbankRequest
 import com.group2.fse.orchestration_service.dto.SagaDtos.InboundInterbankResponse;
 import com.group2.fse.orchestration_service.dto.SagaDtos.SagaStartedResponse;
 import com.group2.fse.orchestration_service.dto.SagaDtos.SagaStateResponse;
+import com.group2.fse.orchestration_service.dto.SagaDtos.StartReversalRequest;
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartTransferRequest;
 import com.group2.fse.orchestration_service.saga.InboundInterbankSaga;
+import com.group2.fse.orchestration_service.saga.ReversalSaga;
 import com.group2.fse.orchestration_service.saga.SagaInstance;
 import com.group2.fse.orchestration_service.saga.SagaRepository;
 import com.group2.fse.orchestration_service.saga.TransferSaga;
@@ -28,7 +30,7 @@ import com.group2.fse.orchestration_service.saga.TransferSaga;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-/** O1, O3 and O4. Internal only: a service token and nothing else (contract section 2.3). */
+/** O1, O2, O3 and O4. Internal only: a service token and nothing else (contract section 2.3). */
 @RestController
 @RequestMapping("/internal/v1/sagas")
 @PreAuthorize("hasRole('SERVICE')")
@@ -37,6 +39,7 @@ public class SagaInternalController {
 
     private final SagaRepository sagas;
     private final TransferSaga transferSaga;
+    private final ReversalSaga reversalSaga;
     private final InboundInterbankSaga inboundInterbankSaga;
     private final AsyncTaskExecutor applicationTaskExecutor;
 
@@ -48,6 +51,17 @@ public class SagaInternalController {
         SagaInstance saga = sagas.findOrCreate(request.transactionId());
         String correlation = correlationOrNew(correlationId);
         applicationTaskExecutor.execute(() -> transferSaga.run(request, correlation));
+        return ResponseEntity.accepted().body(new SagaStartedResponse(saga.getTransactionId(), saga.getState()));
+    }
+
+    /** O2. Saves the reversal saga, answers 202 and runs it in the background. */
+    @PostMapping("/reversals")
+    public ResponseEntity<SagaStartedResponse> startReversal(
+            @Valid @RequestBody StartReversalRequest request,
+            @RequestHeader(value = InternalApi.CORRELATION_HEADER, required = false) String correlationId) {
+        SagaInstance saga = sagas.findOrCreate(request.transactionId());
+        String correlation = correlationOrNew(correlationId);
+        applicationTaskExecutor.execute(() -> reversalSaga.run(request, correlation));
         return ResponseEntity.accepted().body(new SagaStartedResponse(saga.getTransactionId(), saga.getState()));
     }
 
