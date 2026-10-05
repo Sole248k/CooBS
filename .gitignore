@@ -100,8 +100,9 @@ generate_report*.py
 *PERSONAL_NOTES*.md
 *STUDY_GUIDE*.md
 *ARCHITECTURE_AND_ENGINEERING_GUIDE*.md
-*ENGINEERING_GUIDE*.md
-docs/
+# Temporary docs staging and archive files
+docs/docs-new/
+docs/*.zip
 
 
 tasks/
