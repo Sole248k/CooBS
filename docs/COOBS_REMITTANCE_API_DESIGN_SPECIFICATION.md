@@ -31,7 +31,7 @@ This document specifies the revised REST API contracts for the **CooBS Core Remi
 | **`customer-service`** | `8089` | `/api/v1/customers/**` | Client / Staff | Member Identity, KYC Profile Verification & Updates, PII Protection |
 | **`account-service`** | `8082` | `/api/v1/accounts/**` | Client / Staff | Account Lifecycle, Flags, Cached Balance Lookups |
 | **`transaction-service`** | `8090` | `/api/v1/transactions/**` | Client / Staff | Remittance Intake, Ingress Idempotency, Limit Checks |
-| **`mobile-bff`** | `8093` | `/api/v1/mobile/**` | Client / Mobile | Mobile BFF Application Middleware, Multi-Service Composite Aggregation, 3-Stage Stepper Adaptation |
+| **`mobile-bff`** | `8094` | `/api/v1/mobile/**` | Client / Mobile | Mobile BFF Application Middleware, Multi-Service Composite Aggregation, 3-Stage Stepper Adaptation |
 | **`orchestration-service`**| `8091` | `/api/v1/internal/saga/**`| Internal | Saga Coordination, Risk/Ledger Hand-off, Compensations |
 | **`risk-engine`** | `8092` | `/api/v1/internal/risk/**`| Internal | Sub-40ms AML & Fraud Velocity Screening |
 | **`ledger-service`** | `8083` | `/api/v1/internal/ledger/**`| Internal | Double-Entry SoR, Ordered Row Locks, Immutable Journal |
