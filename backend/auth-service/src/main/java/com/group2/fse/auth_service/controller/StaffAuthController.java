@@ -1,9 +1,7 @@
 package com.group2.fse.auth_service.controller;
 
-import com.group2.fse.auth_service.dto.AuthResponseDto;
 import com.group2.fse.auth_service.dto.LoginRequestDto;
 import com.group2.fse.auth_service.dto.LoginResultDto;
-import com.group2.fse.auth_service.dto.MfaVerifyRequestDto;
 import com.group2.fse.auth_service.service.StaffAuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST Controller for internal bank staff (Admins, Tellers) authentication and 2FA.
+ * REST Controller for internal bank staff (Admins, Tellers) authentication.
  */
 @RestController
 @RequestMapping("/api/v1/auth/staff")
@@ -30,12 +28,5 @@ public class StaffAuthController {
         log.info("REST request for bank staff login: {}", request.getUsername());
         LoginResultDto result = staffAuthService.login(request);
         return ResponseEntity.ok(result);
-    }
-
-    @PostMapping("/mfa/verify")
-    public ResponseEntity<AuthResponseDto> verifyMfa(@Valid @RequestBody MfaVerifyRequestDto request) {
-        log.info("REST request for bank staff MFA verification");
-        AuthResponseDto response = staffAuthService.verifyMfa(request);
-        return ResponseEntity.ok(response);
     }
 }

@@ -1,0 +1,1296 @@
+{
+  "info": {
+    "_postman_id": "coobs-e2e-master-suite-v1",
+    "name": "CooBS Platform \u2014 End-to-End Master Test Suite (11 Services)",
+    "description": "Comprehensive End-to-End integration test suite for the CooBS 11-microservice platform.\nCovers Ingress Gateway, Authentication, Customer 360, Account Management, 11-Stage Distributed Transfer Saga, Reversal & Compensation Saga (FIN-104), Double-Entry Ledgering, In-App Notifications, and SHA-256 Cryptographic Audit Chain.\n\nDesigned to run using 'CooBS Local Environment' (postman/CooBS_Local.postman_environment.json) or in CI via Newman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "dynamic_transfer_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "dynamic_reference_no",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "dynamic_reversal_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "dynamic_beneficiary_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "initial_sender_balance",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "initial_receiver_balance",
+      "value": "0",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. System Health & Gateway Ingress",
+      "item": [
+        {
+          "name": "1.1 API Gateway Actuator Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Gateway status is UP\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"UP\");",
+                  "});",
+                  "pm.test(\"Latency is within acceptable bounds (< 500ms)\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "1.2 Gateway Routes Verification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Gateway discovers public microservice routes\", function () {",
+                  "    var routes = pm.response.json();",
+                  "    pm.expect(routes).to.be.an(\"array\");",
+                  "    pm.expect(routes.length).to.be.at.least(4);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/gateway/routes",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "gateway", "routes"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Authentication & Token Harvest",
+      "item": [
+        {
+          "name": "2.1 Customer Login (John Doe)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Login successful and MFA not required\", function () {",
+                  "    pm.expect(data.mfaRequired).to.be.false;",
+                  "    pm.expect(data.authData).to.be.an(\"object\");",
+                  "    pm.expect(data.authData.accessToken).to.not.be.empty;",
+                  "    pm.expect(data.authData.roles).to.include(\"ROLE_CUSTOMER\");",
+                  "});",
+                  "pm.environment.set(\"customer_token\", data.authData.accessToken);",
+                  "pm.collectionVariables.set(\"customer_token\", data.authData.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{customerUsername}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/customers/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "customers", "login"]
+            }
+          }
+        },
+        {
+          "name": "2.2 Counterparty Login (Maria Santos)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Maria Santos login successful\", function () {",
+                  "    pm.expect(data.authData.accessToken).to.not.be.empty;",
+                  "});",
+                  "pm.environment.set(\"counterparty_token\", data.authData.accessToken);",
+                  "pm.collectionVariables.set(\"counterparty_token\", data.authData.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"maria_santos\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/customers/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "customers", "login"]
+            }
+          }
+        },
+        {
+          "name": "2.3 Staff / Teller Login (Alice)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Teller token generated with ROLE_TELLER\", function () {",
+                  "    pm.expect(data.authData.accessToken).to.not.be.empty;",
+                  "    pm.expect(data.authData.roles).to.include(\"ROLE_TELLER\");",
+                  "});",
+                  "pm.environment.set(\"teller_token\", data.authData.accessToken);",
+                  "pm.collectionVariables.set(\"teller_token\", data.authData.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{tellerUsername}}\",\n  \"password\": \"{{tellerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/staff/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "staff", "login"]
+            }
+          }
+        },
+        {
+          "name": "2.4 Staff / Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Admin token generated with ROLE_ADMIN\", function () {",
+                  "    pm.expect(data.authData.accessToken).to.not.be.empty;",
+                  "    pm.expect(data.authData.roles).to.include(\"ROLE_ADMIN\");",
+                  "});",
+                  "pm.environment.set(\"admin_token\", data.authData.accessToken);",
+                  "pm.collectionVariables.set(\"admin_token\", data.authData.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{staffUsername}}\",\n  \"password\": \"{{staffPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/staff/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "staff", "login"]
+            }
+          }
+        },
+        {
+          "name": "2.5 Inspect Token Profile (GET /api/v1/auth/token/me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Token subject matches John Doe\", function () {",
+                  "    pm.expect(data.username).to.eql(\"john_doe\");",
+                  "    pm.expect(data.userType).to.eql(\"CUSTOMER\");",
+                  "    pm.expect(data.status).to.eql(\"ACTIVE\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/token/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "token", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03. Customer 360 & Beneficiary Management",
+      "item": [
+        {
+          "name": "3.1 Get Customer Self Profile (C1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Customer profile has KYC VERIFIED status\", function () {",
+                  "    pm.expect(data.customerId).to.eql(1);",
+                  "    pm.expect(data.username).to.eql(\"john_doe\");",
+                  "    pm.expect(data.kycStatus).to.eql(\"VERIFIED\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "me"]
+            }
+          }
+        },
+        {
+          "name": "3.2 Add Beneficiary (C5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created or 200 OK\", function () {",
+                  "    pm.expect([200, 201]).to.include(pm.response.code);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "if (data.beneficiaryId) {",
+                  "    pm.collectionVariables.set(\"dynamic_beneficiary_id\", data.beneficiaryId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nickname\": \"Maria Checking\",\n  \"accountNumber\": \"ACC_10000002\",\n  \"bankCode\": \"COOBS\",\n  \"beneficiaryName\": \"Maria Santos\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/me/beneficiaries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "me", "beneficiaries"]
+            }
+          }
+        },
+        {
+          "name": "3.3 List Beneficiaries (C4)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var list = pm.response.json();",
+                  "pm.test(\"Beneficiary list returned as array\", function () {",
+                  "    pm.expect(Array.isArray(list) || Array.isArray(list.content)).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/me/beneficiaries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "me", "beneficiaries"]
+            }
+          }
+        },
+        {
+          "name": "3.4 Staff Customer 360 View (C3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Customer 360 view includes profile, accounts, and risk tier\", function () {",
+                  "    pm.expect(data.customerId).to.eql(1);",
+                  "    pm.expect(data.accounts).to.be.an(\"array\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/1/360",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "1", "360"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04. Account Discovery & Initial Balances",
+      "item": [
+        {
+          "name": "4.1 Capture Initial Sender Balance (John Doe - Acc 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var list = pm.response.json();",
+                  "var accounts = Array.isArray(list) ? list : list.content;",
+                  "pm.test(\"John Doe has active accounts\", function () {",
+                  "    pm.expect(accounts.length).to.be.at.least(1);",
+                  "});",
+                  "var acc1 = accounts.find(a => a.accountId === 1 || a.accountNumber === 'ACC_10000001') || accounts[0];",
+                  "pm.collectionVariables.set(\"initial_sender_balance\", String(acc1.availableBalance));",
+                  "console.log(\"Captured Initial Sender Balance: \" + acc1.availableBalance);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/my-accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "my-accounts"]
+            }
+          }
+        },
+        {
+          "name": "4.2 Capture Initial Receiver Balance (Maria Santos - Acc 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var list = pm.response.json();",
+                  "var accounts = Array.isArray(list) ? list : list.content;",
+                  "var acc2 = accounts.find(a => a.accountId === 2 || a.accountNumber === 'ACC_10000002') || accounts[0];",
+                  "pm.collectionVariables.set(\"initial_receiver_balance\", String(acc2.availableBalance));",
+                  "console.log(\"Captured Initial Receiver Balance: \" + acc2.availableBalance);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{counterparty_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/my-accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "my-accounts"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05. Distributed Transfer Saga (Transaction + Orchestration)",
+      "item": [
+        {
+          "name": "5.1 Initiate Fund Transfer (T1 - Returns 202 INITIATED)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const key = 'idem-' + Date.now() + '-' + Math.floor(Math.random() * 100000);",
+                  "pm.environment.set(\"last_idempotency_key\", key);",
+                  "pm.collectionVariables.set(\"transfer_idempotency_key\", key);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Transfer response includes transactionId and INITIATED status\", function () {",
+                  "    pm.expect(data.transactionId).to.not.be.empty;",
+                  "    pm.expect(data.status).to.eql(\"INITIATED\");",
+                  "    pm.expect(data.amount).to.eql(\"2500.00\");",
+                  "});",
+                  "pm.collectionVariables.set(\"dynamic_transfer_id\", data.transactionId);",
+                  "pm.collectionVariables.set(\"dynamic_reference_no\", data.referenceNo);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{transfer_idempotency_key}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-e2e-corr-01"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": 1,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"2500.00\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"E2E Verification Transfer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/transfers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "transfers"]
+            }
+          }
+        },
+        {
+          "name": "5.2 Idempotency Replay (T1 - Same Key returns 200 OK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Idempotent replay returns 200 OK or 202 Accepted\", function () {",
+                  "    pm.expect([200, 202]).to.include(pm.response.code);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Returns identical transactionId and referenceNo\", function () {",
+                  "    pm.expect(data.transactionId).to.eql(pm.collectionVariables.get(\"dynamic_transfer_id\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{transfer_idempotency_key}}"
+              },
+              {
+                "key": "X-Correlation-ID",
+                "value": "postman-e2e-corr-02"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": 1,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"2500.00\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"E2E Verification Transfer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/transfers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "transfers"]
+            }
+          }
+        },
+        {
+          "name": "5.3 Verify Transaction Details (T2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Transaction progressed to POSTED or COMPLETED\", function () {",
+                  "    pm.expect([\"POSTED\", \"COMPLETED\", \"PROCESSING\"]).to.include(data.status);",
+                  "    pm.expect(data.amount).to.eql(\"2500.00\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}"]
+            }
+          }
+        },
+        {
+          "name": "5.4 Verify 11-Stage Saga Timeline (T3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Timeline has stages array\", function () {",
+                  "    pm.expect(data.stages).to.be.an(\"array\");",
+                  "    pm.expect(data.stages.length).to.be.at.least(1);",
+                  "});",
+                  "pm.test(\"Latest stage outcome is PASSED\", function () {",
+                  "    var latest = data.stages[data.stages.length - 1];",
+                  "    pm.expect(latest.outcome).to.eql(\"PASSED\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}/timeline",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}", "timeline"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06. Atomic Double-Entry Ledger Verification",
+      "item": [
+        {
+          "name": "6.1 Verify Sender Debited Exactly 2500.00",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var acc1 = pm.response.json();",
+                  "var initial = parseFloat(pm.collectionVariables.get(\"initial_sender_balance\"));",
+                  "var current = parseFloat(acc1.availableBalance);",
+                  "pm.test(\"Sender balance debited exactly 2500.00\", function () {",
+                  "    pm.expect(initial - current).to.be.closeTo(2500.00, 0.01);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "1"]
+            }
+          }
+        },
+        {
+          "name": "6.2 Verify Receiver Credited Exactly 2500.00",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var acc2 = pm.response.json();",
+                  "var initial = parseFloat(pm.collectionVariables.get(\"initial_receiver_balance\"));",
+                  "var current = parseFloat(acc2.availableBalance);",
+                  "pm.test(\"Receiver balance credited exactly 2500.00\", function () {",
+                  "    pm.expect(current - initial).to.be.closeTo(2500.00, 0.01);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{counterparty_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "2"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07. Reversal Saga & Compensation Flow (FIN-104)",
+      "item": [
+        {
+          "name": "7.1 Execute Transfer for Reversal",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const key = 'idem-rev-prep-' + Date.now();",
+                  "pm.collectionVariables.set(\"reversal_prep_idempotency_key\", key);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.collectionVariables.set(\"reversal_target_tx_id\", data.transactionId);",
+                  "pm.collectionVariables.set(\"reversal_target_ref_no\", data.referenceNo);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{reversal_prep_idempotency_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": 1,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"500.00\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"Transfer to be reversed\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/transfers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "transfers"]
+            }
+          }
+        },
+        {
+          "name": "7.2 Staff Reversal Request (T5 / O2)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const key = 'idem-rev-exec-' + Date.now();",
+                  "pm.collectionVariables.set(\"reversal_exec_idempotency_key\", key);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted or 200 OK\", function () {",
+                  "    pm.expect([200, 202]).to.include(pm.response.code);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Reversal accepted with transactionId\", function () {",
+                  "    pm.expect(data.transactionId).to.not.be.empty;",
+                  "});",
+                  "pm.collectionVariables.set(\"dynamic_reversal_id\", data.transactionId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{reversal_exec_idempotency_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Disputed transaction by customer\",\n  \"actorId\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{reversal_target_tx_id}}/reversal",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{reversal_target_tx_id}}", "reversal"]
+            }
+          }
+        },
+        {
+          "name": "7.3 Verify Original Transaction State is REVERSED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Original transaction status updated to REVERSED\", function () {",
+                  "    pm.expect([\"REVERSED\", \"COMPENSATED\"]).to.include(data.status);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{reversal_target_tx_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{reversal_target_tx_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08. Real-Time In-App Notifications",
+      "item": [
+        {
+          "name": "8.1 Customer Notifications (GET /api/v1/notifications)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "var items = Array.isArray(data) ? data : (data.content || data.items || []);",
+                  "pm.test(\"Notification records returned\", function () {",
+                  "    pm.expect(items).to.be.an(\"array\");",
+                  "});",
+                  "if (items.length > 0) {",
+                  "    var notifId = items[0].notificationId || items[0].id;",
+                  "    pm.collectionVariables.set(\"dynamic_notif_id\", String(notifId));",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications"]
+            }
+          }
+        },
+        {
+          "name": "8.2 Unread Notification Count",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Unread count field exists\", function () {",
+                  "    pm.expect(data).to.have.any.keys(\"unreadCount\", \"count\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/unread-count",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "unread-count"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "09. Cryptographic Audit Chain & Forensic Integrity",
+      "item": [
+        {
+          "name": "9.1 Verify Cryptographic Hash Chain (Audit Service)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Audit hash chain is intact and valid\", function () {",
+                  "    pm.expect(data.isChainIntact).to.be.true;",
+                  "    pm.expect(data.totalRecordsVerified).to.be.at.least(1);",
+                  "    pm.expect(data.latestHash).to.not.be.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/chain/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "audit", "chain", "verify"]
+            }
+          }
+        },
+        {
+          "name": "9.2 Account Audit Trail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "var trails = Array.isArray(data) ? data : (data.content || []);",
+                  "pm.test(\"Audit entries exist for primary account\", function () {",
+                  "    pm.expect(trails.length).to.be.at.least(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/accounts/1/trail",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "audit", "accounts", "1", "trail"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Edge Cases, Risk Guardrails & Negative Paths",
+      "item": [
+        {
+          "name": "10.1 Insufficient Funds Transfer (Assert 422)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set(\"fail_insufficient_key\", 'idem-inf-' + Date.now());"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422 Unprocessable Entity or 400 Bad Request\", function () {",
+                  "    pm.expect([400, 422]).to.include(pm.response.code);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Error code specifies INSUFFICIENT_FUNDS or LIMIT_EXCEEDED\", function () {",
+                  "    pm.expect([\"INSUFFICIENT_FUNDS\", \"LIMIT_EXCEEDED\", \"RISK_DECLINED\"]).to.include(data.errorCode);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{fail_insufficient_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": 1,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"999999999.00\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"Excessive transfer that must fail\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/transfers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "transfers"]
+            }
+          }
+        },
+        {
+          "name": "10.2 Negative Transfer Amount (Assert 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Validation error code INVALID_REQUEST_PARAMETERS returned\", function () {",
+                  "    pm.expect(data.errorCode).to.eql(\"INVALID_REQUEST_PARAMETERS\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idem-neg-amount"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": 1,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"-50.00\",\n  \"currency\": \"PHP\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/transfers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "transfers"]
+            }
+          }
+        },
+        {
+          "name": "10.3 Non-Existent Transaction Lookup (Assert 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Error code TRANSACTION_NOT_FOUND returned\", function () {",
+                  "    pm.expect(data.errorCode).to.eql(\"TRANSACTION_NOT_FOUND\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "00000000-0000-0000-0000-000000000000"]
+            }
+          }
+        },
+        {
+          "name": "10.4 Unauthorized Account Inspection (Assert 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "2"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

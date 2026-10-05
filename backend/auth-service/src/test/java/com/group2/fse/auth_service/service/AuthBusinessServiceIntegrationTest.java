@@ -2,23 +2,23 @@ package com.group2.fse.auth_service.service;
 
 import com.group2.fse.auth_service.dto.*;
 import com.group2.fse.auth_service.exception.InvalidCredentialsException;
-import com.group2.fse.auth_service.exception.UserAlreadyExistsException;
+import com.group2.fse.auth_service.repository.AppUserRepository;
 import com.group2.fse.auth_service.security.blacklist.TokenBlacklistService;
 import com.group2.fse.auth_service.security.jwt.JwtTokenProvider;
-import com.group2.fse.auth_service.repository.CustomerRepository;
-import com.group2.fse.auth_service.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @Transactional
 @DisplayName("Phase 4: Auth Business Logic Services Integration Tests")
 class AuthBusinessServiceIntegrationTest {
@@ -39,10 +39,7 @@ class AuthBusinessServiceIntegrationTest {
     private TokenBlacklistService tokenBlacklistService;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private CustomerRepository customerRepository;
+    private AppUserRepository appUserRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -50,84 +47,22 @@ class AuthBusinessServiceIntegrationTest {
     @BeforeEach
     void setUp() {
         String encoded = passwordEncoder.encode("Password123!");
-        userRepository.findByUsername("admin").ifPresent(u -> {
+        appUserRepository.findByUsername("admin").ifPresent(u -> {
             u.setPasswordHash(encoded);
-            userRepository.save(u);
+            appUserRepository.save(u);
         });
-        userRepository.findByUsername("teller_alice").ifPresent(u -> {
+        appUserRepository.findByUsername("teller_alice").ifPresent(u -> {
             u.setPasswordHash(encoded);
-            userRepository.save(u);
+            appUserRepository.save(u);
         });
-        customerRepository.findByUsername("john_doe").ifPresent(c -> {
+        appUserRepository.findByUsername("john_doe").ifPresent(c -> {
             c.setPasswordHash(encoded);
-            customerRepository.save(c);
+            appUserRepository.save(c);
         });
     }
 
     @Test
-    @DisplayName("Should register new customer and immediately issue valid JWT pair")
-    void shouldRegisterNewCustomer() {
-        String uniqueUser = "client_" + System.currentTimeMillis();
-        CustomerRegistrationDto registrationDto = CustomerRegistrationDto.builder()
-                .username(uniqueUser)
-                .email(uniqueUser + "@bank.ph")
-                .password("SecurePass123!")
-                .firstName("Juan")
-                .middleInitial("M")
-                .lastName("Dela Cruz")
-                .address("77 Ayala Avenue, Makati")
-                .mobileNumber("+639171112233")
-                .civilStatus("SINGLE")
-                .occupation("Developer")
-                .build();
-
-        AuthResponseDto response = customerAuthService.register(registrationDto);
-
-        assertThat(response.getAccessToken()).isNotBlank();
-        assertThat(response.getRefreshToken()).isNotBlank();
-        assertThat(response.getUsername()).isEqualTo(uniqueUser);
-        assertThat(response.getRoles()).containsExactly("ROLE_CUSTOMER");
-        assertThat(response.getUserType()).isEqualTo("CUSTOMER");
-
-        // Validate that token works with jwtTokenProvider
-        assertThat(jwtTokenProvider.validateToken(response.getAccessToken())).isTrue();
-        assertThat(jwtTokenProvider.getUsername(response.getAccessToken())).isEqualTo(uniqueUser);
-    }
-
-    @Test
-    @DisplayName("Should prevent registration with duplicate username or email")
-    void shouldRejectDuplicateRegistration() {
-        CustomerRegistrationDto dupUser = CustomerRegistrationDto.builder()
-                .username("john_doe") // Already in seed data
-                .email("new_unique_email@bank.ph")
-                .password("SecurePass123!")
-                .firstName("John")
-                .lastName("Doe")
-                .address("123 Street")
-                .mobileNumber("+639170000000")
-                .build();
-
-        assertThatThrownBy(() -> customerAuthService.register(dupUser))
-                .isInstanceOf(UserAlreadyExistsException.class)
-                .hasMessageContaining("john_doe");
-
-        CustomerRegistrationDto dupEmail = CustomerRegistrationDto.builder()
-                .username("completely_unique_name")
-                .email("john.doe@example.com") // Already in seed data
-                .password("SecurePass123!")
-                .firstName("John")
-                .lastName("Doe")
-                .address("123 Street")
-                .mobileNumber("+639170000000")
-                .build();
-
-        assertThatThrownBy(() -> customerAuthService.register(dupEmail))
-                .isInstanceOf(UserAlreadyExistsException.class)
-                .hasMessageContaining("john.doe@example.com");
-    }
-
-    @Test
-    @DisplayName("Should authenticate seed customer with correct password")
+    @DisplayName("Should authenticate seed customer with correct password and issue valid JWT pair")
     void shouldAuthenticateSeedCustomer() {
         LoginRequestDto loginDto = LoginRequestDto.builder()
                 .username("john_doe")
@@ -140,6 +75,7 @@ class AuthBusinessServiceIntegrationTest {
         assertThat(result.getAuthData()).isNotNull();
         assertThat(result.getAuthData().getUsername()).isEqualTo("john_doe");
         assertThat(result.getAuthData().getRoles()).containsExactly("ROLE_CUSTOMER");
+        assertThat(result.getAuthData().getUserId()).isEqualTo(1L); // Handshake H1: customerId
         assertThat(jwtTokenProvider.validateToken(result.getAuthData().getAccessToken())).isTrue();
     }
 
@@ -241,7 +177,7 @@ class AuthBusinessServiceIntegrationTest {
         assertThat(profile.getUsername()).isEqualTo("john_doe");
         assertThat(profile.getEmail()).isEqualTo("john.doe@example.com");
         assertThat(profile.getUserType()).isEqualTo("CUSTOMER");
-        assertThat(profile.getFirstName()).isEqualTo("John");
-        assertThat(profile.getLastName()).isEqualTo("Doe");
+        assertThat(profile.getUserId()).isEqualTo(1L);
+        assertThat(profile.getStatus()).isEqualTo("ACTIVE");
     }
 }

@@ -27,13 +27,21 @@ import com.group2.fse.audit_service.dto.ChainVerificationResponseDto;
 import com.group2.fse.audit_service.dto.ForensicAuditResponseDto;
 import com.group2.fse.audit_service.entity.TransactionAudit;
 import com.group2.fse.audit_service.exception.ResourceNotFoundException;
+import com.group2.fse.audit_service.repository.DailyAuditSealRepository;
 import com.group2.fse.audit_service.repository.TransactionAuditRepository;
 import com.group2.fse.audit_service.service.impl.AuditQueryServiceImpl;
+import com.group2.fse.audit_service.entity.DailyAuditSeal;
+import com.group2.fse.audit_service.dto.DailySealResponseDto;
+import java.time.LocalDate;
+import java.time.Instant;
 
 class AuditQueryServiceTest {
 
     @Mock
     private TransactionAuditRepository transactionAuditRepository;
+
+    @Mock
+    private DailyAuditSealRepository dailyAuditSealRepository;
 
     @InjectMocks
     private AuditQueryServiceImpl auditQueryService;
@@ -206,5 +214,34 @@ class AuditQueryServiceTest {
         String hash = AuditQueryServiceImpl.computeSha256("test_payload");
         assertNotNull(hash);
         assertEquals(64, hash.length());
+    }
+
+    @Test
+    void testGetDailySeal_Success() {
+        LocalDate date = LocalDate.of(2026, 10, 3);
+        DailyAuditSeal seal = DailyAuditSeal.builder()
+                .sealId(1L)
+                .businessDate(date)
+                .lastAuditId(48L)
+                .sealHash("seal_hash_001")
+                .sealedAt(Instant.parse("2026-10-03T17:00:06Z"))
+                .build();
+
+        when(dailyAuditSealRepository.findByBusinessDate(date)).thenReturn(Optional.of(seal));
+
+        DailySealResponseDto result = auditQueryService.getDailySeal(date);
+
+        assertNotNull(result);
+        assertEquals(date, result.getBusinessDate());
+        assertEquals(48L, result.getLastAuditId());
+        assertEquals("seal_hash_001", result.getSealHash());
+    }
+
+    @Test
+    void testGetDailySeal_NotFound() {
+        LocalDate date = LocalDate.of(2026, 10, 4);
+        when(dailyAuditSealRepository.findByBusinessDate(date)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> auditQueryService.getDailySeal(date));
     }
 }

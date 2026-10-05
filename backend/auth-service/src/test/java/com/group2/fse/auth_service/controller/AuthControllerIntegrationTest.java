@@ -1,11 +1,8 @@
 package com.group2.fse.auth_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.group2.fse.auth_service.dto.CustomerRegistrationDto;
-import com.group2.fse.auth_service.dto.LoginRequestDto;
-import com.group2.fse.auth_service.dto.RefreshTokenRequestDto;
-import com.group2.fse.auth_service.repository.CustomerRepository;
-import com.group2.fse.auth_service.repository.UserRepository;
+import com.group2.fse.auth_service.dto.*;
+import com.group2.fse.auth_service.repository.AppUserRepository;
 import com.group2.fse.auth_service.security.session.RedisRefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -27,6 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
+@ActiveProfiles("test")
 @Transactional
 @DisplayName("Phase 5: Auth REST Controllers & RFC-7807 Integration Tests")
 class AuthControllerIntegrationTest {
@@ -46,10 +45,7 @@ class AuthControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private CustomerRepository customerRepository;
+    private AppUserRepository appUserRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -64,91 +60,18 @@ class AuthControllerIntegrationTest {
                 .build();
 
         String encoded = passwordEncoder.encode("Password123!");
-        userRepository.findByUsername("admin").ifPresent(u -> {
+        appUserRepository.findByUsername("admin").ifPresent(u -> {
             u.setPasswordHash(encoded);
-            userRepository.save(u);
+            appUserRepository.save(u);
         });
-        userRepository.findByUsername("teller_alice").ifPresent(u -> {
+        appUserRepository.findByUsername("teller_alice").ifPresent(u -> {
             u.setPasswordHash(encoded);
-            userRepository.save(u);
+            appUserRepository.save(u);
         });
-        customerRepository.findByUsername("john_doe").ifPresent(c -> {
+        appUserRepository.findByUsername("john_doe").ifPresent(c -> {
             c.setPasswordHash(encoded);
-            customerRepository.save(c);
+            appUserRepository.save(c);
         });
-    }
-
-    @Test
-    @DisplayName("POST /api/v1/auth/customers/register - Success returns HTTP 201 Created with JWT pair")
-    void shouldRegisterCustomerSuccessfully() throws Exception {
-        String uniqueUser = "rest_cust_" + System.currentTimeMillis();
-        CustomerRegistrationDto dto = CustomerRegistrationDto.builder()
-                .username(uniqueUser)
-                .email(uniqueUser + "@bank.ph")
-                .password("Password123!")
-                .firstName("Cardo")
-                .lastName("Dalisay")
-                .address("Tondo, Manila")
-                .mobileNumber("+639179998877")
-                .build();
-
-        mockMvc.perform(post("/api/v1/auth/customers/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accessToken", not(emptyOrNullString())))
-                .andExpect(jsonPath("$.refreshToken", not(emptyOrNullString())))
-                .andExpect(jsonPath("$.tokenType", is("Bearer")))
-                .andExpect(jsonPath("$.username", is(uniqueUser)))
-                .andExpect(jsonPath("$.roles[0]", is("ROLE_CUSTOMER")))
-                .andExpect(jsonPath("$.userType", is("CUSTOMER")));
-    }
-
-    @Test
-    @DisplayName("POST /api/v1/auth/customers/register - Duplicate username returns HTTP 409 RFC-7807 Problem Details")
-    void shouldReturn409ForDuplicateCustomer() throws Exception {
-        CustomerRegistrationDto dto = CustomerRegistrationDto.builder()
-                .username("john_doe")
-                .email("unique_different@bank.ph")
-                .password("Password123!")
-                .firstName("John")
-                .lastName("Doe")
-                .address("Ayala Avenue")
-                .mobileNumber("+639171234567")
-                .build();
-
-        mockMvc.perform(post("/api/v1/auth/customers/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isConflict())
-                .andExpect(header().string("Content-Type", is("application/problem+json")))
-                .andExpect(jsonPath("$.type", is("https://api.corebank.local/errors/USER_ALREADY_EXISTS")))
-                .andExpect(jsonPath("$.title", is("User Already Exists")))
-                .andExpect(jsonPath("$.status", is(409)))
-                .andExpect(jsonPath("$.errorCode", is("USER_ALREADY_EXISTS")))
-                .andExpect(jsonPath("$.detail", containsString("john_doe")));
-    }
-
-    @Test
-    @DisplayName("POST /api/v1/auth/customers/register - Invalid body returns HTTP 400 with invalidParams")
-    void shouldReturn400ForValidationErrors() throws Exception {
-        CustomerRegistrationDto invalidDto = CustomerRegistrationDto.builder()
-                .username("")
-                .email("not-an-email")
-                .password("short")
-                .firstName("")
-                .lastName("")
-                .address("")
-                .mobileNumber("")
-                .build();
-
-        mockMvc.perform(post("/api/v1/auth/customers/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidDto)))
-                .andExpect(status().isBadRequest())
-                .andExpect(header().string("Content-Type", is("application/problem+json")))
-                .andExpect(jsonPath("$.errorCode", is("VALIDATION_FAILED")))
-                .andExpect(jsonPath("$.invalidParams", not(empty())));
     }
 
     @Test
@@ -307,9 +230,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username", is("john_doe")))
                 .andExpect(jsonPath("$.email", is("john.doe@example.com")))
-                .andExpect(jsonPath("$.userType", is("CUSTOMER")))
-                .andExpect(jsonPath("$.firstName", is("John")))
-                .andExpect(jsonPath("$.lastName", is("Doe")));
+                .andExpect(jsonPath("$.userType", is("CUSTOMER")));
     }
 
     @Test

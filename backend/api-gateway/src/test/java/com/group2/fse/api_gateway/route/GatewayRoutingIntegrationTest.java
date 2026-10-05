@@ -87,4 +87,21 @@ class GatewayRoutingIntegrationTest {
                 .expectHeader().value(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, methods ->
                         assertThat(methods).contains("POST"));
     }
+
+    @Test
+    @DisplayName("Internal route across perimeter should be rejected with 403 Forbidden")
+    void shouldRejectInternalPerimeterRoute() {
+        client.get()
+                .uri("/internal/v1/risk/evaluate")
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectHeader().value(CorrelationIdFilter.CORRELATION_ID_HEADER, org.junit.jupiter.api.Assertions::assertNotNull)
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(403)
+                .jsonPath("$.title").isEqualTo("Forbidden")
+                .jsonPath("$.detail").isEqualTo("Access to internal microservice endpoints across the external API Gateway perimeter is strictly forbidden.")
+                .jsonPath("$.instance").isEqualTo("/internal/v1/risk/evaluate");
+    }
 }
+

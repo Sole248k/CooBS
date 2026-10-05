@@ -65,8 +65,8 @@ Read this first. It says, for every capability, whether we actually build it. Th
 | Service               | BUILT or changed                                                                               | EXISTING, kept as is                                        | SEEDED or SIMULATED                                                   | OUT                                                                  |
 | --------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | auth-service          | Move to`identity_db`; same login, refresh, revoke                                              | Token issue and blacklist                                   | Logins and roles seeded                                               | Registration, MFA by default, password reset                         |
-| customer-service      | Channel profile, Customer 360, beneficiaries, risk-profile lookup                              | —                                                           | Scores, tier, membership number seeded                                | Profile editing, onboarding, any KYC process                         |
-| account-service       | Balance through the ledger; loan and current types; internal lookups                           | Open account, status, flags, closure, KYC update requests   | KYC master seeded as verified                                         | KYC verification, document handling, loan origination                |
+| customer-service      | Profile, Customer 360, beneficiaries, KYC update submission & review, risk profile lookup      | —                                                           | Scores, tier, membership number, KYC seeded                           | External ID document scanning/OCR                                    |
+| account-service       | Balance through the ledger; loan and current types; internal lookups                           | Open account, status, flags, closure requests               | Accounts and balances seeded                                          | Loan origination, KYC verification (handled in `customer-service`)    |
 | transaction-service   | Transfer ingress, timeline, history, reversal request, DLQ replay, inter-bank endpoints        | —                                                           | —                                                                     | Scheduled or recurring transfers created by the customer             |
 | orchestration-service | Transfer and reversal sagas, stage events, compensation                                        | —                                                           | —                                                                     | Manual intervention screens; sagas for anything other than transfers |
 | risk-engine           | Score thresholds, daily limit, velocity counter                                                | —                                                           | Deterministic rules stand in for real fraud detection (**SIMULATED**) | Machine learning, AML lists, case management                         |
@@ -86,7 +86,7 @@ Worth doing only after Checkpoint 1, and only if the team agrees on Day 1. Sign-
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | What exists           | The MFA flow, the`mfaToken`, the verify endpoints (A3, A5) and a delivery class. `OtpDeliveryServiceImpl.sendEmail` only logs the code today                                   |
 | What to add           | A real send in that one method, calling Resend's email API with an API key from the environment                                                                                |
-| Why email, not SMS    | The login email is in`identity_db` in the cloud. The mobile number is in the KYC master on-premises, which `auth-service` no longer reads                                      |
+| Why email, not SMS    | The login email is in`identity_db` in the cloud. The mobile number is in `customer-service`, which `auth-service` does not read                                      |
 | Configuration         | `MFA_ENABLED=true`, `MFA_DEFAULT_CHANNEL=EMAIL`, `EMAIL_PROVIDER=RESEND`, `RESEND_API_KEY`, a sender address. The key goes in `.env`, later Key Vault, never in the repository |
 | Frontend              | One code-entry screen in the Flutter sign-in flow, shown when the login response has`mfaRequired: true`                                                                        |
 | Owners                | Dev 2 (send), Dev 6 (screen), Dev 8 (secret and variables)                                                                                                                     |
@@ -144,8 +144,7 @@ Registration is not available to anyone: members are seeded.
 
 | Scenario                                   | What happens                                                                     |
 | ------------------------------------------ | -------------------------------------------------------------------------------- |
-| Request to`/api/v1/customers/kyc/**`       | Goes to`account-service`; this rule is matched before the general customers rule |
-| Request to any other`/api/v1/customers/**` | Goes to`customer-service`                                                        |
+| Request to`/api/v1/customers/**`           | Goes to`customer-service` (:8089)                                                |
 | Request to`/internal/**` from outside      | Not routed; HTTP 404                                                             |
 | Too many login attempts from one IP        | HTTP 429 from the auth limit (10 per second, burst 20)                           |
 | A target service is down                   | HTTP 503 in the standard error shape                                             |
@@ -187,11 +186,11 @@ Registration is not available to anyone: members are seeded.
 
 ## 4. customer-service (8089, cloud)
 
-**Scope.** The customer as seen through the app: display name, membership number, KYC tier, risk and credit scores, beneficiaries, and the Customer 360 view that combines data from other services.
+**Scope.** The customer member identity, personal records, demographic profile, KYC submission, verification, and update approval workflows, beneficiaries, and the Customer 360 aggregator.
 
-**Not in scope.** Does not store the KYC master (legal name, address, mobile number). Does not own accounts or balances. Does not approve KYC changes.
+**Not in scope.** Does not own accounts or balances. Does not execute financial ledger postings.
 
-**Data it owns.** `customer_db` (channel profile, beneficiaries).
+**Data it owns.** `CUSTOMER`, `KYC`, `KYC_UPDATE_REQUEST`, `CHANNEL_PROFILE`, `BENEFICIARY`.
 
 | Action                          | Who                        | Endpoint   |
 | ------------------------------- | -------------------------- | ---------- |
@@ -200,15 +199,21 @@ Registration is not available to anyone: members are seeded.
 | View Customer 360               | Owner, Teller, Admin       | C3         |
 | List, add, remove beneficiaries | Customer                   | C4, C5, C6 |
 | Read risk profile               | Orchestration service only | C7         |
+| Submit initial KYC              | Customer                   | C8         |
+| Request KYC update              | Customer                   | C9         |
+| List pending KYC updates        | Teller, Admin              | C10        |
+| Approve KYC update              | Teller, Admin              | C11        |
+| Reject KYC update              | Teller, Admin              | C12        |
 
 | Scenario                                    | What happens                                                                                                                                          |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Customer opens their profile                | Channel profile from`customer_db`, KYC details fetched live from `account-service`, merged into one response                                          |
-| Customer opens Customer 360                 | Accounts and balances from`account-service`, recent transactions and spending from `transaction-service`, scores and beneficiaries from its own store |
+| Customer opens their profile                | Full member profile and KYC details loaded directly from `customer-service`                                                                            |
+| Customer opens Customer 360                 | Accounts and balances from `account-service`, recent transactions and spending from `transaction-service`, scores and beneficiaries from its own store |
 | Customer asks for another customer's 360    | HTTP 403                                                                                                                                              |
 | Staff opens a customer's 360                | Same view, plus the risk score                                                                                                                        |
-| On-premises is unreachable                  | Profile and beneficiaries still load; the accounts and KYC sections are marked unavailable; the page does not fail whole                              |
-| Customer adds a beneficiary at our bank     | Account number is checked with`account-service`; unknown number is rejected                                                                           |
+| Customer submits KYC update                 | Stored as `PENDING`; `kyc.request.submitted.v1` event emitted to Kafka                                                                                |
+| Staff approves KYC update                   | Master `KYC` record updated; `kyc.request.evaluated.v1` event emitted to Kafka                                                                       |
+| Customer adds a beneficiary at our bank     | Account number is checked with `account-service`; unknown number is rejected                                                                           |
 | Customer adds a beneficiary at another bank | Stored with that bank's code; checked with the partner only if they offer the account check                                                           |
 | Saga asks for a risk profile                | Score, tier and daily limit returned from its own store, with no call to another service                                                              |
 
@@ -216,13 +221,11 @@ Registration is not available to anyone: members are seeded.
 
 ## 5. account-service (8082, on-premises)
 
-**Scope.** The account as a record: opening, type, status, flags, closure requests. Also holds the KYC master and the KYC update workflow.
+**Scope.** The account as a financial record: opening, type (`SAVINGS`, `CURRENT`, `LOAN`), status (`ACTIVE`, `FROZEN`, `CLOSED`), flags/holds, and closure workflows.
 
-**Scope note.** KYC is **not a process** in this build. Every member is seeded as verified, so the "KYC not verified" case cannot occur with seeded data. The KYC update rows below are existing behaviour kept for the React console; they are not extended and not part of the demo.
+**Not in scope.** Never changes a balance (owned by `ledger-service`). Does not store credentials (owned by `auth-service`). Does not own customer demographic identity or KYC workflows (owned by `customer-service`).
 
-**Not in scope.** Never changes a balance. Does not store credentials. Does not decide whether a transfer may proceed.
-
-**Data it owns.** Oracle: `ACCOUNT`, `CUSTOMER` (ID and KYC status), `KYC`, `KYC_UPDATE_REQUEST`, `ACCOUNT_FLAG`, `ACCOUNT_CLOSURE_REQUEST`.
+**Data it owns.** Oracle: `ACCOUNT`, `ACCOUNT_FLAG`, `ACCOUNT_CLOSURE_REQUEST`.
 
 | Action                                 | Who                           | Endpoint |
 | -------------------------------------- | ----------------------------- | -------- |
@@ -234,10 +237,7 @@ Registration is not available to anyone: members are seeded.
 | Remove a flag                          | Admin                         | K5       |
 | Request closure, view own request      | Customer                      | K5       |
 | List, approve, reject closure requests | Admin (list also Teller)      | K5       |
-| Submit a KYC update request            | Customer                      | K2       |
-| List, approve, reject KYC updates      | Teller, Admin                 | K2       |
 | Look up an account by ID or number     | Services only                 | K6, K7   |
-| Read the KYC master                    | `customer-service` only       | K9       |
 
 | Scenario                                                  | What happens                                                                                      |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -251,8 +251,6 @@ Registration is not available to anyone: members are seeded.
 | Customer requests closure with money still in the account | Rejected with`ACCOUNT_NON_ZERO_BALANCE`; the balance is checked with the ledger                   |
 | Customer requests closure with an active flag             | Rejected with`ACCOUNT_ACTIVE_FLAG_EXISTS`                                                         |
 | Admin approves closure                                    | Status becomes`CLOSED`; `account.closure.completed.v1` is published                               |
-| Customer submits a KYC change                             | Stored as pending;`kyc.request.submitted.v1` is published                                         |
-| Teller approves the change                                | The KYC master is updated;`kyc.request.evaluated.v1` is published                                 |
 
 ---
 
