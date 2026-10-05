@@ -106,4 +106,5 @@ docs/*.zip
 
 
 tasks/
-
+graphify-out/
+scratch/

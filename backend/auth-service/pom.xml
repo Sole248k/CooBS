@@ -48,6 +48,12 @@
 			<artifactId>ojdbc17</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- PostgreSQL JDBC (Dual Driver Support for Oracle on-prem and future Cloud identity_db) -->
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
 
 		<!-- Redis for Token Blacklisting & Refresh Session State -->
 		<dependency>

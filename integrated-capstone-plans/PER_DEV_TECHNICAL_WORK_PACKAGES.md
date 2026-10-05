@@ -143,26 +143,26 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 
 **`customer-service` (new)**
 
-- **ADD** `entity/ChannelProfile.java`, `entity/Beneficiary.java` and repositories.
-- **ADD** `controller/CustomerController.java`: `/api/v1/customers/me`, `/{id}`, `/{id}/360`, beneficiaries.
+- **ADD** `entity/ChannelProfile.java`, `entity/Beneficiary.java`, `entity/Customer.java`, `entity/Kyc.java`, `entity/KycUpdateRequest.java` and repositories.
+- **ADD** `controller/CustomerController.java`: `/api/v1/customers/me`, `/{id}`, `/{id}/360`, beneficiaries, and all 5 KYC endpoints (`/kyc/submit`, `/kyc/update-request`, `/kyc/update-requests`, `/kyc/update-requests/{id}/approve`, `/kyc/update-requests/{id}/reject`).
 - **ADD** `controller/CustomerInternalController.java`: `/internal/v1/customers/{id}/risk-profile` (H6).
-- **ADD** `client/AccountClient.java` (accounts and KYC master), `client/TransactionClient.java` (history, H10).
-- **ADD** `service/Customer360Service.java`. It never stores KYC fields; a Redis cache of a few minutes at most.
+- **ADD** `client/AccountClient.java` (accounts lookup for 360 aggregator), `client/TransactionClient.java` (history, H10).
+- **ADD** `service/Customer360Service.java`, `service/CustomerService.java`, `service/BeneficiaryService.java`.
 
 **`account-service`**
 
-- **ADD** `controller/InternalAccountController.java`: `/internal/v1/accounts/{id}` (H8), `/internal/v1/customers/{id}/kyc`.
+- **ADD** `controller/InternalAccountController.java`: `/internal/v1/accounts/{id}` (H8), `/internal/v1/accounts/by-number/{accountNumber}`.
 - **ADD** `client/LedgerClient.java`: read balance, open balance (H3).
 - **CHANGE** `service/impl/AccountServiceImpl.java`: line 69 calls the ledger to open the balance; lines 98–143 read balances through the client.
 - **CHANGE** `service/impl/AccountClosureServiceImpl.java`: the zero-balance check at lines 51–61 calls the ledger.
-- **CHANGE** `entity/AccountFlag.java`, `AccountClosureRequest.java`, `KycUpdateRequest.java`: `flaggedBy`, `removedBy`, `approvedBy` become `Long`.
-- **CHANGE** `entity/Customer.java`: drop `username`, `passwordHash`, `email`.
+- **CHANGE** `entity/AccountFlag.java`, `AccountClosureRequest.java`: `flaggedBy`, `removedBy`, `approvedBy` become `Long`.
 - **CHANGE** `entity/Account.java`: accept `CURRENT`, `LOAN`, `GL` types.
 - **CHANGE** `controller/AccountController.java:63`: remove the fallback customer ID (R12).
-- **CHANGE** `controller/CustomerController.java`: remove `GET /me` and `GET /{customerId}` (now in `customer-service`). The five `/api/v1/customers/kyc/**` endpoints stay as they are; the gateway routes that more specific path here.
+- **REMOVE** `controller/CustomerController.java` (all `/api/v1/customers/**` endpoints moved to `customer-service`).
+- **REMOVE** `entity/Customer.java`, `entity/Kyc.java`, `entity/KycUpdateRequest.java`, `CustomerRepository.java`, `KycRepository.java`, `KycUpdateRequestRepository.java`.
 - **CHANGE** `application.properties`: remove the fallback JWT secret (R8).
 - **REMOVE** `entity/Balance.java`, `BalanceRepository`, `entity/User.java`, `entity/Role.java`, `UserRepository`, `RoleRepository`.
-- **Tests to update:** `AccountServiceTest`, `AccountClosureServiceTest`, `AccountFlagServiceTest`, `CustomerServiceTest`, both controller tests.
+- **Tests to update:** `AccountServiceTest`, `AccountClosureServiceTest`, `AccountFlagServiceTest`, `AccountControllerTest`.
 
 **Waits on:** H2 and the `identity_db` init script (Dev 5); H3 (Dev 3); H10 (Dev 3).
 **Must tell:** Dev 1, 3, 4, 5, 6 if any token claim changes (H1); Dev 7 of the 360 payload (H9); Dev 8 when the gateway customer route can flip.

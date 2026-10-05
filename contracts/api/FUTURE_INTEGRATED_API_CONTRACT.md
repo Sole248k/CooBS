@@ -135,6 +135,7 @@ Every service returns the existing problem shape. `errorCode` is the field clien
 | `ACCOUNT_NON_ZERO_BALANCE` | 400 | account |
 | `ACCOUNT_ACTIVE_FLAG_EXISTS` | 422 | account |
 | `ACCOUNT_NOT_OWNED` (new) | 403 | transaction |
+| `TRANSACTION_NOT_FOUND` (new) | 404 | transaction, orchestration |
 | `INSUFFICIENT_FUNDS` | 422 | ledger |
 | `DUPLICATE_IDEMPOTENCY_KEY` | 409 | ledger, transaction |
 | `CONCURRENT_TRANSACTION_IN_FLIGHT` | 409 | ledger, transaction |
@@ -208,9 +209,8 @@ Order matters: the gateway must match the more specific KYC route before the gen
 | Path | Service | Zone | Status |
 | --- | --- | --- | --- |
 | `/api/v1/auth/**` | auth-service 8081 | Cloud | SAME path; service moves to the cloud |
-| `/api/v1/customers/kyc/**` | account-service 8082 | On-premises | SAME (KYC master stays here) |
-| `/api/v1/customers/**` | customer-service 8089 | Cloud | CHANGED target |
-| `/api/v1/accounts/**` | account-service 8082 | On-premises | SAME |
+| `/api/v1/customers/**` | customer-service 8089 | Cloud | Hosts profile, KYC & beneficiaries endpoints |
+| `/api/v1/accounts/**` | account-service 8082 | On-premises | Account lifecycle, closure & holds |
 | `/api/v1/transactions/**` | transaction-service 8090 | Cloud | NEW (transfer intake & timeline) |
 | `/api/v1/mobile/**` | mobile-bff 8094 | Cloud | NEW (mobile screen aggregation & adapters) |
 | `/api/v1/interbank/**` | transaction-service 8090 | Cloud | NEW |
@@ -229,7 +229,7 @@ Order matters: the gateway must match the more specific KYC route before the gen
 | orchestration-service | customer-service `/internal/v1/customers/{id}/risk-profile` | Score and tier |
 | orchestration-service | risk-engine `/internal/v1/risk/evaluate` | Decision |
 | orchestration-service | ledger-service `/internal/v1/ledger/**` | Hold, capture, release, reverse |
-| customer-service | account-service `/internal/v1/**` | Accounts and KYC master |
+| customer-service | account-service `/internal/v1/**` | Accounts lookup for Customer 360 |
 | customer-service | transaction-service `/internal/v1/transactions` | Recent transactions |
 | account-service | ledger-service `/internal/v1/ledger/balances/**` | Open and read balances |
 | batch-service | ledger-service `/internal/v1/ledger/postings` | EOD postings |
@@ -337,8 +337,13 @@ Response: the `authData` object.
 | C5 | `POST /api/v1/customers/me/beneficiaries` | Customer | NEW |
 | C6 | `DELETE /api/v1/customers/me/beneficiaries/{beneficiaryId}` | Customer | NEW |
 | C7 | `GET /internal/v1/customers/{customerId}/risk-profile` | Service | NEW |
+| C8 | `POST /api/v1/customers/kyc/submit` | Customer | Initial KYC document and identity verification submission |
+| C9 | `POST /api/v1/customers/kyc/update-request` | Customer | Sensitive profile update request (legal name, address) |
+| C10 | `GET /api/v1/customers/kyc/update-requests` | Teller, Admin | Queue listing pending KYC verification requests |
+| C11 | `POST /api/v1/customers/kyc/update-requests/{id}/approve` | Teller, Admin | Staff approval advancing customer KYC level |
+| C12 | `POST /api/v1/customers/kyc/update-requests/{id}/reject` | Teller, Admin | Staff rejection of KYC request with reason |
 
-**C1 / C2 response, 200.** The first six keys are today's shape, so the React console keeps working. The `kyc` object is fetched from `account-service` on each call and is never stored in the cloud.
+**C1 / C2 response, 200.** The first six keys are today's shape, so the React console keeps working. The `kyc` object is managed directly by `customer-service`.
 
 `username` is taken from the token for C1 and from the seeded channel profile for C2. `email` is seeded into the channel profile as well as into `identity_db`; `customer-service` never reads `identity_db`.
 
@@ -456,15 +461,14 @@ All 20 existing endpoints keep their paths and payloads, with these exceptions.
 
 | # | Method and path | Status | Notes |
 | --- | --- | --- | --- |
-| K1 | `GET /api/v1/customers/me`, `GET /api/v1/customers/{id}` | **REMOVED** here | Now C1, C2 |
-| K2 | `POST /api/v1/customers/kyc/submit` and the four `kyc/update-request(s)` endpoints | SAME | Routed here by the more specific gateway rule |
+| K1 | `GET /api/v1/customers/me`, `GET /api/v1/customers/{id}` | **REMOVED** here | Now C1, C2 in `customer-service` |
+| K2 | `POST /api/v1/customers/kyc/submit` and four `kyc/update-request(s)` endpoints | **REMOVED** here | Moved to `customer-service` (C8–C12) |
 | K3 | `POST /api/v1/accounts` | CHANGED | `accountType` accepts `CURRENT`, `LOAN`; the balance row is opened through the ledger (L1) |
 | K4 | `GET /api/v1/accounts`, `/my-accounts`, `/{accountId}` | CHANGED | `availableBalance` is read from the ledger; shape unchanged |
 | K5 | Closure requests (5 endpoints), flags (3 endpoints), `PATCH /{accountId}/status` | SAME | `approvedBy`, `flaggedBy`, `removedBy` remain numbers |
-| K6 | `GET /internal/v1/accounts/{accountId}` | NEW | |
-| K7 | `GET /internal/v1/accounts/by-number/{accountNumber}` | NEW | |
-| K8 | `GET /internal/v1/customers/{customerId}/accounts` | NEW | |
-| K9 | `GET /internal/v1/customers/{customerId}/kyc` | NEW | The KYC master |
+| K6 | `GET /internal/v1/accounts/{accountId}` | NEW | Internal account lookup by ID |
+| K7 | `GET /internal/v1/accounts/by-number/{accountNumber}` | NEW | Internal account lookup by account number |
+| K8 | `GET /internal/v1/customers/{customerId}/accounts` | NEW | Internal lookup of accounts by customer ID |
 
 **K3 request**
 
@@ -511,9 +515,8 @@ All 20 existing endpoints keep their paths and payloads, with these exceptions.
 }
 ```
 
-**K9 response:** the `kyc` object shown in C1.
-
 ---
+
 
 ## 7. transaction-service (8090) — NEW
 
@@ -1307,7 +1310,7 @@ All events share one envelope, the one the ledger uses today:
 | `ledger.transfer.completed.v1` | sourceAccountId | ledger-service | notification-service, orchestration-service | SAME, plus `transactionId` and `auditHash` in the payload |
 | `ledger.transfer.failed.v1` | sourceAccountId | ledger-service | notification-service | SAME |
 | `account.created.v1`, `account.closure.completed.v1` | accountId | account-service | notification-service | SAME |
-| `kyc.request.submitted.v1`, `kyc.request.evaluated.v1` | customerId | account-service | notification-service | SAME |
+| `kyc.request.submitted.v1`, `kyc.request.evaluated.v1` | customerId | customer-service | notification-service | CHANGED: produced by customer-service |
 | `transaction.stage.changed.v1` | transactionId | transaction-service (1–3), orchestration-service (4–11) | transaction-service | NEW |
 | `notification.dispatched.v1` | transactionId | notification-service | orchestration-service | NEW |
 | `batch.eod.step.completed.v1` | batchRunId | batch-service | notification-service (optional) | NEW |

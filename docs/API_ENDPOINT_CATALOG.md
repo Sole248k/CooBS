@@ -19,7 +19,7 @@ React Web (Staff/Teller :3000/:5173)         Flutter Mobile (Members 10.0.2.2:80
        ├─► /api/v1/auth/**          ──► auth-service (:8081)
        ├─► /api/v1/mobile/**        ──► mobile-bff (:8094) [Orchestration Middleware]
        ├─► /api/v1/accounts/**      ──► account-service (:8082)
-       ├─► /api/v1/customers/**     ──► account-service / customer-service (:8082/:8089)
+       ├─► /api/v1/customers/**     ──► customer-service (:8089)
        ├─► /api/v1/transactions/**  ──► transaction-service (:8090) [T1, T2, T3, T8, T9]
        ├─► /api/v1/ledger/**        ──► ledger-service (:8083)
        ├─► /api/v1/notifications/** ──► notification-service (:8084)
@@ -58,17 +58,17 @@ React Web (Staff/Teller :3000/:5173)         Flutter Mobile (Members 10.0.2.2:80
 ## 2. API Endpoint Master Inventory & Summary
 
 ```
-Total Core Business Endpoints: 46
+Total Core Business Endpoints: 49
 ├── Auth Service:              6 endpoints
 ├── Mobile BFF Middleware:     3 endpoints  <-- [M1 Dashboard, M2 Stepper, M3 Remittance Dispatch]
 ├── Account Service:          13 endpoints
-├── Customer & KYC:            7 endpoints
+├── Customer Service:         10 endpoints
 ├── Transaction Service:       5 endpoints  <-- [T1, T2, T3, T8, T9 Remittance Shock Absorber]
 ├── Ledger Service:            4 endpoints
 ├── Notification Service:      3 endpoints
 └── Audit Service:             3 endpoints
 Total Infrastructure/Actuator:  5 endpoints
-GRAND TOTAL:                   51 endpoints
+GRAND TOTAL:                   54 endpoints
 ```
 
 ---
@@ -122,7 +122,7 @@ Base Path via Gateway: `/api/v1/accounts`
 
 ---
 
-## 5. Customer & KYC Endpoints (`account-service` :8082)
+## 5. Customer & KYC Endpoints (`customer-service` :8089)
 
 Base Path via Gateway: `/api/v1/customers`
 

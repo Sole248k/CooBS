@@ -106,7 +106,7 @@ graph TD
 | Developer | Core Day 4 Outputs & Deliverables | Handshake / Scope |
 | :--- | :--- | :--- |
 | **Dev 1** | Wire `orchestration-service` to call live `risk-engine` (`POST /internal/v1/risk/evaluate`) and `ledger-service` (`POST /internal/v1/ledger/holds`). | Live Saga Wiring |
-| **Dev 2** | Wire `customer-service` 360 aggregator to call `account-service` on-premises for legal KYC & account list. | Hybrid 360 Read |
+| **Dev 2** | Wire `customer-service` 360 aggregator to call `account-service` on-premises for account list and `transaction-service` for recent activity. | Hybrid 360 Read |
 | **Dev 3** | Connect `transaction-service` to trigger `orchestration-service`; enable hold capture and outbox event append in `ledger-service`. | Core Transfer Flow |
 | **Dev 4** | Expose live risk endpoint on port 8092; provide mock interbank partner responses. | Handshake H5 |
 | **Dev 5** | Fix any schema/query performance issues; scaffold `batch-service` on port 8093 with on-prem Oracle and PostgresAudit connections. | Handshake H11 |
@@ -188,7 +188,7 @@ graph TD
 | Speaker | Presentation Segment | Key Talking Points & Demonstration Focus |
 | :--- | :--- | :--- |
 | **Dev 1** | System Overview & Saga Architecture | Hybrid cloud rationale, zero-conflict git workflow, 11-stage distributed saga coordination, compensating transactions. |
-| **Dev 2** | Identity Separation & Customer 360 | Moving auth to `identity_db`, why KYC master stays in sovereign Oracle on-prem, Customer 360 hybrid aggregation. |
+| **Dev 2** | Identity Separation & Customer 360 | Moving auth to `identity_db`, member profile & KYC domain in `customer-service`, Customer 360 hybrid aggregation. |
 | **Dev 3** | Ledger Engine & Event Outbox | Double-entry bookkeeping, ordered balance row locks (`SELECT FOR UPDATE`), outbox relay pattern, dead-letter recovery. |
 | **Dev 4** | Sub-40ms Risk Engine & Interbank Remittance | Deterministic scoring rules, Redis velocity tracking, why fraud declines bypass ledger row locks, interbank loopback. |
 | **Dev 5** | Database Architecture & EOD Batch Pipeline | Multi-database isolation, 6-step EOD engine, debit-equals-credit GL verification, tamper-evident SHA-256 audit chain. |
