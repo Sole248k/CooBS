@@ -20,11 +20,5 @@ public class UserProfileDto {
     private List<String> roles;
     private String userType;
     private String status;
-
-    // Optional KYC details for customers
-    private String firstName;
-    private String lastName;
-    private String mobileNumber;
-    private String kycStatus;
     private LocalDateTime createdAt;
 }

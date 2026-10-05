@@ -7,16 +7,26 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
-@Table(name = "CUSTOMER")
+@Table(name = "APP_USER")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Customer {
+public class AppUser {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
+    private Long userId;
+
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "role_id", nullable = false)
+    private Role role;
+
+    @Column(name = "user_type", length = 20, nullable = false)
+    private String userType;
+
     @Column(name = "customer_id")
     private Long customerId;
 
@@ -29,9 +39,12 @@ public class Customer {
     @Column(name = "email", length = 150, nullable = false, unique = true)
     private String email;
 
+    @Column(name = "mfa_secret_ref", length = 255)
+    private String mfaSecretRef;
+
     @Builder.Default
-    @Column(name = "kyc_status", length = 20, nullable = false)
-    private String kycStatus = "PENDING";
+    @Column(name = "status", length = 20, nullable = false)
+    private String status = "ACTIVE";
 
     @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -42,8 +55,8 @@ public class Customer {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
-        if (kycStatus == null) {
-            kycStatus = "PENDING";
+        if (status == null) {
+            status = "ACTIVE";
         }
     }
 
@@ -51,8 +64,8 @@ public class Customer {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Customer customer = (Customer) o;
-        return customerId != null && Objects.equals(customerId, customer.customerId);
+        AppUser appUser = (AppUser) o;
+        return userId != null && Objects.equals(userId, appUser.userId);
     }
 
     @Override

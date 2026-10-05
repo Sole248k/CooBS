@@ -4,11 +4,11 @@ import com.group2.fse.auth_service.dto.AuthResponseDto;
 import com.group2.fse.auth_service.dto.LoginRequestDto;
 import com.group2.fse.auth_service.dto.LoginResultDto;
 import com.group2.fse.auth_service.dto.MfaVerifyRequestDto;
-import com.group2.fse.auth_service.entity.User;
+import com.group2.fse.auth_service.entity.AppUser;
 import com.group2.fse.auth_service.exception.AccountInactiveException;
 import com.group2.fse.auth_service.exception.InvalidCredentialsException;
 import com.group2.fse.auth_service.exception.MfaVerificationException;
-import com.group2.fse.auth_service.repository.UserRepository;
+import com.group2.fse.auth_service.repository.AppUserRepository;
 import com.group2.fse.auth_service.security.jwt.JwtTokenProvider;
 import com.group2.fse.auth_service.security.mfa.MfaChallenge;
 import com.group2.fse.auth_service.security.mfa.MfaChallengeService;
@@ -29,7 +29,7 @@ import java.util.List;
 @Slf4j
 public class StaffAuthServiceImpl implements StaffAuthService {
 
-    private final UserRepository userRepository;
+    private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisRefreshTokenService refreshTokenService;
@@ -43,7 +43,7 @@ public class StaffAuthServiceImpl implements StaffAuthService {
     public LoginResultDto login(LoginRequestDto request) {
         log.info("Bank staff login attempt for username: {}", request.getUsername());
 
-        User staff = userRepository.findByUsername(request.getUsername())
+        AppUser staff = appUserRepository.findByUsernameAndUserType(request.getUsername(), "STAFF")
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid username or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), staff.getPasswordHash())) {
@@ -68,7 +68,7 @@ public class StaffAuthServiceImpl implements StaffAuthService {
                 destination = "Authenticator App (Google/Microsoft Authenticator)";
                 maskedDestination = "Authenticator App (RFC 6238)";
             } else if ("SMS".equalsIgnoreCase(channel)) {
-                destination = "+63 917 000 0000"; // Or staff phone if stored
+                destination = "+63 917 000 0000";
                 maskedDestination = "+63 917 **** 000";
             } else {
                 channel = "EMAIL";
@@ -110,7 +110,6 @@ public class StaffAuthServiceImpl implements StaffAuthService {
     private List<String> resolveStaffRoles(String primaryRole) {
         List<String> roles = new ArrayList<>();
         roles.add(primaryRole);
-        // Admin inherits teller operations
         if ("ROLE_ADMIN".equals(primaryRole) && !roles.contains("ROLE_TELLER")) {
             roles.add("ROLE_TELLER");
         }
@@ -133,17 +132,6 @@ public class StaffAuthServiceImpl implements StaffAuthService {
                 .build();
     }
 
-    private String maskEmail(String email) {
-        if (email == null || !email.contains("@")) {
-            return "***@corebank.local";
-        }
-        String[] parts = email.split("@");
-        String name = parts[0];
-        String domain = parts[1];
-        String visible = name.length() > 2 ? name.substring(0, 2) : name.substring(0, 1);
-        return visible + "****@" + domain;
-    }
-
     private String resolveChannel(String preferred, String defaultChannel) {
         if (preferred == null || preferred.isBlank()) {
             return defaultChannel;
@@ -153,5 +141,18 @@ public class StaffAuthServiceImpl implements StaffAuthService {
             return p;
         }
         return defaultChannel;
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return "***@***.com";
+        }
+        int atIdx = email.indexOf("@");
+        String name = email.substring(0, atIdx);
+        String domain = email.substring(atIdx);
+        if (name.length() <= 2) {
+            return name.charAt(0) + "***" + domain;
+        }
+        return name.charAt(0) + "***" + name.charAt(name.length() - 1) + domain;
     }
 }
