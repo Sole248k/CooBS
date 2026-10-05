@@ -24,9 +24,7 @@
 | Transfer path               | `/api/v1/transfers`                                | `/api/v1/transactions/transfers`                                                                                                                                       |
 | GL check                    | Assets = Liabilities + Equity                      | Total debits = total credits                                                                                                                                           |
 | EOD variance                | Trigger rollback                                   | Halt before the seal and alert; fix by compensating reversal                                                                                                           |
-| Login identity              | In Oracle`CUSTOMER` and `USER`                     | `auth-service` moves to the cloud on its own `identity_db`: credentials, MFA, roles, link to `customer_id` (**version 2.1, a build item**)                             |
-| Customer data               | All of KYC moves to cloud`customer_db`             | `customer_db` holds the channel profile only; the KYC master stays in Oracle, served by `account-service` (**2.1**)                                                    |
-| `notification-service`      | On-premises, table in`audit_store`                 | Cloud, with its own`notification_db` (**2.1**)                                                                                                                         |
+| Customer data               | Modular monolith in account-service | `customer-service` owns profile, demographic records, KYC submissions & reviews |
 | `batch-service`             | AKS                                                | On-premises beside the ledger; only trigger and progress events cross the bridge (**2.1**)                                                                             |
 | Ledger events               | Published straight to Kafka                        | Written to an Oracle`OUTBOX` table and relayed, so a tunnel outage loses nothing (**2.1**)                                                                             |
 | `account-service` placement | AKS                                                | Beside Oracle on-premises, because its tables stay in Oracle                                                                                                           |
@@ -69,7 +67,7 @@ flowchart TD
 
     subgraph CloudServices ["Zone 2: Azure AKS Microservices"]
         AuthSvc["auth-service (8081)\nLogin, JWT, TOTP MFA\nToken Blacklist"]
-        CustSvc["customer-service (8089)\nChannel Profile, Beneficiaries\nCustomer 360 Aggregator"]
+        CustSvc["customer-service (8089)\nProfile, KYC, Beneficiaries\nCustomer 360 Aggregator"]
         TxnSvc["transaction-service (8090)\nTransfer Ingress & Timeline\nInter-Bank Webhook, DLQ Replay"]
         OrchSvc["orchestration-service (8091)\nSaga Coordinator\n11-Stage Events"]
         RiskSvc["risk-engine (8092)\nFraud & Limit Check\n40 ms p95 budget"]
@@ -80,7 +78,7 @@ flowchart TD
         RedisCache[("Redis 7.4\nIdempotency, Rate Limit\nVelocity, Sessions, Blacklist")]
         KafkaBroker[["Apache Kafka (KRaft)\nledger.*, transaction.stage.changed.v1\n*.DLT topics"]]
         IdentDB[("PostgreSQL identity_db\ncredentials, MFA, roles")]
-        CustDB[("PostgreSQL customer_db\nchannel profile only")]
+        CustDB[("PostgreSQL customer_db\nprofiles, KYC, beneficiaries")]
         TxnDB[("PostgreSQL transaction_db\nschemas: txn, saga")]
         NotifDB[("PostgreSQL notification_db")]
     end
@@ -90,11 +88,11 @@ flowchart TD
     end
 
     subgraph OnPremDatacenter ["Zone 4: On-Premises Bank Datacenter"]
-        AcctSvc["account-service (8082)\nAccount Lifecycle\nKYC Master"]
+        AcctSvc["account-service (8082)\nAccount Lifecycle\nStatus, Holds & Closures"]
         LedgerSvc["ledger-service (8083)\nDouble-Entry, Holds, Reversals\nOrdered Row Locks, Outbox"]
         BatchSvc["batch-service (8093)\nOn-Demand EOD\nSix Steps"]
         AuditSvc["audit-service (8085)\nForensic Query API\nSHA-256 Chain Verification"]
-        OracleDB[("Oracle Database Free 23ai (SoR)\nACCOUNT, BALANCE, HOLD\nTRANSACTION, KYC, OUTBOX")]
+        OracleDB[("Oracle Database Free 23ai (SoR)\nACCOUNT, BALANCE, HOLD\nTRANSACTION, OUTBOX")]
         PostgresAuditDB[("PostgreSQL 16\naudit_store schema\nbatch schema")]
     end
 
@@ -116,7 +114,7 @@ flowchart TD
     OrchSvc -->|3. Fraud and limit| RiskSvc
     RiskSvc --> RedisCache
     OrchSvc -->|4. Hold, capture, release, reverse| VPNTunnel
-    CustSvc -->|accounts and KYC master| VPNTunnel
+    CustSvc -->|accounts list| VPNTunnel
     CustSvc -->|recent transactions| TxnSvc
 
     CustSvc --> CustDB
@@ -191,7 +189,7 @@ graph TB
         Batch[batch-service 8093]
         AuditVault[audit-service 8085]
         Relay[Outbox Relay]
-        Oracle[(Oracle Database Free 23ai\nSystem of Record + KYC Master)]
+        Oracle[(Oracle Database Free 23ai\nSystem of Record)]
         PostgresAudit[(PostgreSQL 16\nAudit Store + batch schema)]
     end
 
@@ -286,7 +284,7 @@ Carl also supports Dev 8: he takes on and reviews DevOps and cloud work, with Ja
 
 The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it. `auth-service` is no longer frozen: Dev 2 moves it onto `identity_db`. Its registration endpoint stays disabled, because members are seeded.
 
-**Load note:** Dev 2 now carries three services. The customer extraction is smaller than in version 2.0, because KYC stays in `account-service`; if Day 3 still shows slippage, `account-service` changes move to Dev 3.
+**Load note:** Dev 2 carries `customer-service` and `auth-service` (and prepares the `account-service` extraction). `customer-service` is the sole owner of member profiles and KYC; if Day 3 shows slippage, `account-service` adjustments move to Dev 3.
 
 ---
 
@@ -297,7 +295,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
 - **Focus:** Whole-team agreement on scope, boundaries and interfaces.
 - **Deliverables:**
   - **Dev 1:** Lead the workshop. Approve Diagrams 1 and 2. Start the decision log. Draft v1 OpenAPI and Kafka event examples in `/contracts`.
-  - **Dev 2:** Define the identity/customer/account boundary: what is a login (`identity_db`), what is a channel profile (`customer_db`), what is the KYC master (Oracle). Define `/api/v1/customers/**`. Specify the seeded KYC format (`VERIFIED`, `TIER_3_FULL`).
+  - **Dev 2:** Define the identity/customer/account boundary: what is a login (`identity_db`), what is a customer profile & KYC record (`customer_db`), and what are accounts (`account-service`). Define `/api/v1/customers/**`. Specify the seeded KYC format (`VERIFIED`, `TIER_3_FULL`).
   - **Dev 3:** Define `/api/v1/transactions/transfers` DTOs, transaction statuses, idempotency, and the hold model (`RESERVED`, `POSTED`, `CANCELLED`).
   - **Dev 4:** Specify the risk request and decision (score 0.00–1.00, thresholds in section 5.6). Specify the inter-bank webhook payload and what the core mock returns.
   - **Dev 5:** Design the ERD: cloud `identity_db`, `customer_db`, `transaction_db` (schemas `txn`, `saga`), `notification_db`; on-premises Oracle core tables, audit store and `batch` schema. Define Redis key use. Define the single seed source that feeds every store.
@@ -327,10 +325,10 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
 
 - **Deliverables:**
   - **Dev 1:** Saga transitions and the eleven stage events with correlation IDs, against mocks.
-  - **Dev 2:** `auth-service` logs in seeded customers and staff from `identity_db`, with no Oracle connection; `Customer` and `Kyc` entities removed from it. Channel profile endpoints in `customer-service`; KYC master endpoints kept in `account-service`; unit tests.
+  - **Dev 2:** `auth-service` logs in seeded customers and staff from `identity_db`, with no Oracle connection; `Customer` and `Kyc` entities removed from it. Channel profile and KYC endpoints implemented in `customer-service`; `account-service` scoped strictly to accounts; unit tests.
   - **Dev 3:** Transfer validation, persistence, timeline API, event stub; place-hold endpoint in the ledger; `notification-service` repointed to `notification_db`; unit tests.
   - **Dev 4:** Approve and reject rules, daily limit by tier, core mock responses; unit tests; latency test.
-  - **Dev 5:** Seed scripts generated from one source for every store: logins in `identity_db`, channel profiles in `customer_db`, KYC master, accounts, loan accounts and GL accounts in Oracle, standing instructions in the `batch` schema. Same `user_id` and `customer_id` values everywhere. Indexes and Redis setup.
+  - **Dev 5:** Seed scripts generated from one source for every store: logins in `identity_db`, channel profiles and KYC records in `customer_db`, accounts, loan accounts and GL accounts in Oracle, standing instructions in the `batch` schema. Same `user_id` and `customer_id` values everywhere. Indexes and Redis setup.
   - **Dev 6:** Login, token storage, the 11-stage stepper and 3-stage customer view on fixture timelines; core widget tests.
   - **Dev 7:** Customer 360, account and transfer screens on fixtures.
   - **Dev 8:** Containerize every service, second PostgreSQL container, `.DLT` topics, Compose profiles, CI image builds.
@@ -342,7 +340,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
 
 - **Deliverables:**
   - **Dev 1:** Wire the saga to the real `risk-engine` and ledger hold and capture.
-  - **Dev 2:** Flip the gateway customer route to `customer-service`; start the Customer 360 endpoint, reading the KYC master from `account-service`.
+  - **Dev 2:** Flip the gateway customer route to `customer-service`; start the Customer 360 endpoint, querying accounts from `account-service` and recent transactions from `transaction-service`.
   - **Dev 3:** `transaction-service` hands off to the saga; capture and release in the ledger.
   - **Dev 4:** Risk endpoint live; core mock switchable by configuration.
   - **Dev 5:** Fix query and schema issues; verify integrity constraints; scaffold `batch-service`.
@@ -498,16 +496,17 @@ The middle band is a decline because no manual review queue is in scope. A timeo
 - `notification-service` runs in the cloud on its own `notification_db`; its table leaves `audit_store`.
 - Admin replay endpoint in `transaction-service`.
 
-### 5.8 Identity, Channel Profile and KYC Master
+### 5.8 Identity, Member Profile and KYC Master
 
 | Data                                                                                       | Store         | Owner              | Zone        |
 | ------------------------------------------------------------------------------------------ | ------------- | ------------------ | ----------- |
-| Username, password hash, MFA secret reference, roles, status,`customer_id` link            | `identity_db` | `auth-service`     | Cloud       |
+| Username, password hash, status, `customer_id` link                                        | `identity_db` | `auth-service`     | Cloud       |
 | Sessions, refresh tokens, token blacklist                                                  | Redis         | `auth-service`     | Cloud       |
-| Display name, preferences, beneficiaries, KYC tier and status copy, risk and credit scores | `customer_db` | `customer-service` | Cloud       |
-| Legal name, address, mobile number, civil status, occupation                               | Oracle`KYC`   | `account-service`  | On-premises |
+| Display name, preferences, beneficiaries, KYC tier and status, risk and credit scores      | `customer_db` | `customer-service` | Cloud       |
+| Legal name, address, mobile number, civil status, occupation, KYC records and updates      | `customer_db` / Oracle `KYC` | `customer-service` | Cloud / Hybrid |
 
-- The cloud never stores the KYC master. `customer-service` fetches it on demand for Customer 360 and may cache it in Redis for a few minutes only.
+- `customer-service` is the sole owner of all `/api/v1/customers/**` endpoints, including member demographic records, KYC submissions, and KYC review workflows.
+- `account-service` is strictly scoped to deposit account lifecycles (`ACCOUNT`), account closure requests, and legal/administrative flags.
 - Oracle `CUSTOMER` keeps `customer_id` and `kyc_status`; its `username`, `password_hash` and `email` columns move to `identity_db`.
 - Oracle no longer has `USER` or `ROLE`. Columns such as `approved_by` store the `user_id` from `identity_db` as a plain number.
 - Schemas and data are disposable: Dev 5 rebuilds every database from the init scripts and seed source under `database/`. Services carry no migration files and run with `ddl-auto=validate`.
@@ -533,7 +532,7 @@ The middle band is a decline because no manual review queue is in scope. A timeo
 - [ ] **Stateless compute:** saga state lives in `transaction_db`, locks and counters in Redis, so AKS pods can scale.
 - [ ] **Database portability:** `identity_db`, `customer_db`, `transaction_db` and `notification_db` map to Azure Database for PostgreSQL Flexible Server; no cross-database queries.
 - [ ] **Login without the tunnel:** `auth-service` and its data are in the cloud, so sign-in does not depend on the VPN.
-- [ ] **No legal identity data in the cloud:** the KYC master stays in Oracle.
+- [ ] **Sovereign account data:** `account-service` and the ledger stay on-premises with Oracle; `customer-service` manages member profiles and KYC.
 - [ ] **Sovereign ledger:** `ledger-service`, Oracle and the audit store stay on-premises. Only `orchestration-service` (from the cloud) and `account-service` and `batch-service` (local) call the ledger.
 - [ ] **No cloud service connects to Oracle.**
 - [ ] **Configuration by environment variable only;** secrets move to Key Vault.
