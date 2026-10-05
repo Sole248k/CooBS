@@ -1,0 +1,12 @@
+{
+  "accountId": 1,
+  "customerId": 1,
+  "customerName": "John Doe",
+  "accountNumber": "ACC_10000001",
+  "accountType": "SAVINGS",
+  "currency": "PHP",
+  "status": "ACTIVE",
+  "availableBalance": 49625.0,
+  "createdAt": "2026-01-15T08:00:00",
+  "message": null
+}
