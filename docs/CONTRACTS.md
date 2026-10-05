@@ -46,7 +46,7 @@ flowchart TD
 
     subgraph PRIVATE_MESH ["Private Core Banking Mesh: core-banking-net"]
         Orchestrator["Orchestration Service :8091<br/>- Saga State Machine Coordinator"]:::coreService
-        RiskEngine["Risk Engine :8092<br/>- Python Sub-40ms AML & Velocity Checks"]:::coreService
+        RiskEngine["Risk Engine :8092<br/>- Java Sub-40ms AML & Velocity Checks"]:::coreService
         LedgerSrv["Ledger Service :8083 SoR<br/>- Deadlock-Free Ordered Locks<br/>- Zero-Overdraft Invariant<br/>- Double-Entry General Ledger"]:::coreService
     end
 

@@ -114,7 +114,7 @@ flowchart TB
         SRV_ACCT["account-service (:8082)"]:::microservice
         SRV_TX["transaction-service (:8090) / ledger-service (:8083)<br/>Double-Entry Engine"]:::microservice
         SRV_NOTIF["notification-service (:8084)"]:::microservice
-        SRV_RISK["Async Risk Engine (Python :8092)<br/>Score &lt;= 0.85; SLA &lt;= 200ms"]:::microservice
+        SRV_RISK["Risk Engine (Java :8092)<br/>Score &lt;= 0.85; SLA &lt;= 200ms"]:::microservice
     end
 
     UI_REMITTANCE --> API_INTERFACE
