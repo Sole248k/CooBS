@@ -1,0 +1,29 @@
+{
+  "member": {
+    "customerId": 1,
+    "displayName": "John D. Doe",
+    "email": "john.doe@example.com",
+    "kycStatus": "VERIFIED"
+  },
+  "primaryAccount": {
+    "accountId": 1,
+    "accountNumber": "ACC_10000001",
+    "accountType": "SAVINGS",
+    "currency": "PHP",
+    "availableBalance": 50000.0,
+    "formattedBalance": "₱50,000.00",
+    "status": "ACTIVE"
+  },
+  "unreadNotifications": 2,
+  "recentTransactions": [
+    {
+      "trackingReference": "TX-20261003-8F3A21C0",
+      "amount": 2500.0,
+      "formattedAmount": "-₱2,500.00",
+      "currency": "PHP",
+      "status": "POSTED",
+      "remarks": "Lunch money",
+      "submittedAt": "2026-10-03T11:40:00Z"
+    }
+  ]
+}

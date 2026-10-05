@@ -1,0 +1,146 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../../core/theme/app_theme.dart';
+
+/// Active fallback screen rendered when client-side Circuit Breaker trips
+/// or infrastructure encounters a 503 gateway drop.
+class ServiceUnavailableView extends StatefulWidget {
+  final Duration? cooldown;
+
+  const ServiceUnavailableView({super.key, this.cooldown});
+
+  @override
+  State<ServiceUnavailableView> createState() => _ServiceUnavailableViewState();
+}
+
+class _ServiceUnavailableViewState extends State<ServiceUnavailableView> {
+  late int _remainingSeconds;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _remainingSeconds = widget.cooldown?.inSeconds ?? 30;
+    if (_remainingSeconds <= 0) _remainingSeconds = 30;
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      if (_remainingSeconds <= 1) {
+        timer.cancel();
+        setState(() => _remainingSeconds = 0);
+      } else {
+        setState(() => _remainingSeconds--);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canRetry = _remainingSeconds == 0;
+
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundLight,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorCarmine.withAlpha(25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.cloud_off_rounded,
+                          size: 36,
+                          color: AppTheme.errorCarmine,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Service Temporarily Unavailable',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.navyPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Our core banking mesh is currently undergoing automated recovery. '
+                        'To protect transaction integrity, incoming requests are temporarily paused.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.5,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      if (!canRetry) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.navyPrimary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Auto-reconnect in ${_remainingSeconds}s',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      ElevatedButton(
+                        onPressed: canRetry
+                            ? () {
+                                Navigator.of(context).pushReplacementNamed('/');
+                              }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: canRetry ? AppTheme.navyPrimary : AppTheme.borderSubtle,
+                          foregroundColor: canRetry ? Colors.white : AppTheme.textMuted,
+                        ),
+                        child: const Text('Retry Connection'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
