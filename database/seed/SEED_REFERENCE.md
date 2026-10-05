@@ -165,7 +165,6 @@ docker compose -f docker-compose.yml -f docker-compose.target.yml --profile app 
 
 ## Additions beyond the ERD
 
-- `batch.loan_schedule.repayment_account_id` and `paid_at`: the batch must know which deposit account pays an instalment.
 - `txn.interbank_message`: stores each inter-bank `messageId` so a repeat returns the first answer.
 - `channel_profile.username` and `email`: the profile response returns both, and `customer-service` cannot read `identity_db`.
 - `TRANSACTION.reverses_transaction_id` is unique, so the database itself refuses a second reversal.
