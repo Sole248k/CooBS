@@ -23,6 +23,7 @@ import com.group2.fse.ledger_service.service.AccountBalanceService;
 import com.group2.fse.ledger_service.service.DualWriteLedgerAuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +53,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
     private final TransactionRepository transactionRepository;
     private final DualWriteLedgerAuditService dualWriteLedgerAuditService;
     private final ApplicationEventPublisher applicationEventPublisher;
+
+    @Autowired(required = false)
+    private com.group2.fse.ledger_service.service.OutboxService outboxService;
 
     // =========================================================================
     // Legacy methods preserved for backwards compatibility with existing tests
@@ -609,6 +613,14 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
                     .build();
             applicationEventPublisher.publishEvent(event);
             log.debug("Enqueued Spring application event LedgerTransferEvent for ref {}", transferReference);
+
+            if (outboxService != null) {
+                try {
+                    outboxService.appendEvent("ledger.transfer.completed.v1", String.valueOf(srcId), event);
+                } catch (Exception ex) {
+                    log.warn("Could not append to outbox in executeTransfer (continuing with Spring event): {}", ex.getMessage());
+                }
+            }
         }
     }
 
