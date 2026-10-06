@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/models/dashboard_models.dart';
+import '../../core/network/api_client.dart';
+
 String peso(double v) => '₱${NumberFormat('#,##0.00').format(v)}';
 String fmt(DateTime d) => DateFormat('dd MMM yyyy').format(d);
 double r2(double v) => (v * 100).round() / 100;
@@ -58,9 +61,32 @@ class Loan {
   }
 }
 
-/// In-memory demo state (mock data only, no backend calls).
+/// In-memory demo state (backed by ApiClient fixtures/network with local mutations).
 class Demo extends ChangeNotifier {
   static final Demo i = Demo();
+  bool isInitializedFromApi = false;
+
+  Future<void> initFromApi([ApiClient? client]) async {
+    if (isInitializedFromApi) return;
+    final api = client ?? ApiClient();
+    try {
+      final json = await api.get('/mobile/dashboard');
+      final dash = MobileDashboardResponse.fromJson(json);
+      if (accts.isNotEmpty && dash.primaryAccount.availableBalance > 0) {
+        accts[0] = Acct(
+          dash.primaryAccount.accountType.isNotEmpty ? dash.primaryAccount.accountType : accts[0].type,
+          dash.primaryAccount.accountNumber.isNotEmpty ? dash.primaryAccount.accountNumber : accts[0].no,
+          dash.primaryAccount.availableBalance,
+          accts[0].tx,
+        );
+      }
+      isInitializedFromApi = true;
+      notifyListeners();
+    } catch (_) {
+      // Gracefully retain default demo values
+    }
+  }
+
   final accts = <Acct>[
     Acct('Checking', 'ACC-1001-8842', 14750.50, [
       Tx('Transfer to ACC-1002-9915', 'TXN-9021', today, -150),

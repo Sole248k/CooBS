@@ -10,7 +10,8 @@ void main() {
 
 /// CooBS Mobile Application Root Widget.
 class CooBSApp extends StatelessWidget {
-  const CooBSApp({super.key});
+  final String? initialRoute;
+  const CooBSApp({super.key, this.initialRoute});
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +19,7 @@ class CooBSApp extends StatelessWidget {
       title: 'CooBS Member Banking',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      initialRoute: AppRouter.initial,
+      initialRoute: initialRoute ?? AppRouter.initial,
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }
