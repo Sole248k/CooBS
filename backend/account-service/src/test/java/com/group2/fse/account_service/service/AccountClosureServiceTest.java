@@ -3,11 +3,16 @@ package com.group2.fse.account_service.service;
 import com.group2.fse.account_service.dto.AccountClosureRequestDto;
 import com.group2.fse.account_service.dto.ClosureRequestResponse;
 import com.group2.fse.account_service.dto.PageResponse;
-import com.group2.fse.account_service.entity.*;
+import com.group2.fse.account_service.entity.Account;
+import com.group2.fse.account_service.entity.AccountClosureRequest;
+import com.group2.fse.account_service.entity.Balance;
 import com.group2.fse.account_service.event.AccountClosureCompletedEvent;
 import com.group2.fse.account_service.event.AccountEventPublisher;
 import com.group2.fse.account_service.exception.*;
-import com.group2.fse.account_service.repository.*;
+import com.group2.fse.account_service.repository.AccountClosureRequestRepository;
+import com.group2.fse.account_service.repository.AccountFlagRepository;
+import com.group2.fse.account_service.repository.AccountRepository;
+import com.group2.fse.account_service.repository.BalanceRepository;
 import com.group2.fse.account_service.service.impl.AccountClosureServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -47,36 +52,20 @@ class AccountClosureServiceTest {
     private AccountFlagRepository accountFlagRepository;
 
     @Mock
-    private UserRepository userRepository;
-
-    @Mock
     private AccountEventPublisher accountEventPublisher;
 
     @InjectMocks
     private AccountClosureServiceImpl closureService;
 
-    private Customer mockCustomer;
     private Account mockAccount;
     private Balance zeroBalance;
     private Balance positiveBalance;
 
     @BeforeEach
     void setUp() {
-        Kyc mockKyc = Kyc.builder()
-                .firstName("John")
-                .lastName("Doe")
-                .status("VERIFIED")
-                .build();
-        mockCustomer = Customer.builder()
-                .customerId(101L)
-                .kyc(mockKyc)
-                .kycStatus("VERIFIED")
-                .build();
-        mockKyc.setCustomer(mockCustomer);
-
         mockAccount = Account.builder()
                 .accountId(4L)
-                .customer(mockCustomer)
+                .customerId(101L)
                 .accountNumber("ACC_10000004")
                 .accountType("CHECKING")
                 .currency("PHP")
@@ -99,83 +88,95 @@ class AccountClosureServiceTest {
     @Test
     @DisplayName("[CLOSE-001] Should successfully stage account closure request when balance is 0.0000 PHP and no holds exist")
     void shouldStageClosureRequestSuccessfully() {
+        AccountClosureRequestDto request = AccountClosureRequestDto.builder()
+                .reason("No longer needed")
+                .build();
+
         when(accountRepository.findById(4L)).thenReturn(Optional.of(mockAccount));
         when(closureRequestRepository.existsByAccount_AccountIdAndStatus(4L, "PENDING")).thenReturn(false);
         when(accountFlagRepository.existsByAccount_AccountIdAndStatus(4L, "ACTIVE")).thenReturn(false);
         when(balanceRepository.findByAccount_AccountId(4L)).thenReturn(Optional.of(zeroBalance));
         when(closureRequestRepository.save(any(AccountClosureRequest.class))).thenAnswer(i -> {
-            AccountClosureRequest r = i.getArgument(0);
-            r.setClosureRequestId(88L);
-            return r;
+            AccountClosureRequest req = i.getArgument(0);
+            req.setClosureRequestId(88L);
+            return req;
         });
-
-        AccountClosureRequestDto request = new AccountClosureRequestDto("Relocating overseas, no longer using this account.");
 
         ClosureRequestResponse response = closureService.submitClosureRequest(4L, 101L, request);
 
         assertNotNull(response);
         assertEquals(88L, response.getClosureRequestId());
         assertEquals("PENDING", response.getStatus());
+        assertEquals("ACC_10000004", response.getAccountNumber());
         assertEquals(new BigDecimal("0.0000"), response.getAvailableBalance());
         verify(closureRequestRepository).save(any(AccountClosureRequest.class));
     }
 
     @Test
-    @DisplayName("[CLOSE-002] INVARIANT: Should strictly reject closure request when account has non-zero balance")
-    void shouldRejectClosureRequestWhenBalanceIsNonZero() {
+    @DisplayName("[CLOSE-002] INVARIANT: Should REJECT closure request if account balance is > 0 (Anti-Expropriation Guard)")
+    void shouldRejectClosureWhenBalanceIsPositive() {
+        AccountClosureRequestDto request = AccountClosureRequestDto.builder()
+                .reason("Closing account")
+                .build();
+
         when(accountRepository.findById(4L)).thenReturn(Optional.of(mockAccount));
         when(closureRequestRepository.existsByAccount_AccountIdAndStatus(4L, "PENDING")).thenReturn(false);
         when(accountFlagRepository.existsByAccount_AccountIdAndStatus(4L, "ACTIVE")).thenReturn(false);
         when(balanceRepository.findByAccount_AccountId(4L)).thenReturn(Optional.of(positiveBalance));
 
-        AccountClosureRequestDto request = new AccountClosureRequestDto("Trying to close with funds");
-
         AccountNonZeroBalanceException ex = assertThrows(AccountNonZeroBalanceException.class, () ->
                 closureService.submitClosureRequest(4L, 101L, request));
 
-        assertEquals("ACC_10000004", ex.getAccountNumber());
-        assertEquals(new BigDecimal("12500.0000"), ex.getBalance());
-        verify(closureRequestRepository, never()).save(any(AccountClosureRequest.class));
+        assertTrue(ex.getMessage().contains("12500.0000"));
+        verify(closureRequestRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("[CLOSE-003] INVARIANT: Should strictly reject closure request when active administrative hold exists")
-    void shouldRejectClosureRequestWhenActiveHoldExists() {
+    @DisplayName("[CLOSE-003] INVARIANT: Should REJECT closure request if account has ACTIVE risk or administrative hold")
+    void shouldRejectClosureWhenActiveHoldExists() {
+        AccountClosureRequestDto request = AccountClosureRequestDto.builder()
+                .reason("Closing account")
+                .build();
+
         when(accountRepository.findById(4L)).thenReturn(Optional.of(mockAccount));
         when(closureRequestRepository.existsByAccount_AccountIdAndStatus(4L, "PENDING")).thenReturn(false);
         when(accountFlagRepository.existsByAccount_AccountIdAndStatus(4L, "ACTIVE")).thenReturn(true);
 
-        AccountClosureRequestDto request = new AccountClosureRequestDto("Trying to close flagged account");
-
         assertThrows(AccountActiveFlagException.class, () ->
                 closureService.submitClosureRequest(4L, 101L, request));
-        verify(closureRequestRepository, never()).save(any(AccountClosureRequest.class));
+
+        verify(closureRequestRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("[CLOSE-004] INVARIANT: Should reject closure request if submitted by non-owner")
-    void shouldRejectClosureRequestWhenNotOwner() {
-        when(accountRepository.findById(4L)).thenReturn(Optional.of(mockAccount));
-
-        // Customer ID 999 attempts to close account belonging to customer ID 101
-        AccountClosureRequestDto request = new AccountClosureRequestDto("Not my account");
-
-        assertThrows(UnauthorizedAccountAccessException.class, () ->
-                closureService.submitClosureRequest(4L, 999L, request));
-        verify(closureRequestRepository, never()).save(any(AccountClosureRequest.class));
-    }
-
-    @Test
-    @DisplayName("[CLOSE-005] INVARIANT: Should reject duplicate closure request if one is already PENDING")
+    @DisplayName("[CLOSE-004] INVARIANT: Should prevent duplicate PENDING closure requests on the same account")
     void shouldRejectDuplicatePendingClosureRequest() {
+        AccountClosureRequestDto request = AccountClosureRequestDto.builder()
+                .reason("Duplicate attempt")
+                .build();
+
         when(accountRepository.findById(4L)).thenReturn(Optional.of(mockAccount));
         when(closureRequestRepository.existsByAccount_AccountIdAndStatus(4L, "PENDING")).thenReturn(true);
 
-        AccountClosureRequestDto request = new AccountClosureRequestDto("Another request");
-
         assertThrows(DuplicateClosureRequestException.class, () ->
                 closureService.submitClosureRequest(4L, 101L, request));
-        verify(closureRequestRepository, never()).save(any(AccountClosureRequest.class));
+
+        verify(closureRequestRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("[CLOSE-005] Security: Customer cannot request closure of another customer's account")
+    void shouldRejectUnauthorizedCustomerClosureAttempt() {
+        AccountClosureRequestDto request = AccountClosureRequestDto.builder()
+                .reason("Unauthorized closure")
+                .build();
+
+        when(accountRepository.findById(4L)).thenReturn(Optional.of(mockAccount));
+
+        assertThrows(UnauthorizedAccountAccessException.class, () ->
+                closureService.submitClosureRequest(4L, 999L, request));
+
+        verify(closureRequestRepository, never()).save(any());
     }
 
     @Test
@@ -189,11 +190,8 @@ class AccountClosureServiceTest {
                 .requestedAt(LocalDateTime.now())
                 .build();
 
-        User adminUser = User.builder().userId(1L).username("admin_boss").build();
-
         when(closureRequestRepository.findById(88L)).thenReturn(Optional.of(closureReq));
         when(balanceRepository.findByAccount_AccountId(4L)).thenReturn(Optional.of(zeroBalance));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
 
         ClosureRequestResponse response = closureService.approveClosureRequest(88L, 1L);
 
@@ -201,9 +199,8 @@ class AccountClosureServiceTest {
         assertEquals("CLOSED", response.getAccountStatus());
         assertEquals("ACTIVE", response.getCustomerStatus());
         assertEquals("CLOSED", mockAccount.getStatus());
-        assertEquals("VERIFIED", mockCustomer.getKycStatus()); // Customer remains active and verified!
         assertEquals("APPROVED", closureReq.getStatus());
-        assertEquals(adminUser, closureReq.getApprovedBy());
+        assertEquals(1L, closureReq.getApprovedBy());
 
         verify(accountRepository).save(mockAccount);
         verify(closureRequestRepository).save(closureReq);
@@ -220,9 +217,7 @@ class AccountClosureServiceTest {
                 .requestedAt(LocalDateTime.now())
                 .build();
 
-        User adminUser = User.builder().userId(1L).username("admin_boss").build();
         when(closureRequestRepository.findById(88L)).thenReturn(Optional.of(closureReq));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
 
         ClosureRequestResponse response = closureService.rejectClosureRequest(
                 88L, 1L, "Pending uncleared check deposit discovered during reconciliation.");
@@ -230,7 +225,7 @@ class AccountClosureServiceTest {
         assertNotNull(response);
         assertEquals("REJECTED", response.getStatus());
         assertEquals("Pending uncleared check deposit discovered during reconciliation.", response.getRejectionReason());
-        assertEquals("ACTIVE", mockAccount.getStatus()); // Account remains ACTIVE
+        assertEquals("ACTIVE", mockAccount.getStatus());
         verify(closureRequestRepository).save(closureReq);
         verify(accountRepository, never()).save(any(Account.class));
         verify(accountEventPublisher, never()).publishAccountClosure(any());

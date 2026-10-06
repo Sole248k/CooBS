@@ -4,16 +4,12 @@ import com.group2.fse.account_service.dto.AccountResponse;
 import com.group2.fse.account_service.dto.CreateAccountRequest;
 import com.group2.fse.account_service.entity.Account;
 import com.group2.fse.account_service.entity.Balance;
-import com.group2.fse.account_service.entity.Customer;
 import com.group2.fse.account_service.event.AccountCreatedEvent;
 import com.group2.fse.account_service.event.AccountEventPublisher;
 import com.group2.fse.account_service.exception.AccountNotFoundException;
-import com.group2.fse.account_service.exception.CustomerNotFoundException;
-import com.group2.fse.account_service.exception.InvalidKycStateException;
 import com.group2.fse.account_service.exception.UnauthorizedAccountAccessException;
 import com.group2.fse.account_service.repository.AccountRepository;
 import com.group2.fse.account_service.repository.BalanceRepository;
-import com.group2.fse.account_service.repository.CustomerRepository;
 import com.group2.fse.account_service.service.AccountService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,24 +29,16 @@ public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
     private final BalanceRepository balanceRepository;
-    private final CustomerRepository customerRepository;
     private final AccountEventPublisher accountEventPublisher;
     private final Random random = new SecureRandom();
 
     @Override
     @Transactional
     public AccountResponse createAccount(CreateAccountRequest request) {
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new CustomerNotFoundException("Customer not found with ID: " + request.getCustomerId()));
-
-        if (!"VERIFIED".equalsIgnoreCase(customer.getKycStatus())) {
-            throw new InvalidKycStateException("Customer KYC status is not VERIFIED (current: " + customer.getKycStatus() + "). Cannot open new deposit account.");
-        }
-
         String accountNumber = generateUniqueAccountNumber();
 
         Account account = Account.builder()
-                .customer(customer)
+                .customerId(request.getCustomerId())
                 .accountNumber(accountNumber)
                 .accountType(request.getAccountType().toUpperCase())
                 .currency(request.getCurrency() != null ? request.getCurrency().toUpperCase() : "PHP")
@@ -70,13 +58,13 @@ public class AccountServiceImpl implements AccountService {
         savedAccount.setBalance(balance);
 
         log.info("Opened new {} account {} for customer ID {}",
-                savedAccount.getAccountType(), savedAccount.getAccountNumber(), customer.getCustomerId());
+                savedAccount.getAccountType(), savedAccount.getAccountNumber(), request.getCustomerId());
 
         AccountCreatedEvent event = AccountCreatedEvent.builder()
                 .accountId(savedAccount.getAccountId())
                 .accountNumber(savedAccount.getAccountNumber())
                 .accountType(savedAccount.getAccountType())
-                .customerId(customer.getCustomerId())
+                .customerId(request.getCustomerId())
                 .currency(savedAccount.getCurrency())
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -88,11 +76,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     @Transactional(readOnly = true)
     public List<AccountResponse> getCustomerAccounts(Long customerId) {
-        if (!customerRepository.existsById(customerId)) {
-            throw new CustomerNotFoundException("Customer not found with ID: " + customerId);
-        }
-
-        List<Account> accounts = accountRepository.findByCustomer_CustomerId(customerId);
+        List<Account> accounts = accountRepository.findByCustomerId(customerId);
         return accounts.stream()
                 .map(acc -> {
                     Balance balance = balanceRepository.findByAccount_AccountId(acc.getAccountId()).orElse(null);
@@ -119,7 +103,7 @@ public class AccountServiceImpl implements AccountService {
                 .orElseThrow(() -> new AccountNotFoundException("Account not found with ID: " + accountId));
 
         if (!isStaff) {
-            if (customerId == null || !account.getCustomer().getCustomerId().equals(customerId)) {
+            if (customerId == null || !account.getCustomerId().equals(customerId)) {
                 throw new UnauthorizedAccountAccessException("You do not own this account and cannot access its details.");
             }
         }
@@ -170,8 +154,8 @@ public class AccountServiceImpl implements AccountService {
 
         return AccountResponse.builder()
                 .accountId(account.getAccountId())
-                .customerId(account.getCustomer().getCustomerId())
-                .customerName(account.getCustomer().getDisplayName())
+                .customerId(account.getCustomerId())
+                .customerName("Customer #" + account.getCustomerId())
                 .accountNumber(account.getAccountNumber())
                 .accountType(account.getAccountType())
                 .currency(account.getCurrency())

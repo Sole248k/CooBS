@@ -37,29 +37,7 @@ public class GlobalExceptionHandler {
                 "ACCOUNT_NOT_FOUND");
     }
 
-    @ExceptionHandler(CustomerNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleCustomerNotFound(
-            CustomerNotFoundException ex, HttpServletRequest request) {
-        log.warn("Customer not found on {}: {}", request.getRequestURI(), ex.getMessage());
-        return buildResponse("https://api.corebank.local/errors/CUSTOMER_NOT_FOUND",
-                "Customer Not Found",
-                HttpStatus.NOT_FOUND,
-                ex.getMessage(),
-                request.getRequestURI(),
-                "CUSTOMER_NOT_FOUND");
-    }
 
-    @ExceptionHandler(KycNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleKycNotFound(
-            KycNotFoundException ex, HttpServletRequest request) {
-        log.warn("KYC not found on {}: {}", request.getRequestURI(), ex.getMessage());
-        return buildResponse("https://api.corebank.local/errors/KYC_NOT_FOUND",
-                "KYC Record Not Found",
-                HttpStatus.NOT_FOUND,
-                ex.getMessage(),
-                request.getRequestURI(),
-                "KYC_NOT_FOUND");
-    }
 
     @ExceptionHandler(ClosureRequestNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleClosureRequestNotFound(
@@ -73,17 +51,7 @@ public class GlobalExceptionHandler {
                 "CLOSURE_REQUEST_NOT_FOUND");
     }
 
-    @ExceptionHandler(KycRequestNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleKycRequestNotFound(
-            KycRequestNotFoundException ex, HttpServletRequest request) {
-        log.warn("KYC request not found on {}: {}", request.getRequestURI(), ex.getMessage());
-        return buildResponse("https://api.corebank.local/errors/KYC_REQUEST_NOT_FOUND",
-                "KYC Request Not Found",
-                HttpStatus.NOT_FOUND,
-                ex.getMessage(),
-                request.getRequestURI(),
-                "KYC_REQUEST_NOT_FOUND");
-    }
+
 
     @ExceptionHandler(AccountNonZeroBalanceException.class)
     public ResponseEntity<Map<String, Object>> handleAccountNonZeroBalance(
@@ -130,18 +98,6 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 request.getRequestURI(),
                 "ACCOUNT_NOT_ACTIVE");
-    }
-
-    @ExceptionHandler(InvalidKycStateException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidKycState(
-            InvalidKycStateException ex, HttpServletRequest request) {
-        log.warn("Invalid KYC state on {}: {}", request.getRequestURI(), ex.getMessage());
-        return buildResponse("https://api.corebank.local/errors/INVALID_KYC_STATE",
-                "Invalid KYC State",
-                HttpStatus.UNPROCESSABLE_ENTITY,
-                ex.getMessage(),
-                request.getRequestURI(),
-                "INVALID_KYC_STATE");
     }
 
     @ExceptionHandler(DuplicateClosureRequestException.class)

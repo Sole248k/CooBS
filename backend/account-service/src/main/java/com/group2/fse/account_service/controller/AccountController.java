@@ -60,7 +60,7 @@ public class AccountController {
             return ResponseEntity.ok(accountService.getAllAccounts());
         }
         log.info("Fetching accounts for customer ID {}", principal != null ? principal.getUserId() : null);
-        List<AccountResponse> accounts = accountService.getCustomerAccounts(principal != null ? principal.getUserId() : 1L);
+        List<AccountResponse> accounts = accountService.getCustomerAccounts(principal.getUserId());
         return ResponseEntity.ok(accounts);
     }
 

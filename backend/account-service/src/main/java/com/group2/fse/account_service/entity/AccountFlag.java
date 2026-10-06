@@ -31,13 +31,11 @@ public class AccountFlag {
     @Column(name = "status", length = 20, nullable = false)
     private String status = "ACTIVE";
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "flagged_by", nullable = false)
-    private User flaggedBy;
+    @Column(name = "flagged_by", nullable = false)
+    private Long flaggedBy;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "removed_by")
-    private User removedBy;
+    @Column(name = "removed_by")
+    private Long removedBy;
 
     @Builder.Default
     @Column(name = "flagged_at", nullable = false, updatable = false)
