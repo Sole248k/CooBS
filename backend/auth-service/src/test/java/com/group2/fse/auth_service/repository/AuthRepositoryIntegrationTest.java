@@ -26,7 +26,7 @@ class AuthRepositoryIntegrationTest {
     private AppUserRepository appUserRepository;
 
     @Test
-    @DisplayName("Should retrieve seed roles from Oracle XE")
+    @DisplayName("Should retrieve seed roles from identity_db")
     void shouldFindSeedRoles() {
         Optional<Role> adminRole = roleRepository.findByRoleName("ROLE_ADMIN");
         Optional<Role> tellerRole = roleRepository.findByRoleName("ROLE_TELLER");
@@ -83,12 +83,13 @@ class AuthRepositoryIntegrationTest {
         String uniqueUsername = "test_user_" + System.currentTimeMillis();
         String uniqueEmail = uniqueUsername + "@bank.local";
 
+        Long testCustomerId = 9999L;
         AppUser newUser = AppUser.builder()
                 .username(uniqueUsername)
                 .email(uniqueEmail)
                 .passwordHash("$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi")
                 .userType("CUSTOMER")
-                .customerId(1L)
+                .customerId(testCustomerId)
                 .role(customerRole)
                 .status("ACTIVE")
                 .build();
@@ -99,6 +100,6 @@ class AuthRepositoryIntegrationTest {
         Optional<AppUser> fetched = appUserRepository.findByUsername(uniqueUsername);
         assertThat(fetched).isPresent();
         assertThat(fetched.get().getEmail()).isEqualTo(uniqueEmail);
-        assertThat(fetched.get().getCustomerId()).isEqualTo(1L);
+        assertThat(fetched.get().getCustomerId()).isEqualTo(testCustomerId);
     }
 }
