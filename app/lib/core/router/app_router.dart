@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../features/accounts/home_screen.dart';
+import '../../features/auth/auth_screens.dart';
 import '../../features/resilience/service_unavailable_view.dart';
 import '../../shell/app_shell.dart';
 
@@ -7,14 +9,27 @@ import '../../shell/app_shell.dart';
 class AppRouter {
   static const String initial = '/';
   static const String login = '/login';
+  static const String mobile = '/mobile';
   static const String dashboard = '/dashboard';
   static const String remittance = '/remittance';
   static const String tracking = '/tracking';
   static const String serviceUnavailable = '/service-unavailable';
+  static const String teller = '/teller';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case initial:
+      case login:
+        return MaterialPageRoute(
+          builder: (_) => const LoginScreen(),
+          settings: settings,
+        );
+      case mobile:
+        return MaterialPageRoute(
+          builder: (_) => const MobileShell(),
+          settings: settings,
+        );
+      case teller:
       case dashboard:
         return MaterialPageRoute(
           builder: (_) => const AppShell(initialIndex: 0),

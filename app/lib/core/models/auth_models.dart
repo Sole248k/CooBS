@@ -61,14 +61,19 @@ class TokenResponse {
     required this.userType,
   });
 
-  factory TokenResponse.fromJson(Map<String, dynamic> json) => TokenResponse(
-    accessToken: json['accessToken'] as String? ?? json['token'] as String? ?? '',
-    refreshToken: json['refreshToken'] as String? ?? '',
-    tokenType: json['tokenType'] as String? ?? 'Bearer',
-    expiresIn: json['expiresIn'] as int? ?? 86400,
-    userId: json['userId'] as int? ?? json['customerId'] as int? ?? 0,
-    userType: json['userType'] as String? ?? 'CUSTOMER',
-  );
+  factory TokenResponse.fromJson(Map<String, dynamic> json) {
+    final data = json['authData'] is Map<String, dynamic>
+        ? json['authData'] as Map<String, dynamic>
+        : json;
+    return TokenResponse(
+      accessToken: data['accessToken'] as String? ?? data['token'] as String? ?? '',
+      refreshToken: data['refreshToken'] as String? ?? '',
+      tokenType: data['tokenType'] as String? ?? 'Bearer',
+      expiresIn: data['expiresIn'] as int? ?? 86400,
+      userId: data['userId'] as int? ?? data['customerId'] as int? ?? 0,
+      userType: data['userType'] as String? ?? 'CUSTOMER',
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'accessToken': accessToken,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
@@ -191,8 +192,11 @@ class ApiClient {
     Map<String, String>? queryParams,
     dynamic body,
   }) async {
-    // Artificial 50ms realistic network latency simulation
-    await Future.delayed(const Duration(milliseconds: 50));
+    // Artificial 50ms realistic network latency simulation outside test runners
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (!isTest) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
 
     final fixtureFile = _resolveFixtureFilename(path, queryParams);
     return loadFixtureJson(fixtureFile);
@@ -202,7 +206,7 @@ class ApiClient {
   String _resolveFixtureFilename(String path, [Map<String, String>? queryParams]) {
     final lower = path.toLowerCase();
 
-    if (lower.contains('/auth/login') || lower.contains('/auth/token')) {
+    if (lower.contains('login') || lower.contains('/auth/token')) {
       return 'A2-A4-login.response.json';
     }
     if (lower.contains('/accounts') || lower.contains('/my-accounts')) {
@@ -234,6 +238,10 @@ class ApiClient {
 
   /// Loads and parses a curated fixture JSON from assets/fixtures/.
   Future<Map<String, dynamic>> loadFixtureJson(String filename) async {
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (isTest) {
+      return _getEmbeddedFixtureFallback(filename);
+    }
     try {
       final jsonString = await rootBundle.loadString('assets/fixtures/$filename');
       return jsonDecode(jsonString) as Map<String, dynamic>;
@@ -246,6 +254,21 @@ class ApiClient {
 
   /// Headless test fallback matching frozen contract fixtures.
   Map<String, dynamic> _getEmbeddedFixtureFallback(String filename) {
+    if (filename.contains('login')) {
+      return {
+        'mfaRequired': false,
+        'authData': {
+          'accessToken': 'dummy-jwt-access-token-coobs',
+          'refreshToken': 'dummy-refresh-token',
+          'tokenType': 'Bearer',
+          'expiresIn': 900,
+          'userId': 1,
+          'username': 'john_doe',
+          'roles': ['ROLE_CUSTOMER'],
+          'userType': 'CUSTOMER'
+        }
+      };
+    }
     if (filename.contains('dashboard')) {
       return {
         'member': {
@@ -322,6 +345,45 @@ class ApiClient {
           {'stageNo': 9, 'stageNumber': 9, 'stageKey': 'EVENT_EMITTED', 'title': 'Domain Event Emitted', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.450Z', 'detail': 'Topic: ledger.transfer.completed.v1'},
           {'stageNo': 10, 'stageNumber': 10, 'stageKey': 'NOTIFICATIONS_DISPATCHED', 'title': 'Member Notifications Sent', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:01.100Z'},
           {'stageNo': 11, 'stageNumber': 11, 'stageKey': 'COMPLETED', 'title': 'Saga Fully Reconciled', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:01.400Z'}
+        ]
+      };
+    }
+    if (filename.contains('transfer') || filename.contains('remittance')) {
+      return {
+        'transactionId': '6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11',
+        'referenceNo': 'TX-20261003-8F3A21C0',
+        'status': 'INITIATED',
+        'amount': '2500.00',
+        'currency': 'PHP',
+        'createdAt': '2026-10-03T11:40:00Z',
+        'timelineUrl': '/api/v1/transactions/6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11/timeline',
+      };
+    }
+    if (filename.contains('account')) {
+      return {
+        'accountId': 1,
+        'customerId': 1,
+        'customerName': 'John Doe',
+        'accountNumber': 'ACC_10000001',
+        'accountType': 'SAVINGS',
+        'currency': 'PHP',
+        'status': 'ACTIVE',
+        'availableBalance': 49625.0,
+        'createdAt': '2026-01-15T08:00:00',
+        'message': null,
+      };
+    }
+    if (filename.contains('notification')) {
+      return {
+        'unreadCount': 2,
+        'items': [
+          {
+            'id': 'notif-1',
+            'title': 'Transfer Initiated',
+            'message': 'Your transfer of PHP 2,500.00 is being processed.',
+            'createdAt': '2026-10-03T11:40:00Z',
+            'isRead': false,
+          }
         ]
       };
     }

@@ -92,17 +92,82 @@ class TimelineStage {
 
   factory TimelineStage.fromJson(Map<String, dynamic> json) {
     final rawKey = (json['stageKey'] ?? json['stageName'] ?? 'UNKNOWN').toString();
-    final defaultTitle = rawKey.replaceAll('_', ' ');
+    final defaultTitle = _friendlyStageTitle(rawKey);
     return TimelineStage(
       stageNumber: (json['stageNumber'] ?? json['stageNo'] ?? 1) as int,
       stageKey: rawKey,
       title: json['title'] as String? ?? defaultTitle,
       subtitle: json['subtitle'] as String?,
-      service: json['service'] as String?,
+      service: json['service'] as String? ?? _defaultServiceForStage(rawKey),
       status: (json['status'] ?? json['outcome'] ?? 'PENDING').toString(),
       timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? json['occurredAt']?.toString() ?? ''),
       details: (json['details'] ?? json['detail']) as String?,
     );
+  }
+
+  static String _friendlyStageTitle(String key) {
+    switch (key.toUpperCase()) {
+      case 'INITIATED':
+      case 'INGRESS_ACCEPTED':
+        return 'Ingress Accepted';
+      case 'VALIDATED':
+      case 'PREFLIGHT_VALIDATED':
+        return 'Pre-flight Solvency Checked';
+      case 'AUTHENTICATED':
+      case 'DISPATCHED_TO_ORCHESTRATOR':
+        return 'Dispatched to Orchestrator';
+      case 'FRAUD_CHECK':
+      case 'SAGA_INITIALIZED':
+        return 'Saga State Machine Initialized';
+      case 'LIMIT_CHECK':
+      case 'RISK_EVALUATION_REQUESTED':
+        return 'Risk Evaluation Requested';
+      case 'FUNDS_CHECK':
+      case 'RISK_EVALUATION_COMPLETED':
+        return 'Risk Screening Passed';
+      case 'AUTHORIZED':
+      case 'LEDGER_HOLD_RESERVED':
+        return 'Ledger Balance Hold Reserved';
+      case 'POSTED':
+      case 'LEDGER_POSTED':
+        return 'Double-Entry SoR Committed';
+      case 'LEDGER_UPDATE':
+      case 'EVENT_EMITTED':
+        return 'Domain Event Emitted';
+      case 'NOTIFICATION':
+      case 'NOTIFICATIONS_DISPATCHED':
+        return 'Member Notifications Sent';
+      case 'RECONCILIATION':
+      case 'COMPLETED':
+        return 'Saga Fully Reconciled';
+      case 'SUBMITTED':
+        return 'Transfer Submitted';
+      case 'IN_REVIEW':
+      case 'PROCESSING':
+        return 'Security & Clearing';
+      default:
+        return key.replaceAll('_', ' ');
+    }
+  }
+
+  static String? _defaultServiceForStage(String key) {
+    final k = key.toUpperCase();
+    if (k == 'INITIATED' || k == 'INGRESS_ACCEPTED' || k == 'VALIDATED' || k == 'PREFLIGHT_VALIDATED' || k == 'AUTHENTICATED' || k == 'DISPATCHED_TO_ORCHESTRATOR') {
+      return 'transaction-service';
+    }
+    if (k == 'FRAUD_CHECK' || k == 'LIMIT_CHECK' || k == 'FUNDS_CHECK' || k == 'SAGA_INITIALIZED' || k == 'RISK_EVALUATION_REQUESTED' || k == 'RISK_EVALUATION_COMPLETED') {
+      return 'orchestration-service';
+    }
+    if (k == 'AUTHORIZED' || k == 'POSTED' || k == 'LEDGER_HOLD_RESERVED' || k == 'LEDGER_POSTED' || k == 'LEDGER_UPDATE') {
+      return 'ledger-service';
+    }
+    if (k == 'NOTIFICATION' || k == 'NOTIFICATIONS_DISPATCHED') {
+      return 'notification-service';
+    }
+    if (k == 'RECONCILIATION' || k == 'COMPLETED') {
+      return 'orchestration-service';
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() => {

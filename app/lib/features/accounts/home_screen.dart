@@ -26,52 +26,63 @@ class _MobileShellState extends State<MobileShell> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: kBg,
         body: SafeArea(
-          child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Container(
-                    width: 110, height: 36, alignment: Alignment.center,
-                    decoration: BoxDecoration(border: Border.all(color: kMut), borderRadius: BorderRadius.circular(8)),
-                    child: const Text('LOGO SPACE', style: TextStyle(fontSize: 11, color: kMut))),
-                Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(20)),
-                    child: const Text('@john_doe', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Container(
+                        width: 110, height: 36, alignment: Alignment.center,
+                        decoration: BoxDecoration(border: Border.all(color: kMut), borderRadius: BorderRadius.circular(8)),
+                        child: const Text('LOGO SPACE', style: TextStyle(fontSize: 11, color: kMut))),
+                    Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(20)),
+                        child: const Text('@john_doe', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
+                  ]),
+                ),
+                Expanded(
+                  child: IndexedStack(index: i, children: [
+                    const HomeScreen(),
+                    const PayQrScreen(),
+                    const AlertsScreen(),
+                    const ProfileScreen(),
+                  ]),
+                ),
               ]),
             ),
-            Expanded(
-              child: IndexedStack(index: i, children: [
-                const HomeScreen(),
-                const PayQrScreen(),
-                const AlertsScreen(),
-                const ProfileScreen(),
-              ]),
-            ),
-          ]),
+          ),
         ),
         bottomNavigationBar: SafeArea(
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: const Color(0xFF111111), borderRadius: BorderRadius.circular(24)),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-              for (var k = 0; k < _tabs.length; k++)
-                InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => setState(() => i = k),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                        color: i == k ? Colors.white12 : null, borderRadius: BorderRadius.circular(14)),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(_tabs[k][0] as IconData, color: i == k ? Colors.white : Colors.white54),
-                      Text(_tabs[k][1] as String,
-                          style: TextStyle(fontSize: 10, color: i == k ? Colors.white : Colors.white54)),
-                    ]),
-                  ),
-                ),
-            ]),
+          child: Center(
+            heightFactor: 1.0,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: const Color(0xFF111111), borderRadius: BorderRadius.circular(24)),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                  for (var k = 0; k < _tabs.length; k++)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => setState(() => i = k),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: i == k ? Colors.white12 : null, borderRadius: BorderRadius.circular(14)),
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(_tabs[k][0] as IconData, color: i == k ? Colors.white : Colors.white54),
+                          Text(_tabs[k][1] as String,
+                              style: TextStyle(fontSize: 10, color: i == k ? Colors.white : Colors.white54)),
+                        ]),
+                      ),
+                    ),
+                ]),
+              ),
+            ),
           ),
         ),
       );
@@ -86,6 +97,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final pc = PageController(viewportFraction: .92);
   final d = Demo.i;
+
+  @override
+  void initState() {
+    super.initState();
+    Demo.i.initFromApi();
+  }
 
   void go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w));
 

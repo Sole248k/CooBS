@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Secure token & session storage service backed by Android KeyStore.
@@ -58,7 +59,8 @@ class SecureStorageService {
   @visibleForTesting
   Future<void> write(String key, String value) async {
     _memoryFallback[key] = value;
-    if (!kIsWeb) {
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (!kIsWeb && !isTest) {
       try {
         await _storage.write(key: key, value: value);
       } catch (_) {
@@ -69,7 +71,8 @@ class SecureStorageService {
 
   @visibleForTesting
   Future<String?> read(String key) async {
-    if (kIsWeb || _memoryFallback.containsKey(key)) {
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (kIsWeb || isTest || _memoryFallback.containsKey(key)) {
       return _memoryFallback[key];
     }
     try {

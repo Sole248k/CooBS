@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/models/auth_models.dart';
+import '../../core/network/api_client.dart';
+import '../../core/storage/secure_storage_service.dart';
 import '../accounts/home_screen.dart';
 import '../accounts/ui.dart';
 
@@ -20,23 +23,66 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final u = TextEditingController(), p = TextEditingController();
+  final ApiClient _apiClient = ApiClient();
+  final SecureStorageService _storage = SecureStorageService();
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    final username = u.text.trim();
+    final password = p.text;
+    if (username.isEmpty || password.isEmpty) {
+      snack(context, 'Enter your username and password');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final response = await _apiClient.post(
+        '/auth/customers/login',
+        body: {'username': username, 'password': password},
+      );
+      final token = TokenResponse.fromJson(response);
+      await _storage.saveTokens(
+        accessToken: token.accessToken.isNotEmpty ? token.accessToken : 'demo_token',
+        refreshToken: token.refreshToken,
+        userId: token.userId > 0 ? token.userId : 1,
+        username: username,
+      );
+      if (mounted) {
+        toApp(context, 'Welcome back, $username');
+      }
+    } catch (e) {
+      if (mounted) {
+        snack(context, 'Authentication failed: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: kBg,
         body: SafeArea(
-          child: ListView(padding: const EdgeInsets.fromLTRB(22, 30, 22, 30), children: [
-            Align(alignment: Alignment.centerLeft, child: logoBox()),
-            const SizedBox(height: 30),
-            const Text('Welcome back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-            const Padding(padding: EdgeInsets.only(top: 4, bottom: 20), child: Text('Log in to see your accounts.', style: TextStyle(color: kMut))),
-            tf(u, 'Username'),
-            tf(p, 'Password', obscure: true),
-            Align(alignment: Alignment.centerLeft, child: TextButton(onPressed: () => _push(context, const ForgotPage()), child: const Text('Forgot password?'))),
-            bigBtn('Log in', () => u.text.trim().isEmpty || p.text.isEmpty ? snack(context, 'Enter your username and password') : toApp(context)),
-            const SizedBox(height: 10),
-            OutlinedButton(onPressed: () => _push(context, const RegisterPage()), child: const Text('Create account')),
-          ]),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: ListView(padding: const EdgeInsets.fromLTRB(22, 30, 22, 30), children: [
+                Align(alignment: Alignment.centerLeft, child: logoBox()),
+                const SizedBox(height: 30),
+                const Text('Welcome back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                const Padding(padding: EdgeInsets.only(top: 4, bottom: 20), child: Text('Log in to see your accounts.', style: TextStyle(color: kMut))),
+                tf(u, 'Username'),
+                tf(p, 'Password', obscure: true),
+                Align(alignment: Alignment.centerLeft, child: TextButton(onPressed: () => _push(context, const ForgotPage()), child: const Text('Forgot password?'))),
+                _isLoading
+                    ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
+                    : bigBtn('Log in', _handleLogin),
+                const SizedBox(height: 10),
+                OutlinedButton(onPressed: () => _push(context, const RegisterPage()), child: const Text('Create account')),
+              ]),
+            ),
+          ),
         ),
       );
 }

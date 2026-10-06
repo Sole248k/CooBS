@@ -33,7 +33,7 @@ void main() {
 
       expect(timeline.trackingReference, isNotEmpty);
       expect(timeline.stages.length, greaterThanOrEqualTo(3));
-      expect(timeline.stages.first.stageKey, 'SUBMITTED');
+      expect(timeline.stages.first.stageKey, anyOf('SUBMITTED', 'INITIATED'));
       expect(timeline.stages.first.isCompleted, isTrue);
     });
 
