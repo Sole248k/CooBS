@@ -130,4 +130,95 @@ class RiskControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("Should evaluate risk and return 200 OK when authenticated via X-Internal-Secret header (FIN-405)")
+    void testEvaluateRiskSuccessWithXInternalSecret() throws Exception {
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11")
+                .customerId(1L)
+                .amount(new BigDecimal("2500.00"))
+                .currency("PHP")
+                .channel("APP")
+                .kycTier("TIER_3_FULL")
+                .dailyLimit(new BigDecimal("100000.00"))
+                .isNewBeneficiary(false)
+                .transfersInLast10Min(0)
+                .build();
+
+        RiskEvaluationResponse mockResponse = RiskEvaluationResponse.builder()
+                .evaluationId("eval-test-secret-01")
+                .transactionId(request.getTransactionId())
+                .decision("APPROVE")
+                .score("0.10")
+                .riskScore(0.10)
+                .fraudCheck(FraudCheckResult.builder().outcome("PASSED").reasons(List.of()).build())
+                .limitCheck(LimitCheckResult.builder().outcome("PASSED").usedToday("0.00").dailyLimit("100000.00").build())
+                .reasons(List.of())
+                .evaluatedAt(java.time.Instant.now())
+                .evaluatedInMs(12L)
+                .executionDurationMs(12L)
+                .build();
+
+        when(riskEvaluator.evaluate(any(RiskEvaluationRequest.class))).thenReturn(mockResponse);
+
+        mockMvc.perform(post("/internal/v1/risk/evaluate")
+                        .header("X-Internal-Secret", "test-internal-risk-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decision").value("APPROVE"))
+                .andExpect(jsonPath("$.score").value("0.10"));
+    }
+
+    @Test
+    @DisplayName("Should evaluate risk and return 200 OK when authenticated via X-API-Key header (FIN-405)")
+    void testEvaluateRiskSuccessWithXApiKey() throws Exception {
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11")
+                .customerId(1L)
+                .amount(new BigDecimal("2500.00"))
+                .currency("PHP")
+                .build();
+
+        RiskEvaluationResponse mockResponse = RiskEvaluationResponse.builder()
+                .evaluationId("eval-test-key-01")
+                .transactionId(request.getTransactionId())
+                .decision("APPROVE")
+                .score("0.15")
+                .riskScore(0.15)
+                .fraudCheck(FraudCheckResult.builder().outcome("PASSED").reasons(List.of()).build())
+                .limitCheck(LimitCheckResult.builder().outcome("PASSED").usedToday("0.00").dailyLimit("100000.00").build())
+                .reasons(List.of())
+                .evaluatedAt(java.time.Instant.now())
+                .evaluatedInMs(5L)
+                .executionDurationMs(5L)
+                .build();
+
+        when(riskEvaluator.evaluate(any(RiskEvaluationRequest.class))).thenReturn(mockResponse);
+
+        mockMvc.perform(post("/internal/v1/risk/evaluate")
+                        .header("X-API-Key", "test-internal-risk-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.decision").value("APPROVE"));
+    }
+
+    @Test
+    @DisplayName("Should return 401 Unauthorized when invalid API secret is provided (FIN-405)")
+    void testEvaluateRiskUnauthorizedWithInvalidSecret() throws Exception {
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11")
+                .customerId(1L)
+                .amount(new BigDecimal("2500.00"))
+                .build();
+
+        mockMvc.perform(post("/internal/v1/risk/evaluate")
+                        .header("X-Internal-Secret", "wrong-invalid-secret")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("AUTH_INVALID_CREDENTIALS"));
+    }
 }
