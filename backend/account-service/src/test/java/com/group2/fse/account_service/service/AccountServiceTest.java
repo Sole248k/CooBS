@@ -5,6 +5,7 @@ import com.group2.fse.account_service.dto.CreateAccountRequest;
 import com.group2.fse.account_service.entity.Account;
 import com.group2.fse.account_service.entity.Balance;
 import com.group2.fse.account_service.entity.Customer;
+import com.group2.fse.account_service.entity.Kyc;
 import com.group2.fse.account_service.event.AccountCreatedEvent;
 import com.group2.fse.account_service.event.AccountEventPublisher;
 import com.group2.fse.account_service.exception.AccountNotFoundException;
@@ -57,17 +58,16 @@ class AccountServiceTest {
 
     @BeforeEach
     void setUp() {
+        Kyc mockKyc = Kyc.builder().firstName("John").lastName("Doe").status("VERIFIED").build();
         verifiedCustomer = Customer.builder()
                 .customerId(101L)
-                .username("john_doe")
-                .email("john.doe@example.com")
+                .kyc(mockKyc)
                 .kycStatus("VERIFIED")
                 .build();
+        mockKyc.setCustomer(verifiedCustomer);
 
         pendingCustomer = Customer.builder()
                 .customerId(102L)
-                .username("unverified_jane")
-                .email("jane@example.com")
                 .kycStatus("PENDING")
                 .build();
 

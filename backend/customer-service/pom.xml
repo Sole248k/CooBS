@@ -40,6 +40,23 @@
 			<version>1.13.4</version>
 			<scope>runtime</scope>
 		</dependency>
+
+		<!-- Spring Data JPA & Oracle Driver -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.oracle.database.jdbc</groupId>
+			<artifactId>ojdbc17</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Redis for Blacklist & Caching -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>

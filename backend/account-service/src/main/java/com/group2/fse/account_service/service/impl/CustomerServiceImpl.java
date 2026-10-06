@@ -298,8 +298,8 @@ public class CustomerServiceImpl implements CustomerService {
 
         return CustomerProfileResponse.builder()
                 .customerId(customer.getCustomerId())
-                .username(customer.getUsername())
-                .email(customer.getEmail())
+                .username(customer.getDisplayName())
+                .email(null)
                 .kycStatus(customer.getKycStatus())
                 .createdAt(customer.getCreatedAt())
                 .kyc(kycDto)

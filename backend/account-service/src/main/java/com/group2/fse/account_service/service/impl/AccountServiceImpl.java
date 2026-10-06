@@ -162,7 +162,7 @@ public class AccountServiceImpl implements AccountService {
         return AccountResponse.builder()
                 .accountId(account.getAccountId())
                 .customerId(account.getCustomer().getCustomerId())
-                .customerName(account.getCustomer().getUsername())
+                .customerName(account.getCustomer().getDisplayName())
                 .accountNumber(account.getAccountNumber())
                 .accountType(account.getAccountType())
                 .currency(account.getCurrency())
