@@ -51,4 +51,6 @@ public class RiskEvaluationRequest {
     private Boolean isNewBeneficiary = false;
 
     private Integer transfersInLast10Min;
+
+    private Integer reversalsToday;
 }

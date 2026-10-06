@@ -208,4 +208,74 @@ class RiskEvaluatorTest {
         assertTrue(response.getFraudCheck().getReasons().contains("REDIS_UNAVAILABLE"),
                 "Should include REDIS_UNAVAILABLE flag in reasons");
     }
+
+    @Test
+    @DisplayName("Should apply +0.25 penalty and flag RULE_EXCESSIVE_DAILY_REVERSALS when reversalsToday >= 2")
+    void testReversalAbusePenalty() {
+        // Given: TIER_2 (sTier=0.50 -> 0.15), amount 10,000 / 50,000 (sAmount=0.20 -> 0.07), velocity 0 (0.00)
+        // Normal base score = 0.07 + 0.00 + 0.15 = 0.22 (APPROVE)
+        // With reversalsToday = 2: penalty +0.25 => Score = 0.22 + 0.25 = 0.47
+        // If combined with new beneficiary (+0.15): Score = 0.47 + 0.15 = 0.62 => DECLINE (REVIEW_REQUIRED)
+        when(velocityCounter.getVelocityState(6L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(2)
+                        .redisAvailable(true)
+                        .build()
+        );
+
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("tx-rev-penalty-001")
+                .customerId(6L)
+                .amount(new BigDecimal("10000.00"))
+                .currency("PHP")
+                .channel("APP")
+                .kycTier("TIER_2_STANDARD")
+                .dailyLimit(new BigDecimal("50000.00"))
+                .isNewBeneficiary(true)
+                .build();
+
+        // When
+        RiskEvaluationResponse response = riskEvaluator.evaluate(request);
+
+        // Then
+        assertEquals("DECLINE", response.getDecision());
+        assertEquals("FAILED", response.getFraudCheck().getOutcome());
+        assertTrue(response.getFraudCheck().getReasons().contains("RULE_EXCESSIVE_DAILY_REVERSALS"));
+        assertTrue(response.getFraudCheck().getReasons().contains("REVIEW_REQUIRED"));
+        double score = Double.parseDouble(response.getScore());
+        assertEquals(0.62, score, 0.01);
+    }
+
+    @Test
+    @DisplayName("Should flag RULE_AMLA_MANDATORY_THRESHOLD when amount >= 500,000")
+    void testAmlaMandatoryThreshold() {
+        // Given: TIER_3 customer transferring 500,000 PHP
+        when(velocityCounter.getVelocityState(7L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build()
+        );
+
+        RiskEvaluationRequest request = RiskEvaluationRequest.builder()
+                .transactionId("tx-amla-001")
+                .customerId(7L)
+                .amount(new BigDecimal("500000.00"))
+                .currency("PHP")
+                .channel("APP")
+                .kycTier("TIER_3_FULL")
+                .dailyLimit(new BigDecimal("500000.00"))
+                .isNewBeneficiary(false)
+                .build();
+
+        // When
+        RiskEvaluationResponse response = riskEvaluator.evaluate(request);
+
+        // Then
+        assertTrue(response.getFraudCheck().getReasons().contains("RULE_AMLA_MANDATORY_THRESHOLD"));
+    }
 }
