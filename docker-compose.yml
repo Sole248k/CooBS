@@ -419,6 +419,8 @@ services:
       AUDIT_SERVICE_URL: http://audit-service:8085
       CUSTOMER_SERVICE_URL: http://customer-service:8089
       TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      ORCHESTRATION_SERVICE_URL: http://orchestration-service:8091
+      RISK_ENGINE_URL: http://risk-engine:8092
       BATCH_SERVICE_URL: http://batch-service:8093
       MOBILE_BFF_URL: http://mobile-bff:8094
       REDIS_HOST: redis-cache
@@ -442,6 +444,7 @@ services:
   # ============================================================================
   postgres-cloud-db:
     profiles:
+      - app
       - expansion
     image: postgres:16-alpine
     container_name: postgres-cloud-db
