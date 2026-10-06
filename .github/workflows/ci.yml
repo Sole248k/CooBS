@@ -443,10 +443,43 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # JOB 6: CI Quality Gate (Branch Protection Required Check)
+  # JOB 6: Postman End-to-End Platform Regression Suite (Newman)
+  # ============================================================================
+  postman-e2e-regression:
+    name: 6. Postman End-to-End Platform Regression (Newman)
+    runs-on: ubuntu-latest
+    needs:
+      - build-and-test-backend
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Prepare environment configuration
+        run: cp .env.example .env
+
+      - name: Execute Postman E2E Regression Suite
+        run: |
+          chmod +x scripts/run_postman_e2e.sh
+          ./scripts/run_postman_e2e.sh
+
+      - name: Publish Postman E2E Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman-e2e-test-results
+          path: test-results/postman/
+          retention-days: 7
+
+  # ============================================================================
+  # JOB 7: CI Quality Gate (Branch Protection Required Check)
   # ============================================================================
   ci-quality-gate:
-    name: 6. Core Banking CI Quality Gate
+    name: 7. Core Banking CI Quality Gate
     runs-on: ubuntu-latest
     needs:
       - validate-config
@@ -454,6 +487,7 @@ jobs:
       - test-redis-and-kafka
       - validate-oracle-ddl
       - build-and-test-backend
+      - postman-e2e-regression
     if: always()
     steps:
       - name: Evaluate All Pipeline Checks
@@ -467,21 +501,25 @@ jobs:
           REDIS_KAFKA_STATUS="${{ needs.test-redis-and-kafka.result }}"
           ORACLE_STATUS="${{ needs.validate-oracle-ddl.result }}"
           BACKEND_STATUS="${{ needs.build-and-test-backend.result }}"
+          E2E_STATUS="${{ needs.postman-e2e-regression.result }}"
 
           echo "1. Validate Config & Scripts:  $CONFIG_STATUS"
           echo "2. PostgreSQL Audit Store:    $PG_STATUS"
           echo "3. Redis & Kafka Backbone:    $REDIS_KAFKA_STATUS"
           echo "4. Oracle DDL Validation:     $ORACLE_STATUS"
           echo "5. Backend Java 21 Tests:     $BACKEND_STATUS"
+          echo "6. Postman E2E Regression:    $E2E_STATUS"
           echo "=========================================================="
 
           if [ "$CONFIG_STATUS" != "success" ] || \
              [ "$PG_STATUS" != "success" ] || \
              [ "$REDIS_KAFKA_STATUS" != "success" ] || \
              [ "$ORACLE_STATUS" != "success" ] || \
-             [ "$BACKEND_STATUS" != "success" ]; then
+             [ "$BACKEND_STATUS" != "success" ] || \
+             [ "$E2E_STATUS" != "success" ]; then
             echo "❌ QUALITY GATE FAILED: One or more pipeline stages did not pass."
             exit 1
           fi
 
-          echo "✅ QUALITY GATE PASSED: All 5 validation suites succeeded. Safe to merge!"
+          echo "✅ QUALITY GATE PASSED: All 6 validation suites succeeded. Safe to merge!"
+

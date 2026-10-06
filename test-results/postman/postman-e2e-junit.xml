@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="CooBS Platform — End-to-End Master Test Suite (11 Services)" tests="30" time="5.694">
+  <testsuite name="01. System Health &amp; Gateway Ingress / 1.1 API Gateway Actuator Health" id="54c0bddc-ac51-49e0-9f37-169a0d98d423" timestamp="2026-10-06T08:08:36.835Z" tests="3" failures="0" errors="0" time="0.024">
+    <testcase name="Status code is 200 OK" time="0.024" classname="01SystemHealthAmpGatewayIngress11ApiGatewayActuatorHealth"/>
+    <testcase name="Gateway status is UP" time="0.024" classname="01SystemHealthAmpGatewayIngress11ApiGatewayActuatorHealth"/>
+    <testcase name="Latency is within acceptable bounds (&lt; 500ms)" time="0.024" classname="01SystemHealthAmpGatewayIngress11ApiGatewayActuatorHealth"/>
+  </testsuite>
+  <testsuite name="01. System Health &amp; Gateway Ingress / 1.2 Gateway Routes Verification" id="e130348d-b264-4bff-bdaf-000cc86841af" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.022">
+    <testcase name="Status code is 200 OK" time="0.022" classname="01SystemHealthAmpGatewayIngress12GatewayRoutesVerification"/>
+    <testcase name="Gateway discovers public microservice routes" time="0.022" classname="01SystemHealthAmpGatewayIngress12GatewayRoutesVerification"/>
+  </testsuite>
+  <testsuite name="02. Authentication &amp; Token Harvest / 2.1 Customer Login (John Doe)" id="1680d2fd-94f2-4520-be05-c73e7f8ddfc4" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.950">
+    <testcase name="Status code is 200 OK" time="0.950" classname="02AuthenticationAmpTokenHarvest21CustomerLoginJohnDoe"/>
+    <testcase name="Login successful and MFA not required" time="0.950" classname="02AuthenticationAmpTokenHarvest21CustomerLoginJohnDoe"/>
+  </testsuite>
+  <testsuite name="02. Authentication &amp; Token Harvest / 2.2 Counterparty Login (Maria Santos)" id="bb71fda9-b364-4e49-8a3f-73e6734fe1e0" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.078">
+    <testcase name="Status code is 200 OK" time="0.078" classname="02AuthenticationAmpTokenHarvest22CounterpartyLoginMariaSantos"/>
+    <testcase name="Maria Santos login successful" time="0.078" classname="02AuthenticationAmpTokenHarvest22CounterpartyLoginMariaSantos"/>
+  </testsuite>
+  <testsuite name="02. Authentication &amp; Token Harvest / 2.3 Staff / Teller Login (Alice)" id="71358601-5dee-4d13-95f8-d275a885b6fd" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.103">
+    <testcase name="Status code is 200 OK" time="0.103" classname="02AuthenticationAmpTokenHarvest23StaffTellerLoginAlice"/>
+    <testcase name="Teller token generated with ROLE_TELLER" time="0.103" classname="02AuthenticationAmpTokenHarvest23StaffTellerLoginAlice"/>
+  </testsuite>
+  <testsuite name="02. Authentication &amp; Token Harvest / 2.4 Staff / Admin Login" id="5a4b0d1a-bd75-4fea-9f3a-515dfbf1b376" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.067">
+    <testcase name="Status code is 200 OK" time="0.067" classname="02AuthenticationAmpTokenHarvest24StaffAdminLogin"/>
+    <testcase name="Admin token generated with ROLE_ADMIN" time="0.067" classname="02AuthenticationAmpTokenHarvest24StaffAdminLogin"/>
+  </testsuite>
+  <testsuite name="02. Authentication &amp; Token Harvest / 2.5 Inspect Token Profile (GET /api/v1/auth/token/me)" id="ce4fd228-e408-40ec-8f87-4e9bb59f24cd" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.079">
+    <testcase name="Status code is 200 OK" time="0.079" classname="02AuthenticationAmpTokenHarvest25InspectTokenProfileGetApiV1AuthTokenMe"/>
+    <testcase name="Token subject matches John Doe" time="0.079" classname="02AuthenticationAmpTokenHarvest25InspectTokenProfileGetApiV1AuthTokenMe"/>
+  </testsuite>
+  <testsuite name="03. Customer 360 &amp; Beneficiary Management / 3.1 Get Customer Self Profile (C1)" id="6337d6be-b78e-4413-a822-0ea2136e379a" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="2" errors="0" time="1.043">
+    <testcase name="Status code is 200 OK" time="1.043" classname="03Customer360AmpBeneficiaryManagement31GetCustomerSelfProfileC1">
+      <failure type="AssertionFailure" message="expected response to have status code 200 but got 500">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 03. Customer 360 & Beneficiary Management / 3.1 Get Customer Self Profile (C1).]]>
+        <![CDATA[Test description: Status code is 200 OK.]]>
+        <![CDATA[Error message: expected response to have status code 200 but got 500.]]>
+        <![CDATA[Stacktrace: AssertionError: expected response to have status code 200 but got 500
+   at Object.eval sandbox-script.js:1:8).]]>
+      </failure>
+    </testcase>
+    <testcase name="Customer profile has KYC VERIFIED status" time="1.043" classname="03Customer360AmpBeneficiaryManagement31GetCustomerSelfProfileC1">
+      <failure type="AssertionFailure" message="expected undefined to deeply equal 1">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 03. Customer 360 & Beneficiary Management / 3.1 Get Customer Self Profile (C1).]]>
+        <![CDATA[Test description: Customer profile has KYC VERIFIED status.]]>
+        <![CDATA[Error message: expected undefined to deeply equal 1.]]>
+        <![CDATA[Stacktrace: AssertionError: expected undefined to deeply equal 1
+   at Object.eval sandbox-script.js:2:8).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="03. Customer 360 &amp; Beneficiary Management / 3.2 Add Beneficiary (C5)" id="74e40309-c2d8-4c25-9750-a569c3661cf9" timestamp="2026-10-06T08:08:36.835Z" tests="1" failures="1" errors="0" time="0.135">
+    <testcase name="Status code is 201 Created or 200 OK" time="0.135" classname="03Customer360AmpBeneficiaryManagement32AddBeneficiaryC5">
+      <failure type="AssertionFailure" message="expected [ 200, 201 ] to include 500">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 03. Customer 360 & Beneficiary Management / 3.2 Add Beneficiary (C5).]]>
+        <![CDATA[Test description: Status code is 201 Created or 200 OK.]]>
+        <![CDATA[Error message: expected [ 200, 201 ] to include 500.]]>
+        <![CDATA[Stacktrace: AssertionError: expected [ 200, 201 ] to include 500
+   at Object.eval sandbox-script.js:1:9).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="03. Customer 360 &amp; Beneficiary Management / 3.3 List Beneficiaries (C4)" id="4d7c5d51-bc08-46f3-ab8b-f473e8e3e9d0" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="2" errors="0" time="0.024">
+    <testcase name="Status code is 200 OK" time="0.024" classname="03Customer360AmpBeneficiaryManagement33ListBeneficiariesC4">
+      <failure type="AssertionFailure" message="expected response to have status code 200 but got 500">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 03. Customer 360 & Beneficiary Management / 3.3 List Beneficiaries (C4).]]>
+        <![CDATA[Test description: Status code is 200 OK.]]>
+        <![CDATA[Error message: expected response to have status code 200 but got 500.]]>
+        <![CDATA[Stacktrace: AssertionError: expected response to have status code 200 but got 500
+   at Object.eval sandbox-script.js:1:10).]]>
+      </failure>
+    </testcase>
+    <testcase name="Beneficiary list returned as array" time="0.024" classname="03Customer360AmpBeneficiaryManagement33ListBeneficiariesC4">
+      <failure type="AssertionFailure" message="expected false to be true">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 03. Customer 360 & Beneficiary Management / 3.3 List Beneficiaries (C4).]]>
+        <![CDATA[Test description: Beneficiary list returned as array.]]>
+        <![CDATA[Error message: expected false to be true.]]>
+        <![CDATA[Stacktrace: AssertionError: expected false to be true
+   at Object.eval sandbox-script.js:2:10).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="03. Customer 360 &amp; Beneficiary Management / 3.4 Staff Customer 360 View (C3)" id="9c8ec36d-04b9-4d35-890d-e6972d0ec62c" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="2" errors="0" time="0.025">
+    <testcase name="Status code is 200 OK" time="0.025" classname="03Customer360AmpBeneficiaryManagement34StaffCustomer360ViewC3">
+      <failure type="AssertionFailure" message="expected response to have status code 200 but got 500">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 03. Customer 360 & Beneficiary Management / 3.4 Staff Customer 360 View (C3).]]>
+        <![CDATA[Test description: Status code is 200 OK.]]>
+        <![CDATA[Error message: expected response to have status code 200 but got 500.]]>
+        <![CDATA[Stacktrace: AssertionError: expected response to have status code 200 but got 500
+   at Object.eval sandbox-script.js:1:11).]]>
+      </failure>
+    </testcase>
+    <testcase name="Customer 360 view includes profile, accounts, and risk tier" time="0.025" classname="03Customer360AmpBeneficiaryManagement34StaffCustomer360ViewC3">
+      <failure type="AssertionFailure" message="expected undefined to deeply equal 1">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 03. Customer 360 & Beneficiary Management / 3.4 Staff Customer 360 View (C3).]]>
+        <![CDATA[Test description: Customer 360 view includes profile, accounts, and risk tier.]]>
+        <![CDATA[Error message: expected undefined to deeply equal 1.]]>
+        <![CDATA[Stacktrace: AssertionError: expected undefined to deeply equal 1
+   at Object.eval sandbox-script.js:2:11).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="04. Account Discovery &amp; Initial Balances / 4.1 Capture Initial Sender Balance (John Doe - Acc 1)" id="e023300e-8498-4ca4-b072-fa2931aa41ba" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.854">
+    <testcase name="Status code is 200 OK" time="0.854" classname="04AccountDiscoveryAmpInitialBalances41CaptureInitialSenderBalanceJohnDoeAcc1"/>
+    <testcase name="John Doe has active accounts" time="0.854" classname="04AccountDiscoveryAmpInitialBalances41CaptureInitialSenderBalanceJohnDoeAcc1"/>
+  </testsuite>
+  <testsuite name="04. Account Discovery &amp; Initial Balances / 4.2 Capture Initial Receiver Balance (Maria Santos - Acc 2)" id="310ed9d5-e2ff-468d-90ed-4e0e14333a2c" timestamp="2026-10-06T08:08:36.835Z" tests="1" failures="0" errors="0" time="0.033">
+    <testcase name="Status code is 200 OK" time="0.033" classname="04AccountDiscoveryAmpInitialBalances42CaptureInitialReceiverBalanceMariaSantosAcc2"/>
+  </testsuite>
+  <testsuite name="05. Distributed Transfer Saga (Transaction + Orchestration) / 5.1 Initiate Fund Transfer (T1 - Returns 202 INITIATED)" id="162e2957-8eda-4248-a19c-b567bbd20f20" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="1" errors="0" time="0.953">
+    <testcase name="Status code is 202 Accepted" time="0.953" classname="05DistributedTransferSagaTransactionOrchestration51InitiateFundTransferT1Returns202Initiated"/>
+    <testcase name="Transfer response includes transactionId and INITIATED status" time="0.953" classname="05DistributedTransferSagaTransactionOrchestration51InitiateFundTransferT1Returns202Initiated">
+      <failure type="AssertionFailure" message="expected 2500 to deeply equal '2500.00'">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 05. Distributed Transfer Saga (Transaction + Orchestration) / 5.1 Initiate Fund Transfer (T1 - Returns 202 INITIATED).]]>
+        <![CDATA[Test description: Transfer response includes transactionId and INITIATED status.]]>
+        <![CDATA[Error message: expected 2500 to deeply equal '2500.00'.]]>
+        <![CDATA[Stacktrace: AssertionError: expected 2500 to deeply equal '2500.00'
+   at Object.eval sandbox-script.js:2:14).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="05. Distributed Transfer Saga (Transaction + Orchestration) / 5.2 Idempotency Replay (T1 - Same Key returns 200 OK)" id="79c37c5f-b48f-4bd1-8af8-cb98b7a21ff2" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="2" errors="0" time="0.022">
+    <testcase name="Idempotent replay returns 200 OK or 202 Accepted" time="0.022" classname="05DistributedTransferSagaTransactionOrchestration52IdempotencyReplayT1SameKeyReturns200Ok">
+      <failure type="AssertionFailure" message="expected [ 200, 202 ] to include 409">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 05. Distributed Transfer Saga (Transaction + Orchestration) / 5.2 Idempotency Replay (T1 - Same Key returns 200 OK).]]>
+        <![CDATA[Test description: Idempotent replay returns 200 OK or 202 Accepted.]]>
+        <![CDATA[Error message: expected [ 200, 202 ] to include 409.]]>
+        <![CDATA[Stacktrace: AssertionError: expected [ 200, 202 ] to include 409
+   at Object.eval sandbox-script.js:1:15).]]>
+      </failure>
+    </testcase>
+    <testcase name="Returns identical transactionId and referenceNo" time="0.022" classname="05DistributedTransferSagaTransactionOrchestration52IdempotencyReplayT1SameKeyReturns200Ok">
+      <failure type="AssertionFailure" message="expected undefined to deeply equal '2a8bd32b-763b-4dc0-bc66-621a8eaf7c21'">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 05. Distributed Transfer Saga (Transaction + Orchestration) / 5.2 Idempotency Replay (T1 - Same Key returns 200 OK).]]>
+        <![CDATA[Test description: Returns identical transactionId and referenceNo.]]>
+        <![CDATA[Error message: expected undefined to deeply equal '2a8bd32b-763b-4dc0-bc66-621a8eaf7c21'.]]>
+        <![CDATA[Stacktrace: AssertionError: expected undefined to deeply equal '2a8bd32b-763b-4dc0-bc66-621a8eaf7c21'
+   at Object.eval sandbox-script.js:2:15).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="05. Distributed Transfer Saga (Transaction + Orchestration) / 5.3 Verify Transaction Details (T2)" id="441d65f2-a1a0-4ca1-ab64-f98f50103335" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="1" errors="0" time="0.124">
+    <testcase name="Status code is 200 OK" time="0.124" classname="05DistributedTransferSagaTransactionOrchestration53VerifyTransactionDetailsT2"/>
+    <testcase name="Transaction progressed to POSTED or COMPLETED" time="0.124" classname="05DistributedTransferSagaTransactionOrchestration53VerifyTransactionDetailsT2">
+      <failure type="AssertionFailure" message="expected 2500 to deeply equal '2500.00'">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 05. Distributed Transfer Saga (Transaction + Orchestration) / 5.3 Verify Transaction Details (T2).]]>
+        <![CDATA[Test description: Transaction progressed to POSTED or COMPLETED.]]>
+        <![CDATA[Error message: expected 2500 to deeply equal '2500.00'.]]>
+        <![CDATA[Stacktrace: AssertionError: expected 2500 to deeply equal '2500.00'
+   at Object.eval sandbox-script.js:2:16).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="05. Distributed Transfer Saga (Transaction + Orchestration) / 5.4 Verify 11-Stage Saga Timeline (T3)" id="a49e5339-6438-4c15-95c2-4c48b6873bac" timestamp="2026-10-06T08:08:36.835Z" tests="3" failures="1" errors="0" time="0.036">
+    <testcase name="Status code is 200 OK" time="0.036" classname="05DistributedTransferSagaTransactionOrchestration54Verify11StageSagaTimelineT3"/>
+    <testcase name="Timeline has stages array" time="0.036" classname="05DistributedTransferSagaTransactionOrchestration54Verify11StageSagaTimelineT3"/>
+    <testcase name="Latest stage outcome is PASSED" time="0.036" classname="05DistributedTransferSagaTransactionOrchestration54Verify11StageSagaTimelineT3">
+      <failure type="AssertionFailure" message="expected 'PENDING' to deeply equal 'PASSED'">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 05. Distributed Transfer Saga (Transaction + Orchestration) / 5.4 Verify 11-Stage Saga Timeline (T3).]]>
+        <![CDATA[Test description: Latest stage outcome is PASSED.]]>
+        <![CDATA[Error message: expected 'PENDING' to deeply equal 'PASSED'.]]>
+        <![CDATA[Stacktrace: AssertionError: expected 'PENDING' to deeply equal 'PASSED'
+   at Object.eval sandbox-script.js:3:17).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="06. Atomic Double-Entry Ledger Verification / 6.1 Verify Sender Debited Exactly 2500.00" id="35721dcf-c5a9-43d5-8146-c6322132fa4f" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="1" errors="0" time="0.026">
+    <testcase name="Status code is 200 OK" time="0.026" classname="06AtomicDoubleEntryLedgerVerification61VerifySenderDebitedExactly250000"/>
+    <testcase name="Sender balance debited exactly 2500.00" time="0.026" classname="06AtomicDoubleEntryLedgerVerification61VerifySenderDebitedExactly250000">
+      <failure type="AssertionFailure" message="expected +0 to be close to 2500 +/- 0.01">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 06. Atomic Double-Entry Ledger Verification / 6.1 Verify Sender Debited Exactly 2500.00.]]>
+        <![CDATA[Test description: Sender balance debited exactly 2500.00.]]>
+        <![CDATA[Error message: expected +0 to be close to 2500 +/- 0.01.]]>
+        <![CDATA[Stacktrace: AssertionError: expected +0 to be close to 2500 +/- 0.01
+   at Object.eval sandbox-script.js:2:18).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="06. Atomic Double-Entry Ledger Verification / 6.2 Verify Receiver Credited Exactly 2500.00" id="0f05de37-1b89-4ab4-b387-f887421d2d44" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="1" errors="0" time="0.021">
+    <testcase name="Status code is 200 OK" time="0.021" classname="06AtomicDoubleEntryLedgerVerification62VerifyReceiverCreditedExactly250000"/>
+    <testcase name="Receiver balance credited exactly 2500.00" time="0.021" classname="06AtomicDoubleEntryLedgerVerification62VerifyReceiverCreditedExactly250000">
+      <failure type="AssertionFailure" message="expected +0 to be close to 2500 +/- 0.01">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 06. Atomic Double-Entry Ledger Verification / 6.2 Verify Receiver Credited Exactly 2500.00.]]>
+        <![CDATA[Test description: Receiver balance credited exactly 2500.00.]]>
+        <![CDATA[Error message: expected +0 to be close to 2500 +/- 0.01.]]>
+        <![CDATA[Stacktrace: AssertionError: expected +0 to be close to 2500 +/- 0.01
+   at Object.eval sandbox-script.js:2:19).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="07. Reversal Saga &amp; Compensation Flow (FIN-104) / 7.1 Execute Transfer for Reversal" id="d6c5f4d3-92e0-4e5d-a4c4-01387ef93227" timestamp="2026-10-06T08:08:36.835Z" tests="1" failures="0" errors="0" time="0.027">
+    <testcase name="Status code is 202 Accepted" time="0.027" classname="07ReversalSagaAmpCompensationFlowFin10471ExecuteTransferForReversal"/>
+  </testsuite>
+  <testsuite name="07. Reversal Saga &amp; Compensation Flow (FIN-104) / 7.2 Staff Reversal Request (T5 / O2)" id="da1eed68-ecbc-47f6-aa04-3f6728cbc28a" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="2" errors="0" time="0.025">
+    <testcase name="Status code is 202 Accepted or 200 OK" time="0.025" classname="07ReversalSagaAmpCompensationFlowFin10472StaffReversalRequestT5O2">
+      <failure type="AssertionFailure" message="expected [ 200, 202 ] to include 500">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 07. Reversal Saga & Compensation Flow (FIN-104) / 7.2 Staff Reversal Request (T5 / O2).]]>
+        <![CDATA[Test description: Status code is 202 Accepted or 200 OK.]]>
+        <![CDATA[Error message: expected [ 200, 202 ] to include 500.]]>
+        <![CDATA[Stacktrace: AssertionError: expected [ 200, 202 ] to include 500
+   at Object.eval sandbox-script.js:1:21).]]>
+      </failure>
+    </testcase>
+    <testcase name="Reversal accepted with transactionId" time="0.025" classname="07ReversalSagaAmpCompensationFlowFin10472StaffReversalRequestT5O2">
+      <failure type="AssertionFailure" message=".empty was passed non-string primitive undefined">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 07. Reversal Saga & Compensation Flow (FIN-104) / 7.2 Staff Reversal Request (T5 / O2).]]>
+        <![CDATA[Test description: Reversal accepted with transactionId.]]>
+        <![CDATA[Error message: .empty was passed non-string primitive undefined.]]>
+        <![CDATA[Stacktrace: AssertionError: .empty was passed non-string primitive undefined
+   at Object.eval sandbox-script.js:2:21).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="07. Reversal Saga &amp; Compensation Flow (FIN-104) / 7.3 Verify Original Transaction State is REVERSED" id="2f6daaac-24e8-473d-be0d-97535e7ae453" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="1" errors="0" time="0.015">
+    <testcase name="Status code is 200 OK" time="0.015" classname="07ReversalSagaAmpCompensationFlowFin10473VerifyOriginalTransactionStateIsReversed"/>
+    <testcase name="Original transaction status updated to REVERSED" time="0.015" classname="07ReversalSagaAmpCompensationFlowFin10473VerifyOriginalTransactionStateIsReversed">
+      <failure type="AssertionFailure" message="expected [ 'REVERSED', 'COMPENSATED' ] to include 'PROCESSING'">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 07. Reversal Saga & Compensation Flow (FIN-104) / 7.3 Verify Original Transaction State is REVERSED.]]>
+        <![CDATA[Test description: Original transaction status updated to REVERSED.]]>
+        <![CDATA[Error message: expected [ 'REVERSED', 'COMPENSATED' ] to include 'PROCESSING'.]]>
+        <![CDATA[Stacktrace: AssertionError: expected [ 'REVERSED', 'COMPENSATED' ] to include 'PROCESSING'
+   at Object.eval sandbox-script.js:2:22).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="08. Real-Time In-App Notifications / 8.1 Customer Notifications (GET /api/v1/notifications)" id="4a89e918-df40-4515-a3ad-691733baa6a5" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="1" errors="0" time="0.130">
+    <testcase name="Status code is 200 OK" time="0.130" classname="08RealTimeInAppNotifications81CustomerNotificationsGetApiV1Notifications">
+      <failure type="AssertionFailure" message="expected response to have status code 200 but got 500">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 08. Real-Time In-App Notifications / 8.1 Customer Notifications (GET /api/v1/notifications).]]>
+        <![CDATA[Test description: Status code is 200 OK.]]>
+        <![CDATA[Error message: expected response to have status code 200 but got 500.]]>
+        <![CDATA[Stacktrace: AssertionError: expected response to have status code 200 but got 500
+   at Object.eval sandbox-script.js:1:23).]]>
+      </failure>
+    </testcase>
+    <testcase name="Notification records returned" time="0.130" classname="08RealTimeInAppNotifications81CustomerNotificationsGetApiV1Notifications"/>
+  </testsuite>
+  <testsuite name="08. Real-Time In-App Notifications / 8.2 Unread Notification Count" id="81c8afad-4b04-41d9-92c4-38f511bcbe18" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.430">
+    <testcase name="Status code is 200 OK" time="0.430" classname="08RealTimeInAppNotifications82UnreadNotificationCount"/>
+    <testcase name="Unread count field exists" time="0.430" classname="08RealTimeInAppNotifications82UnreadNotificationCount"/>
+  </testsuite>
+  <testsuite name="09. Cryptographic Audit Chain &amp; Forensic Integrity / 9.1 Verify Cryptographic Hash Chain (Audit Service)" id="fc754398-6806-49da-8207-c9acb47993e8" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="2" errors="0" time="0.340">
+    <testcase name="Status code is 200 OK" time="0.340" classname="09CryptographicAuditChainAmpForensicIntegrity91VerifyCryptographicHashChainAuditService">
+      <failure type="AssertionFailure" message="expected response to have status code 200 but got 500">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 09. Cryptographic Audit Chain & Forensic Integrity / 9.1 Verify Cryptographic Hash Chain (Audit Service).]]>
+        <![CDATA[Test description: Status code is 200 OK.]]>
+        <![CDATA[Error message: expected response to have status code 200 but got 500.]]>
+        <![CDATA[Stacktrace: AssertionError: expected response to have status code 200 but got 500
+   at Object.eval sandbox-script.js:1:25).]]>
+      </failure>
+    </testcase>
+    <testcase name="Audit hash chain is intact and valid" time="0.340" classname="09CryptographicAuditChainAmpForensicIntegrity91VerifyCryptographicHashChainAuditService">
+      <failure type="AssertionFailure" message="expected undefined to be true">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 09. Cryptographic Audit Chain & Forensic Integrity / 9.1 Verify Cryptographic Hash Chain (Audit Service).]]>
+        <![CDATA[Test description: Audit hash chain is intact and valid.]]>
+        <![CDATA[Error message: expected undefined to be true.]]>
+        <![CDATA[Stacktrace: AssertionError: expected undefined to be true
+   at Object.eval sandbox-script.js:2:25).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="09. Cryptographic Audit Chain &amp; Forensic Integrity / 9.2 Account Audit Trail" id="926cfde1-ef9c-405c-9f53-abe7f95558c3" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="2" errors="0" time="0.014">
+    <testcase name="Status code is 200 OK" time="0.014" classname="09CryptographicAuditChainAmpForensicIntegrity92AccountAuditTrail">
+      <failure type="AssertionFailure" message="expected response to have status code 200 but got 500">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 09. Cryptographic Audit Chain & Forensic Integrity / 9.2 Account Audit Trail.]]>
+        <![CDATA[Test description: Status code is 200 OK.]]>
+        <![CDATA[Error message: expected response to have status code 200 but got 500.]]>
+        <![CDATA[Stacktrace: AssertionError: expected response to have status code 200 but got 500
+   at Object.eval sandbox-script.js:1:26).]]>
+      </failure>
+    </testcase>
+    <testcase name="Audit entries exist for primary account" time="0.014" classname="09CryptographicAuditChainAmpForensicIntegrity92AccountAuditTrail">
+      <failure type="AssertionFailure" message="expected +0 to be at least 1">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 09. Cryptographic Audit Chain & Forensic Integrity / 9.2 Account Audit Trail.]]>
+        <![CDATA[Test description: Audit entries exist for primary account.]]>
+        <![CDATA[Error message: expected +0 to be at least 1.]]>
+        <![CDATA[Stacktrace: AssertionError: expected +0 to be at least 1
+   at Object.eval sandbox-script.js:2:26).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="10. Edge Cases, Risk Guardrails &amp; Negative Paths / 10.1 Insufficient Funds Transfer (Assert 422)" id="c8643528-b162-42ad-948d-9d84eafe0852" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="2" errors="0" time="0.022">
+    <testcase name="Status code is 422 Unprocessable Entity or 400 Bad Request" time="0.022" classname="10EdgeCasesRiskGuardrailsAmpNegativePaths101InsufficientFundsTransferAssert422">
+      <failure type="AssertionFailure" message="expected [ 400, 422 ] to include 202">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 10. Edge Cases, Risk Guardrails & Negative Paths / 10.1 Insufficient Funds Transfer (Assert 422).]]>
+        <![CDATA[Test description: Status code is 422 Unprocessable Entity or 400 Bad Request.]]>
+        <![CDATA[Error message: expected [ 400, 422 ] to include 202.]]>
+        <![CDATA[Stacktrace: AssertionError: expected [ 400, 422 ] to include 202
+   at Object.eval sandbox-script.js:1:27).]]>
+      </failure>
+    </testcase>
+    <testcase name="Error code specifies INSUFFICIENT_FUNDS or LIMIT_EXCEEDED" time="0.022" classname="10EdgeCasesRiskGuardrailsAmpNegativePaths101InsufficientFundsTransferAssert422">
+      <failure type="AssertionFailure" message="expected [ 'INSUFFICIENT_FUNDS', …(2) ] to include undefined">
+        <![CDATA[Failed 1 times.]]>
+        <![CDATA[Collection JSON ID: coobs-e2e-master-suite-v1.]]>
+        <![CDATA[Collection name: CooBS Platform — End-to-End Master Test Suite (11 Services).]]>
+        <![CDATA[Request name: 10. Edge Cases, Risk Guardrails & Negative Paths / 10.1 Insufficient Funds Transfer (Assert 422).]]>
+        <![CDATA[Test description: Error code specifies INSUFFICIENT_FUNDS or LIMIT_EXCEEDED.]]>
+        <![CDATA[Error message: expected [ 'INSUFFICIENT_FUNDS', …(2) ] to include undefined.]]>
+        <![CDATA[Stacktrace: AssertionError: expected [ 'INSUFFICIENT_FUNDS', …(2) ] to include undefined
+   at Object.eval sandbox-script.js:2:27).]]>
+      </failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="10. Edge Cases, Risk Guardrails &amp; Negative Paths / 10.2 Negative Transfer Amount (Assert 400)" id="3546e0a6-815d-49a7-a903-854af844037b" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.023">
+    <testcase name="Status code is 400 Bad Request" time="0.023" classname="10EdgeCasesRiskGuardrailsAmpNegativePaths102NegativeTransferAmountAssert400"/>
+    <testcase name="Validation error code INVALID_REQUEST_PARAMETERS returned" time="0.023" classname="10EdgeCasesRiskGuardrailsAmpNegativePaths102NegativeTransferAmountAssert400"/>
+  </testsuite>
+  <testsuite name="10. Edge Cases, Risk Guardrails &amp; Negative Paths / 10.3 Non-Existent Transaction Lookup (Assert 404)" id="28f55fae-828e-49f2-838a-c2c11e0830fd" timestamp="2026-10-06T08:08:36.835Z" tests="2" failures="0" errors="0" time="0.021">
+    <testcase name="Status code is 404 Not Found" time="0.021" classname="10EdgeCasesRiskGuardrailsAmpNegativePaths103NonExistentTransactionLookupAssert404"/>
+    <testcase name="Error code TRANSACTION_NOT_FOUND returned" time="0.021" classname="10EdgeCasesRiskGuardrailsAmpNegativePaths103NonExistentTransactionLookupAssert404"/>
+  </testsuite>
+  <testsuite name="10. Edge Cases, Risk Guardrails &amp; Negative Paths / 10.4 Unauthorized Account Inspection (Assert 403)" id="5e268adc-fcf8-4282-87c8-3453b52247f4" timestamp="2026-10-06T08:08:36.835Z" tests="1" failures="0" errors="0" time="0.028">
+    <testcase name="Status code is 403 Forbidden" time="0.028" classname="10EdgeCasesRiskGuardrailsAmpNegativePaths104UnauthorizedAccountInspectionAssert403"/>
+  </testsuite>
+</testsuites>

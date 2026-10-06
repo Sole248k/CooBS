@@ -339,6 +339,28 @@ stages:
             displayName: Dump infrastructure diagnostics
             condition: failed()
 
+      - job: e2e
+        displayName: Postman E2E platform regression (Newman)
+        dependsOn: backend
+        steps:
+          - checkout: self
+            fetchDepth: 1
+          - script: cp .env.example .env
+            displayName: Prepare .env
+          - script: |
+              set -e
+              chmod +x scripts/run_postman_e2e.sh
+              ./scripts/run_postman_e2e.sh
+            displayName: Run Postman E2E regression suite (Newman)
+          - task: PublishTestResults@2
+            displayName: Publish Postman E2E test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: 'test-results/postman/*.xml'
+              testRunTitle: Postman E2E Platform Regression
+              failTaskOnFailedTests: true
+
       # Flutter app (Dev 6). Enable once app/ exists.
       # - job: flutter
       #   displayName: Flutter app (web and Android)
@@ -429,8 +451,10 @@ stages:
                         echo "Dev 8: replace this step with the real deployment task."
                       displayName: Deploy (placeholder)
                     - script: |
-                        echo "Run postman/e2e against the dev gateway and fail the stage on any failure."
-                      displayName: Smoke test (placeholder)
+                        set -e
+                        chmod +x scripts/run_postman_e2e.sh
+                        ./scripts/run_postman_e2e.sh
+                      displayName: Run Postman E2E smoke test (Newman)
 
       - stage: Deploy_Prod
         displayName: 6b. Deploy release

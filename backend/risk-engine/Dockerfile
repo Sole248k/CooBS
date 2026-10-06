@@ -10,14 +10,12 @@
 FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /workspace
 
-# Copy POM and download dependencies for layer caching
+# Copy prebuilt jar
 COPY pom.xml ./
-RUN mvn dependency:go-offline -B || true
 
-# Copy source and compile application
+# Copy source and prebuilt jar
 COPY src ./src
-RUN mvn clean package -DskipTests -B && \
-    cp target/*-SNAPSHOT.jar target/app.jar || cp target/*.jar target/app.jar
+COPY target/*-SNAPSHOT.jar ./target/app.jar
 
 # ------------------------------------------------------------------------------
 # Stage 2: Minimal Distroless Production Runtime

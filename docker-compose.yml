@@ -206,6 +206,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
       SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
+      JAVA_OPTS: "-Xmx200m -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
       interval: 15s
@@ -249,6 +250,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
       SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
+      JAVA_OPTS: "-Xmx200m -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
       interval: 15s
@@ -296,6 +298,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
       SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
+      JAVA_OPTS: "-Xmx200m -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
       interval: 15s
@@ -336,6 +339,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
       SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
+      JAVA_OPTS: "-Xmx200m -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
       interval: 15s
@@ -375,6 +379,7 @@ services:
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
       SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
       SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
+      JAVA_OPTS: "-Xmx200m -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
       interval: 15s
@@ -397,6 +402,8 @@ services:
     container_name: api-gateway
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
+    volumes:
+      - ./backend/api-gateway/src/main/resources/application.yml:/app/application.yml:ro
     depends_on:
       auth-service:
         condition: service_healthy
@@ -425,6 +432,7 @@ services:
       MOBILE_BFF_URL: http://mobile-bff:8094
       REDIS_HOST: redis-cache
       REDIS_PORT: 6379
+      JAVA_OPTS: "-Xmx200m -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 15s
