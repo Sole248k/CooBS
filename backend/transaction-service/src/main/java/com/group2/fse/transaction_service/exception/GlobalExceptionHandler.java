@@ -63,6 +63,26 @@ public class GlobalExceptionHandler {
                 .body(problem);
     }
 
+    @ExceptionHandler(TransactionNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleTransactionNotFound(
+            TransactionNotFoundException ex, HttpServletRequest request) {
+        log.warn("Transaction not found on {}: {}", request.getRequestURI(), ex.getMessage());
+
+        Map<String, Object> problem = createProblemDetails(
+                "https://api.coobs.local/errors/TRANSACTION_NOT_FOUND",
+                "Transaction Not Found",
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                "TRANSACTION_NOT_FOUND"
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationErrors(
             MethodArgumentNotValidException ex, HttpServletRequest request) {

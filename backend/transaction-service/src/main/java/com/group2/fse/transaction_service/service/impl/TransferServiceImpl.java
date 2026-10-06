@@ -7,23 +7,30 @@ import com.group2.fse.transaction_service.exception.DuplicateIdempotencyKeyExcep
 import com.group2.fse.transaction_service.exception.InvalidTransactionException;
 import com.group2.fse.transaction_service.service.IdempotencyService;
 import com.group2.fse.transaction_service.service.TransferService;
+import com.group2.fse.transaction_service.entity.TxnStageEvent;
+import com.group2.fse.transaction_service.entity.TxnTransaction;
+import com.group2.fse.transaction_service.repository.TxnStageEventRepository;
+import com.group2.fse.transaction_service.repository.TxnTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Task: FIN-303
+ * Task: FIN-303, FIN-304
  * Implementation of TransferService returning immediate 202 tracking response
- * guarded by Redis atomic SETNX idempotency locks and pre-flight validation.
+ * guarded by Redis atomic SETNX idempotency locks, pre-flight validation,
+ * DB persistence in txn_transaction and initial stage events recording.
  */
 @Slf4j
 @Service
@@ -37,6 +44,8 @@ public class TransferServiceImpl implements TransferService {
 
     private final IdempotencyService idempotencyService;
     private final ObjectMapper objectMapper;
+    private final TxnTransactionRepository transactionRepository;
+    private final TxnStageEventRepository stageEventRepository;
 
     @Override
     public TransferInitiateResponseDto initiateTransfer(TransferRequestDto request, String idempotencyKey) {
@@ -53,13 +62,55 @@ public class TransferServiceImpl implements TransferService {
         }
 
         try {
-            String transactionId = UUID.randomUUID().toString();
-            String datePart = DATE_FORMATTER.format(Instant.now());
+            UUID txUuid = UUID.randomUUID();
+            String transactionId = txUuid.toString();
+            Instant now = Instant.now();
+            String datePart = DATE_FORMATTER.format(now);
             String randomHex = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
             String referenceNo = "TX-" + datePart + "-" + randomHex;
 
             log.info("Initiated transfer: transactionId={}, referenceNo={}, srcAccount={}, dstAccount={}, amount={}",
                     transactionId, referenceNo, request.getSourceAccountId(), request.getDestinationAccountNumber(), request.getAmount());
+
+            TxnTransaction txn = TxnTransaction.builder()
+                    .transactionId(txUuid)
+                    .referenceNo(referenceNo)
+                    .idempotencyKey(hasKey ? idempotencyKey : null)
+                    .channel("APP")
+                    .sourceAccountId(request.getSourceAccountId())
+                    .destinationAccountNumber(request.getDestinationAccountNumber())
+                    .destinationBankCode(request.getDestinationBankCode() != null ? request.getDestinationBankCode() : "COOBS")
+                    .amount(request.getAmount())
+                    .currency(request.getCurrency() != null ? request.getCurrency() : "PHP")
+                    .category(request.getCategory() != null ? request.getCategory() : "TRANSFER")
+                    .remarks(request.getRemarks())
+                    .status("PROCESSING")
+                    .createdAt(now)
+                    .build();
+            transactionRepository.save(txn);
+
+            TxnStageEvent stage1 = TxnStageEvent.builder()
+                    .transactionId(txUuid)
+                    .stageNo(1)
+                    .stageName("INGRESS_ACCEPTED")
+                    .outcome("PASSED")
+                    .occurredAt(now)
+                    .build();
+            TxnStageEvent stage2 = TxnStageEvent.builder()
+                    .transactionId(txUuid)
+                    .stageNo(2)
+                    .stageName("PREFLIGHT_VALIDATED")
+                    .outcome("PASSED")
+                    .occurredAt(now.plusMillis(10))
+                    .build();
+            TxnStageEvent stage3 = TxnStageEvent.builder()
+                    .transactionId(txUuid)
+                    .stageNo(3)
+                    .stageName("DISPATCHED_TO_ORCHESTRATOR")
+                    .outcome("PASSED")
+                    .occurredAt(now.plusMillis(20))
+                    .build();
+            stageEventRepository.saveAll(List.of(stage1, stage2, stage3));
 
             TransferInitiateResponseDto response = TransferInitiateResponseDto.builder()
                     .transactionId(transactionId)
@@ -67,7 +118,7 @@ public class TransferServiceImpl implements TransferService {
                     .status("INITIATED")
                     .amount(request.getAmount())
                     .currency(request.getCurrency() != null ? request.getCurrency() : "PHP")
-                    .createdAt(Instant.now())
+                    .createdAt(now)
                     .timelineUrl("/api/v1/transactions/" + transactionId + "/timeline")
                     .build();
 
