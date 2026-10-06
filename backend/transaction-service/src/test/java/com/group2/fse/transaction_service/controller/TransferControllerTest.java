@@ -27,6 +27,8 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import com.group2.fse.transaction_service.repository.TxnStageEventRepository;
+import com.group2.fse.transaction_service.repository.TxnTransactionRepository;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,13 +40,20 @@ class TransferControllerTest {
     @Mock
     private IdempotencyService idempotencyService;
 
+    @Mock
+    private TxnTransactionRepository transactionRepository;
+
+    @Mock
+    private TxnStageEventRepository stageEventRepository;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-        TransferService transferService = new TransferServiceImpl(idempotencyService, objectMapper);
+        TransferService transferService = new TransferServiceImpl(
+                idempotencyService, objectMapper, transactionRepository, stageEventRepository);
         TransferController transferController = new TransferController(transferService);
         mockMvc = MockMvcBuilders.standaloneSetup(transferController)
                 .setControllerAdvice(new GlobalExceptionHandler())
