@@ -68,6 +68,29 @@ public class LedgerClient {
                 .body(PostingsResult.class));
     }
 
+    public ReversalResult reverse(UUID transactionId, ReversalRequest request) {
+        return api.call(() -> http.post()
+                .uri("/internal/v1/ledger/reversals")
+                .header(IDEMPOTENCY_HEADER, transactionId + ":reversal")
+                .body(request)
+                .retrieve()
+                .body(ReversalResult.class));
+    }
+
+    public record ReversalRequest(
+            String originalReferenceNo,
+            String reversalReferenceNo,
+            String reason,
+            Long actorId) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ReversalResult(
+            String reversalReferenceNo,
+            String originalReferenceNo,
+            String status) {
+    }
+
     public record HoldRequest(
             UUID transactionId,
             String referenceNo,
