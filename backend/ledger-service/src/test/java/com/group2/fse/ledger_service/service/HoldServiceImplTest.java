@@ -173,7 +173,7 @@ class HoldServiceImplTest {
                 .clientIp("127.0.0.1")
                 .build();
 
-        when(holdRepository.findById(9001L)).thenReturn(Optional.of(hold));
+        when(holdRepository.findByIdForUpdate(9001L)).thenReturn(Optional.of(hold));
         when(postingEngine.lockAccountsInOrder(1L, 2L))
                 .thenReturn(new OrderedAccountLocks(sourceBalance, destinationBalance));
 
@@ -217,7 +217,7 @@ class HoldServiceImplTest {
 
         sourceBalance.setAvailableBalance(new BigDecimal("47500.0000"));
 
-        when(holdRepository.findById(9001L)).thenReturn(Optional.of(hold));
+        when(holdRepository.findByIdForUpdate(9001L)).thenReturn(Optional.of(hold));
         when(postingEngine.lockAccount(1L, false)).thenReturn(sourceBalance);
         when(postingEngine.calculateCredit(new BigDecimal("47500.0000"), new BigDecimal("2500.0000")))
                 .thenReturn(new BigDecimal("50000.0000"));
