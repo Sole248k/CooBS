@@ -10,12 +10,35 @@ Dedicated Flutter retail member **Mobile Application** targeting **Android** (an
 
 ## 1. Architecture Overview
 
+### Client Separation: Customer Mobile vs. Teller Web
+CooBS strictly divides user access into two independent client channels:
+
+| Dimension | 📱 Customer Side (Mobile App) | 🖥️ Teller Side (Web Frontend) |
+| :--- | :--- | :--- |
+| **Technology** | **Flutter Native App** (`app/`) | **React Portal** (`frontend/`) |
+| **Target Audience** | **Retail Bank Members** (Android & iOS) | **Branch Tellers, Operations, Compliance** (Web Browser) |
+| **Primary Goal** | Self-service banking: balance, remittances, 3-stage receipts | Back-office ops: account lifecycle, KYC approval, 11-stage audit |
+| **Transaction View** | **3-Stage Customer Milestones** (`M2`): Submitted &rarr; In Review &rarr; Completed | **11-Stage Technical Saga Stepper**: Idempotency &rarr; Holds &rarr; Risk &rarr; Settlement |
+| **Network Path** | Mobile &rarr; Gateway (`/api/v1/mobile/**`) &rarr; **`mobile-bff` (:8094)** | Web &rarr; Gateway (`/api/v1/{accounts,audit,ledger,transactions}/**`) &rarr; Direct Services |
+
+### Why `mobile-bff` (:8094)?
+The **Mobile Backend-for-Frontend** acts as an application-level aggregator to eliminate mobile cellular latency and battery drain:
+- **`M1: GET /api/v1/mobile/dashboard`**: Returns a single composite payload (<150ms) bundling member profile, KYC status, primary balance, recent transactions, and unread alerts. Replaces 4 chatty microservice calls.
+- **`M2: GET /api/v1/mobile/transactions/{ref}/timeline`**: Collapses the backend's internal **11-stage distributed saga** into a clean **3-stage customer milestone stepper**.
+- **`M3: POST /api/v1/mobile/transactions/remittance`**: Immediate `202 Accepted` intake acknowledgement so the mobile UI never freezes.
+
+### Client Resilience: On-Device Circuit Breaker
+Wrapped around every request in `ApiClient`:
+- **State Machine**: `CLOSED` &rarr; `OPEN` &rarr; `HALF-OPEN`.
+- **Trip Condition**: 3 consecutive network timeouts or 5xx server drops trip the breaker to `OPEN` (4xx validation errors do not trip).
+- **Fail-Fast**: In `OPEN` state, requests fail in 0ms and route to `ServiceUnavailableView` with a live 30-second cooldown timer.
+- **Probing**: After 30 seconds, a probe request tests recovery; on success, resets to `CLOSED`.
+
 - **Role / Ownership:** Neo: Dev 6 (Flutter Foundation) & Gabo: Dev 7 (Flutter Features)
 - **Target Platform:** Mobile devices / Android Emulator
 - **Target Ingress:** 
   - Android Emulator: `http://10.0.2.2:8080` (Spring Cloud Gateway loopback)
   - Physical Device: `http://<LAN_IP>:8080` or `adb reverse tcp:8080 tcp:8080`
-- **Mobile Middleware:** Interacts with `mobile-bff` (:8094) for composite dashboard (`M1`) and 3-stage timeline adapter (`M2`).
 - **Air-Gapped Fixture Mode:** Toggle `USE_FIXTURES=true` to run offline against `assets/fixtures/` without a running backend.
 
 ---

@@ -51,8 +51,11 @@ class CircuitBreaker {
       onSuccess();
       return result;
     } catch (e) {
-      // 4xx client errors (e.g. 422 limit exceeded, 401 unauth) do not trip the circuit breaker.
+      // 4xx client errors (e.g. 422 limit exceeded, 401 unauth, 429 rate limit) do not trip the circuit breaker.
       // Only 5xx server outages, dropped sockets, and network timeouts count toward tripping.
+      if (e is UnauthorizedException || e is RateLimitException) {
+        rethrow;
+      }
       if (e is ProblemDetailsException && e.statusCode != null && e.statusCode! < 500) {
         rethrow;
       }

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
 import '../core/models/models.dart';
-import '../core/network/api_client.dart';
+import '../core/network/network.dart';
 import '../core/theme/app_theme.dart';
+import '../features/resilience/service_unavailable_view.dart';
+import '../features/tracking/tracking.dart';
 
 /// Responsive Omnichannel Navigation Shell.
 /// Adapts between a BottomNavigationBar (Mobile < 640px) and a NavigationRail (Tablet/Desktop >= 640px).
@@ -24,11 +26,19 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   late int _currentIndex;
   final ApiClient _apiClient = ApiClient();
+  Future<Map<String, dynamic>>? _dashboardFuture;
+  String? _selectedTrackingRef;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _selectedTrackingRef = widget.trackingReference;
+    _loadDashboard();
+  }
+
+  void _loadDashboard() {
+    _dashboardFuture = _apiClient.get('/mobile/dashboard');
   }
 
   @override
@@ -149,21 +159,39 @@ class _AppShellState extends State<AppShell> {
   /// Dashboard view backed by M1 composite fixture
   Widget _buildDashboardView() {
     return FutureBuilder<Map<String, dynamic>>(
-      future: _apiClient.get('/mobile/dashboard'),
+      future: _dashboardFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: AppTheme.navyPrimary));
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          final error = snapshot.error;
+          if (error is CircuitBreakerOpenException) {
+            return ServiceUnavailableView(cooldown: error.remainingCooldown);
+          }
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Error: ${snapshot.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppTheme.errorCarmine),
+              ),
+            ),
+          );
         }
 
         final data = snapshot.data ?? {};
         final dashboard = MobileDashboardResponse.fromJson(data);
 
-        return ListView(
-          padding: const EdgeInsets.all(20),
+        return RefreshIndicator(
+          onRefresh: () async {
+            setState(() => _loadDashboard());
+            await _dashboardFuture;
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(20),
           children: [
             // Welcome Member Banner
             Row(
@@ -332,13 +360,17 @@ class _AppShellState extends State<AppShell> {
                         ],
                       ),
                       onTap: () {
-                        setState(() => _currentIndex = 2);
+                        setState(() {
+                          _selectedTrackingRef = tx.trackingReference;
+                          _currentIndex = 2;
+                        });
                       },
                     ),
                   )),
           ],
-        );
-      },
+        ),
+      );
+    },
     );
   }
 
@@ -361,7 +393,7 @@ class _AppShellState extends State<AppShell> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Feature vertical unblocked for Gabo (Dev 7). Form models and API client ready.',
+                  'Transfer initiation form is prepared for integration. You can monitor transaction progress and verify saga milestones in the Timeline tab.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppTheme.textSecondary),
                 ),
@@ -378,119 +410,12 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  /// 3-Stage Customer Timeline View backed by T3 fixture
+  /// Interactive 4-Stage & 11-Stage Visual Stepper backed by fixture timelines
   Widget _buildTimelineView() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _apiClient.get('/mobile/transactions/TX-20261003-8F3A21C0/timeline'),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppTheme.navyPrimary));
-        }
-
-        final data = snapshot.data ?? {};
-        final timeline = TransactionTimelineResponse.fromJson(data);
-
-        return ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'TRACKING: ${timeline.trackingReference}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.infoBlue.withAlpha(25),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            timeline.overallStatus,
-                            style: const TextStyle(
-                              color: AppTheme.infoBlue,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 32),
-                    ...timeline.stages.map((stage) {
-                      final isLast = stage == timeline.stages.last;
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
-                            children: [
-                              CircleAvatar(
-                                radius: 14,
-                                backgroundColor: stage.isCompleted
-                                    ? AppTheme.successGreen
-                                    : (stage.isInProgress ? AppTheme.warningAmber : AppTheme.borderSubtle),
-                                child: Icon(
-                                  stage.isCompleted
-                                      ? Icons.check
-                                      : (stage.isInProgress ? Icons.hourglass_top : Icons.circle),
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              if (!isLast)
-                                Container(
-                                  width: 2,
-                                  height: 48,
-                                  color: stage.isCompleted ? AppTheme.successGreen : AppTheme.borderSubtle,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  stage.title,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: stage.isPending ? AppTheme.textMuted : AppTheme.textPrimary,
-                                  ),
-                                ),
-                                if (stage.subtitle != null) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    stage.subtitle!,
-                                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                                  ),
-                                ],
-                                const SizedBox(height: 24),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    return TrackingView(
+      trackingReference: _selectedTrackingRef ?? widget.trackingReference,
+      apiClient: _apiClient,
     );
   }
 }
+
