@@ -41,6 +41,9 @@ class EodPipelineImplTest {
     @Mock
     private BatchStepExecutor step2Executor;
 
+    @Mock
+    private com.group2.fse.batch_service.event.BatchEventPublisher batchEventPublisher;
+
     private EodPipelineImpl eodPipeline;
 
     private BatchRun sampleRun;
@@ -55,7 +58,8 @@ class EodPipelineImplTest {
         eodPipeline = new EodPipelineImpl(
                 batchRunRepository,
                 batchStepRepository,
-                List.of(step1Executor, step2Executor)
+                List.of(step1Executor, step2Executor),
+                batchEventPublisher
         );
 
         sampleRun = BatchRun.builder()
@@ -110,6 +114,7 @@ class EodPipelineImplTest {
         assertThat(sampleRun.getFinishedAt()).isNotNull();
 
         verify(batchRunRepository).saveAndFlush(sampleRun);
+        verify(batchEventPublisher, times(2)).publishStepCompleted(any());
     }
 
     @Test
