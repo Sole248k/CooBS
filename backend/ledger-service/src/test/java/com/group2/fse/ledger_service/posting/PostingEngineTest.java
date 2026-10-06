@@ -68,12 +68,14 @@ class PostingEngineTest {
                 .balanceId(1L)
                 .account(accountA)
                 .availableBalance(new BigDecimal("5000.0000"))
+                .ledgerBalance(new BigDecimal("5000.0000"))
                 .build();
 
         balanceB = Balance.builder()
                 .balanceId(2L)
                 .account(accountB)
                 .availableBalance(new BigDecimal("2000.0000"))
+                .ledgerBalance(new BigDecimal("2000.0000"))
                 .build();
     }
 
@@ -250,5 +252,144 @@ class PostingEngineTest {
                 eq(9002L), eq(10L), eq("REVERSAL"), eq(reversalAmount),
                 eq(new BigDecimal("5000.0000")), eq(new BigDecimal("5300.0000")), any(), any()
         );
+    }
+
+    // ---- ledger review L1 to L4: every posting moves both balances --------------------------
+
+    @Test
+    @DisplayName("applyDebit: lowers ledger balance together with available balance")
+    void testApplyDebit_MovesLedgerBalance() {
+        when(balanceRepository.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Balance updated = postingEngine.applyDebit(balanceA, new BigDecimal("1500.0000"));
+
+        assertThat(updated.getAvailableBalance()).isEqualByComparingTo("3500.0000");
+        assertThat(updated.getLedgerBalance()).isEqualByComparingTo("3500.0000");
+    }
+
+    @Test
+    @DisplayName("applyCredit: raises ledger balance together with available balance")
+    void testApplyCredit_MovesLedgerBalance() {
+        when(balanceRepository.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Balance updated = postingEngine.applyCredit(balanceA, new BigDecimal("1000.0000"));
+
+        assertThat(updated.getAvailableBalance()).isEqualByComparingTo("6000.0000");
+        assertThat(updated.getLedgerBalance()).isEqualByComparingTo("6000.0000");
+    }
+
+    @Test
+    @DisplayName("applyDebit: an open hold keeps its gap between ledger and available")
+    void testApplyDebit_KeepsOpenHoldGap() {
+        when(balanceRepository.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        balanceA.setAvailableBalance(new BigDecimal("4000.0000")); // 1000 on hold
+
+        Balance updated = postingEngine.applyDebit(balanceA, new BigDecimal("1500.0000"));
+
+        assertThat(updated.getAvailableBalance()).isEqualByComparingTo("2500.0000");
+        assertThat(updated.getLedgerBalance()).isEqualByComparingTo("3500.0000");
+    }
+
+    @Test
+    @DisplayName("postDebit and postCredit: move both balances")
+    void testPostDebitAndCredit_MoveBothBalances() {
+        when(balanceRepository.findByAccountId(10L)).thenReturn(Optional.of(balanceA));
+        when(balanceRepository.findByAccountId(20L)).thenReturn(Optional.of(balanceB));
+        when(balanceRepository.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PostingLegResult debit = postingEngine.postDebit(10L, new BigDecimal("500.00"), "D-1", 1L, "127.0.0.1", true);
+        PostingLegResult credit = postingEngine.postCredit(20L, new BigDecimal("500.00"), "C-1", 1L, "127.0.0.1", true);
+
+        assertThat(debit.getNewBalance()).isEqualByComparingTo("4500.0000");
+        assertThat(balanceA.getAvailableBalance()).isEqualByComparingTo("4500.0000");
+        assertThat(balanceA.getLedgerBalance()).isEqualByComparingTo("4500.0000");
+        assertThat(credit.getNewBalance()).isEqualByComparingTo("2500.0000");
+        assertThat(balanceB.getAvailableBalance()).isEqualByComparingTo("2500.0000");
+        assertThat(balanceB.getLedgerBalance()).isEqualByComparingTo("2500.0000");
+    }
+
+    @Test
+    @DisplayName("postTransfer: moves both balances on both legs")
+    void testPostTransfer_MovesBothBalancesOnBothLegs() {
+        when(balanceRepository.findByAccountId(10L)).thenReturn(Optional.of(balanceA));
+        when(balanceRepository.findByAccountId(20L)).thenReturn(Optional.of(balanceB));
+        when(balanceRepository.save(any(Balance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        postingEngine.postTransfer(10L, 20L, new BigDecimal("500.00"), "TRF-1", 1L, "127.0.0.1");
+
+        assertThat(balanceA.getAvailableBalance()).isEqualByComparingTo("4500.0000");
+        assertThat(balanceA.getLedgerBalance()).isEqualByComparingTo("4500.0000");
+        assertThat(balanceB.getAvailableBalance()).isEqualByComparingTo("2500.0000");
+        assertThat(balanceB.getLedgerBalance()).isEqualByComparingTo("2500.0000");
+    }
+
+    @Test
+    @DisplayName("post: applies each signed delta to its own balance and saves once")
+    void testPost_AppliesAvailableAndLedgerDeltasIndependently() {
+        // place hold: available only
+        postingEngine.post(balanceA, new BigDecimal("-500.00"), BigDecimal.ZERO);
+        assertThat(balanceA.getAvailableBalance()).isEqualTo(new BigDecimal("4500.0000"));
+        assertThat(balanceA.getLedgerBalance()).isEqualTo(new BigDecimal("5000.0000"));
+
+        // capture, source side: ledger only
+        postingEngine.post(balanceA, BigDecimal.ZERO, new BigDecimal("-500.00"));
+        assertThat(balanceA.getAvailableBalance()).isEqualTo(new BigDecimal("4500.0000"));
+        assertThat(balanceA.getLedgerBalance()).isEqualTo(new BigDecimal("4500.0000"));
+
+        // capture, destination side: both
+        Balance returned = postingEngine.post(balanceB, new BigDecimal("500.00"), new BigDecimal("500.00"));
+        assertThat(returned).isSameAs(balanceB);
+        assertThat(balanceB.getAvailableBalance()).isEqualTo(new BigDecimal("2500.0000"));
+        assertThat(balanceB.getLedgerBalance()).isEqualTo(new BigDecimal("2500.0000"));
+
+        verify(balanceRepository, times(2)).save(balanceA);
+        verify(balanceRepository, times(1)).save(balanceB);
+    }
+
+    @Test
+    @DisplayName("post: rejects a missing delta instead of guessing")
+    void testPost_NullDelta_Rejected() {
+        assertThatThrownBy(() -> postingEngine.post(balanceA, null, BigDecimal.ZERO))
+                .isInstanceOf(InvalidTransactionException.class);
+        assertThatThrownBy(() -> postingEngine.post(balanceA, BigDecimal.ZERO, null))
+                .isInstanceOf(InvalidTransactionException.class);
+
+        verify(balanceRepository, never()).save(any());
+    }
+
+    // ---- wrong-account fallback: account_id is never looked up as balance_id -----------------
+
+    @Test
+    @DisplayName("lockAccount: a missing balance row is AccountNotFoundException, never a balance_id lookup")
+    void testLockAccount_MissingBalanceRow_DoesNotFallBackToBalanceId() {
+        when(balanceRepository.findByAccountId(10L)).thenReturn(Optional.empty());
+        lenient().when(balanceRepository.findById(10L)).thenReturn(Optional.of(balanceB));
+
+        assertThatThrownBy(() -> postingEngine.lockAccount(10L))
+                .isInstanceOf(AccountNotFoundException.class);
+        assertThatThrownBy(() -> postingEngine.lockAccount(10L, false))
+                .isInstanceOf(AccountNotFoundException.class);
+
+        verify(balanceRepository, never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("lockAccountsInOrder: a missing balance row on either side is AccountNotFoundException")
+    void testLockAccountsInOrder_MissingBalanceRow_DoesNotFallBackToBalanceId() {
+        lenient().when(balanceRepository.findByAccountId(10L)).thenReturn(Optional.of(balanceA));
+        lenient().when(balanceRepository.findByAccountId(20L)).thenReturn(Optional.of(balanceB));
+        when(balanceRepository.findByAccountId(5L)).thenReturn(Optional.empty());
+        when(balanceRepository.findByAccountId(30L)).thenReturn(Optional.empty());
+        lenient().when(balanceRepository.findById(5L)).thenReturn(Optional.of(balanceB));
+        lenient().when(balanceRepository.findById(30L)).thenReturn(Optional.of(balanceB));
+
+        assertThatThrownBy(() -> postingEngine.lockAccountsInOrder(5L, 10L))
+                .isInstanceOf(AccountNotFoundException.class).hasMessageContaining("5");
+        assertThatThrownBy(() -> postingEngine.lockAccountsInOrder(10L, 30L))
+                .isInstanceOf(AccountNotFoundException.class).hasMessageContaining("30");
+
+        verify(balanceRepository, never()).findById(any());
     }
 }
