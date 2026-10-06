@@ -1,6 +1,7 @@
 package com.group2.fse.orchestration_service.saga;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.slf4j.MDC;
@@ -26,14 +27,21 @@ import lombok.extern.slf4j.Slf4j;
  * <pre>
  * STARTED --risk approves--> RISK_APPROVED --hold placed--> FUNDS_RESERVED --captured--> POSTED --events--> COMPLETED
  *    |                            |                              |
- *    +--declined/unavailable      +--hold refused/unreachable    +--capture refused--> COMPENSATING --released--> COMPENSATED
+ *    +--declined/unavailable      +--hold refused                +--capture refused--> COMPENSATING --released--> COMPENSATED
  *    v                            v
  *  FAILED                       FAILED
  * </pre>
+ *
+ * A ledger call that gets no answer never fails the saga, because the call may have taken
+ * effect. The saga stays where it is and {@link SagaRecoveryRunner} runs it again. Only a
+ * hold that is still unanswered after the retry window is given up: RISK_APPROVED goes to
+ * COMPENSATING with the hold the ledger finally reports, and ends FAILED once it is released.
  */
 @Slf4j
 @Service
 public class TransferSaga {
+
+    private static final String LEDGER_UNAVAILABLE = "LEDGER_UNAVAILABLE";
 
     private final SagaRepository sagas;
     private final CustomerClient customers;
@@ -42,13 +50,16 @@ public class TransferSaga {
     private final StageEvents events;
     private final int captureAttempts;
     private final Duration captureBackoff;
+    private final Duration holdRetryWindow;
     private final ObjectMapper objectMapper;
 
     public TransferSaga(SagaRepository sagas, CustomerClient customers, RiskClient risk, LedgerClient ledger,
             StageEvents events,
             @Value("${app.saga.capture-attempts}") int captureAttempts,
             @Value("${app.saga.capture-backoff}") Duration captureBackoff,
+            @Value("${app.saga.hold-retry-window:5m}") Duration holdRetryWindow,
             @org.springframework.beans.factory.annotation.Autowired(required = false) ObjectMapper objectMapper) {
+        this.holdRetryWindow = holdRetryWindow;
         this.sagas = sagas;
         this.customers = customers;
         this.risk = risk;
@@ -134,17 +145,39 @@ public class TransferSaga {
         }
     }
 
-    /** Stages 6 and 7. A refused hold is the ledger saying no, most often INSUFFICIENT_FUNDS. */
+    /**
+     * Stages 6 and 7. A refused hold is the ledger saying no, most often INSUFFICIENT_FUNDS.
+     * No answer is ambiguous: the hold may have been placed. The saga then stays at
+     * RISK_APPROVED and the sweep repeats the call with the same reference, for which the
+     * ledger returns the hold it already has.
+     *
+     * The repeats are bounded by time, because the row has nowhere to count them. Once the
+     * saga has waited at RISK_APPROVED for longer than the retry window the transfer is given
+     * up, but still not on a guess: the call is made once more to learn the hold, and only
+     * the hold the ledger answers with is released before the saga fails.
+     */
     private void reserveFunds(SagaInstance saga, StartTransferRequest t) {
+        boolean givenUp = saga.getUpdatedAt() != null
+                && saga.getUpdatedAt().isBefore(Instant.now().minus(holdRetryWindow));
         LedgerClient.Hold hold;
         try {
             hold = ledger.placeHold(new LedgerClient.HoldRequest(t.transactionId(), t.referenceNo(),
                     t.sourceAccountId(), t.amount(), t.currency(), t.actorId()));
         } catch (DownstreamException e) {
-            fail(saga, t, Stage.FUNDS_CHECK, e.refused() ? e.getErrorCode() : "LEDGER_UNAVAILABLE", null);
+            if (e.refused()) {
+                fail(saga, t, Stage.FUNDS_CHECK, e.getErrorCode(), null);
+                return;
+            }
+            log.error("Ledger did not answer the hold for transaction {}; saga left at RISK_APPROVED "
+                    + "for the sweep to repeat it: {}", t.transactionId(), e.getMessage());
             return;
         }
         saga.setHoldId(hold.holdId());
+        if (givenUp) {
+            saga.setFailureCode(LEDGER_UNAVAILABLE);
+            save(saga, SagaState.COMPENSATING);
+            return;
+        }
         save(saga, SagaState.FUNDS_RESERVED);
         events.passed(t.transactionId(), t.referenceNo(), Stage.FUNDS_CHECK, null);
         events.passed(t.transactionId(), t.referenceNo(), Stage.AUTHORIZED, null);
@@ -179,12 +212,23 @@ public class TransferSaga {
         events.passed(t.transactionId(), t.referenceNo(), Stage.POSTED, null);
     }
 
+    /**
+     * Undoes a hold. After a refused capture the saga ends COMPENSATED at stage 8. A hold that
+     * was given up before it was ever authorised ends FAILED at stage 6, where it stopped.
+     */
     private void releaseHold(SagaInstance saga, StartTransferRequest t) {
+        boolean neverAuthorized = LEDGER_UNAVAILABLE.equals(saga.getFailureCode());
         try {
-            ledger.release(t.transactionId(), saga.getHoldId(), "CAPTURE_FAILED");
+            ledger.release(t.transactionId(), saga.getHoldId(), neverAuthorized ? "HOLD_TIMEOUT" : "CAPTURE_FAILED");
         } catch (DownstreamException e) {
             log.error("Hold {} for transaction {} was not released; saga left at COMPENSATING: {}",
                     saga.getHoldId(), t.transactionId(), e.getMessage());
+            return;
+        }
+        if (neverAuthorized) {
+            save(saga, SagaState.FAILED);
+            events.failed(t.transactionId(), t.referenceNo(), Stage.FUNDS_CHECK, saga.getFailureCode(),
+                    "hold released");
             return;
         }
         save(saga, SagaState.COMPENSATED);
@@ -219,9 +263,10 @@ public class TransferSaga {
         events.failed(t.transactionId(), t.referenceNo(), stage, failureCode, detail);
     }
 
+    /** Saves the new state and copies the write time back, so the caller's copy shows when it last moved. */
     private void save(SagaInstance saga, SagaState state) {
         saga.setState(state);
-        sagas.saveAndFlush(saga);
+        saga.setUpdatedAt(sagas.saveAndFlush(saga).getUpdatedAt());
     }
 
     private boolean pause() {

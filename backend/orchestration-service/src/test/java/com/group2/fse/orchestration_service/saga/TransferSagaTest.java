@@ -253,14 +253,82 @@ class TransferSagaTest {
     }
 
     @Test
-    void ledgerUnreachableBeforeTheHold_failsWithNothingToUndo() {
+    void ledgerErrorOnTheHold_isNotMarkedFailedBecauseTheHoldMayExist() {
         STUBS.put(HOLD, new Stub(503, "{}", 0));
         StartTransferRequest t = transfer();
 
         saga.run(t, "corr");
 
-        assertFailed(t, "LEDGER_UNAVAILABLE");
+        assertThat(row(t).getState()).isEqualTo(SagaState.RISK_APPROVED);
+        assertThat(row(t).getFailureCode()).isNull();
         assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD);
+        assertThat(stages()).endsWith("5 LIMIT_CHECK PASSED PROCESSING");
+    }
+
+    @Test
+    void holdTimesOut_isNotMarkedFailedAndTheNextRunRepeatsTheSameHold() {
+        // Slower than the 2 s ledger client timeout: the ledger may well have placed the hold.
+        STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 2500));
+        StartTransferRequest t = transfer();
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.RISK_APPROVED);
+        assertThat(row(t).getFailureCode()).isNull();
+        assertThat(stages()).noneMatch(stage -> stage.contains("FAILED"));
+
+        STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 0));
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        Call hold = new Call(HOLD, t.transactionId() + ":hold", null, null);
+        assertThat(ledgerCalls()).containsExactly(hold, hold,
+                new Call(CAPTURE, t.transactionId() + ":capture", null, null));
+    }
+
+    @Test
+    void holdStillUnansweredAfterTheRetryWindow_releasesTheHoldTheLedgerReturnsAndFails() {
+        StartTransferRequest t = riskApproved(Duration.ofMinutes(10));
+
+        saga.run(t, "corr");
+
+        SagaInstance row = row(t);
+        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row.getFailureCode()).isEqualTo("LEDGER_UNAVAILABLE");
+        assertThat(row.getHoldId()).isEqualTo(9001L);
+        assertThat(ledgerCalls()).containsExactly(
+                new Call(HOLD, t.transactionId() + ":hold", null, null),
+                new Call(RELEASE, t.transactionId() + ":release", null, null));
+        assertThat(stages()).containsExactly("6 FUNDS_CHECK FAILED FAILED");
+    }
+
+    @Test
+    void holdStillUnansweredAfterTheRetryWindow_staysInFlightWhileTheLedgerIsSilent() {
+        STUBS.put(HOLD, new Stub(503, "{}", 0));
+        StartTransferRequest t = riskApproved(Duration.ofMinutes(10));
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.RISK_APPROVED);
+        assertThat(row(t).getFailureCode()).isNull();
+        assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD);
+    }
+
+    @Test
+    void holdPlacedAfterTheRetryWindow_releaseUnanswered_staysCompensatingAndTheNextRunReleases() {
+        STUBS.put(RELEASE, new Stub(503, "{}", 0));
+        StartTransferRequest t = riskApproved(Duration.ofMinutes(10));
+        saga.run(t, "corr");
+        assertThat(row(t).getState()).isEqualTo(SagaState.COMPENSATING);
+        assertThat(row(t).getHoldId()).isEqualTo(9001L);
+        CALLS.clear();
+        STUBS.put(RELEASE, ok("L5-release-hold.response.json"));
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row(t).getFailureCode()).isEqualTo("LEDGER_UNAVAILABLE");
+        assertThat(CALLS).extracting(Call::path).containsExactly(RELEASE);
     }
 
     @Test
@@ -560,6 +628,16 @@ class TransferSagaTest {
             invocation.<Runnable>getArgument(0).run();
             return null;
         }).when(applicationTaskExecutor).execute(any(Runnable.class));
+    }
+
+    /** A transfer whose saga has been waiting at RISK_APPROVED for this long. */
+    private StartTransferRequest riskApproved(Duration waiting) {
+        StartTransferRequest t = transfer();
+        SagaInstance row = sagas.findOrCreate(t.transactionId(), t.referenceNo(), jsonMapper.writeValueAsString(t));
+        row.setState(SagaState.RISK_APPROVED);
+        sagas.saveAndFlush(row);
+        lastWritten(t, waiting);
+        return t;
     }
 
     /** Ages a saga row. A save cannot do it, because every save stamps updated_at with the current time. */
