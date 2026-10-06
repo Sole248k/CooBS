@@ -1,8 +1,4 @@
 {
-  "mfaRequired": false,
-  "mfaToken": null,
-  "deliveryChannel": null,
-  "maskedDestination": null,
   "authData": {
     "accessToken": "<jwt>",
     "refreshToken": "<opaque>",
