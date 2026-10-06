@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,6 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 public class TransferSaga {
 
     private static final String LEDGER_UNAVAILABLE = "LEDGER_UNAVAILABLE";
+    /** How often one run reloads the row after losing a race for it before leaving it to the sweep. */
+    private static final int MAX_CONFLICTS = 3;
 
     private final SagaRepository sagas;
     private final CustomerClient customers;
@@ -91,23 +94,63 @@ public class TransferSaga {
                 }
             }
             if (dirty) {
-                sagas.saveAndFlush(saga);
+                sagas.store(saga);
             }
-            if (saga.getState() == SagaState.STARTED) {
-                checkRisk(saga, transfer);
-            }
-            if (saga.getState() == SagaState.RISK_APPROVED) {
-                reserveFunds(saga, transfer);
-            }
-            if (saga.getState() == SagaState.FUNDS_RESERVED) {
-                capture(saga, transfer);
-            }
-            if (saga.getState() == SagaState.COMPENSATING) {
-                releaseHold(saga, transfer);
-            }
+            advance(saga, transfer);
+        } catch (OptimisticLockingFailureException conflict) {
+            log.error("Saga row for transaction {} kept changing under this run; left for the sweep",
+                    transfer.transactionId());
         } finally {
             MDC.remove(InternalApi.CORRELATION_MDC_KEY);
         }
+    }
+
+    /**
+     * Takes the saga as far as it will go. A step whose save is rejected lost a race for the
+     * row, most often to a reversal. The row is read again and the next step is decided from
+     * what is saved there, so the other writer's state is never overwritten.
+     */
+    private void advance(SagaInstance saga, StartTransferRequest transfer) {
+        for (int conflicts = 0;; conflicts++) {
+            try {
+                if (conflicts > 0) {
+                    saga = reload(saga);
+                }
+                if (saga.getState() == SagaState.STARTED) {
+                    checkRisk(saga, transfer);
+                }
+                if (saga.getState() == SagaState.RISK_APPROVED) {
+                    reserveFunds(saga, transfer);
+                }
+                if (saga.getState() == SagaState.FUNDS_RESERVED) {
+                    capture(saga, transfer);
+                }
+                if (saga.getState() == SagaState.COMPENSATING) {
+                    releaseHold(saga, transfer);
+                }
+                return;
+            } catch (OptimisticLockingFailureException conflict) {
+                if (conflicts >= MAX_CONFLICTS) {
+                    throw conflict;
+                }
+                log.warn("Saga row for transaction {} was changed by someone else; deciding again from the saved row",
+                        transfer.transactionId());
+            }
+        }
+    }
+
+    /**
+     * The saved row, after a rejected save. One thing must not be lost with the stale copy:
+     * a hold this run had just been given by the ledger when a reversal cancelled the
+     * transfer. The cancelled row knows nothing of it, so it is recorded there and released.
+     */
+    private SagaInstance reload(SagaInstance stale) {
+        SagaInstance saved = sagas.findByTransactionId(stale.getTransactionId()).orElseThrow();
+        if (stale.getHoldId() != null && saved.getHoldId() == null && saved.getState() == SagaState.FAILED) {
+            saved.setHoldId(stale.getHoldId());
+            save(saved, SagaState.COMPENSATING);
+        }
+        return saved;
     }
 
     /** Stages 4 and 5. Fails closed: anything other than a clear APPROVE ends the saga before any hold. */
@@ -214,12 +257,14 @@ public class TransferSaga {
 
     /**
      * Undoes a hold. After a refused capture the saga ends COMPENSATED at stage 8. A hold that
-     * was given up before it was ever authorised ends FAILED at stage 6, where it stopped.
+     * was given up or cancelled before it was ever authorised ends FAILED at stage 6, where
+     * it stopped.
      */
     private void releaseHold(SagaInstance saga, StartTransferRequest t) {
-        boolean neverAuthorized = LEDGER_UNAVAILABLE.equals(saga.getFailureCode());
+        boolean neverAuthorized = LEDGER_UNAVAILABLE.equals(saga.getFailureCode())
+                || ReversalSaga.CANCELLED_BEFORE_HOLD.equals(saga.getFailureCode());
         try {
-            ledger.release(t.transactionId(), saga.getHoldId(), neverAuthorized ? "HOLD_TIMEOUT" : "CAPTURE_FAILED");
+            ledger.release(t.transactionId(), saga.getHoldId(), neverAuthorized ? "HOLD_ABANDONED" : "CAPTURE_FAILED");
         } catch (DownstreamException e) {
             log.error("Hold {} for transaction {} was not released; saga left at COMPENSATING: {}",
                     saga.getHoldId(), t.transactionId(), e.getMessage());
@@ -263,10 +308,9 @@ public class TransferSaga {
         events.failed(t.transactionId(), t.referenceNo(), stage, failureCode, detail);
     }
 
-    /** Saves the new state and copies the write time back, so the caller's copy shows when it last moved. */
     private void save(SagaInstance saga, SagaState state) {
         saga.setState(state);
-        saga.setUpdatedAt(sagas.saveAndFlush(saga).getUpdatedAt());
+        sagas.store(saga);
     }
 
     private boolean pause() {

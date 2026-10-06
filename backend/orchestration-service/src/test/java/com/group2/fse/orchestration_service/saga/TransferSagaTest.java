@@ -1,6 +1,7 @@
 package com.group2.fse.orchestration_service.saga;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeast;
@@ -38,6 +39,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -81,6 +83,8 @@ class TransferSagaTest {
 
     private static final Map<String, Stub> STUBS = new ConcurrentHashMap<>();
     private static final List<Call> CALLS = new CopyOnWriteArrayList<>();
+    /** Run once, while the stub is answering that path: what another thread does in the meantime. */
+    private static final Map<String, Runnable> MEANWHILE = new ConcurrentHashMap<>();
     private static final HttpServer SERVER = startServer();
 
     @Autowired
@@ -124,6 +128,7 @@ class TransferSagaTest {
         reset(kafkaTemplate);
         CALLS.clear();
         STUBS.clear();
+        MEANWHILE.clear();
         STUBS.put("/internal/v1/customers/1/risk-profile", ok("C7-risk-profile.response.json"));
         STUBS.put(RISK, ok("R1-risk-evaluate.response.json"));
         STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 0));
@@ -583,6 +588,43 @@ class TransferSagaTest {
     }
 
     @Test
+    void reversalCancelsWhileTheHoldIsBeingPlaced_theTransferDoesNotOverwriteItAndNeverPosts() {
+        StartTransferRequest t = transfer();
+        StartReversalRequest r = new StartReversalRequest(
+                UUID.randomUUID(), t.transactionId(), "RV-RACE-001", "Customer cancelled", 3L);
+        // The reversal finds the transfer at RISK_APPROVED and cancels it while the transfer's
+        // own thread is still waiting for the ledger to answer the hold.
+        MEANWHILE.put(HOLD, () -> reversalSaga.run(r, "corr-rev"));
+
+        saga.run(t, "corr");
+
+        assertThat(sagas.findByTransactionId(r.transactionId()).orElseThrow().getState())
+                .isEqualTo(SagaState.COMPLETED);
+        SagaInstance row = row(t);
+        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row.getFailureCode()).isEqualTo("CANCELLED_BEFORE_HOLD");
+        // The hold the ledger placed for the cancelled transfer is given back, never captured.
+        assertThat(ledgerCalls()).containsExactly(
+                new Call(HOLD, t.transactionId() + ":hold", null, null),
+                new Call(RELEASE, t.transactionId() + ":release", null, null));
+    }
+
+    @Test
+    void sagaRowSavedFromAStaleCopy_isRejected() {
+        UUID id = UUID.randomUUID();
+        sagas.findOrCreate(id);
+        SagaInstance mine = sagas.findByTransactionId(id).orElseThrow();
+        SagaInstance theirs = sagas.findByTransactionId(id).orElseThrow();
+        theirs.setState(SagaState.FAILED);
+        sagas.saveAndFlush(theirs);
+
+        mine.setState(SagaState.RISK_APPROVED);
+
+        assertThatThrownBy(() -> sagas.saveAndFlush(mine)).isInstanceOf(OptimisticLockingFailureException.class);
+        assertThat(sagas.findByTransactionId(id).orElseThrow().getState()).isEqualTo(SagaState.FAILED);
+    }
+
+    @Test
     void reversalOfUnknownTransfer_failsWithTransactionNotFound() {
         UUID revId = UUID.randomUUID();
         StartReversalRequest revReq = new StartReversalRequest(
@@ -697,6 +739,10 @@ class TransferSagaTest {
                 CALLS.add(new Call(path, exchange.getRequestHeaders().getFirst("Idempotency-Key"),
                         exchange.getRequestHeaders().getFirst("Authorization"),
                         exchange.getRequestHeaders().getFirst("X-Correlation-ID")));
+                Runnable meanwhile = MEANWHILE.remove(path);
+                if (meanwhile != null) {
+                    meanwhile.run();
+                }
                 Stub stub = STUBS.getOrDefault(path, new Stub(404, "{}", 0));
                 try {
                     Thread.sleep(stub.delayMs());

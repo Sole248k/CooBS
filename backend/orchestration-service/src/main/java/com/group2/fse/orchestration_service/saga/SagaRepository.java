@@ -19,6 +19,20 @@ public interface SagaRepository extends JpaRepository<SagaInstance, UUID> {
 
     List<SagaInstance> findByStateInAndUpdatedAtBefore(Collection<SagaState> states, Instant cutoff);
 
+    /**
+     * Saves a copy that was read earlier and brings its version up to date, so that the same
+     * copy can be saved again by the step after this one.
+     *
+     * @throws org.springframework.dao.OptimisticLockingFailureException when the row was
+     *         written by someone else after this copy was read. The caller reloads the row
+     *         and decides again from what is saved; it never retries the same write.
+     */
+    default void store(SagaInstance saga) {
+        SagaInstance saved = saveAndFlush(saga);
+        saga.setVersion(saved.getVersion());
+        saga.setUpdatedAt(saved.getUpdatedAt());
+    }
+
     /** A repeated start for the same transaction returns the existing saga instead of a second one. */
     default SagaInstance findOrCreate(UUID transactionId) {
         return findOrCreate(transactionId, null, null);

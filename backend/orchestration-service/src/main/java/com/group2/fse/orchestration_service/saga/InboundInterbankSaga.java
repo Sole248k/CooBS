@@ -45,7 +45,7 @@ public class InboundInterbankSaga {
             String failureCode = post(r);
             saga.setFailureCode(failureCode);
             saga.setState(failureCode == null ? SagaState.COMPLETED : SagaState.FAILED);
-            sagas.saveAndFlush(saga);
+            sagas.store(saga);
 
             for (Stage stage : Stage.values()) {
                 if (stage.no() < Stage.POSTED.no()) {
