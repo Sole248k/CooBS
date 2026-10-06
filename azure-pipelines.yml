@@ -244,6 +244,11 @@ stages:
               [ "$FIRST" = "OK" ] && [ -z "$RETRY" ] || { echo "FAIL: SETNX lock (first=$FIRST retry=$RETRY)"; exit 1; }
               echo "PASS: Redis SETNX lock."
             displayName: Redis SETNX idempotency lock
+
+          - script: |
+              chmod +x scripts/test_redis_velocity.sh
+              ./scripts/test_redis_velocity.sh
+            displayName: Verify Redis velocity keys and TTL lifecycle (FIN-803)
           - script: |
               set -e
               echo '{"eventId":"ci-101","accountId":"ACC_1001","status":"COMPLETED"}' | docker exec -i kafka-broker \
@@ -367,12 +372,16 @@ stages:
           - ${{ each svc in parameters.services }}:
               - script: |
                   set -e
+                  export DOCKER_BUILDKIT=1
                   docker build \
+                    --build-arg BUILDKIT_INLINE_CACHE=1 \
+                    --cache-from ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:latest \
                     -t ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:$(imageTag) \
+                    -t ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:latest \
                     --label org.opencontainers.image.revision=$(Build.SourceVersion) \
                     --label org.opencontainers.image.version=$(imageTag) \
                     backend/${{ svc.name }}
-                displayName: Build image ${{ svc.name }}
+                displayName: Build image ${{ svc.name }} (BuildKit cached)
 
   # ============================================================================
   # 5. PUBLISH - push images. Emitted only when publishImages is true.
