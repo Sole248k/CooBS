@@ -444,6 +444,7 @@ services:
   # ============================================================================
   postgres-cloud-db:
     profiles:
+      - app
       - expansion
     image: postgres:16-alpine
     container_name: postgres-cloud-db

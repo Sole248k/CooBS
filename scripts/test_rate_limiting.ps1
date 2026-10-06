@@ -1,6 +1,7 @@
 # ==============================================================================
 # CooBS - Day 4 Edge Rate Limiting & Perimeter Security Verification Script
 # Validates Redis Token-Bucket (HTTP 429), Rate Limit Headers, and Perimeter Rejection (HTTP 403)
+# Compatible with both Windows PowerShell 5.1 and PowerShell Core 7
 # ==============================================================================
 
 param(
@@ -26,6 +27,47 @@ function Record-Result([string]$testName, [bool]$passed, [string]$details) {
     Write-Host "[$($result.Status)] $testName - $details" -ForegroundColor $color
 }
 
+# Cross-version HTTP invoker (handles 4xx/5xx across PowerShell 5.1 and Core 7)
+function Invoke-HttpCall {
+    param(
+        [string]$Uri,
+        [string]$Method = "GET",
+        [hashtable]$Headers = @{},
+        [string]$Body = $null,
+        [string]$ContentType = "application/json"
+    )
+
+    $params = @{
+        Uri             = $Uri
+        Method          = $Method
+        Headers         = $Headers
+        TimeoutSec      = 5
+        UseBasicParsing = $true
+    }
+    if ($Body) {
+        $params["Body"] = $Body
+        $params["ContentType"] = $ContentType
+    }
+
+    try {
+        $res = Invoke-WebRequest @params
+        return [PSCustomObject]@{
+            StatusCode = [int]$res.StatusCode
+            Headers    = $res.Headers
+            Content    = $res.Content
+        }
+    } catch {
+        if ($_.Exception.Response) {
+            return [PSCustomObject]@{
+                StatusCode = [int]$_.Exception.Response.StatusCode.value__
+                Headers    = $_.Exception.Response.Headers
+                Content    = ""
+            }
+        }
+        throw $_
+    }
+}
+
 # ------------------------------------------------------------------------------
 # Test 1: Perimeter Rejection Filter (/internal/** -> HTTP 403 Forbidden)
 # ------------------------------------------------------------------------------
@@ -33,18 +75,14 @@ Write-Host "`n--> Tier 1: Testing Internal Perimeter Rejection..." -ForegroundCo
 $correlationId = [guid]::NewGuid().ToString()
 
 try {
-    $response = Invoke-WebRequest -Uri "$GatewayUrl/internal/v1/risk/evaluate" `
-        -Method GET `
-        -Headers @{ "X-Correlation-ID" = $correlationId } `
-        -SkipHttpErrorCheck -TimeoutSec 5
+    $res = Invoke-HttpCall -Uri "$GatewayUrl/internal/v1/risk/evaluate" `
+        -Method "GET" `
+        -Headers @{ "X-Correlation-ID" = $correlationId }
 
-    $statusCode = $response.StatusCode
-    $body = $response.Content | ConvertFrom-Json -ErrorAction SilentlyContinue
-
-    if ($statusCode -eq 403) {
+    if ($res.StatusCode -eq 403) {
         Record-Result "Perimeter Rejection (/internal/v1/risk/**)" $true "HTTP 403 Forbidden received as expected"
     } else {
-        Record-Result "Perimeter Rejection (/internal/v1/risk/**)" $false "Expected HTTP 403 but got $statusCode"
+        Record-Result "Perimeter Rejection (/internal/v1/risk/**)" $false "Expected HTTP 403 but got $($res.StatusCode)"
     }
 } catch {
     Record-Result "Perimeter Rejection (/internal/v1/risk/**)" $false "Request failed with error: $($_.Exception.Message)"
@@ -60,22 +98,19 @@ $authPayload = @{
 } | ConvertTo-Json
 
 try {
-    $response = Invoke-WebRequest -Uri "$GatewayUrl/api/v1/auth/customers/login" `
-        -Method POST `
-        -Body $authPayload `
-        -ContentType "application/json" `
-        -SkipHttpErrorCheck -TimeoutSec 5
+    $res = Invoke-HttpCall -Uri "$GatewayUrl/api/v1/auth/customers/login" `
+        -Method "POST" `
+        -Body $authPayload
 
-    $headers = $response.Headers
-    $hasBurst = $headers.ContainsKey("X-RateLimit-Burst-Capacity") -or $headers.ContainsKey("x-ratelimit-burst-capacity")
-    $hasReplenish = $headers.ContainsKey("X-RateLimit-Replenish-Rate") -or $headers.ContainsKey("x-ratelimit-replenish-rate")
-    $hasRemaining = $headers.ContainsKey("X-RateLimit-Remaining") -or $headers.ContainsKey("x-ratelimit-remaining")
+    $headers = $res.Headers
+    $burst = $headers["X-RateLimit-Burst-Capacity"]
+    $replenish = $headers["X-RateLimit-Replenish-Rate"]
+    $remaining = $headers["X-RateLimit-Remaining"]
 
-    if ($hasBurst -or $hasReplenish -or $hasRemaining) {
-        Record-Result "Rate Limit Headers Presence" $true "Headers present: Burst=$($headers['X-RateLimit-Burst-Capacity']), Replenish=$($headers['X-RateLimit-Replenish-Rate']), Remaining=$($headers['X-RateLimit-Remaining'])"
+    if ($burst -or $replenish -or $remaining) {
+        Record-Result "Rate Limit Headers Presence" $true "Headers present: Burst=$burst, Replenish=$replenish, Remaining=$remaining"
     } else {
-        # Note: In-memory or when Redis rate limiter is active
-        Record-Result "Rate Limit Headers Presence" $true "Request handled through Gateway route (status: $($response.StatusCode))"
+        Record-Result "Rate Limit Headers Presence" $true "Request handled through Gateway route (status: $($res.StatusCode))"
     }
 } catch {
     Record-Result "Rate Limit Headers Presence" $false "Request failed: $($_.Exception.Message)"
@@ -88,28 +123,20 @@ Write-Host "`n--> Tier 3: Burst Testing Auth Endpoint (30 rapid requests to trig
 
 $totalBurstRequests = 30
 $hit429 = $false
-$lastRemaining = -1
 
 for ($i = 1; $i -le $totalBurstRequests; $i++) {
     try {
-        $resp = Invoke-WebRequest -Uri "$GatewayUrl/api/v1/auth/customers/login" `
-            -Method POST `
-            -Body $authPayload `
-            -ContentType "application/json" `
-            -SkipHttpErrorCheck -TimeoutSec 3
+        $res = Invoke-HttpCall -Uri "$GatewayUrl/api/v1/auth/customers/login" `
+            -Method "POST" `
+            -Body $authPayload
 
-        if ($resp.StatusCode -eq 429) {
+        if ($res.StatusCode -eq 429) {
             $hit429 = $true
-            Write-Host "  Request #$i: HTTP 429 Too Many Requests (Rate limit enforced!)" -ForegroundColor Magenta
+            Write-Host "  Request #${i}: HTTP 429 Too Many Requests (Rate limit enforced!)" -ForegroundColor Magenta
             break
         }
     } catch {
-        # If web request fails on 429 in older PS
-        if ($_.Exception.Response.StatusCode.value__ -eq 429) {
-            $hit429 = $true
-            Write-Host "  Request #$i: HTTP 429 Too Many Requests" -ForegroundColor Magenta
-            break
-        }
+        # Catch connection issues during rapid burst
     }
 }
 
@@ -125,22 +152,21 @@ if ($hit429) {
 Write-Host "`n--> Tier 4: Testing Gateway CORS Preflight Headers..." -ForegroundColor Yellow
 
 try {
-    $corsResponse = Invoke-WebRequest -Uri "$GatewayUrl/api/v1/accounts" `
-        -Method OPTIONS `
+    $res = Invoke-HttpCall -Uri "$GatewayUrl/api/v1/accounts" `
+        -Method "OPTIONS" `
         -Headers @{
             "Origin"                         = "http://localhost:3000"
             "Access-Control-Request-Method"  = "POST"
             "Access-Control-Request-Headers" = "Content-Type, Authorization, Idempotency-Key"
-        } `
-        -SkipHttpErrorCheck -TimeoutSec 5
+        }
 
-    $corsOrigin = $corsResponse.Headers["Access-Control-Allow-Origin"]
-    $corsMethods = $corsResponse.Headers["Access-Control-Allow-Methods"]
+    $corsOrigin = $res.Headers["Access-Control-Allow-Origin"]
+    $corsMethods = $res.Headers["Access-Control-Allow-Methods"]
 
-    if ($corsResponse.StatusCode -eq 200 -and $corsOrigin -eq "http://localhost:3000") {
+    if ($res.StatusCode -eq 200 -and $corsOrigin -eq "http://localhost:3000") {
         Record-Result "Gateway CORS Preflight" $true "Origin '$corsOrigin' allowed with methods: $corsMethods"
     } else {
-        Record-Result "Gateway CORS Preflight" $false "Status: $($corsResponse.StatusCode), Origin: $corsOrigin"
+        Record-Result "Gateway CORS Preflight" $false "Status: $($res.StatusCode), Origin: $corsOrigin"
     }
 } catch {
     Record-Result "Gateway CORS Preflight" $false "CORS preflight request failed: $($_.Exception.Message)"
