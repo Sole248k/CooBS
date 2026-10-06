@@ -191,6 +191,11 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Redis Velocity Keys & Counter Lifecycle (FIN-803)
+        run: |
+          chmod +x scripts/test_redis_velocity.sh
+          ./scripts/test_redis_velocity.sh
+
       - name: Test Kafka Produce & Consume Round-trip
         run: |
           TEST_PAYLOAD='{"eventId":"ci-101","accountId":"ACC_1001","amount":500.0000,"status":"COMPLETED"}'
