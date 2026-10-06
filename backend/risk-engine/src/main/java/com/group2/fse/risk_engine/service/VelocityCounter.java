@@ -20,6 +20,7 @@ public class VelocityCounter {
     private static final String VELOCITY_PREFIX = "risk:velocity:";
     private static final String DAILY_AMOUNT_PREFIX = "risk:daily:amount:";
     private static final String DAILY_COUNT_PREFIX = "risk:daily:count:";
+    private static final String DAILY_REVERSALS_PREFIX = "risk:daily:reversals:";
     private static final Duration VELOCITY_WINDOW_TTL = Duration.ofMinutes(10);
     private static final Duration DAILY_METRIC_TTL = Duration.ofHours(24);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -40,11 +41,12 @@ public class VelocityCounter {
     public static class VelocityState {
         private final int velocity10Min;
         private final BigDecimal usedToday;
+        private final int reversalsToday;
         private final boolean redisAvailable;
     }
 
     /**
-     * Reads current velocity and daily accumulated amount for a customer.
+     * Reads current velocity, daily accumulated amount, and daily reversal count for a customer.
      * Safely handles Redis outages by falling back and setting redisAvailable = false.
      */
     public VelocityState getVelocityState(Long customerId) {
@@ -53,6 +55,7 @@ public class VelocityCounter {
             return VelocityState.builder()
                     .velocity10Min(0)
                     .usedToday(BigDecimal.ZERO)
+                    .reversalsToday(0)
                     .redisAvailable(false)
                     .build();
         }
@@ -67,9 +70,14 @@ public class VelocityCounter {
             String dailyAmountVal = redisTemplate.opsForValue().get(dailyAmountKey);
             BigDecimal usedToday = dailyAmountVal != null ? new BigDecimal(dailyAmountVal) : BigDecimal.ZERO;
 
+            String dailyReversalsKey = DAILY_REVERSALS_PREFIX + customerId + ":" + todayStr;
+            String dailyReversalsVal = redisTemplate.opsForValue().get(dailyReversalsKey);
+            int reversalsToday = dailyReversalsVal != null ? Integer.parseInt(dailyReversalsVal) : 0;
+
             return VelocityState.builder()
                     .velocity10Min(velocityCount)
                     .usedToday(usedToday)
+                    .reversalsToday(reversalsToday)
                     .redisAvailable(true)
                     .build();
         } catch (Exception ex) {
@@ -77,6 +85,7 @@ public class VelocityCounter {
             return VelocityState.builder()
                     .velocity10Min(0)
                     .usedToday(BigDecimal.ZERO)
+                    .reversalsToday(0)
                     .redisAvailable(false)
                     .build();
         }
@@ -116,6 +125,27 @@ public class VelocityCounter {
                     customerId, currentCount, newDaily);
         } catch (Exception ex) {
             log.error("Failed to update Redis velocity for customerId {}: {}", customerId, ex.getMessage());
+        }
+    }
+
+    /**
+     * Records a committed reversal in Redis: increments daily reversal counter.
+     */
+    public void recordReversal(Long customerId) {
+        if (redisTemplate == null || customerId == null) {
+            return;
+        }
+
+        try {
+            String todayStr = LocalDate.now().format(DATE_FORMATTER);
+            String dailyReversalsKey = DAILY_REVERSALS_PREFIX + customerId + ":" + todayStr;
+            Long currentCount = redisTemplate.opsForValue().increment(dailyReversalsKey);
+            if (currentCount != null && currentCount == 1) {
+                redisTemplate.expire(dailyReversalsKey, DAILY_METRIC_TTL);
+            }
+            log.debug("Incremented daily reversals in Redis for customerId {}: count={}", customerId, currentCount);
+        } catch (Exception ex) {
+            log.error("Failed to record reversal in Redis for customerId {}: {}", customerId, ex.getMessage());
         }
     }
 }

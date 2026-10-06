@@ -37,13 +37,15 @@ public class RiskEvaluator {
     public static final String REASON_VELOCITY_ELEVATED = "VELOCITY_ELEVATED_10MIN";
     public static final String REASON_REDIS_UNAVAILABLE = "REDIS_UNAVAILABLE";
     public static final String REASON_NEW_BENEFICIARY = "NEW_BENEFICIARY_FLAG";
+    public static final String REASON_EXCESSIVE_DAILY_REVERSALS = "RULE_EXCESSIVE_DAILY_REVERSALS";
+    public static final String REASON_AMLA_THRESHOLD = "RULE_AMLA_MANDATORY_THRESHOLD";
 
     private final LimitPolicy limitPolicy;
     private final VelocityCounter velocityCounter;
 
     /**
      * Evaluates transaction risk according to the frozen contracts-v1 scoring model:
-     * S = (0.35 * S_amount) + (0.35 * S_velocity) + (0.30 * S_tier) + S_beneficiary_boost
+     * S = (0.35 * S_amount) + (0.35 * S_velocity) + (0.30 * S_tier) + S_beneficiary_boost + S_reversal_penalty
      */
     public RiskEvaluationResponse evaluate(RiskEvaluationRequest request) {
         long startTime = System.currentTimeMillis();
@@ -80,6 +82,10 @@ public class RiskEvaluator {
         if (dailyLimit.compareTo(BigDecimal.ZERO) > 0) {
             sAmount = Math.min(1.0, request.getAmount().divide(dailyLimit, 4, RoundingMode.HALF_UP).doubleValue());
         }
+        if (request.getAmount() != null && request.getAmount().compareTo(new BigDecimal("500000.00")) >= 0) {
+            sAmount = 1.00;
+            reasons.add(REASON_AMLA_THRESHOLD);
+        }
 
         // 3.2 S_velocity: 0 transfers=0.00, 1=0.25, 2=0.50, 3=0.75, >=4=1.00
         double sVelocity;
@@ -109,8 +115,18 @@ public class RiskEvaluator {
             reasons.add(REASON_NEW_BENEFICIARY);
         }
 
+        // 3.5 S_reversal_penalty: +0.25 penalty if reversalsToday >= 2
+        int reversalsToday = request.getReversalsToday() != null
+                ? request.getReversalsToday()
+                : velocityState.getReversalsToday();
+
+        double sReversal = (reversalsToday >= 2) ? 0.25 : 0.00;
+        if (sReversal > 0) {
+            reasons.add(REASON_EXCESSIVE_DAILY_REVERSALS);
+        }
+
         // Composite calculation
-        double compositeScore = (0.35 * sAmount) + (0.35 * sVelocity) + (0.30 * sTier) + sBeneficiary;
+        double compositeScore = (0.35 * sAmount) + (0.35 * sVelocity) + (0.30 * sTier) + sBeneficiary + sReversal;
         compositeScore = Math.min(1.00, Math.max(0.00, compositeScore));
 
         // Format score to 2 decimal places
@@ -129,9 +145,13 @@ public class RiskEvaluator {
             decision = DECISION_APPROVE;
             fraudOutcome = OUTCOME_PASSED;
             boolean redisDown = reasons.contains(REASON_REDIS_UNAVAILABLE);
+            boolean amlaFlag = reasons.contains(REASON_AMLA_THRESHOLD);
             reasons.clear();
             if (redisDown) {
                 reasons.add(REASON_REDIS_UNAVAILABLE);
+            }
+            if (amlaFlag) {
+                reasons.add(REASON_AMLA_THRESHOLD);
             }
         } else if (compositeScore <= 0.85) {
             // Elevated risk band (0.60 - 0.85) -> DECLINE with REVIEW_REQUIRED
@@ -172,11 +192,13 @@ public class RiskEvaluator {
                 .transactionId(request.getTransactionId())
                 .decision(decision)
                 .score(formattedScore)
+                .riskScore(compositeScore)
                 .fraudCheck(fraudCheck)
                 .limitCheck(limitCheck)
                 .reasons(reasons)
                 .evaluatedAt(Instant.now())
                 .evaluatedInMs(Math.max(1, durationMs))
+                .executionDurationMs(Math.max(1, durationMs))
                 .build();
     }
 

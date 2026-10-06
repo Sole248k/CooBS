@@ -46,6 +46,7 @@ public class TransferServiceImpl implements TransferService {
     private final ObjectMapper objectMapper;
     private final TxnTransactionRepository transactionRepository;
     private final TxnStageEventRepository stageEventRepository;
+    private final com.group2.fse.transaction_service.client.OrchestrationClient orchestrationClient;
 
     @Override
     public TransferInitiateResponseDto initiateTransfer(TransferRequestDto request, String idempotencyKey) {
@@ -112,6 +113,9 @@ public class TransferServiceImpl implements TransferService {
                     .build();
             stageEventRepository.saveAll(List.of(stage1, stage2, stage3));
 
+            // Trigger orchestration-service asynchronously (O1)
+            triggerOrchestration(txUuid, referenceNo, request);
+
             TransferInitiateResponseDto response = TransferInitiateResponseDto.builder()
                     .transactionId(transactionId)
                     .referenceNo(referenceNo)
@@ -151,6 +155,52 @@ public class TransferServiceImpl implements TransferService {
         }
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionException("Transfer amount must be greater than zero.");
+        }
+    }
+
+    private void triggerOrchestration(UUID transactionId, String referenceNo, TransferRequestDto request) {
+        try {
+            Long customerId = 1L;
+            var srcLookup = orchestrationClient.lookupAccountById(request.getSourceAccountId());
+            if (srcLookup.isPresent() && srcLookup.get().getCustomerId() != null) {
+                customerId = srcLookup.get().getCustomerId();
+            }
+
+            Long destinationAccountId = null;
+            var dstLookup = orchestrationClient.lookupAccountByNumber(request.getDestinationAccountNumber());
+            if (dstLookup.isPresent() && dstLookup.get().getAccountId() != null) {
+                destinationAccountId = dstLookup.get().getAccountId();
+            } else {
+                try {
+                    String cleanDigits = request.getDestinationAccountNumber().replaceAll("\\D+", "");
+                    if (!cleanDigits.isBlank()) {
+                        destinationAccountId = Long.parseLong(cleanDigits);
+                    }
+                } catch (Exception ignore) {
+                }
+                if (destinationAccountId == null) {
+                    destinationAccountId = 2L;
+                }
+            }
+
+            com.group2.fse.transaction_service.client.dto.StartTransferSagaRequest sagaRequest =
+                    com.group2.fse.transaction_service.client.dto.StartTransferSagaRequest.builder()
+                            .transactionId(transactionId)
+                            .referenceNo(referenceNo)
+                            .channel("APP")
+                            .customerId(customerId)
+                            .sourceAccountId(request.getSourceAccountId())
+                            .destinationAccountId(destinationAccountId)
+                            .destinationBankCode(request.getDestinationBankCode() != null ? request.getDestinationBankCode() : "COOBS")
+                            .amount(request.getAmount())
+                            .currency(request.getCurrency() != null ? request.getCurrency() : "PHP")
+                            .actorId(customerId)
+                            .actorType("CUSTOMER")
+                            .build();
+
+            orchestrationClient.triggerTransferSagaAsync(sagaRequest, UUID.randomUUID().toString());
+        } catch (Exception e) {
+            log.error("Failed to enqueue orchestration saga trigger for {}: {}", transactionId, e.getMessage());
         }
     }
 }
