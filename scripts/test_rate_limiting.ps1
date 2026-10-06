@@ -33,13 +33,21 @@ Write-Host "`n--> Tier 1: Testing Internal Perimeter Rejection..." -ForegroundCo
 $correlationId = [guid]::NewGuid().ToString()
 
 try {
-    $response = Invoke-WebRequest -Uri "$GatewayUrl/internal/v1/risk/evaluate" `
-        -Method GET `
-        -Headers @{ "X-Correlation-ID" = $correlationId } `
-        -SkipHttpErrorCheck -TimeoutSec 5
-
-    $statusCode = $response.StatusCode
-    $body = $response.Content | ConvertFrom-Json -ErrorAction SilentlyContinue
+    $response = $null
+    $statusCode = $null
+    try {
+        $response = Invoke-WebRequest -Uri "$GatewayUrl/internal/v1/risk/evaluate" `
+            -Method GET `
+            -Headers @{ "X-Correlation-ID" = $correlationId } `
+            -UseBasicParsing -TimeoutSec 5
+        $statusCode = [int]$response.StatusCode
+    } catch {
+        if ($_.Exception.Response) {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+        } else {
+            throw $_
+        }
+    }
 
     if ($statusCode -eq 403) {
         Record-Result "Perimeter Rejection (/internal/v1/risk/**)" $true "HTTP 403 Forbidden received as expected"
@@ -60,22 +68,50 @@ $authPayload = @{
 } | ConvertTo-Json
 
 try {
-    $response = Invoke-WebRequest -Uri "$GatewayUrl/api/v1/auth/customers/login" `
-        -Method POST `
-        -Body $authPayload `
-        -ContentType "application/json" `
-        -SkipHttpErrorCheck -TimeoutSec 5
+    $headers = $null
+    $statusCode = $null
+    try {
+        $response = Invoke-WebRequest -Uri "$GatewayUrl/api/v1/auth/customers/login" `
+            -Method POST `
+            -Body $authPayload `
+            -ContentType "application/json" `
+            -UseBasicParsing -TimeoutSec 5
+        $headers = $response.Headers
+        $statusCode = [int]$response.StatusCode
+    } catch {
+        if ($_.Exception.Response) {
+            $headers = $_.Exception.Response.Headers
+            $statusCode = [int]$_.Exception.Response.StatusCode
+        } else {
+            throw $_
+        }
+    }
 
-    $headers = $response.Headers
-    $hasBurst = $headers.ContainsKey("X-RateLimit-Burst-Capacity") -or $headers.ContainsKey("x-ratelimit-burst-capacity")
-    $hasReplenish = $headers.ContainsKey("X-RateLimit-Replenish-Rate") -or $headers.ContainsKey("x-ratelimit-replenish-rate")
-    $hasRemaining = $headers.ContainsKey("X-RateLimit-Remaining") -or $headers.ContainsKey("x-ratelimit-remaining")
+    $burst = $null
+    $replenish = $null
+    $remaining = $null
 
-    if ($hasBurst -or $hasReplenish -or $hasRemaining) {
-        Record-Result "Rate Limit Headers Presence" $true "Headers present: Burst=$($headers['X-RateLimit-Burst-Capacity']), Replenish=$($headers['X-RateLimit-Replenish-Rate']), Remaining=$($headers['X-RateLimit-Remaining'])"
+    if ($headers -is [System.Collections.IDictionary]) {
+        if ($headers.Contains("X-RateLimit-Burst-Capacity")) { $burst = $headers["X-RateLimit-Burst-Capacity"] }
+        elseif ($headers.Contains("x-ratelimit-burst-capacity")) { $burst = $headers["x-ratelimit-burst-capacity"] }
+        if ($headers.Contains("X-RateLimit-Replenish-Rate")) { $replenish = $headers["X-RateLimit-Replenish-Rate"] }
+        elseif ($headers.Contains("x-ratelimit-replenish-rate")) { $replenish = $headers["x-ratelimit-replenish-rate"] }
+        if ($headers.Contains("X-RateLimit-Remaining")) { $remaining = $headers["X-RateLimit-Remaining"] }
+        elseif ($headers.Contains("x-ratelimit-remaining")) { $remaining = $headers["x-ratelimit-remaining"] }
+    } elseif ($headers -ne $null) {
+        $burst = $headers["X-RateLimit-Burst-Capacity"]
+        if (-not $burst) { $burst = $headers["x-ratelimit-burst-capacity"] }
+        $replenish = $headers["X-RateLimit-Replenish-Rate"]
+        if (-not $replenish) { $replenish = $headers["x-ratelimit-replenish-rate"] }
+        $remaining = $headers["X-RateLimit-Remaining"]
+        if (-not $remaining) { $remaining = $headers["x-ratelimit-remaining"] }
+    }
+
+    if ($burst -or $replenish -or $remaining) {
+        Record-Result "Rate Limit Headers Presence" $true "Headers present: Burst=$burst, Replenish=$replenish, Remaining=$remaining"
     } else {
         # Note: In-memory or when Redis rate limiter is active
-        Record-Result "Rate Limit Headers Presence" $true "Request handled through Gateway route (status: $($response.StatusCode))"
+        Record-Result "Rate Limit Headers Presence" $true "Request handled through Gateway route (status: $statusCode)"
     }
 } catch {
     Record-Result "Rate Limit Headers Presence" $false "Request failed: $($_.Exception.Message)"
@@ -84,37 +120,58 @@ try {
 # ------------------------------------------------------------------------------
 # Test 3: Burst Testing on Auth Route (Replenish 10, Burst 20 -> Trigger HTTP 429)
 # ------------------------------------------------------------------------------
-Write-Host "`n--> Tier 3: Burst Testing Auth Endpoint (30 rapid requests to trigger HTTP 429)..." -ForegroundColor Yellow
+Write-Host "`n--> Tier 3: Burst Testing Auth Endpoint (Concurrent requests to trigger HTTP 429)..." -ForegroundColor Yellow
 
-$totalBurstRequests = 30
 $hit429 = $false
-$lastRemaining = -1
+$total429Count = 0
 
-for ($i = 1; $i -le $totalBurstRequests; $i++) {
-    try {
-        $resp = Invoke-WebRequest -Uri "$GatewayUrl/api/v1/auth/customers/login" `
-            -Method POST `
-            -Body $authPayload `
-            -ContentType "application/json" `
-            -SkipHttpErrorCheck -TimeoutSec 3
+try {
+    Add-Type -AssemblyName System.Net.Http
+    $httpClient = [System.Net.Http.HttpClient]::new()
+    $burstTasks = @(1..40 | ForEach-Object {
+        $content = [System.Net.Http.StringContent]::new($authPayload, [System.Text.Encoding]::UTF8, "application/json")
+        $httpClient.PostAsync("$GatewayUrl/api/v1/auth/customers/login", $content)
+    })
+    [System.Threading.Tasks.Task]::WaitAll($burstTasks)
+    $statusCodes = $burstTasks | ForEach-Object { [int]$_.Result.StatusCode }
+    $total429Count = ($statusCodes | Where-Object { $_ -eq 429 }).Count
+    $hit429 = $total429Count -gt 0
+    $httpClient.Dispose()
+    if ($hit429) {
+        Write-Host "  Concurrent burst triggered $total429Count rate-limited requests (HTTP 429)" -ForegroundColor Magenta
+    }
+} catch {
+    # Sequential fallback
+    $totalBurstRequests = 30
+    for ($i = 1; $i -le $totalBurstRequests; $i++) {
+        try {
+            $resp = Invoke-WebRequest -Uri "$GatewayUrl/api/v1/auth/customers/login" `
+                -Method POST `
+                -Body $authPayload `
+                -ContentType "application/json" `
+                -UseBasicParsing -TimeoutSec 3
 
-        if ($resp.StatusCode -eq 429) {
-            $hit429 = $true
-            Write-Host "  Request #$i: HTTP 429 Too Many Requests (Rate limit enforced!)" -ForegroundColor Magenta
-            break
-        }
-    } catch {
-        # If web request fails on 429 in older PS
-        if ($_.Exception.Response.StatusCode.value__ -eq 429) {
-            $hit429 = $true
-            Write-Host "  Request #$i: HTTP 429 Too Many Requests" -ForegroundColor Magenta
-            break
+            if ($resp.StatusCode -eq 429) {
+                $hit429 = $true
+                Write-Host "  Request #$($i): HTTP 429 Too Many Requests (Rate limit enforced!)" -ForegroundColor Magenta
+                break
+            }
+        } catch {
+            $statusCode = $null
+            if ($_.Exception.Response) {
+                $statusCode = [int]$_.Exception.Response.StatusCode
+            }
+            if ($statusCode -eq 429) {
+                $hit429 = $true
+                Write-Host "  Request #$($i): HTTP 429 Too Many Requests" -ForegroundColor Magenta
+                break
+            }
         }
     }
 }
 
 if ($hit429) {
-    Record-Result "Auth Route Burst Limiting" $true "HTTP 429 Too Many Requests successfully triggered under burst traffic"
+    Record-Result "Auth Route Burst Limiting" $true "HTTP 429 Too Many Requests successfully triggered under burst traffic ($total429Count x 429s)"
 } else {
     Record-Result "Auth Route Burst Limiting" $true "Gateway processed burst requests without gateway crash (live Redis verification)"
 }
@@ -132,7 +189,7 @@ try {
             "Access-Control-Request-Method"  = "POST"
             "Access-Control-Request-Headers" = "Content-Type, Authorization, Idempotency-Key"
         } `
-        -SkipHttpErrorCheck -TimeoutSec 5
+        -UseBasicParsing -TimeoutSec 5
 
     $corsOrigin = $corsResponse.Headers["Access-Control-Allow-Origin"]
     $corsMethods = $corsResponse.Headers["Access-Control-Allow-Methods"]
