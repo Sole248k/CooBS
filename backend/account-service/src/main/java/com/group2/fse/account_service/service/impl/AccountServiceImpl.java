@@ -129,6 +129,15 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public AccountResponse getAccountByNumber(String accountNumber) {
+        Account account = accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new AccountNotFoundException("Account not found with account number: " + accountNumber));
+        Balance balance = balanceRepository.findByAccount_AccountId(account.getAccountId()).orElse(null);
+        return mapToAccountResponse(account, balance);
+    }
+
+    @Override
     @Transactional
     public AccountResponse updateAccountStatus(Long accountId, String status) {
         Account account = accountRepository.findById(accountId)
@@ -162,7 +171,7 @@ public class AccountServiceImpl implements AccountService {
         return AccountResponse.builder()
                 .accountId(account.getAccountId())
                 .customerId(account.getCustomer().getCustomerId())
-                .customerName(account.getCustomer().getUsername())
+                .customerName(account.getCustomer().getDisplayName())
                 .accountNumber(account.getAccountNumber())
                 .accountType(account.getAccountType())
                 .currency(account.getCurrency())

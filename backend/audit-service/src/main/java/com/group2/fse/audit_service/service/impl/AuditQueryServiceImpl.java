@@ -17,6 +17,10 @@ import com.group2.fse.audit_service.dto.AuditStatementResponseDto;
 import com.group2.fse.audit_service.dto.ChainVerificationResponseDto;
 import com.group2.fse.audit_service.dto.ForensicAuditResponseDto;
 import com.group2.fse.audit_service.entity.TransactionAudit;
+import java.time.LocalDate;
+import com.group2.fse.audit_service.dto.DailySealResponseDto;
+import com.group2.fse.audit_service.entity.DailyAuditSeal;
+import com.group2.fse.audit_service.repository.DailyAuditSealRepository;
 import com.group2.fse.audit_service.exception.ResourceNotFoundException;
 import com.group2.fse.audit_service.repository.TransactionAuditRepository;
 import com.group2.fse.audit_service.service.AuditQueryService;
@@ -28,9 +32,13 @@ public class AuditQueryServiceImpl implements AuditQueryService {
     private static final String GENESIS_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
 
     private final TransactionAuditRepository transactionAuditRepository;
+    private final DailyAuditSealRepository dailyAuditSealRepository;
 
-    public AuditQueryServiceImpl(TransactionAuditRepository transactionAuditRepository) {
+    public AuditQueryServiceImpl(
+            TransactionAuditRepository transactionAuditRepository,
+            DailyAuditSealRepository dailyAuditSealRepository) {
         this.transactionAuditRepository = transactionAuditRepository;
+        this.dailyAuditSealRepository = dailyAuditSealRepository;
     }
 
     @Override
@@ -156,6 +164,21 @@ public class AuditQueryServiceImpl implements AuditQueryService {
                 .latestHash(latestHash)
                 .verifiedAt(LocalDateTime.now())
                 .message("Audit chain integrity verified successfully.")
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DailySealResponseDto getDailySeal(LocalDate businessDate) {
+        log.info("Fetching daily audit seal for businessDate={}", businessDate);
+        DailyAuditSeal seal = dailyAuditSealRepository.findByBusinessDate(businessDate)
+                .orElseThrow(() -> new ResourceNotFoundException("Daily audit seal not found for date: " + businessDate));
+
+        return DailySealResponseDto.builder()
+                .businessDate(seal.getBusinessDate())
+                .lastAuditId(seal.getLastAuditId())
+                .sealHash(seal.getSealHash())
+                .sealedAt(seal.getSealedAt())
                 .build();
     }
 

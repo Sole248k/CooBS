@@ -75,6 +75,26 @@ public class GlobalExceptionHandler {
                 .body(problem);
     }
 
+    @ExceptionHandler(HoldNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleHoldNotFound(
+            HoldNotFoundException ex, HttpServletRequest request) {
+        log.warn("Hold not found exception on {}: {}", request.getRequestURI(), ex.getMessage());
+
+        Map<String, Object> problem = createProblemDetails(
+                "https://api.corebank.local/errors/HOLD_NOT_FOUND",
+                "Hold Not Found",
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                "HOLD_NOT_FOUND"
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
     @ExceptionHandler(TransactionNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleTransactionNotFound(
             TransactionNotFoundException ex, HttpServletRequest request) {
@@ -120,7 +140,6 @@ public class GlobalExceptionHandler {
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(problem);
     }
-
     @ExceptionHandler(DuplicateIdempotencyKeyException.class)
     public ResponseEntity<Map<String, Object>> handleDuplicateIdempotencyKey(
             DuplicateIdempotencyKeyException ex, HttpServletRequest request) {

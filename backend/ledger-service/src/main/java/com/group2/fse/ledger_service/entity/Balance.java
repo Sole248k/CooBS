@@ -30,6 +30,10 @@ public class Balance {
     private BigDecimal availableBalance = BigDecimal.ZERO.setScale(4);
 
     @Builder.Default
+    @Column(name = "ledger_balance", precision = 18, scale = 4, nullable = false)
+    private BigDecimal ledgerBalance = BigDecimal.ZERO.setScale(4);
+
+    @Builder.Default
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 
@@ -41,6 +45,11 @@ public class Balance {
             this.availableBalance = BigDecimal.ZERO.setScale(4);
         } else {
             this.availableBalance = this.availableBalance.setScale(4, java.math.RoundingMode.HALF_UP);
+        }
+        if (this.ledgerBalance == null) {
+            this.ledgerBalance = this.availableBalance;
+        } else {
+            this.ledgerBalance = this.ledgerBalance.setScale(4, java.math.RoundingMode.HALF_UP);
         }
     }
 

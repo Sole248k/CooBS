@@ -1,0 +1,20 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "channel": "APP",
+  "sourceAccountId": 1,
+  "sourceAccountNumber": "ACC_10000001",
+  "destinationAccountId": 2,
+  "destinationAccountNumber": "ACC_10000002",
+  "destinationBankCode": "COOBS",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "category": "TRANSFER",
+  "remarks": "Lunch money",
+  "status": "POSTED",
+  "failureCode": null,
+  "failureReason": null,
+  "reversedByTransactionId": null,
+  "createdAt": "2026-10-03T11:40:00Z",
+  "completedAt": "2026-10-03T11:40:01Z"
+}

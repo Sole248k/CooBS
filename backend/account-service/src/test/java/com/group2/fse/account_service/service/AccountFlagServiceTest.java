@@ -49,7 +49,7 @@ class AccountFlagServiceTest {
 
     @BeforeEach
     void setUp() {
-        Customer customer = Customer.builder().customerId(101L).username("john_doe").build();
+        Customer customer = Customer.builder().customerId(101L).build();
         mockAccount = Account.builder()
                 .accountId(1L)
                 .customer(customer)

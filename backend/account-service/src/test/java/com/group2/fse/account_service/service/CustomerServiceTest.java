@@ -56,8 +56,6 @@ class CustomerServiceTest {
     void setUp() {
         mockCustomer = Customer.builder()
                 .customerId(101L)
-                .username("john_doe")
-                .email("john.doe@example.com")
                 .kycStatus("VERIFIED")
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -75,6 +73,7 @@ class CustomerServiceTest {
                 .status("VERIFIED")
                 .createdAt(LocalDateTime.now())
                 .build();
+        mockCustomer.setKyc(mockKyc);
     }
 
     @Test
@@ -87,7 +86,7 @@ class CustomerServiceTest {
 
         assertNotNull(response);
         assertEquals(101L, response.getCustomerId());
-        assertEquals("john_doe", response.getUsername());
+        assertEquals("John D Doe", response.getUsername());
         assertEquals("VERIFIED", response.getKycStatus());
         assertNotNull(response.getKyc());
         assertEquals("John", response.getKyc().getFirstName());

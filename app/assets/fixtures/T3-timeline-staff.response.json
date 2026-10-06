@@ -1,0 +1,85 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "status": "POSTED",
+  "view": "STAFF",
+  "currentStage": 11,
+  "stages": [
+    {
+      "stageNo": 1,
+      "stageName": "INITIATED",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.010Z",
+      "detail": null
+    },
+    {
+      "stageNo": 2,
+      "stageName": "VALIDATED",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.020Z",
+      "detail": null
+    },
+    {
+      "stageNo": 3,
+      "stageName": "AUTHENTICATED",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.030Z",
+      "detail": null
+    },
+    {
+      "stageNo": 4,
+      "stageName": "FRAUD_CHECK",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.060Z",
+      "detail": "score 0.15"
+    },
+    {
+      "stageNo": 5,
+      "stageName": "LIMIT_CHECK",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.065Z",
+      "detail": null
+    },
+    {
+      "stageNo": 6,
+      "stageName": "FUNDS_CHECK",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.120Z",
+      "detail": null
+    },
+    {
+      "stageNo": 7,
+      "stageName": "AUTHORIZED",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.130Z",
+      "detail": null
+    },
+    {
+      "stageNo": 8,
+      "stageName": "POSTED",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.210Z",
+      "detail": null
+    },
+    {
+      "stageNo": 9,
+      "stageName": "LEDGER_UPDATE",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.450Z",
+      "detail": null
+    },
+    {
+      "stageNo": 10,
+      "stageName": "NOTIFICATION",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:01.100Z",
+      "detail": null
+    },
+    {
+      "stageNo": 11,
+      "stageName": "RECONCILIATION",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:01.400Z",
+      "detail": null
+    }
+  ]
+}

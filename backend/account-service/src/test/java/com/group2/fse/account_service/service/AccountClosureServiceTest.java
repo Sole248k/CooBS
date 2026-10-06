@@ -62,12 +62,17 @@ class AccountClosureServiceTest {
 
     @BeforeEach
     void setUp() {
+        Kyc mockKyc = Kyc.builder()
+                .firstName("John")
+                .lastName("Doe")
+                .status("VERIFIED")
+                .build();
         mockCustomer = Customer.builder()
                 .customerId(101L)
-                .username("john_doe")
-                .email("john.doe@example.com")
+                .kyc(mockKyc)
                 .kycStatus("VERIFIED")
                 .build();
+        mockKyc.setCustomer(mockCustomer);
 
         mockAccount = Account.builder()
                 .accountId(4L)
