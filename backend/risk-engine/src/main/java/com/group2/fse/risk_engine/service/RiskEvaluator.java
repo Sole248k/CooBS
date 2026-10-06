@@ -192,11 +192,13 @@ public class RiskEvaluator {
                 .transactionId(request.getTransactionId())
                 .decision(decision)
                 .score(formattedScore)
+                .riskScore(compositeScore)
                 .fraudCheck(fraudCheck)
                 .limitCheck(limitCheck)
                 .reasons(reasons)
                 .evaluatedAt(Instant.now())
                 .evaluatedInMs(Math.max(1, durationMs))
+                .executionDurationMs(Math.max(1, durationMs))
                 .build();
     }
 

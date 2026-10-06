@@ -42,6 +42,7 @@ public class RiskEvaluationRequest {
 
     private BigDecimal customerRiskScore;
 
+    @com.fasterxml.jackson.annotation.JsonAlias({"customerKycTier", "kycTier"})
     @Builder.Default
     private String kycTier = "TIER_2_STANDARD";
 

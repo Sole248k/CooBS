@@ -29,6 +29,8 @@ public class RiskEvaluationResponse {
 
     private String score;
 
+    private Double riskScore;
+
     private FraudCheckResult fraudCheck;
 
     private LimitCheckResult limitCheck;
@@ -38,4 +40,6 @@ public class RiskEvaluationResponse {
     private Instant evaluatedAt;
 
     private long evaluatedInMs;
+
+    private Long executionDurationMs;
 }
