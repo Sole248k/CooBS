@@ -1,8 +1,10 @@
 package com.group2.fse.orchestration_service.saga;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -81,6 +83,8 @@ class TransferSagaTest {
     private ReversalSaga reversalSaga;
     @Autowired
     private InboundInterbankSaga inboundSaga;
+    @Autowired
+    private SagaRecoveryRunner recovery;
     @Autowired
     private SagaRepository sagas;
     @Autowired
@@ -297,6 +301,27 @@ class TransferSagaTest {
 
         assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
         assertThat(CALLS).extracting(Call::path).containsExactly(CAPTURE);
+    }
+
+    @Test
+    void startupRecovery_capturesTheHoldLeftAtFundsReservedAndNeverReleasesIt() {
+        StartTransferRequest t = transfer();
+        STUBS.put(CAPTURE, new Stub(503, "{}", 0));
+        saga.run(t, "corr");
+        assertThat(row(t).getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+        sagas.saveAndFlush(new SagaInstance(UUID.randomUUID())); // no payload: skipped, not fatal
+        CALLS.clear();
+        STUBS.put(CAPTURE, ok("L4-capture-hold.response.json"));
+        doAnswer(invocation -> {
+            invocation.<Runnable>getArgument(0).run();
+            return null;
+        }).when(applicationTaskExecutor).execute(any(Runnable.class));
+
+        recovery.run(null);
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        assertThat(ledgerCalls()).contains(new Call(CAPTURE, t.transactionId() + ":capture", null, null));
+        assertThat(CALLS).extracting(Call::path).doesNotContain(RELEASE, HOLD, RISK);
     }
 
     @Test

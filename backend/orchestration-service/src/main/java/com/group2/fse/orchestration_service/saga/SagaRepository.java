@@ -1,5 +1,7 @@
 package com.group2.fse.orchestration_service.saga;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,6 +13,8 @@ public interface SagaRepository extends JpaRepository<SagaInstance, UUID> {
     Optional<SagaInstance> findByTransactionId(UUID transactionId);
 
     Optional<SagaInstance> findByReferenceNo(String referenceNo);
+
+    List<SagaInstance> findByStateIn(Collection<SagaState> states);
 
     /** A repeated start for the same transaction returns the existing saga instead of a second one. */
     default SagaInstance findOrCreate(UUID transactionId) {
