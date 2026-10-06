@@ -11,7 +11,6 @@ import com.group2.fse.orchestration_service.client.DownstreamException;
 import com.group2.fse.orchestration_service.client.InternalApi;
 import com.group2.fse.orchestration_service.client.LedgerClient;
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartReversalRequest;
-import com.group2.fse.orchestration_service.event.StageEventPublisher;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -26,10 +25,10 @@ public class ReversalSaga {
 
     private final SagaRepository sagas;
     private final LedgerClient ledger;
-    private final StageEventPublisher events;
+    private final StageEvents events;
     private final ObjectMapper objectMapper;
 
-    public ReversalSaga(SagaRepository sagas, LedgerClient ledger, StageEventPublisher events,
+    public ReversalSaga(SagaRepository sagas, LedgerClient ledger, StageEvents events,
             @Autowired(required = false) ObjectMapper objectMapper) {
         this.sagas = sagas;
         this.ledger = ledger;

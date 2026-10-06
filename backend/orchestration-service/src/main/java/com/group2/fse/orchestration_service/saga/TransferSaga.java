@@ -14,7 +14,6 @@ import com.group2.fse.orchestration_service.client.InternalApi;
 import com.group2.fse.orchestration_service.client.LedgerClient;
 import com.group2.fse.orchestration_service.client.RiskClient;
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartTransferRequest;
-import com.group2.fse.orchestration_service.event.StageEventPublisher;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,13 +39,13 @@ public class TransferSaga {
     private final CustomerClient customers;
     private final RiskClient risk;
     private final LedgerClient ledger;
-    private final StageEventPublisher events;
+    private final StageEvents events;
     private final int captureAttempts;
     private final Duration captureBackoff;
     private final ObjectMapper objectMapper;
 
     public TransferSaga(SagaRepository sagas, CustomerClient customers, RiskClient risk, LedgerClient ledger,
-            StageEventPublisher events,
+            StageEvents events,
             @Value("${app.saga.capture-attempts}") int captureAttempts,
             @Value("${app.saga.capture-backoff}") Duration captureBackoff,
             @org.springframework.beans.factory.annotation.Autowired(required = false) ObjectMapper objectMapper) {

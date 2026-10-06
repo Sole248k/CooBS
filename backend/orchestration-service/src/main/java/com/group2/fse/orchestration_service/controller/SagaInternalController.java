@@ -29,6 +29,7 @@ import com.group2.fse.orchestration_service.saga.TransferSaga;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.json.JsonMapper;
 
 /** O1, O2, O3 and O4. Internal only: a service token and nothing else (contract section 2.3). */
 @RestController
@@ -42,24 +43,27 @@ public class SagaInternalController {
     private final ReversalSaga reversalSaga;
     private final InboundInterbankSaga inboundInterbankSaga;
     private final AsyncTaskExecutor applicationTaskExecutor;
+    private final JsonMapper jsonMapper;
 
-    /** O1. Saves the saga, answers 202 and runs it in the background; progress is the stage events. */
+    /** O1. Saves the saga with its payload, answers 202 and runs it in the background; progress is the stage events. */
     @PostMapping("/transfers")
     public ResponseEntity<SagaStartedResponse> startTransfer(
             @Valid @RequestBody StartTransferRequest request,
             @RequestHeader(value = InternalApi.CORRELATION_HEADER, required = false) String correlationId) {
-        SagaInstance saga = sagas.findOrCreate(request.transactionId());
+        SagaInstance saga = sagas.findOrCreate(request.transactionId(), request.referenceNo(),
+                jsonMapper.writeValueAsString(request));
         String correlation = correlationOrNew(correlationId);
         applicationTaskExecutor.execute(() -> transferSaga.run(request, correlation));
         return ResponseEntity.accepted().body(new SagaStartedResponse(saga.getTransactionId(), saga.getState()));
     }
 
-    /** O2. Saves the reversal saga, answers 202 and runs it in the background. */
+    /** O2. Saves the reversal saga with its payload, answers 202 and runs it in the background. */
     @PostMapping("/reversals")
     public ResponseEntity<SagaStartedResponse> startReversal(
             @Valid @RequestBody StartReversalRequest request,
             @RequestHeader(value = InternalApi.CORRELATION_HEADER, required = false) String correlationId) {
-        SagaInstance saga = sagas.findOrCreate(request.transactionId());
+        SagaInstance saga = sagas.findOrCreate(request.transactionId(), request.referenceNo(),
+                jsonMapper.writeValueAsString(request));
         String correlation = correlationOrNew(correlationId);
         applicationTaskExecutor.execute(() -> reversalSaga.run(request, correlation));
         return ResponseEntity.accepted().body(new SagaStartedResponse(saga.getTransactionId(), saga.getState()));
