@@ -75,6 +75,52 @@ public class GlobalExceptionHandler {
                 .body(problem);
     }
 
+    @ExceptionHandler(TransactionNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleTransactionNotFound(
+            TransactionNotFoundException ex, HttpServletRequest request) {
+        log.warn("Transaction not found exception on {}: {}", request.getRequestURI(), ex.getMessage());
+
+        Map<String, Object> problem = createProblemDetails(
+                "https://api.corebank.local/errors/TRANSACTION_NOT_FOUND",
+                "Transaction Not Found",
+                HttpStatus.NOT_FOUND.value(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                "TRANSACTION_NOT_FOUND"
+        );
+        if (ex.getReferenceNo() != null) {
+            problem.put("referenceNo", ex.getReferenceNo());
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
+    @ExceptionHandler(TransactionAlreadyReversedException.class)
+    public ResponseEntity<Map<String, Object>> handleTransactionAlreadyReversed(
+            TransactionAlreadyReversedException ex, HttpServletRequest request) {
+        log.warn("Transaction already reversed on {}: {}", request.getRequestURI(), ex.getMessage());
+
+        Map<String, Object> problem = createProblemDetails(
+                "https://api.corebank.local/errors/ALREADY_REVERSED",
+                "Transaction Already Reversed",
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                "ALREADY_REVERSED"
+        );
+        if (ex.getReferenceNo() != null) {
+            problem.put("referenceNo", ex.getReferenceNo());
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
     @ExceptionHandler(DuplicateIdempotencyKeyException.class)
     public ResponseEntity<Map<String, Object>> handleDuplicateIdempotencyKey(
             DuplicateIdempotencyKeyException ex, HttpServletRequest request) {
