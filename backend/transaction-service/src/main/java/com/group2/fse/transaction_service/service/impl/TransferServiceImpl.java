@@ -47,6 +47,7 @@ public class TransferServiceImpl implements TransferService {
     private final TxnTransactionRepository transactionRepository;
     private final TxnStageEventRepository stageEventRepository;
     private final com.group2.fse.transaction_service.client.OrchestrationClient orchestrationClient;
+    private final com.group2.fse.transaction_service.event.StageEventPublisher stageEventPublisher;
 
     @Override
     public TransferInitiateResponseDto initiateTransfer(TransferRequestDto request, String idempotencyKey) {
@@ -112,6 +113,11 @@ public class TransferServiceImpl implements TransferService {
                     .occurredAt(now.plusMillis(20))
                     .build();
             stageEventRepository.saveAll(List.of(stage1, stage2, stage3));
+
+            // Publish ingress stages to transaction.stage.changed.v1 (Day 5 Event Propagation)
+            stageEventPublisher.publishStage(txUuid, referenceNo, 1, "INGRESS_ACCEPTED", "PASSED", "Ingress Intake accepted");
+            stageEventPublisher.publishStage(txUuid, referenceNo, 2, "PREFLIGHT_VALIDATED", "PASSED", "Preflight validation passed");
+            stageEventPublisher.publishStage(txUuid, referenceNo, 3, "DISPATCHED_TO_ORCHESTRATOR", "PASSED", "Dispatched to orchestrator");
 
             // Trigger orchestration-service asynchronously (O1)
             triggerOrchestration(txUuid, referenceNo, request);

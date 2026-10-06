@@ -194,9 +194,9 @@ public class TransferSaga {
 
     /** Stage 9: the ledger's own event confirms the posting. */
     public void onLedgerTransferCompleted(UUID transactionId, String referenceNo) {
-        sagas.findByTransactionId(transactionId)
+        (transactionId != null ? sagas.findByTransactionId(transactionId) : sagas.findByReferenceNo(referenceNo))
                 .filter(saga -> saga.getState() == SagaState.POSTED || saga.getState() == SagaState.COMPLETED)
-                .ifPresent(saga -> events.passed(transactionId, referenceNo, Stage.LEDGER_UPDATE, null));
+                .ifPresent(saga -> events.passed(saga.getTransactionId(), referenceNo, Stage.LEDGER_UPDATE, null));
     }
 
     /**
@@ -205,12 +205,12 @@ public class TransferSaga {
      * arrives the saga stays POSTED with stage 10 pending; the money has moved.
      */
     public void onNotificationDispatched(UUID transactionId, String referenceNo) {
-        sagas.findByTransactionId(transactionId)
+        (transactionId != null ? sagas.findByTransactionId(transactionId) : sagas.findByReferenceNo(referenceNo))
                 .filter(saga -> saga.getState() == SagaState.POSTED)
                 .ifPresent(saga -> {
                     save(saga, SagaState.COMPLETED);
-                    events.passed(transactionId, referenceNo, Stage.NOTIFICATION, null);
-                    events.passed(transactionId, referenceNo, Stage.RECONCILIATION, null);
+                    events.passed(saga.getTransactionId(), referenceNo, Stage.NOTIFICATION, null);
+                    events.passed(saga.getTransactionId(), referenceNo, Stage.RECONCILIATION, null);
                 });
     }
 
