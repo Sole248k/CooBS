@@ -4,11 +4,9 @@ import com.group2.fse.account_service.dto.AccountFlagRequest;
 import com.group2.fse.account_service.dto.AccountFlagResponse;
 import com.group2.fse.account_service.entity.Account;
 import com.group2.fse.account_service.entity.AccountFlag;
-import com.group2.fse.account_service.entity.User;
 import com.group2.fse.account_service.exception.AccountNotFoundException;
 import com.group2.fse.account_service.repository.AccountFlagRepository;
 import com.group2.fse.account_service.repository.AccountRepository;
-import com.group2.fse.account_service.repository.UserRepository;
 import com.group2.fse.account_service.service.AccountFlagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +23,6 @@ public class AccountFlagServiceImpl implements AccountFlagService {
 
     private final AccountRepository accountRepository;
     private final AccountFlagRepository accountFlagRepository;
-    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -33,13 +30,11 @@ public class AccountFlagServiceImpl implements AccountFlagService {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new AccountNotFoundException("Account not found with ID: " + accountId));
 
-        User staffUser = staffUserId != null ? userRepository.findById(staffUserId).orElse(null) : null;
-
         AccountFlag flag = AccountFlag.builder()
                 .account(account)
                 .reason(request.getReason())
                 .status("ACTIVE")
-                .flaggedBy(staffUser)
+                .flaggedBy(staffUserId)
                 .flaggedAt(LocalDateTime.now())
                 .build();
 
@@ -75,10 +70,8 @@ public class AccountFlagServiceImpl implements AccountFlagService {
             throw new IllegalStateException("Flag ID " + flagId + " is not ACTIVE (current: " + flag.getStatus() + ")");
         }
 
-        User adminUser = adminUserId != null ? userRepository.findById(adminUserId).orElse(null) : null;
-
         flag.setStatus("REMOVED");
-        flag.setRemovedBy(adminUser);
+        flag.setRemovedBy(adminUserId);
         flag.setRemovedAt(LocalDateTime.now());
         accountFlagRepository.save(flag);
 
@@ -90,7 +83,7 @@ public class AccountFlagServiceImpl implements AccountFlagService {
                 .accountId(account.getAccountId())
                 .reason(flag.getReason())
                 .status("REMOVED")
-                .flaggedBy(flag.getFlaggedBy() != null ? flag.getFlaggedBy().getUserId() : null)
+                .flaggedBy(flag.getFlaggedBy())
                 .flaggedAt(flag.getFlaggedAt())
                 .removedBy(adminUserId)
                 .removedAt(flag.getRemovedAt())
@@ -111,9 +104,9 @@ public class AccountFlagServiceImpl implements AccountFlagService {
                         .accountId(accountId)
                         .reason(flag.getReason())
                         .status(flag.getStatus())
-                        .flaggedBy(flag.getFlaggedBy() != null ? flag.getFlaggedBy().getUserId() : null)
+                        .flaggedBy(flag.getFlaggedBy())
                         .flaggedAt(flag.getFlaggedAt())
-                        .removedBy(flag.getRemovedBy() != null ? flag.getRemovedBy().getUserId() : null)
+                        .removedBy(flag.getRemovedBy())
                         .removedAt(flag.getRemovedAt())
                         .build())
                 .toList();

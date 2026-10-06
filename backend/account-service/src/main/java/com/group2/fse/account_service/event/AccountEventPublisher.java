@@ -19,12 +19,6 @@ public class AccountEventPublisher {
     @Value("${account.kafka.topics.created:account.created.v1}")
     private String createdTopic;
 
-    @Value("${account.kafka.topics.kyc-submitted:kyc.request.submitted.v1}")
-    private String kycSubmittedTopic;
-
-    @Value("${account.kafka.topics.kyc-evaluated:kyc.request.evaluated.v1}")
-    private String kycEvaluatedTopic;
-
     public void publishAccountClosure(AccountClosureCompletedEvent event) {
         log.info("Publishing AccountClosureCompletedEvent to topic '{}': accountId={}, closureRequestId={}",
                 closureTopic, event.getAccountId(), event.getClosureRequestId());
@@ -42,30 +36,6 @@ public class AccountEventPublisher {
             kafkaTemplate.send(createdTopic, event.getAccountId().toString(), event);
         } catch (Exception ex) {
             log.error("Failed to publish AccountCreatedEvent to Kafka topic '{}': {}", createdTopic, ex.getMessage());
-        }
-    }
-
-    public void publishKycSubmitted(KycRequestSubmittedEvent event) {
-        if (event == null || event.getPayload() == null) return;
-        String key = String.valueOf(event.getPayload().getCustomerId());
-        log.info("Publishing KycRequestSubmittedEvent to topic '{}': key={}, reqId={}",
-                kycSubmittedTopic, key, event.getPayload().getRequestId());
-        try {
-            kafkaTemplate.send(kycSubmittedTopic, key, event);
-        } catch (Exception ex) {
-            log.error("Failed to publish KycRequestSubmittedEvent to Kafka topic '{}': {}", kycSubmittedTopic, ex.getMessage());
-        }
-    }
-
-    public void publishKycEvaluated(KycRequestEvaluatedEvent event) {
-        if (event == null || event.getPayload() == null) return;
-        String key = String.valueOf(event.getPayload().getCustomerId());
-        log.info("Publishing KycRequestEvaluatedEvent to topic '{}': key={}, reqId={}, status={}",
-                kycEvaluatedTopic, key, event.getPayload().getRequestId(), event.getPayload().getStatus());
-        try {
-            kafkaTemplate.send(kycEvaluatedTopic, key, event);
-        } catch (Exception ex) {
-            log.error("Failed to publish KycRequestEvaluatedEvent to Kafka topic '{}': {}", kycEvaluatedTopic, ex.getMessage());
         }
     }
 }

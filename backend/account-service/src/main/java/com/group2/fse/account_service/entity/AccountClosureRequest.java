@@ -31,9 +31,8 @@ public class AccountClosureRequest {
     @Column(name = "status", length = 20, nullable = false)
     private String status = "PENDING";
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approved_by")
-    private User approvedBy;
+    @Column(name = "approved_by")
+    private Long approvedBy;
 
     @Column(name = "rejection_reason", length = 255)
     private String rejectionReason;

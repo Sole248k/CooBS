@@ -33,4 +33,12 @@ public class AccountInternalController {
         AccountResponse response = accountService.getAccountById(accountId, null, true);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/accounts/by-number/{accountNumber}")
+    @PreAuthorize("hasRole('SERVICE')")
+    public ResponseEntity<AccountResponse> getAccountByNumberInternal(@PathVariable String accountNumber) {
+        log.info("Internal account lookup for account number {}", accountNumber);
+        AccountResponse response = accountService.getAccountByNumber(accountNumber);
+        return ResponseEntity.ok(response);
+    }
 }

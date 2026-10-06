@@ -4,12 +4,9 @@ import com.group2.fse.account_service.dto.AccountFlagRequest;
 import com.group2.fse.account_service.dto.AccountFlagResponse;
 import com.group2.fse.account_service.entity.Account;
 import com.group2.fse.account_service.entity.AccountFlag;
-import com.group2.fse.account_service.entity.Customer;
-import com.group2.fse.account_service.entity.User;
 import com.group2.fse.account_service.exception.AccountNotFoundException;
 import com.group2.fse.account_service.repository.AccountFlagRepository;
 import com.group2.fse.account_service.repository.AccountRepository;
-import com.group2.fse.account_service.repository.UserRepository;
 import com.group2.fse.account_service.service.impl.AccountFlagServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,35 +34,25 @@ class AccountFlagServiceTest {
     @Mock
     private AccountFlagRepository accountFlagRepository;
 
-    @Mock
-    private UserRepository userRepository;
-
     @InjectMocks
     private AccountFlagServiceImpl accountFlagService;
 
     private Account mockAccount;
-    private User staffUser;
-    private User adminUser;
 
     @BeforeEach
     void setUp() {
-        Customer customer = Customer.builder().customerId(101L).build();
         mockAccount = Account.builder()
                 .accountId(1L)
-                .customer(customer)
+                .customerId(101L)
                 .accountNumber("ACC_10000001")
                 .status("ACTIVE")
                 .build();
-
-        staffUser = User.builder().userId(2L).username("teller_alice").build();
-        adminUser = User.builder().userId(1L).username("admin_boss").build();
     }
 
     @Test
     @DisplayName("[FLAG-001] Should successfully impose administrative hold on account")
     void shouldAddFlagSuccessfully() {
         when(accountRepository.findById(1L)).thenReturn(Optional.of(mockAccount));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(staffUser));
         when(accountFlagRepository.save(any(AccountFlag.class))).thenAnswer(i -> {
             AccountFlag f = i.getArgument(0);
             f.setFlagId(12L);
@@ -104,13 +91,12 @@ class AccountFlagServiceTest {
                 .account(mockAccount)
                 .reason("Court order")
                 .status("ACTIVE")
-                .flaggedBy(staffUser)
+                .flaggedBy(2L)
                 .flaggedAt(LocalDateTime.now().minusDays(1))
                 .build();
 
         when(accountRepository.findById(1L)).thenReturn(Optional.of(mockAccount));
         when(accountFlagRepository.findById(12L)).thenReturn(Optional.of(flag));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
 
         AccountFlagResponse response = accountFlagService.removeFlag(1L, 12L, 1L);
 
@@ -130,7 +116,7 @@ class AccountFlagServiceTest {
                 .account(mockAccount)
                 .reason("Court order")
                 .status("ACTIVE")
-                .flaggedBy(staffUser)
+                .flaggedBy(2L)
                 .flaggedAt(LocalDateTime.now())
                 .build();
 
