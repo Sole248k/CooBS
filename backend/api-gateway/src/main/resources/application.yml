@@ -178,8 +178,33 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
-        # NOTE: /api/v1/customers/** still points at account-service. Dev 2 switches it to
-        # ${CUSTOMER_SERVICE_URL:http://localhost:8089} when customer-service serves it (Day 4).
+        # 10. Orchestration Service Routes (Transfer and Reversal Saga Coordinator)
+        # Saga and compensation query limits: 20 req/s, burst 40
+        - id: orchestration-service-route
+          uri: ${ORCHESTRATION_SERVICE_URL:http://localhost:8091}
+          predicates:
+            - Path=/api/v1/orchestration/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 11. Risk Engine Routes (Internal-only perimeter; blocked by InternalPerimeterRejectionFilter)
+        # Internal service routing: 30 req/s, burst 60
+        - id: risk-engine-route
+          uri: ${RISK_ENGINE_URL:http://localhost:8092}
+          predicates:
+            - Path=/internal/v1/risk/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@ipKeyResolver}"
 
 management:
   endpoints:

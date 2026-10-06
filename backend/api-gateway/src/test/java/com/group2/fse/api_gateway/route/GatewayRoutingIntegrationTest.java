@@ -13,7 +13,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"management.health.redis.enabled=false"})
 class GatewayRoutingIntegrationTest {
 
     @LocalServerPort
@@ -51,9 +51,13 @@ class GatewayRoutingIntegrationTest {
                 .expectBody()
                 .jsonPath("$[?(@.route_id == 'auth-service-route')]").exists()
                 .jsonPath("$[?(@.route_id == 'account-service-accounts-route')]").exists()
+                .jsonPath("$[?(@.route_id == 'customer-service-route')]").exists()
                 .jsonPath("$[?(@.route_id == 'ledger-service-route')]").exists()
                 .jsonPath("$[?(@.route_id == 'notification-service-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'audit-service-route')]").exists();
+                .jsonPath("$[?(@.route_id == 'audit-service-route')]").exists()
+                .jsonPath("$[?(@.route_id == 'transaction-service-route')]").exists()
+                .jsonPath("$[?(@.route_id == 'orchestration-service-route')]").exists()
+                .jsonPath("$[?(@.route_id == 'risk-engine-route')]").exists();
     }
 
     @Test
