@@ -64,6 +64,7 @@ class ApiClient {
     String path, {
     dynamic body,
     bool isMoneyMovement = false,
+    String? idempotencyKey,
     bool? useFixtures,
   }) async {
     final effectiveUseFixtures = useFixtures ?? AppConfig.useFixtures;
@@ -74,7 +75,10 @@ class ApiClient {
 
     return circuitBreaker.execute(() async {
       final uri = _buildUri(path);
-      final headers = await _buildHeaders(isMoneyMovement: isMoneyMovement);
+      final headers = await _buildHeaders(
+        isMoneyMovement: isMoneyMovement,
+        idempotencyKey: idempotencyKey,
+      );
 
       try {
         final response = await _httpClient
@@ -106,7 +110,10 @@ class ApiClient {
     }
 
     final normalizedPath = path.startsWith('/') ? path : '/$path';
-    final fullUrl = '${AppConfig.gatewayBaseUrl}$normalizedPath';
+    final apiPath = normalizedPath.startsWith('/api/v1')
+        ? normalizedPath
+        : '/api/v1$normalizedPath';
+    final fullUrl = '${AppConfig.gatewayBaseUrl}$apiPath';
     final parsed = Uri.parse(fullUrl);
     if (queryParams != null && queryParams.isNotEmpty) {
       return parsed.replace(queryParameters: queryParams);
@@ -115,7 +122,7 @@ class ApiClient {
   }
 
   /// Injects authentication tokens, tracing correlation IDs, and money movement idempotency keys.
-  Future<Map<String, String>> _buildHeaders({bool isMoneyMovement = false}) async {
+  Future<Map<String, String>> _buildHeaders({bool isMoneyMovement = false, String? idempotencyKey}) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json, application/problem+json',
@@ -127,7 +134,9 @@ class ApiClient {
       headers['Authorization'] = 'Bearer $token';
     }
 
-    if (isMoneyMovement) {
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    } else if (isMoneyMovement) {
       headers['Idempotency-Key'] = _uuid.v4();
     }
 
@@ -289,6 +298,30 @@ class ApiClient {
             'status': 'PENDING',
             'occurredAt': null
           }
+        ]
+      };
+    }
+    if (filename.contains('timeline-staff')) {
+      return {
+        'transactionId': '6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11',
+        'trackingReference': 'TX-20261003-8F3A21C0',
+        'status': 'POSTED',
+        'view': 'STAFF',
+        'currentStage': 11,
+        'totalStages': 11,
+        'overallStatus': 'COMPLETED',
+        'stages': [
+          {'stageNo': 1, 'stageNumber': 1, 'stageKey': 'INGRESS_ACCEPTED', 'title': 'Ingress Accepted', 'service': 'transaction-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.010Z'},
+          {'stageNo': 2, 'stageNumber': 2, 'stageKey': 'PREFLIGHT_VALIDATED', 'title': 'Pre-flight Solvency Checked', 'service': 'transaction-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.020Z'},
+          {'stageNo': 3, 'stageNumber': 3, 'stageKey': 'DISPATCHED_TO_ORCHESTRATOR', 'title': 'Dispatched to Orchestrator', 'service': 'transaction-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.030Z'},
+          {'stageNo': 4, 'stageNumber': 4, 'stageKey': 'SAGA_INITIALIZED', 'title': 'Saga State Machine Initialized', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.040Z'},
+          {'stageNo': 5, 'stageNumber': 5, 'stageKey': 'RISK_EVALUATION_REQUESTED', 'title': 'Risk Evaluation Requested', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.050Z'},
+          {'stageNo': 6, 'stageNumber': 6, 'stageKey': 'RISK_EVALUATION_COMPLETED', 'title': 'Risk Screening Passed', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.060Z', 'detail': 'score 0.15 (Low Risk)'},
+          {'stageNo': 7, 'stageNumber': 7, 'stageKey': 'LEDGER_HOLD_RESERVED', 'title': 'Ledger Balance Hold Reserved', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.120Z'},
+          {'stageNo': 8, 'stageNumber': 8, 'stageKey': 'LEDGER_POSTED', 'title': 'Double-Entry SoR Committed', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.210Z', 'detail': 'Journal Ref: TRF-TX20261003'},
+          {'stageNo': 9, 'stageNumber': 9, 'stageKey': 'EVENT_EMITTED', 'title': 'Domain Event Emitted', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:00.450Z', 'detail': 'Topic: ledger.transfer.completed.v1'},
+          {'stageNo': 10, 'stageNumber': 10, 'stageKey': 'NOTIFICATIONS_DISPATCHED', 'title': 'Member Notifications Sent', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:01.100Z'},
+          {'stageNo': 11, 'stageNumber': 11, 'stageKey': 'COMPLETED', 'title': 'Saga Fully Reconciled', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:01.400Z'}
         ]
       };
     }

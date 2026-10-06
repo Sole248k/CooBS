@@ -1,6 +1,7 @@
 /// Remittance & Timeline Stepper Models (Endpoints T1, T2, T3, M2)
 class RemittanceSubmissionRequest {
-  final String sourceAccountNumber;
+  final int? sourceAccountId;
+  final String? sourceAccountNumber;
   final String destinationAccountNumber;
   final String destinationBankCode;
   final double amount;
@@ -9,7 +10,8 @@ class RemittanceSubmissionRequest {
   final String remarks;
 
   RemittanceSubmissionRequest({
-    required this.sourceAccountNumber,
+    this.sourceAccountId,
+    this.sourceAccountNumber,
     required this.destinationAccountNumber,
     this.destinationBankCode = 'COOBS',
     required this.amount,
@@ -19,7 +21,8 @@ class RemittanceSubmissionRequest {
   });
 
   Map<String, dynamic> toJson() => {
-    'sourceAccountNumber': sourceAccountNumber,
+    if (sourceAccountId != null) 'sourceAccountId': sourceAccountId,
+    if (sourceAccountNumber != null) 'sourceAccountNumber': sourceAccountNumber,
     'destinationAccountNumber': destinationAccountNumber,
     'destinationBankCode': destinationBankCode,
     'amount': amount.toStringAsFixed(2),

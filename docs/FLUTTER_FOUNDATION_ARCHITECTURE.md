@@ -16,6 +16,16 @@ In the CooBS Omnichannel Architecture:
 * **React Web Frontend (`http://localhost:3000` / `:5173`):** The **sole web frontend** for the entire platform, dedicated to Branch Staff, Tellers, and Administrators for operational account management and 11-stage deep transaction audit. Interfaces via Spring Cloud Gateway CORS.
 * **Flutter Mobile App (`app/` — Android `10.0.2.2:8080`):** Dedicated **strictly to native mobile devices** (Android and iOS) for fast, seamless, and resilient mobile banking. **Flutter Web is not used or deployed** since React is the platform's exclusive web portal. The native Flutter mobile client interfaces directly via native OS network sockets, completely bypassing browser Same-Origin Policy (zero CORS enforcement). Routes `/api/v1/mobile/**` through **`mobile-bff` (:8094)** for multi-service composite screen aggregation and 3-stage customer milestones.
 
+### Omnichannel Client Separation Matrix
+
+| Dimension | 📱 Customer Side (Mobile App) | 🖥️ Teller Side (Web Frontend) |
+| :--- | :--- | :--- |
+| **Technology** | **Flutter Native App** (`app/`) | **React Portal** (`frontend/`) |
+| **Target Audience** | **Retail Bank Members** (Customers on Android/iOS phones) | **Branch Tellers, Operations, Admins, Compliance** (Desktop web browsers) |
+| **Primary Goal** | Self-service banking: check balances, P2P transfers, view 3-stage progress receipt. | Back-office ops: account lifecycle, KYC approval, 11-stage transaction audit. |
+| **Transaction View** | **3-Stage Customer Milestones** (`M2`): Submitted &rarr; In Review &rarr; Completed | **11-Stage Technical Saga Stepper**: Idempotency &rarr; Ledger Holds &rarr; Risk Scores &rarr; Settlement |
+| **Network Path** | Mobile App &rarr; Gateway (`/api/v1/mobile/**`) &rarr; **`mobile-bff` (:8094)** &rarr; Domain services | Web App &rarr; Gateway (`/api/v1/{accounts,audit,ledger,transactions}/**`) &rarr; Direct Domain Services (bypasses BFF) |
+
 To satisfy **Neo's Deliverables** (`docs/TEAM_STATUS.md`):
 1. **Push Flutter Core to `app/`:** Routing (`app_router.dart`), Theme (`app_theme.dart`), API client with Fixture Mode (`fixture_api_client.dart`), and Dart models built from `contracts/examples/`.
 2. **Native Mobile Ingress Alignment:** Direct native OS network socket communication targeting Android Emulator loopback (`10.0.2.2:8080`) or physical device LAN IP (`adb reverse tcp:8080 tcp:8080`), with zero browser CORS overhead.
@@ -77,67 +87,122 @@ app/
 
 ## 3. End-to-End System Architecture
 
+### 3.1 Two-Track Omnichannel Routing Topology
+
+The architecture enforces a strict two-track model at the API Gateway:
+* **Track A (Mobile Retail Flow):** Native Flutter client incorporates a client-side Circuit Breaker, routing exclusively to `/api/v1/mobile/**` on `mobile-bff:8094`.
+* **Track B (Web Staff Flow):** React portal on desktop browsers connects directly to domain microservices via standard gateway paths, **completely bypassing the Mobile BFF**.
+
 ```mermaid
 flowchart TB
-    classDef flutterUI fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
-    classDef flutterLogic fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#15803d;
-    classDef flutterResilience fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#b45309;
-    classDef edgeGateway fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#b91c1c;
-    classDef bffMiddleware fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#854d0e;
-    classDef microservice fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#6d28d9;
-    classDef datastore fill:#ffedd5,stroke:#ea580c,stroke-width:2px,color:#c2410c;
+    classDef mobilePath fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
+    classDef webPath fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#b45309;
+    classDef gateway fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#b91c1c;
+    classDef bff fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#854d0e;
+    classDef backend fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#6d28d9;
+    classDef resilience fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#854d0e;
 
-    subgraph TIER_FLUTTER ["Tier 1: Native Mobile Flutter Client (Android & iOS)"]
-        UI_REMITTANCE["RemittanceFormScreen<br/>- P2P Transfer Inputs<br/>- Real-time Balance Validation<br/>- Idempotent Submit"]:::flutterUI
-        UI_DASHBOARD["Dashboard & Balance View<br/>- Account Selector<br/>- Live / Cached Balances"]:::flutterUI
-        UI_CIRCUIT["ServiceUnavailableView<br/>(Fail-Fast Screen)<br/>- 'Service Temporarily Unavailable'<br/>- Cooldown Countdown & Retry"]:::flutterResilience
+    %% Client Tier
+    subgraph TIER1_CLIENTS ["1. CLIENT TIER"]
+        subgraph FLUTTER_APP ["📱 Retail Mobile App (app/)"]
+            UI_MOBILE["Mobile Screens<br/>(Dashboard, Remittance, Stepper)"]:::mobilePath
+            CB["⚡ CircuitBreaker<br/>(CLOSED / OPEN / HALF-OPEN)"]:::resilience
+            FAIL_SCREEN["ServiceUnavailableView<br/>(30s Cooldown Screen)"]:::resilience
+        end
 
-        STORAGE_SECURE["SecureStorageService<br/>(Android KeyStore AES Encryption)"]:::flutterLogic
-        API_INTERFACE["ApiClient (Abstract Contract)"]:::flutterLogic
-        CLIENT_MOCK["MockApiClient<br/>(Offline Air-Gapped Engine)"]:::flutterLogic
-        CLIENT_LIVE["HttpApiClient<br/>(Gateway Proxy Caller)"]:::flutterLogic
-        CB["CircuitBreaker<br/>(Client-Side Fail-Fast)"]:::flutterResilience
+        subgraph REACT_PORTAL ["🖥️ Teller Web Portal (frontend/)"]
+            UI_WEB["Staff Console<br/>(Accounts, KYC, 11-Stage Audit)"]:::webPath
+        end
     end
 
-    subgraph TIER_GATEWAY ["Tier 2: Spring Cloud Gateway Reverse Proxy (:8080)"]
-        GW["API Gateway Ingress Proxy"]:::edgeGateway
-        GW_RATELIMIT["Redis Token-Bucket Rate Limiter<br/>(10 req/s Auth, 20 req/s Ledger, 50 req/s Mobile)"]:::edgeGateway
-        GW_AUTH["Token Blacklist Filter (jti)"]:::edgeGateway
+    %% Edge Ingress
+    subgraph TIER2_INGRESS ["2. EDGE GATEWAY (api-gateway :8080)"]
+        GW_MOBILE["Mobile Ingress Route<br/>Path: /api/v1/mobile/**<br/>Rate Limit: 50 req/s"]:::gateway
+        GW_WEB["Domain & Ops Routes<br/>Path: /api/v1/{accounts, audit, ledger, transactions}/**"]:::gateway
     end
 
-    subgraph TIER_BFF ["Tier 2.5: Mobile Backend-for-Frontend (BFF) Middleware (:8094)"]
-        BFF["mobile-bff Application Middleware<br/>- Multi-Service Screen Aggregation (M1)<br/>- 3-Stage Stepper Adapter (M2)<br/>- Remittance Relay (M3)"]:::bffMiddleware
+    %% Mobile Middleware
+    subgraph TIER3_BFF ["3. MOBILE MIDDLEWARE (:8094)"]
+        BFF["mobile-bff<br/>• M1: Dashboard Aggregation (&lt;150ms)<br/>• M2: 3-Stage Stepper Adapter<br/>• M3: Remittance Ingress Relay (202 Accepted)"]:::bff
     end
 
-    subgraph TIER_SERVICES ["Tier 3: Backend Microservices & Domain Tier"]
-        SRV_AUTH["auth-service (:8081) / customer-service (:8089)"]:::microservice
-        SRV_ACCT["account-service (:8082)"]:::microservice
-        SRV_TX["transaction-service (:8090) / ledger-service (:8083)<br/>Double-Entry Engine"]:::microservice
-        SRV_NOTIF["notification-service (:8084)"]:::microservice
-        SRV_RISK["Risk Engine (Java :8092)<br/>Score &lt;= 0.85; SLA &lt;= 200ms"]:::microservice
+    %% Domain Services
+    subgraph TIER4_SERVICES ["4. CORE BACKEND MICROSERVICES"]
+        CUST["customer-service (:8089)"]:::backend
+        ACCT["account-service (:8082)"]:::backend
+        TX["transaction-service (:8090)"]:::backend
+        AUDIT["audit-service (:8085)"]:::backend
+        NOTIF["notification-service (:8084)"]:::backend
+        RISK["risk-engine (:8092)"]:::backend
     end
 
-    UI_REMITTANCE --> API_INTERFACE
-    UI_DASHBOARD --> API_INTERFACE
-    API_INTERFACE -.-> CLIENT_MOCK
-    API_INTERFACE -.-> CLIENT_LIVE
+    %% Internal Mobile Resilience Flow
+    UI_MOBILE <-->|"Normal Operations"| CB
+    CB -.->|"Trips on 3 Failures"| FAIL_SCREEN
 
-    CLIENT_LIVE <--> CB
-    CB -.->|"Trips on 3 Failures"| UI_CIRCUIT
-    CLIENT_LIVE ==>|"Native OS Socket (10.0.2.2:8080 / LAN IP:8080)<br/>Authorization, Idempotency-Key, X-Correlation-ID"| GW
+    %% Outgoing Mobile Network Call
+    CB ==>|"Native OS Sockets (Zero CORS)"| GW_MOBILE
+    GW_MOBILE ==>|"/api/v1/mobile/**"| BFF
 
-    GW <--> GW_RATELIMIT
-    GW <--> GW_AUTH
+    %% BFF Fanout
+    BFF -->|"Aggregate Member Info"| CUST
+    BFF -->|"Aggregate Balances"| ACCT
+    BFF -->|"M2 Stepper / M3 Transfers"| TX
+    BFF -->|"Aggregate Alerts"| NOTIF
 
-    GW ==>|"Route: /api/v1/mobile/**"| BFF
-    GW -.->|"Route: /api/v1/auth/**"| SRV_AUTH
+    %% Web Teller Flow (Direct)
+    UI_WEB ==>|"Direct Domain APIs (CORS Enabled)"| GW_WEB
+    GW_WEB -->|"/api/v1/accounts/**"| ACCT
+    GW_WEB -->|"/api/v1/audit/**"| AUDIT
+    GW_WEB -->|"/api/v1/transactions/** (11-Stage View)"| TX
+    GW_WEB -->|"/api/v1/customers/**"| CUST
 
-    BFF -->|"M1: Member KYC Profile"| SRV_AUTH
-    BFF -->|"M1: Account Balances"| SRV_ACCT
-    BFF -->|"M2: Timeline & M3: Remittance"| SRV_TX
-    BFF -->|"M1: Unread Notifications"| SRV_NOTIF
+    TX <-->|"Risk Screening (&lt;=200ms)"| RISK
+```
 
-    SRV_TX ==>|"Async Fraud Check"| SRV_RISK
+### 3.2 Transaction Timeline Adapter (11-to-3 Translation)
+
+The mobile client shields retail customers from backend distributed saga mechanics by delegating milestone translation to `mobile-bff` (Endpoint `M2`):
+
+```mermaid
+flowchart LR
+    classDef staff fill:#fee2e2,stroke:#dc2626,stroke-width:1.5px,color:#991b1b;
+    classDef bff fill:#fef9c3,stroke:#ca8a04,stroke-width:2px,color:#854d0e;
+    classDef customer fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#166534;
+
+    subgraph STAFF_VIEW ["🖥️ TELLER WEB VIEW (11 Technical Saga Stages)"]
+        direction TB
+        S1["1. VALIDATE_IDEMPOTENCY"]:::staff
+        S2["2. CHECK_BALANCE"]:::staff
+        S3["3. RISK_EVALUATION_SCORE"]:::staff
+        S4["4. PLACE_LEDGER_HOLD"]:::staff
+        S5["5. DISPATCH_CLEARING"]:::staff
+        S6["6. AWAIT_SETTLEMENT"]:::staff
+        S7["7. POST_JOURNAL_ENTRIES"]:::staff
+        S8["8. RELEASE_HOLD"]:::staff
+        S9["9. RECORD_AUDIT_LOG"]:::staff
+        S10["10. SEND_NOTIFICATION"]:::staff
+        S11["11. SAGA_COMPLETED"]:::staff
+        S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9 --> S10 --> S11
+    end
+
+    ADAPTER["mobile-bff (:8094)<br/>Timeline Adapter (M2)"]:::bff
+
+    subgraph CUSTOMER_VIEW ["📱 CUSTOMER MOBILE VIEW (3 Friendly Milestones)"]
+        direction TB
+        C1["🟢 1. Transfer Submitted<br/>(Request received & verified)"]:::customer
+        C2["🟡 2. Security & Clearing<br/>(Screening & network clearing)"]:::customer
+        C3["🟢 3. Transfer Completed<br/>(Funds deposited to recipient)"]:::customer
+        C1 --> C2 --> C3
+    end
+
+    S1 & S2 -.-> ADAPTER
+    S3 & S4 & S5 & S6 -.-> ADAPTER
+    S7 & S8 & S9 & S10 & S11 -.-> ADAPTER
+
+    ADAPTER ==> C1
+    ADAPTER ==> C2
+    ADAPTER ==> C3
 ```
 
 ---
