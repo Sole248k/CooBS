@@ -42,6 +42,9 @@ class HoldServiceImplTest {
     @Mock
     private PostingEngine postingEngine;
 
+    @Mock
+    private com.group2.fse.ledger_service.service.OutboxService outboxService;
+
     @InjectMocks
     private HoldServiceImpl holdService;
 

@@ -41,6 +41,7 @@ public class HoldServiceImpl implements HoldService {
     private final HoldRepository holdRepository;
     private final BalanceRepository balanceRepository;
     private final PostingEngine postingEngine;
+    private final com.group2.fse.ledger_service.service.OutboxService outboxService;
 
     @Autowired(required = false)
     private StringRedisTemplate redisTemplate;
@@ -201,6 +202,39 @@ public class HoldServiceImpl implements HoldService {
         holdRepository.save(hold);
 
         String auditHash = generateAuditHash(hold.getReferenceNo(), debitTxnId, creditTxnId, amount);
+
+        // Transactional Outbox Append (Day 4: Core Transfer Flow)
+        try {
+            Long srcCustId = sourceBalance.getAccount() != null && sourceBalance.getAccount().getCustomer() != null
+                    ? sourceBalance.getAccount().getCustomer().getCustomerId() : null;
+            Long dstCustId = destinationBalance.getAccount() != null && destinationBalance.getAccount().getCustomer() != null
+                    ? destinationBalance.getAccount().getCustomer().getCustomerId() : null;
+
+            com.group2.fse.ledger_service.event.LedgerTransferEvent outboxPayload =
+                    com.group2.fse.ledger_service.event.LedgerTransferEvent.builder()
+                            .eventId("evt_" + java.util.UUID.randomUUID())
+                            .eventType("LEDGER_TRANSFER_COMPLETED")
+                            .timestamp(java.time.Instant.now())
+                            .version("1.0")
+                            .payload(com.group2.fse.ledger_service.event.LedgerTransferEvent.TransferPayload.builder()
+                                    .transferReference(hold.getReferenceNo())
+                                    .sourceAccountId(sourceAccountId)
+                                    .destinationAccountId(destinationAccountId)
+                                    .amount(amount.setScale(4, RoundingMode.HALF_UP))
+                                    .sourcePreviousBalance(srcPrevLedger.setScale(4, RoundingMode.HALF_UP))
+                                    .sourceNewBalance(srcNewLedger.setScale(4, RoundingMode.HALF_UP))
+                                    .destinationPreviousBalance(dstPrevLedger.setScale(4, RoundingMode.HALF_UP))
+                                    .destinationNewBalance(dstNewLedger.setScale(4, RoundingMode.HALF_UP))
+                                    .sourceCustomerId(srcCustId)
+                                    .destinationCustomerId(dstCustId)
+                                    .build())
+                            .build();
+
+            outboxService.appendEvent("ledger.transfer.completed.v1", String.valueOf(sourceAccountId), outboxPayload);
+        } catch (Exception outboxEx) {
+            log.error("Failed to append transactional outbox event for hold {}: {}", holdId, outboxEx.getMessage(), outboxEx);
+            throw outboxEx;
+        }
 
         log.info("Hold {} captured successfully: debitTxn={}, creditTxn={}, hash={}",
                 holdId, debitTxnId, creditTxnId, auditHash);

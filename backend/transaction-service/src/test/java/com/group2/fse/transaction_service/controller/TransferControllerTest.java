@@ -46,6 +46,9 @@ class TransferControllerTest {
     @Mock
     private TxnStageEventRepository stageEventRepository;
 
+    @Mock
+    private com.group2.fse.transaction_service.client.OrchestrationClient orchestrationClient;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
@@ -53,7 +56,7 @@ class TransferControllerTest {
     void setUp() {
         objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
         TransferService transferService = new TransferServiceImpl(
-                idempotencyService, objectMapper, transactionRepository, stageEventRepository);
+                idempotencyService, objectMapper, transactionRepository, stageEventRepository, orchestrationClient);
         TransferController transferController = new TransferController(transferService);
         mockMvc = MockMvcBuilders.standaloneSetup(transferController)
                 .setControllerAdvice(new GlobalExceptionHandler())
