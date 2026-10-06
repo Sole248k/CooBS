@@ -11,39 +11,6 @@ class LoginRequest {
   };
 }
 
-class LoginResponse {
-  final String authData;
-  final String mfaToken;
-  final String deliveryChannel;
-  final String maskedDestination;
-
-  LoginResponse({
-    required this.authData,
-    required this.mfaToken,
-    required this.deliveryChannel,
-    required this.maskedDestination,
-  });
-
-  factory LoginResponse.fromJson(Map<String, dynamic> json) => LoginResponse(
-    authData: json['authData'] as String? ?? '',
-    mfaToken: json['mfaToken'] as String? ?? '',
-    deliveryChannel: json['deliveryChannel'] as String? ?? 'SMS',
-    maskedDestination: json['maskedDestination'] as String? ?? '',
-  );
-}
-
-class MfaVerifyRequest {
-  final String mfaToken;
-  final String code;
-
-  MfaVerifyRequest({required this.mfaToken, required this.code});
-
-  Map<String, dynamic> toJson() => {
-    'mfaToken': mfaToken,
-    'code': code,
-  };
-}
-
 class TokenResponse {
   final String accessToken;
   final String refreshToken;

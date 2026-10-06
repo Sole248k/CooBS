@@ -88,7 +88,7 @@ Worth doing only after Checkpoint 1, and only if the team agrees on Day 1. Sign-
 | What to add           | A real send in that one method, calling Resend's email API with an API key from the environment                                                                                |
 | Why email, not SMS    | The login email is in`identity_db` in the cloud. The mobile number is in `customer-service`, which `auth-service` does not read                                      |
 | Configuration         | `MFA_ENABLED=true`, `MFA_DEFAULT_CHANNEL=EMAIL`, `EMAIL_PROVIDER=RESEND`, `RESEND_API_KEY`, a sender address. The key goes in `.env`, later Key Vault, never in the repository |
-| Frontend              | One code-entry screen in the Flutter sign-in flow, shown when the login response has`mfaRequired: true`                                                                        |
+| Frontend              | Removed from Flutter mobile scope; sign-in flow proceeds directly with Bearer tokens |
 | Owners                | Dev 2 (send), Dev 6 (screen), Dev 8 (secret and variables)                                                                                                                     |
 | To confirm first      | Resend's free plan limits, and whether it needs a verified domain to send to addresses other than your own. Seeded members need inboxes the team can open                      |
 | Fallback for the demo | If the flag is off, sign-in proceeds without MFA. Keep at least one seeded user with MFA off                                                                                   |

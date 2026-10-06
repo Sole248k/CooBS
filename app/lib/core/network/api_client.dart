@@ -256,7 +256,6 @@ class ApiClient {
   Map<String, dynamic> _getEmbeddedFixtureFallback(String filename) {
     if (filename.contains('login')) {
       return {
-        'mfaRequired': false,
         'authData': {
           'accessToken': 'dummy-jwt-access-token-coobs',
           'refreshToken': 'dummy-refresh-token',
