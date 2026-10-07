@@ -7,7 +7,7 @@ import com.group2.fse.ledger_service.entity.Transaction;
 import com.group2.fse.ledger_service.entity.User;
 import com.group2.fse.ledger_service.exception.DuplicateIdempotencyKeyException;
 import com.group2.fse.ledger_service.exception.HoldNotFoundException;
-import com.group2.fse.ledger_service.exception.InvalidTransactionException;
+import com.group2.fse.ledger_service.exception.HoldNotReservedException;
 import com.group2.fse.ledger_service.posting.OrderedAccountLocks;
 import com.group2.fse.ledger_service.posting.PostingEngine;
 import com.group2.fse.ledger_service.repository.BalanceRepository;
@@ -130,8 +130,7 @@ public class HoldServiceImpl implements HoldService {
         }
 
         if (!"RESERVED".equalsIgnoreCase(hold.getStatus())) {
-            throw new InvalidTransactionException(
-                    String.format("Hold %d is not in RESERVED status (current: %s)", holdId, hold.getStatus()));
+            throw new HoldNotReservedException(holdId, hold.getStatus());
         }
 
         Long sourceAccountId = hold.getAccount().getAccountId();
@@ -285,8 +284,7 @@ public class HoldServiceImpl implements HoldService {
         }
 
         if (!"RESERVED".equalsIgnoreCase(hold.getStatus())) {
-            throw new InvalidTransactionException(
-                    String.format("Cannot release hold %d with status %s", holdId, hold.getStatus()));
+            throw new HoldNotReservedException(holdId, hold.getStatus());
         }
 
         // Return reserved amount to availableBalance

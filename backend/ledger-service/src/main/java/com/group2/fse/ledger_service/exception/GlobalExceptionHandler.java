@@ -95,6 +95,26 @@ public class GlobalExceptionHandler {
                 .body(problem);
     }
 
+    @ExceptionHandler(HoldNotReservedException.class)
+    public ResponseEntity<Map<String, Object>> handleHoldNotReserved(
+            HoldNotReservedException ex, HttpServletRequest request) {
+        log.warn("Hold not reserved on {}: {}", request.getRequestURI(), ex.getMessage());
+
+        Map<String, Object> problem = createProblemDetails(
+                "https://api.corebank.local/errors/HOLD_NOT_RESERVED",
+                "Hold Not Reserved",
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                "HOLD_NOT_RESERVED"
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
     @ExceptionHandler(TransactionNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleTransactionNotFound(
             TransactionNotFoundException ex, HttpServletRequest request) {

@@ -6,6 +6,7 @@ import com.group2.fse.ledger_service.entity.Balance;
 import com.group2.fse.ledger_service.entity.Hold;
 import com.group2.fse.ledger_service.entity.Transaction;
 import com.group2.fse.ledger_service.exception.HoldNotFoundException;
+import com.group2.fse.ledger_service.exception.HoldNotReservedException;
 import com.group2.fse.ledger_service.posting.OrderedAccountLocks;
 import com.group2.fse.ledger_service.posting.PostingEngine;
 import com.group2.fse.ledger_service.repository.BalanceRepository;
@@ -230,6 +231,51 @@ class HoldServiceImplTest {
 
         verify(balanceRepository).save(sourceBalance);
         verify(holdRepository).save(hold);
+    }
+
+    @Test
+    @DisplayName("captureHold refuses a released hold with HoldNotReservedException and moves no money")
+    void testCaptureReleasedHold() {
+        Hold hold = Hold.builder()
+                .holdId(9001L)
+                .account(sourceAccount)
+                .referenceNo("TX-20261003-8F3A21C0")
+                .amount(new BigDecimal("2500.0000"))
+                .status("CANCELLED")
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(holdRepository.findByIdForUpdate(9001L)).thenReturn(Optional.of(hold));
+
+        assertThatThrownBy(() -> holdService.captureHold(9001L,
+                CaptureHoldRequestDto.builder().destinationAccountId(2L).build(), "idemp-cap"))
+                .isInstanceOf(HoldNotReservedException.class)
+                .hasMessageContaining("CANCELLED");
+
+        verify(balanceRepository, never()).save(any(Balance.class));
+        verify(holdRepository, never()).save(any(Hold.class));
+    }
+
+    @Test
+    @DisplayName("releaseHold refuses a captured hold with HoldNotReservedException and moves no money")
+    void testReleaseCapturedHold() {
+        Hold hold = Hold.builder()
+                .holdId(9001L)
+                .account(sourceAccount)
+                .referenceNo("TX-20261003-8F3A21C0")
+                .amount(new BigDecimal("2500.0000"))
+                .status("POSTED")
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(holdRepository.findByIdForUpdate(9001L)).thenReturn(Optional.of(hold));
+        when(postingEngine.lockAccount(1L, false)).thenReturn(sourceBalance);
+
+        assertThatThrownBy(() -> holdService.releaseHold(9001L,
+                ReleaseHoldRequestDto.builder().reason("TIMEOUT").build(), "idemp-rel"))
+                .isInstanceOf(HoldNotReservedException.class)
+                .hasMessageContaining("POSTED");
+
+        verify(balanceRepository, never()).save(any(Balance.class));
+        verify(holdRepository, never()).save(any(Hold.class));
     }
 
     @Test
