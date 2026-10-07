@@ -139,6 +139,7 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.evaluated.v1.DLT --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic transaction.stage.changed.v1.DLT --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.dispatched.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.events.DLT --partitions 3 --replication-factor 1
         echo "Available topics:"
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --list
     networks:

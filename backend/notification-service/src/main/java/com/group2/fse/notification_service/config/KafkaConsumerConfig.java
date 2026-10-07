@@ -11,10 +11,10 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.converter.RecordMessageConverter;
 import org.springframework.kafka.support.converter.StringJsonMessageConverter;
-import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +41,18 @@ public class KafkaConsumerConfig {
 
     @Value("${notification.kafka.auto-startup:true}")
     private boolean autoStartup;
+
+    @Value("${notification.kafka.topics.dlt:notification.events.DLT}")
+    private String dltTopic;
+
+    @Value("${notification.kafka.retry.max-attempts:3}")
+    private int maxAttempts;
+
+    @Value("${notification.kafka.retry.initial-interval-ms:1000}")
+    private long initialIntervalMs;
+
+    @Value("${notification.kafka.retry.multiplier:2.0}")
+    private double retryMultiplier;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -69,15 +81,55 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public DefaultErrorHandler defaultErrorHandler() {
-        return new DefaultErrorHandler(
-                (consumerRecord, exception) -> log.error("Failed to process Kafka record on topic [{}], partition [{}], offset [{}]: {}",
-                        consumerRecord != null ? consumerRecord.topic() : "unknown",
-                        consumerRecord != null ? consumerRecord.partition() : -1,
-                        consumerRecord != null ? consumerRecord.offset() : -1,
-                        exception != null ? exception.getMessage() : "unknown"),
-                new FixedBackOff(1000L, 3L)
+    public DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(
+            org.springframework.kafka.core.KafkaTemplate<String, String> stringKafkaTemplate) {
+
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                stringKafkaTemplate,
+                (record, ex) -> {
+                    log.warn("Routing poison record from topic [{}] to DLT [{}] after retry exhaustion. Cause: {}",
+                            record.topic(), dltTopic, ex != null ? ex.getMessage() : "unknown");
+                    return new org.apache.kafka.common.TopicPartition(dltTopic, -1);
+                }
         );
+
+        recoverer.setHeadersFunction((record, ex) -> {
+            org.apache.kafka.common.header.internals.RecordHeaders headers = new org.apache.kafka.common.header.internals.RecordHeaders();
+            headers.add(new org.apache.kafka.common.header.internals.RecordHeader("x-original-topic", record.topic().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            String errorMsg = ex != null && ex.getMessage() != null ? ex.getMessage() : (ex != null ? ex.getClass().getName() : "Unknown failure");
+            headers.add(new org.apache.kafka.common.header.internals.RecordHeader("x-exception-message", errorMsg.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            headers.add(new org.apache.kafka.common.header.internals.RecordHeader("x-attempts", String.valueOf(maxAttempts).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            headers.add(new org.apache.kafka.common.header.internals.RecordHeader("x-failed-at", java.time.Instant.now().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            return headers;
+        });
+
+        return recoverer;
+    }
+
+    @Bean
+    public DefaultErrorHandler defaultErrorHandler(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {
+        org.springframework.kafka.support.ExponentialBackOffWithMaxRetries backOff =
+                new org.springframework.kafka.support.ExponentialBackOffWithMaxRetries(maxAttempts);
+        backOff.setInitialInterval(initialIntervalMs);
+        backOff.setMultiplier(retryMultiplier);
+
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(deadLetterPublishingRecoverer, backOff);
+        errorHandler.setRetryListeners((record, ex, deliveryAttempt) ->
+                log.warn("Kafka consumer delivery attempt [{}/{}] failed on topic [{}], partition [{}], offset [{}]: {}",
+                        deliveryAttempt, maxAttempts,
+                        record != null ? record.topic() : "unknown",
+                        record != null ? record.partition() : -1,
+                        record != null ? record.offset() : -1,
+                        ex != null ? ex.getMessage() : "unknown"));
+        return errorHandler;
+    }
+
+    @Bean
+    public org.apache.kafka.clients.admin.NewTopic notificationEventsDltTopic() {
+        return org.springframework.kafka.config.TopicBuilder.name(dltTopic)
+                .partitions(3)
+                .replicas(1)
+                .build();
     }
 
     @Bean
