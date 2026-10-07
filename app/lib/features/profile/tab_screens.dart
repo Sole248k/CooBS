@@ -5,6 +5,7 @@ import '../../core/storage/secure_storage_service.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../auth/auth_screens.dart';
+import '../kyc/kyc_intake_screen.dart';
 
 Widget _title(String t) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
@@ -91,11 +92,27 @@ class ProfileScreen extends StatelessWidget {
               ),
               const Divider(height: 1),
               ListTile(title: const Text('KYC details'), subtitle: const Text('Name, address, occupation'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const KycDetailsPage())),
-              ListTile(title: const Text('Verify identity'), subtitle: const Text('Upload ID and selfie'), trailing: miniTag('Pending'), onTap: () => go(context, const KycVerifyPage(fromProfile: true))),
+              ListTile(
+                  title: const Text('Verify identity'),
+                  subtitle: const Text('Submit your details for review'),
+                  trailing: AnimatedBuilder(animation: Demo.i, builder: (_, __) => kycChip(Demo.i.kyc)),
+                  onTap: () => go(context, const KycIntakeScreen())),
               ListTile(title: const Text('Security & tokens'), subtitle: const Text('Password and active sessions'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const SecurityPage())),
               ListTile(
                   title: const Text('Log out'),
                   onTap: () => _handleLogout(context)),
+            ]),
+          ),
+        ),
+        const Padding(padding: EdgeInsets.fromLTRB(20, 20, 20, 6), child: Text('Tester tools', style: TextStyle(fontSize: 12, color: kMut))),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Card(
+            child: Column(children: [
+              ListTile(title: const Text('Reload data'), onTap: () => Demo.i.simulate(null)),
+              ListTile(title: const Text('Simulate partial failure'), subtitle: const Text('Recent transactions unavailable'), onTap: () => Demo.i.simulate('partial')),
+              ListTile(title: const Text('Simulate service unavailable'), onTap: () => Demo.i.simulate('offline')),
+              ListTile(title: const Text('Reset KYC to Unverified'), onTap: () => Demo.i.setKyc('UNVERIFIED')),
             ]),
           ),
         ),
