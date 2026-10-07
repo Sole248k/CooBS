@@ -73,12 +73,26 @@ public interface PostingEngine {
     BigDecimal calculateCredit(BigDecimal currentBalance, BigDecimal amount);
 
     /**
-     * Applies debit math to a locked balance, verifies funds sufficiency, and persists the balance.
+     * The single place that writes a Balance. Adds the two signed deltas to a locked balance
+     * (scale = 4) and persists it.
+     *
+     * Direct debit / credit, both legs of a transfer or reversal: both deltas move.
+     * Place / release hold: available only. Capture, source side: ledger only.
+     *
+     * @param balance locked Balance entity
+     * @param availableDelta signed change to available_balance (zero to leave it unchanged)
+     * @param ledgerDelta signed change to ledger_balance (zero to leave it unchanged)
+     * @return persisted Balance entity
+     */
+    Balance post(Balance balance, BigDecimal availableDelta, BigDecimal ledgerDelta);
+
+    /**
+     * Verifies funds sufficiency, then debits both available and ledger balance of a locked balance.
      */
     Balance applyDebit(Balance balance, BigDecimal amount);
 
     /**
-     * Applies credit math to a locked balance and persists the balance.
+     * Credits both available and ledger balance of a locked balance.
      */
     Balance applyCredit(Balance balance, BigDecimal amount);
 

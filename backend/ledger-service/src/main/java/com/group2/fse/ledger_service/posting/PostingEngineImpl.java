@@ -44,7 +44,6 @@ public class PostingEngineImpl implements PostingEngine {
         }
 
         Balance balance = balanceRepository.findByAccountId(accountId)
-                .or(() -> balanceRepository.findById(accountId))
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
         if (enforceActiveStatus && balance.getAccount() != null && balance.getAccount().getStatus() != null &&
@@ -69,11 +68,9 @@ public class PostingEngineImpl implements PostingEngine {
         Long secondId = Math.max(sourceAccountId, destinationAccountId);
 
         Balance firstBalance = balanceRepository.findByAccountId(firstId)
-                .or(() -> balanceRepository.findById(firstId))
                 .orElseThrow(() -> new AccountNotFoundException(firstId));
 
         Balance secondBalance = balanceRepository.findByAccountId(secondId)
-                .or(() -> balanceRepository.findById(secondId))
                 .orElseThrow(() -> new AccountNotFoundException(secondId));
 
         Balance sourceBalance = sourceAccountId.equals(firstId) ? firstBalance : secondBalance;
@@ -118,21 +115,26 @@ public class PostingEngineImpl implements PostingEngine {
     }
 
     @Override
-    public Balance applyDebit(Balance balance, BigDecimal amount) {
-        BigDecimal currentBalance = balance.getAvailableBalance();
-        validateSufficientFunds(balance.getAccountId(), currentBalance, amount);
+    public Balance post(Balance balance, BigDecimal availableDelta, BigDecimal ledgerDelta) {
+        if (balance == null || availableDelta == null || ledgerDelta == null) {
+            throw new InvalidTransactionException("Balance, available delta and ledger delta are required for posting.");
+        }
 
-        BigDecimal newBalance = calculateDebit(currentBalance, amount);
-        balance.setAvailableBalance(newBalance);
-        return balanceRepository.save(balance);
+        balance.setAvailableBalance(calculateCredit(balance.getAvailableBalance(), availableDelta));
+        balance.setLedgerBalance(calculateCredit(balance.getLedgerBalance(), ledgerDelta));
+        balanceRepository.save(balance);
+        return balance;
+    }
+
+    @Override
+    public Balance applyDebit(Balance balance, BigDecimal amount) {
+        validateSufficientFunds(balance.getAccountId(), balance.getAvailableBalance(), amount);
+        return post(balance, amount.negate(), amount.negate());
     }
 
     @Override
     public Balance applyCredit(Balance balance, BigDecimal amount) {
-        BigDecimal currentBalance = balance.getAvailableBalance();
-        BigDecimal newBalance = calculateCredit(currentBalance, amount);
-        balance.setAvailableBalance(newBalance);
-        return balanceRepository.save(balance);
+        return post(balance, amount, amount);
     }
 
     @Override
@@ -196,11 +198,7 @@ public class PostingEngineImpl implements PostingEngine {
         Balance balance = lockAccount(accountId, enforceActiveStatus);
 
         BigDecimal currentBalance = balance.getAvailableBalance();
-        validateSufficientFunds(accountId, currentBalance, amount);
-
-        BigDecimal newBalance = calculateDebit(currentBalance, amount);
-        balance.setAvailableBalance(newBalance);
-        balanceRepository.save(balance);
+        BigDecimal newBalance = applyDebit(balance, amount).getAvailableBalance();
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
         User approvedBy = actorId != null ? User.builder().userId(actorId).build() : null;
@@ -250,9 +248,7 @@ public class PostingEngineImpl implements PostingEngine {
         Balance balance = lockAccount(accountId, enforceActiveStatus);
 
         BigDecimal currentBalance = balance.getAvailableBalance();
-        BigDecimal newBalance = calculateCredit(currentBalance, amount);
-        balance.setAvailableBalance(newBalance);
-        balanceRepository.save(balance);
+        BigDecimal newBalance = applyCredit(balance, amount).getAvailableBalance();
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
         User approvedBy = actorId != null ? User.builder().userId(actorId).build() : null;
@@ -305,16 +301,10 @@ public class PostingEngineImpl implements PostingEngine {
         Balance destinationBalance = locks.getDestinationBalance();
 
         BigDecimal srcPrev = sourceBalance.getAvailableBalance();
-        validateSufficientFunds(sourceAccountId, srcPrev, amount);
-
-        BigDecimal srcNew = calculateDebit(srcPrev, amount);
         BigDecimal dstPrev = destinationBalance.getAvailableBalance();
-        BigDecimal dstNew = calculateCredit(dstPrev, amount);
 
-        sourceBalance.setAvailableBalance(srcNew);
-        destinationBalance.setAvailableBalance(dstNew);
-        balanceRepository.save(sourceBalance);
-        balanceRepository.save(destinationBalance);
+        BigDecimal srcNew = applyDebit(sourceBalance, amount).getAvailableBalance();
+        BigDecimal dstNew = applyCredit(destinationBalance, amount).getAvailableBalance();
 
         String refDebit = referenceNo != null && referenceNo.length() > 33
                 ? referenceNo.substring(0, 33) + "-D"
