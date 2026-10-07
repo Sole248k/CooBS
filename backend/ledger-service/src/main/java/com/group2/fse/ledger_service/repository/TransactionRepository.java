@@ -1,7 +1,10 @@
 package com.group2.fse.ledger_service.repository;
 
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -21,6 +24,29 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     boolean existsByReversesTransaction_TransactionId(Long transactionId);
 
-    @Query("SELECT t FROM Transaction t WHERE t.referenceNo = :ref OR t.referenceNo LIKE CONCAT(:ref, '-%') ORDER BY t.transactionId ASC")
-    List<Transaction> findByOriginalReferenceNo(@Param("ref") String ref);
+    List<Transaction> findByReferenceNoInOrderByTransactionIdAsc(Collection<String> referenceNos);
+
+    /**
+     * The journal rows of one posting: the reference itself, or its debit and credit legs.
+     * Exact matches only. A LIKE on the caller's string would let % and _ match other postings
+     * and could pair the legs of two different transfers.
+     */
+    default List<Transaction> findByOriginalReferenceNo(String ref) {
+        return findByReferenceNoInOrderByTransactionIdAsc(legReferences(ref));
+    }
+
+    /**
+     * A leg is stored as the reference plus -D or -C, cut to fit VARCHAR2(36). The posting engine
+     * cuts the reference at 33 characters and hold capture at 34, so both are looked for.
+     */
+    static Set<String> legReferences(String ref) {
+        Set<String> references = new LinkedHashSet<>();
+        references.add(ref);
+        for (int keep : new int[] {33, 34}) {
+            String base = ref.length() > keep ? ref.substring(0, keep) : ref;
+            references.add(base + "-D");
+            references.add(base + "-C");
+        }
+        return references;
+    }
 }

@@ -31,6 +31,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -65,20 +66,15 @@ public class ReversalServiceImpl implements ReversalService {
         log.info("Processing ledger reversal: originalRef={}, reversalRef={}, actorId={}",
                 originalRef, reversalRef, effectiveActorId);
 
-        // 1. Conflict Check: Verify reversal reference has not already been used
-        if (transactionRepository.existsByReferenceNo(reversalRef)
-                || transactionRepository.existsByReferenceNo(reversalRef + "-C")
-                || transactionRepository.existsByReferenceNo(reversalRef + "-D")) {
-            throw new TransactionAlreadyReversedException(reversalRef);
+        // 1. A repeat of a reversal that was already applied returns what was stored. The caller
+        //    retries when it got no answer the first time, and that must not read as a failure.
+        List<Transaction> storedReversal = transactionRepository.findByOriginalReferenceNo(reversalRef);
+        if (!storedReversal.isEmpty()) {
+            return storedResult(storedReversal, originalRef, reversalRef);
         }
 
-        // 2. Fetch original transactions (handles both exact reference and transfer leg prefixes)
+        // 2. Fetch the original posting: the reference itself, or its debit and credit legs
         List<Transaction> originalTxns = transactionRepository.findByOriginalReferenceNo(originalRef);
-        if (originalTxns.isEmpty()) {
-            originalTxns = transactionRepository.findByReferenceNo(originalRef)
-                    .map(List::of)
-                    .orElse(List.of());
-        }
 
         if (originalTxns.isEmpty()) {
             throw new TransactionNotFoundException(originalRef);
@@ -137,6 +133,42 @@ public class ReversalServiceImpl implements ReversalService {
                 .originalTransactionId(originalRef)
                 .reversedAmount(totalReversedAmount != null ? totalReversedAmount.setScale(2, RoundingMode.HALF_UP) : null)
                 .currency(currency)
+                .build();
+    }
+
+    /**
+     * The result of a reversal that is already in the journal. The same reversal reference for
+     * a different original is a conflict (409), not a repeat.
+     */
+    private ReversalResponseDto storedResult(List<Transaction> stored, String originalRef, String reversalRef) {
+        Set<String> originalLegs = TransactionRepository.legReferences(originalRef);
+        List<ReversalEntryDto> entries = new ArrayList<>();
+        for (Transaction txn : stored) {
+            Transaction reversed = txn.getReversesTransaction();
+            if (reversed == null || !originalLegs.contains(reversed.getReferenceNo())) {
+                throw new TransactionAlreadyReversedException(reversalRef);
+            }
+            entries.add(ReversalEntryDto.builder()
+                    .transactionId(txn.getTransactionId())
+                    .accountId(txn.getAccount() != null ? txn.getAccount().getAccountId() : null)
+                    .transactionType(txn.getTransactionType())
+                    .amount(txn.getAmount().setScale(2, RoundingMode.HALF_UP))
+                    .newBalance(txn.getNewBalance() != null ? txn.getNewBalance().setScale(2, RoundingMode.HALF_UP) : null)
+                    .build());
+        }
+        Transaction first = stored.get(0);
+        log.info("Reversal {} of {} was already applied; returning the stored result", reversalRef, originalRef);
+        return ReversalResponseDto.builder()
+                .reversalReferenceNo(reversalRef)
+                .originalReferenceNo(originalRef)
+                .status("POSTED")
+                .entries(entries)
+                .timestamp(Instant.now())
+                .reversalId(reversalRef)
+                .originalTransactionId(originalRef)
+                .reversedAmount(first.getAmount().setScale(2, RoundingMode.HALF_UP))
+                .currency(first.getAccount() != null && first.getAccount().getCurrency() != null
+                        ? first.getAccount().getCurrency() : "PHP")
                 .build();
     }
 
