@@ -76,7 +76,11 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         Optional<Balance> balanceOpt = balanceRepository.findByAccountId(accountId);
         if (balanceOpt.isEmpty()) {
             return MutationResult.failure(accountId, referenceNo, "Account balance record not found.");
-        } catch (InsufficientFundsException ex) {
+        }
+
+        Balance balance = balanceOpt.get();
+        BigDecimal currentBalance = balance.getAvailableBalance();
+        if (currentBalance.compareTo(amount) < 0) {
             return MutationResult.failure(accountId, referenceNo, "Insufficient funds for debit operation.");
         }
 

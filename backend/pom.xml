@@ -21,6 +21,7 @@
         <module>orchestration-service</module>
         <module>risk-engine</module>
         <module>batch-service</module>
+        <module>mobile-bff</module>
         <module>core-mock</module>
     </modules>
 </project>

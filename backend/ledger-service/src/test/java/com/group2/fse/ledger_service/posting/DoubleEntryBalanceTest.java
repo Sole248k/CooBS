@@ -109,7 +109,7 @@ class DoubleEntryBalanceTest {
         DualWriteLedgerAuditService audit = mock(DualWriteLedgerAuditService.class);
         PostingEngineImpl postingEngine = new PostingEngineImpl(balanceRepository, transactionRepository, audit);
         holdService = new HoldServiceImpl(holdRepository, balanceRepository, postingEngine, mock(OutboxService.class));
-        balanceService = new AccountBalanceServiceImpl(balanceRepository, transactionRepository, audit,
+        balanceService = new AccountBalanceServiceImpl(balanceRepository, postingEngine,
                 mock(ApplicationEventPublisher.class));
         reversalService = new ReversalServiceImpl(postingEngine, transactionRepository);
 
