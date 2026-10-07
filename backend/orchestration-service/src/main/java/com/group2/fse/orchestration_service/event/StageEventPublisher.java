@@ -61,19 +61,13 @@ public class StageEventPublisher {
 
         // ponytail: sent straight to Kafka, so a broker outage after the row is saved loses the
         // stage event. Move to an outbox table if the timeline must survive that.
-        // The saga row is already saved, so a failure here is logged and never stops the saga.
-        try {
-            kafkaTemplate.send(topic, transactionId.toString(), jsonMapper.writeValueAsString(event))
-                    .whenComplete((result, ex) -> {
-                        if (ex != null) {
-                            log.error("Stage event {} for transaction {} was not published: {}",
-                                    stage, transactionId, ex.getMessage(), ex);
-                        }
-                    });
-        } catch (RuntimeException e) {
-            log.error("Stage event {} for transaction {} was not published: {}",
-                    stage, transactionId, e.getMessage(), e);
-        }
+        kafkaTemplate.send(topic, transactionId.toString(), jsonMapper.writeValueAsString(event))
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Stage event {} for transaction {} was not published: {}",
+                                stage, transactionId, ex.getMessage(), ex);
+                    }
+                });
     }
 
     /** A plain sentence for the customer; never a score or an internal reason. */
