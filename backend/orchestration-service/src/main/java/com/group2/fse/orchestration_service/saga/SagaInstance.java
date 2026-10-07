@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -54,6 +55,18 @@ public class SagaInstance {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /**
+     * Optimistic lock. A transfer and its reversal work on the same row from separate copies;
+     * a save from a copy that someone else has written since it was read is rejected with an
+     * OptimisticLockingFailureException instead of overwriting their state.
+     *
+     * Needs saga.saga_instance.version BIGINT NOT NULL DEFAULT 0 in the init script; with
+     * ddl-auto=validate the service does not start against a table that lacks it.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     public SagaInstance(UUID transactionId) {
         this.sagaId = UUID.randomUUID();

@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,7 +12,6 @@ import com.group2.fse.orchestration_service.client.DownstreamException;
 import com.group2.fse.orchestration_service.client.InternalApi;
 import com.group2.fse.orchestration_service.client.LedgerClient;
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartReversalRequest;
-import com.group2.fse.orchestration_service.event.StageEventPublisher;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,12 +24,15 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class ReversalSaga {
 
+    static final String CANCELLED_BEFORE_HOLD = "CANCELLED_BEFORE_HOLD";
+    private static final int MAX_CONFLICTS = 3;
+
     private final SagaRepository sagas;
     private final LedgerClient ledger;
-    private final StageEventPublisher events;
+    private final StageEvents events;
     private final ObjectMapper objectMapper;
 
-    public ReversalSaga(SagaRepository sagas, LedgerClient ledger, StageEventPublisher events,
+    public ReversalSaga(SagaRepository sagas, LedgerClient ledger, StageEvents events,
             @Autowired(required = false) ObjectMapper objectMapper) {
         this.sagas = sagas;
         this.ledger = ledger;
@@ -43,42 +46,64 @@ public class ReversalSaga {
     public void run(StartReversalRequest r, String correlationId) {
         MDC.put(InternalApi.CORRELATION_MDC_KEY, correlationId);
         try {
-            SagaInstance reversalSaga = sagas.findOrCreate(r.transactionId());
-            if (reversalSaga.getState() != SagaState.STARTED) {
-                return;
-            }
-
-            if (reversalSaga.getReferenceNo() == null) {
-                reversalSaga.setReferenceNo(r.referenceNo());
-            }
-            if (reversalSaga.getPayload() == null) {
+            for (int conflicts = 0;; conflicts++) {
                 try {
-                    reversalSaga.setPayload(objectMapper.writeValueAsString(r));
-                } catch (Exception e) {
-                    log.warn("Failed to serialize reversal payload for {}: {}", r.transactionId(), e.getMessage());
+                    attempt(r);
+                    return;
+                } catch (OptimisticLockingFailureException conflict) {
+                    if (conflicts >= MAX_CONFLICTS) {
+                        log.error("Saga rows for reversal {} kept changing under this run; left for the sweep",
+                                r.transactionId());
+                        return;
+                    }
+                    log.warn("The transfer {} moved on while reversal {} was deciding; deciding again from the "
+                            + "saved row", r.reversesTransactionId(), r.transactionId());
                 }
-            }
-            sagas.saveAndFlush(reversalSaga);
-
-            Optional<SagaInstance> originalOpt = sagas.findByTransactionId(r.reversesTransactionId());
-            if (originalOpt.isEmpty()) {
-                fail(reversalSaga, r, "TRANSACTION_NOT_FOUND", "Original transaction not found: " + r.reversesTransactionId());
-                return;
-            }
-
-            SagaInstance original = originalOpt.get();
-
-            if (original.getState() == SagaState.POSTED || original.getState() == SagaState.COMPLETED) {
-                reversePostedTransfer(reversalSaga, original, r);
-            } else if (original.getState() == SagaState.FUNDS_RESERVED) {
-                cancelHeldTransfer(reversalSaga, original, r);
-            } else if (original.getState() == SagaState.STARTED || original.getState() == SagaState.RISK_APPROVED) {
-                cancelUnreservedTransfer(reversalSaga, original, r);
-            } else {
-                fail(reversalSaga, r, "ALREADY_TERMINAL", "Original transaction is already in terminal state " + original.getState());
             }
         } finally {
             MDC.remove(InternalApi.CORRELATION_MDC_KEY);
+        }
+    }
+
+    /**
+     * One pass over the saved rows. A save that is rejected means the original transfer was
+     * written by its own saga after it was read here; the pass is abandoned without
+     * overwriting that, and {@link #run} starts another from what is saved now.
+     */
+    private void attempt(StartReversalRequest r) {
+        SagaInstance reversalSaga = sagas.findOrCreate(r.transactionId());
+        if (reversalSaga.getState() != SagaState.STARTED) {
+            return;
+        }
+
+        if (reversalSaga.getReferenceNo() == null) {
+            reversalSaga.setReferenceNo(r.referenceNo());
+        }
+        if (reversalSaga.getPayload() == null) {
+            try {
+                reversalSaga.setPayload(objectMapper.writeValueAsString(r));
+            } catch (Exception e) {
+                log.warn("Failed to serialize reversal payload for {}: {}", r.transactionId(), e.getMessage());
+            }
+        }
+        sagas.store(reversalSaga);
+
+        Optional<SagaInstance> originalOpt = sagas.findByTransactionId(r.reversesTransactionId());
+        if (originalOpt.isEmpty()) {
+            fail(reversalSaga, r, "TRANSACTION_NOT_FOUND", "Original transaction not found: " + r.reversesTransactionId());
+            return;
+        }
+
+        SagaInstance original = originalOpt.get();
+
+        if (original.getState() == SagaState.POSTED || original.getState() == SagaState.COMPLETED) {
+            reversePostedTransfer(reversalSaga, original, r);
+        } else if (original.getState() == SagaState.FUNDS_RESERVED) {
+            cancelHeldTransfer(reversalSaga, original, r);
+        } else if (original.getState() == SagaState.STARTED || original.getState() == SagaState.RISK_APPROVED) {
+            cancelUnreservedTransfer(reversalSaga, original, r);
+        } else {
+            fail(reversalSaga, r, "ALREADY_TERMINAL", "Original transaction is already in terminal state " + original.getState());
         }
     }
 
@@ -89,7 +114,7 @@ public class ReversalSaga {
                     origRef, r.referenceNo(), r.reason(), r.actorId()));
 
             reversalSaga.setState(SagaState.COMPLETED);
-            sagas.saveAndFlush(reversalSaga);
+            sagas.store(reversalSaga);
 
             // Publish reversal stage events
             events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Reversal posted for " + origRef);
@@ -107,10 +132,10 @@ public class ReversalSaga {
             ledger.release(original.getTransactionId(), original.getHoldId(), "REVERSAL_REQUESTED: " + r.reason());
 
             original.setState(SagaState.COMPENSATED);
-            sagas.saveAndFlush(original);
+            sagas.store(original);
 
             reversalSaga.setState(SagaState.COMPLETED);
-            sagas.saveAndFlush(reversalSaga);
+            sagas.store(reversalSaga);
 
             events.failed(original.getTransactionId(), original.getReferenceNo(), Stage.POSTED, "REVERSED", "Hold released due to reversal");
             events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Hold cancelled and funds released");
@@ -123,11 +148,11 @@ public class ReversalSaga {
 
     private void cancelUnreservedTransfer(SagaInstance reversalSaga, SagaInstance original, StartReversalRequest r) {
         original.setState(SagaState.FAILED);
-        original.setFailureCode("CANCELLED_BEFORE_HOLD");
-        sagas.saveAndFlush(original);
+        original.setFailureCode(CANCELLED_BEFORE_HOLD);
+        sagas.store(original);
 
         reversalSaga.setState(SagaState.COMPLETED);
-        sagas.saveAndFlush(reversalSaga);
+        sagas.store(reversalSaga);
 
         events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Pre-hold transaction cancelled");
         events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
@@ -136,7 +161,7 @@ public class ReversalSaga {
     private void fail(SagaInstance reversalSaga, StartReversalRequest r, String failureCode, String detail) {
         reversalSaga.setFailureCode(failureCode);
         reversalSaga.setState(SagaState.FAILED);
-        sagas.saveAndFlush(reversalSaga);
+        sagas.store(reversalSaga);
         events.failed(r.transactionId(), r.referenceNo(), Stage.POSTED, failureCode, detail);
     }
 }
