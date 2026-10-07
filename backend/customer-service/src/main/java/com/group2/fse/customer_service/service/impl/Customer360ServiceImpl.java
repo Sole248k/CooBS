@@ -1,6 +1,7 @@
 package com.group2.fse.customer_service.service.impl;
 
 import com.group2.fse.customer_service.client.AccountClient;
+import com.group2.fse.customer_service.client.TransactionClient;
 import com.group2.fse.customer_service.dto.*;
 import com.group2.fse.customer_service.entity.ChannelProfile;
 import com.group2.fse.customer_service.exception.CustomerNotFoundException;
@@ -25,6 +26,7 @@ public class Customer360ServiceImpl implements Customer360Service {
     private final ChannelProfileRepository channelProfileRepository;
     private final BeneficiaryService beneficiaryService;
     private final AccountClient accountClient;
+    private final TransactionClient transactionClient;
 
     @Override
     @Transactional(readOnly = true)
@@ -35,6 +37,9 @@ public class Customer360ServiceImpl implements Customer360Service {
         List<BeneficiaryDto> beneficiaries = beneficiaryService.getBeneficiaries(customerId);
 
         List<Customer360Response.AccountDto> accounts = accountClient.fetchCustomerAccounts(customerId);
+
+        List<Customer360Response.TransactionSummaryDto> recentTransactions = transactionClient.fetchRecentTransactions(customerId, 5);
+        Customer360Response.SpendingBreakdown spendingBreakdown = transactionClient.fetchSpendingBreakdown(customerId, 30);
 
         BigDecimal totalDeposits = BigDecimal.ZERO;
         BigDecimal totalLoans = BigDecimal.ZERO;
@@ -66,8 +71,8 @@ public class Customer360ServiceImpl implements Customer360Service {
                 .riskScore(riskScore)
                 .accounts(accounts)
                 .totals(new Customer360Response.FinancialTotals(totalDeposits.setScale(2).toString(), totalLoans.setScale(2).toString()))
-                .recentTransactions(new ArrayList<>())
-                .spendingBreakdown(new Customer360Response.SpendingBreakdown(30, new ArrayList<>()))
+                .recentTransactions(recentTransactions)
+                .spendingBreakdown(spendingBreakdown)
                 .beneficiaries(beneficiaries)
                 .asOf(Instant.now().toString())
                 .build();
