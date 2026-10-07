@@ -265,7 +265,7 @@ Anyone who needs a port, environment variable, route, table or package requests 
 | Dev 1 | Lead, contracts, orchestration, E2E checklist | `/backend/orchestration-service`, `/contracts`, `/postman/e2e`, `/docs`                                                               | Sole contract editor                            |
 | Dev 2 | Identity, customer and account                | `/backend/auth-service`, `/backend/customer-service`, `/backend/account-service`                                                      | Owns identity, customer and account entities    |
 | Dev 3 | Transactions, holds, events, DLQ              | `/backend/transaction-service` (except `interbank/`), `/backend/ledger-service` (except `reversal/`), `/backend/notification-service` | Owns the balance path                           |
-| Dev 4 | Risk, core mock, reversals, inter-bank        | `/backend/risk-engine`, `/backend/core-mock`, `ledger-service/**/reversal/`, `transaction-service/**/interbank/`                      | Works inside Dev 3's services by package only   |
+| Dev 4 | Risk, reversals, inter-bank                   | `/backend/risk-engine`, `ledger-service/**/reversal/`, `transaction-service/**/interbank/`                                            | Works inside Dev 3's services by package only   |
 | Dev 5 | Database, EOD batch, audit seal               | `/database`, `/backend/batch-service`, `/backend/audit-service`                                                | Sole schema editor                              |
 | Dev 6 | Flutter foundation and stepper                | `/app/lib/core`, `/app/pubspec.yaml`, `/app/lib/features/monitoring`                                                                  | Sole editor of Flutter core; frozen after Day 2 |
 | Dev 7 | Flutter feature screens and KYC UI            | `/app/lib/features/{customer360,accounts,transfer,batch,kyc}`, `/app/assets/fixtures`                                                 | Feature folders only                            |
@@ -297,7 +297,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
   - **Dev 1:** Lead the workshop. Approve Diagrams 1 and 2. Start the decision log. Draft v1 OpenAPI and Kafka event examples in `/contracts`.
   - **Dev 2:** Define the identity/customer/account boundary: what is a login (`identity_db`), what is a customer profile & KYC record (`customer_db`), and what are accounts (`account-service`). Define `/api/v1/customers/**`. Specify the seeded KYC format (`VERIFIED`, `TIER_3_FULL`).
   - **Dev 3:** Define `/api/v1/transactions/transfers` DTOs, transaction statuses, idempotency, and the hold model (`RESERVED`, `POSTED`, `CANCELLED`).
-  - **Dev 4:** Specify the risk request and decision (score 0.00–1.00, thresholds in section 5.6). Specify the inter-bank webhook payload and what the core mock returns.
+  - **Dev 4:** Specify the risk request and decision (score 0.00–1.00, thresholds in section 5.6). Specify the inter-bank webhook payload.
   - **Dev 5:** Design the ERD: cloud `identity_db`, `customer_db`, `transaction_db` (schemas `txn`, `saga`), `notification_db`; on-premises Oracle core tables, audit store and `batch` schema. Define Redis key use. Define the single seed source that feeds every store.
   - **Dev 6:** Sketch the Flutter structure for web and Android, routing map and fixture approach.
   - **Dev 7:** Map screens and journeys; wireframe Customer 360, transfer, EOD deck and the KYC flow. (Dev 6 wireframes the stepper, which Dev 6 builds.)
@@ -312,7 +312,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
   - **Dev 1:** **Freeze v1 contracts** and tag `contracts-v1`. Export examples as fixtures. Scaffold the saga state machine.
   - **Dev 2:** Scaffold `customer-service` (8089) APIs and DTOs. Map `auth-service` entities to `identity_db` (`app_user`, `role`).
   - **Dev 3:** Scaffold `transaction-service` (8090): API, event schema, validation shell.
-  - **Dev 4:** Scaffold `risk-engine` (8092) with deterministic mock scoring; start the core mock.
+  - **Dev 4:** Scaffold `risk-engine` (8092) with deterministic mock scoring.
   - **Dev 5:** Create schemas and constraints, as init scripts under `database/`, for all four cloud databases and the on-premises `batch` schema, including the `HOLD` and `OUTBOX` tables and internal GL accounts. Rebuild the Oracle schema without `USER`, `ROLE` and the credential columns on `CUSTOMER`; no in-place migration is needed. Move `notification-service` off `ddl-auto=update`. Hand connection settings to Dev 8.
   - **Dev 6:** Flutter shell, routing, theme, API client with fixture mode. **Freeze core by agreement.**
   - **Dev 7:** Isolated screens on JSON fixtures.
@@ -324,10 +324,10 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
 ### Day 3: Independent Vertical Slices & Unit Tests
 
 - **Deliverables:**
-  - **Dev 1:** Saga transitions and the eleven stage events with correlation IDs, against mocks.
+  - **Dev 1:** Saga transitions and the eleven stage events with correlation IDs, against stubbed clients in tests until H3 and H5 are live.
   - **Dev 2:** `auth-service` logs in seeded customers and staff from `identity_db`, with no Oracle connection; `Customer` and `Kyc` entities removed from it. Channel profile and KYC endpoints implemented in `customer-service`; `account-service` scoped strictly to accounts; unit tests.
   - **Dev 3:** Transfer validation, persistence, timeline API, event stub; place-hold endpoint in the ledger; `notification-service` repointed to `notification_db`; unit tests.
-  - **Dev 4:** Approve and reject rules, daily limit by tier, core mock responses; unit tests; latency test.
+  - **Dev 4:** Approve and reject rules, daily limit by tier; unit tests; latency test.
   - **Dev 5:** Seed scripts generated from one source for every store: logins in `identity_db`, channel profiles and KYC records in `customer_db`, accounts, loan accounts and GL accounts in Oracle, standing instructions in the `batch` schema. Same `user_id` and `customer_id` values everywhere. Indexes and Redis setup.
   - **Dev 6:** Login, token storage, the 11-stage stepper and 3-stage customer view on fixture timelines; core widget tests.
   - **Dev 7:** Customer 360, account and transfer screens on fixtures.
@@ -342,7 +342,7 @@ The React dashboard in `/frontend` is **frozen**; Dev 1 handles any defect in it
   - **Dev 1:** Wire the saga to the real `risk-engine` and ledger hold and capture.
   - **Dev 2:** Flip the gateway customer route to `customer-service`; start the Customer 360 endpoint, querying accounts from `account-service` and recent transactions from `transaction-service`.
   - **Dev 3:** `transaction-service` hands off to the saga; capture and release in the ledger.
-  - **Dev 4:** Risk endpoint live; core mock switchable by configuration.
+  - **Dev 4:** Risk endpoint live.
   - **Dev 5:** Fix query and schema issues; verify integrity constraints; scaffold `batch-service`.
   - **Dev 6:** Connect the client to live endpoints with fixture fallback; stepper on the live timeline.
   - **Dev 7:** Wire customer and account screens; loading, empty and error states.
