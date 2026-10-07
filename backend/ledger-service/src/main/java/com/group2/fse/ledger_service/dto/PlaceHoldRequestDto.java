@@ -1,6 +1,7 @@
 package com.group2.fse.ledger_service.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -24,6 +25,7 @@ public class PlaceHoldRequestDto {
 
     @NotNull(message = "Amount is required")
     @DecimalMin(value = "0.01", message = "Amount must be strictly positive")
+    @Digits(integer = 14, fraction = 4, message = "amount must have at most 4 decimal places")
     private BigDecimal amount;
 
     @Builder.Default
