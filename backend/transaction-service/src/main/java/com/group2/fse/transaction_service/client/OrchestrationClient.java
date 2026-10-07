@@ -1,6 +1,7 @@
 package com.group2.fse.transaction_service.client;
 
 import com.group2.fse.transaction_service.client.dto.AccountLookupResponse;
+import com.group2.fse.transaction_service.client.dto.StartReversalSagaRequest;
 import com.group2.fse.transaction_service.client.dto.StartTransferSagaRequest;
 import com.group2.fse.transaction_service.security.jwt.JwtTokenProvider;
 import lombok.extern.slf4j.Slf4j;
@@ -135,6 +136,26 @@ public class OrchestrationClient {
         } catch (Exception ex) {
             log.error("Failed to trigger orchestration saga for txId={}: {}", request.getTransactionId(), ex.getMessage());
             return false;
+        }
+    }
+
+    /** O2: POST /internal/v1/sagas/reversals, sent in the background. Idempotent on the transaction ID. */
+    @Async
+    public void triggerReversalSagaAsync(StartReversalSagaRequest request, String correlationId) {
+        try {
+            log.info("Triggering reversal saga O2 for txId={}, reverses={}",
+                    request.getTransactionId(), request.getReversesTransactionId());
+            var requestSpec = orchestrationRestClient.post()
+                    .uri("/internal/v1/sagas/reversals")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + getServiceToken())
+                    .body(request);
+            if (correlationId != null && !correlationId.isBlank()) {
+                requestSpec.header("X-Correlation-ID", correlationId);
+            }
+            var responseEntity = requestSpec.retrieve().toBodilessEntity();
+            log.info("Reversal saga start for txId={} answered {}", request.getTransactionId(), responseEntity.getStatusCode());
+        } catch (Exception ex) {
+            log.error("Failed to trigger reversal saga for txId={}: {}", request.getTransactionId(), ex.getMessage());
         }
     }
 

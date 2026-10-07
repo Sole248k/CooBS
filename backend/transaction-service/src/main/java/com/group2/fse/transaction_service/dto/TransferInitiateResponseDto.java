@@ -2,6 +2,7 @@ package com.group2.fse.transaction_service.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,6 +32,10 @@ public class TransferInitiateResponseDto {
     private Instant createdAt;
 
     private String timelineUrl;
+
+    /** Only on a T5 response: the transfer this reversal undoes. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String reversesTransactionId;
 
     /** True when this is the stored answer to a repeated Idempotency-Key. Decides 200 or 202; not sent. */
     @JsonIgnore
