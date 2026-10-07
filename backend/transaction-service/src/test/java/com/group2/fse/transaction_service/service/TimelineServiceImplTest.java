@@ -59,8 +59,64 @@ class TimelineServiceImplTest {
                 .currency("PHP")
                 .category("TRANSFER")
                 .status("PROCESSING")
+                .customerId(1L)
                 .createdAt(Instant.now())
                 .build();
+        // Unless a test says otherwise, a teller is reading.
+        signInAs(16L, "teller_alice", "ROLE_TELLER");
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void signOut() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    private static UsernamePasswordAuthenticationToken signInAs(long userId, String username, String role) {
+        com.group2.fse.transaction_service.security.UserPrincipal principal =
+                com.group2.fse.transaction_service.security.UserPrincipal.create(userId, username, List.of(role));
+        UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+        return auth;
+    }
+
+    @Test
+    @DisplayName("a customer who asks for the staff view gets the customer view")
+    void testCustomerAskingForStaffViewGetsCustomerView() {
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+        when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of());
+
+        TimelineResponseDto response = timelineService.getTimeline(
+                transactionId.toString(), "STAFF", signInAs(1L, "john_doe", "ROLE_CUSTOMER"));
+
+        assertThat(response.getView()).isEqualTo("CUSTOMER");
+        assertThat(response.getStages()).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("a customer cannot read another customer's timeline or transaction")
+    void testCustomerCannotReadAnotherCustomersTransaction() {
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+        UsernamePasswordAuthenticationToken maria = signInAs(2L, "maria_santos", "ROLE_CUSTOMER");
+
+        assertThatThrownBy(() -> timelineService.getTimeline(transactionId.toString(), null, maria))
+                .isInstanceOf(com.group2.fse.transaction_service.exception.TransferRejectedException.class)
+                .hasMessageContaining("another customer");
+        assertThatThrownBy(() -> timelineService.getTransactionDetail(transactionId.toString()))
+                .isInstanceOf(com.group2.fse.transaction_service.exception.TransferRejectedException.class);
+        assertThatThrownBy(() -> timelineService.getExecutionStatus(transactionId.toString()))
+                .isInstanceOf(com.group2.fse.transaction_service.exception.TransferRejectedException.class);
+    }
+
+    @Test
+    @DisplayName("a teller may ask for the customer view")
+    void testTellerMayAskForCustomerView() {
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+        when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of());
+
+        TimelineResponseDto response = timelineService.getTimeline(transactionId.toString(), "CUSTOMER", null);
+
+        assertThat(response.getView()).isEqualTo("CUSTOMER");
     }
 
     @Test
@@ -72,8 +128,7 @@ class TimelineServiceImplTest {
                 TxnStageEvent.builder().stageNo(2).stageName("VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build()
         ));
 
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "john_doe", "password", List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER")));
+        UsernamePasswordAuthenticationToken auth = signInAs(1L, "john_doe", "ROLE_CUSTOMER");
 
         TimelineResponseDto response = timelineService.getTimeline(transactionId.toString(), null, auth);
 
