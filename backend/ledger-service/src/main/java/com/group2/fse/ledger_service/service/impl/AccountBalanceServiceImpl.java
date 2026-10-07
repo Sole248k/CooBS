@@ -164,9 +164,6 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         BigDecimal newBalance = currentBalance.add(amount);
 
         balance.setAvailableBalance(newBalance);
-        if (balance.getLedgerBalance() == null || balance.getLedgerBalance().compareTo(newBalance) < 0) {
-            balance.setLedgerBalance(newBalance);
-        }
         balanceRepository.save(balance);
 
         Account account = balance.getAccount();
@@ -285,9 +282,6 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
 
             sourceBalance.setAvailableBalance(srcNew);
             destinationBalance.setAvailableBalance(dstNew);
-            if (destinationBalance.getLedgerBalance() == null || destinationBalance.getLedgerBalance().compareTo(dstNew) < 0) {
-                destinationBalance.setLedgerBalance(dstNew);
-            }
             balanceRepository.save(sourceBalance);
             balanceRepository.save(destinationBalance);
 

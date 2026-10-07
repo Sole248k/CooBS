@@ -252,11 +252,6 @@ public class PostingEngineImpl implements PostingEngine {
         BigDecimal currentBalance = balance.getAvailableBalance();
         BigDecimal newBalance = calculateCredit(currentBalance, amount);
         balance.setAvailableBalance(newBalance);
-        if (balance.getLedgerBalance() != null) {
-            balance.setLedgerBalance(calculateCredit(balance.getLedgerBalance(), amount));
-        } else {
-            balance.setLedgerBalance(newBalance);
-        }
         balanceRepository.save(balance);
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
@@ -317,17 +312,7 @@ public class PostingEngineImpl implements PostingEngine {
         BigDecimal dstNew = calculateCredit(dstPrev, amount);
 
         sourceBalance.setAvailableBalance(srcNew);
-        if (sourceBalance.getLedgerBalance() != null) {
-            sourceBalance.setLedgerBalance(calculateDebit(sourceBalance.getLedgerBalance(), amount));
-        } else {
-            sourceBalance.setLedgerBalance(srcNew);
-        }
         destinationBalance.setAvailableBalance(dstNew);
-        if (destinationBalance.getLedgerBalance() != null) {
-            destinationBalance.setLedgerBalance(calculateCredit(destinationBalance.getLedgerBalance(), amount));
-        } else {
-            destinationBalance.setLedgerBalance(dstNew);
-        }
         balanceRepository.save(sourceBalance);
         balanceRepository.save(destinationBalance);
 
