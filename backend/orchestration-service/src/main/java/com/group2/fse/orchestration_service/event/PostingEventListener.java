@@ -35,14 +35,15 @@ public class PostingEventListener {
     private void handle(String message, String referenceField, BiConsumer<UUID, String> handler) {
         JsonNode event = jsonMapper.readTree(message);
         JsonNode payload = event.path("payload");
-        // Staff-console transfers post straight to the ledger and carry no transactionId.
         String transactionId = payload.path("transactionId").asString(null);
-        if (transactionId == null) {
+        String referenceNo = payload.path(referenceField).asString(null);
+        if (transactionId == null && referenceNo == null) {
             return;
         }
+        UUID txId = transactionId != null ? UUID.fromString(transactionId) : null;
         MDC.put(InternalApi.CORRELATION_MDC_KEY, event.path("correlationId").asString(null));
         try {
-            handler.accept(UUID.fromString(transactionId), payload.path(referenceField).asString(null));
+            handler.accept(txId, referenceNo);
         } finally {
             MDC.remove(InternalApi.CORRELATION_MDC_KEY);
         }

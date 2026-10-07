@@ -39,6 +39,9 @@ class NotificationServiceTest {
     @Mock
     private NotificationDispatcher notificationDispatcher;
 
+    @Mock
+    private org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+
     @InjectMocks
     private NotificationService notificationService;
 

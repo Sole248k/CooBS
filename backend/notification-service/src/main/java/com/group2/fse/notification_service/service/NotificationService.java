@@ -35,6 +35,10 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationDispatcher notificationDispatcher;
+    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+
+    @org.springframework.beans.factory.annotation.Value("${notification.kafka.topics.dispatched:notification.dispatched.v1}")
+    private String dispatchedTopic = "notification.dispatched.v1";
 
     @Transactional
     public void processMutationEvent(LedgerMutationEvent event) {
@@ -123,6 +127,44 @@ public class NotificationService {
 
             Notification savedDest = notificationRepository.save(destNotification);
             notificationDispatcher.dispatch(savedDest);
+        }
+
+        // Publish notification.dispatched.v1 to Kafka (Day 5 Event Propagation)
+        try {
+            java.util.List<Long> customerIds = new java.util.ArrayList<>();
+            if (sourceCustId != null) customerIds.add(sourceCustId);
+            if (destCustId != null) customerIds.add(destCustId);
+
+            com.group2.fse.notification_service.event.NotificationDispatchedEvent dispatchedEvent =
+                    com.group2.fse.notification_service.event.NotificationDispatchedEvent.builder()
+                            .eventId("evt_" + java.util.UUID.randomUUID())
+                            .eventType("NOTIFICATION_DISPATCHED")
+                            .timestamp(Instant.now())
+                            .version("1.0")
+                            .payload(com.group2.fse.notification_service.event.NotificationDispatchedEvent.DispatchedPayload.builder()
+                                    .referenceNo(p.getTransferReference())
+                                    .sourceEventId(eventId)
+                                    .customerIds(customerIds)
+                                    .channel("IN_APP")
+                                    .dispatchedAt(Instant.now())
+                                    .build())
+                            .build();
+
+            String messageKey = p.getTransferReference() != null ? p.getTransferReference() : eventId;
+            var future = kafkaTemplate.send(dispatchedTopic, messageKey, dispatchedEvent);
+            if (future != null) {
+                future.whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish NotificationDispatchedEvent for ref [{}]: {}",
+                                p.getTransferReference(), ex.getMessage());
+                    } else {
+                        log.info("Published NotificationDispatchedEvent to topic [{}] for ref [{}]",
+                                dispatchedTopic, p.getTransferReference());
+                    }
+                });
+            }
+        } catch (Exception ex) {
+            log.error("Error publishing NotificationDispatchedEvent for ref [{}]: {}", p.getTransferReference(), ex.getMessage(), ex);
         }
 
         log.info("Processed LedgerTransferEvent [{}] ref [{}]", eventId, p.getTransferReference());
