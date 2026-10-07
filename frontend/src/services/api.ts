@@ -3,9 +3,13 @@ import type {
   AccountFlag,
   AuditRecord,
   AuthSession,
+  BatchRunDetail,
+  BatchStepItem,
+  BatchTriggerResponse,
   ChainVerificationResult,
   ClosureRequestResponse,
   CustomerProfile,
+  DailyAuditSealResponse,
   GatewayRoute,
   KycRequestResponse,
   KycUpdateRequestDto,
@@ -19,6 +23,35 @@ import type {
 // ============================================================================
 // Seed Data for Standalone Demonstration & Offline Fallback
 // ============================================================================
+const SEED_BATCH_STEPS: BatchStepItem[] = [
+  { stepNo: 1, stepName: 'INTEREST_ACCRUAL', status: 'COMPLETED', itemsProcessed: 3, totalAmount: '12.24', durationMs: 810, message: 'Processed daily accrued interest across eligible accounts' },
+  { stepNo: 2, stepName: 'SERVICE_FEES', status: 'COMPLETED', itemsProcessed: 1, totalAmount: '50.00', durationMs: 640, message: 'Applied maintenance and dormancy service fee charges' },
+  { stepNo: 3, stepName: 'STANDING_INSTRUCTIONS', status: 'COMPLETED', itemsProcessed: 1, totalAmount: '1000.00', durationMs: 900, message: 'Executed recurring standing instructions' },
+  { stepNo: 4, stepName: 'LOAN_AMORTIZATION', status: 'COMPLETED', itemsProcessed: 0, totalAmount: '5450.00', durationMs: 300, message: 'Processed amortization deductions for active loan schedules' },
+  { stepNo: 5, stepName: 'GL_RECONCILIATION', status: 'COMPLETED', itemsProcessed: 0, totalAmount: '0.00', durationMs: 1200, message: 'Debits equal credits (trial balance validated)' },
+  { stepNo: 6, stepName: 'AUDIT_SEAL', status: 'COMPLETED', itemsProcessed: 1, durationMs: 700, message: 'SHA-256 closing cryptographic seal recorded and anchored' }
+];
+
+const SEED_BATCH_RUNS: BatchRunDetail[] = [
+  {
+    batchRunId: 1,
+    businessDate: '2026-10-05',
+    status: 'COMPLETED',
+    triggeredBy: 1,
+    startedAt: '2026-10-05T15:59:00.000Z',
+    finishedAt: '2026-10-05T15:59:06.500Z',
+    steps: SEED_BATCH_STEPS
+  }
+];
+
+const SEED_DAILY_SEAL: DailyAuditSealResponse = {
+  businessDate: '2026-10-05',
+  lastAuditId: 48,
+  sealHash: '0787e54c7904c2988a544af97d8b75ee18011ced8a2772d0d12490c81cf8d7ff',
+  sealedAt: '2026-10-05T15:59:06.400Z',
+  batchRunId: 1
+};
+
 const SEED_ACCOUNTS: Account[] = [
   {
     accountId: 1,
@@ -229,6 +262,8 @@ class ApiClient {
   private localFlags: (AccountFlag & { accountNumber?: string })[] = [...SEED_FLAGS];
   private localNotifications: NotificationItem[] = [...SEED_NOTIFICATIONS];
   private localAuditRecords: AuditRecord[] = [...SEED_AUDIT_RECORDS];
+  private localBatchRuns: BatchRunDetail[] = [...SEED_BATCH_RUNS];
+  private localDailySeals: Map<string, DailyAuditSealResponse> = new Map([['2026-10-05', SEED_DAILY_SEAL]]);
   private idempotencyCache: Map<string, TransferResponse> = new Map();
 
   constructor() {
@@ -1200,6 +1235,153 @@ class ApiClient {
 
   public restoreIntactChain(_accountId: number): void {
     this.localAuditRecords = [...SEED_AUDIT_RECORDS];
+  }
+
+  // --------------------------------------------------------------------------
+  // End-of-Day (EOD) Batch Pipeline & Daily Audit Seal
+  // --------------------------------------------------------------------------
+
+  public async triggerEodBatch(businessDate?: string): Promise<BatchTriggerResponse> {
+    const payload = businessDate ? { businessDate } : {};
+    try {
+      const res = await fetch('/api/v1/batch/eod/trigger', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      if (res.status === 202) {
+        return await res.json();
+      } else if (res.status === 409) {
+        const err: ProblemDetails = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'An End-of-Day batch execution is currently in progress (BATCH_ALREADY_RUNNING).');
+      } else {
+        const err: ProblemDetails = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Failed to trigger EOD batch: HTTP ${res.status}`);
+      }
+    } catch (err: any) {
+      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+        throw err;
+      }
+      // Offline / standalone fallback simulation
+      const targetDate = businessDate || new Date().toISOString().split('T')[0];
+      const newId = this.localBatchRuns.length > 0 ? Math.max(...this.localBatchRuns.map(r => r.batchRunId)) + 1 : 1;
+      const initialRun: BatchRunDetail = {
+        batchRunId: newId,
+        businessDate: targetDate,
+        status: 'RUNNING',
+        triggeredBy: this.session?.userId || 1,
+        startedAt: new Date().toISOString(),
+        steps: [
+          { stepNo: 1, stepName: 'INTEREST_ACCRUAL', status: 'RUNNING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 2, stepName: 'SERVICE_FEES', status: 'PENDING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 3, stepName: 'STANDING_INSTRUCTIONS', status: 'PENDING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 4, stepName: 'LOAN_AMORTIZATION', status: 'PENDING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 5, stepName: 'GL_RECONCILIATION', status: 'PENDING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 6, stepName: 'AUDIT_SEAL', status: 'PENDING', itemsProcessed: 0, durationMs: 0 }
+        ]
+      };
+      this.localBatchRuns.unshift(initialRun);
+
+      setTimeout(() => {
+        initialRun.steps[0] = { stepNo: 1, stepName: 'INTEREST_ACCRUAL', status: 'COMPLETED', itemsProcessed: 3, totalAmount: '12.24', durationMs: 810, message: 'Processed interest accrual' };
+        initialRun.steps[1].status = 'RUNNING';
+      }, 1200);
+
+      setTimeout(() => {
+        initialRun.steps[1] = { stepNo: 2, stepName: 'SERVICE_FEES', status: 'COMPLETED', itemsProcessed: 1, totalAmount: '50.00', durationMs: 640, message: 'Applied maintenance fees' };
+        initialRun.steps[2].status = 'RUNNING';
+      }, 2400);
+
+      setTimeout(() => {
+        initialRun.steps[2] = { stepNo: 3, stepName: 'STANDING_INSTRUCTIONS', status: 'COMPLETED', itemsProcessed: 1, totalAmount: '1000.00', durationMs: 900, message: 'Executed recurring transfers' };
+        initialRun.steps[3].status = 'RUNNING';
+      }, 3600);
+
+      setTimeout(() => {
+        initialRun.steps[3] = { stepNo: 4, stepName: 'LOAN_AMORTIZATION', status: 'COMPLETED', itemsProcessed: 0, totalAmount: '5450.00', durationMs: 300, message: 'Processed amortization deductions' };
+        initialRun.steps[4].status = 'RUNNING';
+      }, 4800);
+
+      setTimeout(() => {
+        initialRun.steps[4] = { stepNo: 5, stepName: 'GL_RECONCILIATION', status: 'COMPLETED', itemsProcessed: 0, totalAmount: '0.00', durationMs: 1200, message: 'Debits equal credits' };
+        initialRun.steps[5].status = 'RUNNING';
+      }, 6000);
+
+      setTimeout(() => {
+        initialRun.steps[5] = { stepNo: 6, stepName: 'AUDIT_SEAL', status: 'COMPLETED', itemsProcessed: 1, durationMs: 700, message: 'Daily cryptographic seal recorded' };
+        initialRun.status = 'COMPLETED';
+        initialRun.finishedAt = new Date().toISOString();
+
+        const seal: DailyAuditSealResponse = {
+          businessDate: targetDate,
+          lastAuditId: 48 + newId,
+          sealHash: 'a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8',
+          sealedAt: initialRun.finishedAt,
+          batchRunId: newId
+        };
+        this.localDailySeals.set(targetDate, seal);
+      }, 7200);
+
+      return {
+        batchRunId: newId,
+        businessDate: targetDate,
+        status: 'RUNNING',
+        startedAt: initialRun.startedAt
+      };
+    }
+  }
+
+  public async getBatchRun(batchRunId: number): Promise<BatchRunDetail> {
+    try {
+      const res = await fetch(`/api/v1/batch/eod/runs/${batchRunId}`, {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+
+    const found = this.localBatchRuns.find(r => r.batchRunId === batchRunId);
+    if (found) return found;
+    throw new Error(`Batch run #${batchRunId} not found`);
+  }
+
+  public async getAllBatchRuns(): Promise<BatchRunDetail[]> {
+    try {
+      const res = await fetch('/api/v1/batch/eod/runs', {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list)) {
+          this.localBatchRuns = list;
+          return list;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return [...this.localBatchRuns];
+  }
+
+  public async getDailyAuditSeal(businessDate: string): Promise<DailyAuditSealResponse | null> {
+    try {
+      const res = await fetch(`/api/v1/audit/seals/${businessDate}`, {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      if (res.status === 404) {
+        return null;
+      }
+    } catch {
+      // fallback
+    }
+    return this.localDailySeals.get(businessDate) || null;
   }
 }
 
