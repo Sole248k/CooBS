@@ -29,7 +29,7 @@ public class Customer360Response {
     private FinancialTotals totals = new FinancialTotals("0.00", "0.00");
 
     @Builder.Default
-    private List<Object> recentTransactions = new ArrayList<>();
+    private List<TransactionSummaryDto> recentTransactions = new ArrayList<>();
 
     @Builder.Default
     private SpendingBreakdown spendingBreakdown = new SpendingBreakdown(30, new ArrayList<>());
@@ -69,8 +69,43 @@ public class Customer360Response {
     @Setter
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class TransactionSummaryDto {
+        private String transactionId;
+        private String referenceNo;
+        private String direction;
+        private String counterpartyName;
+        private String counterpartyAccountNumber;
+        private String amount;
+        private String currency;
+        private String category;
+        private String status;
+        private String createdAt;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class SpendingBreakdown {
-        private Integer periodDays;
-        private List<Object> items;
+        @Builder.Default
+        private Integer periodDays = 30;
+        @Builder.Default
+        private List<SpendingItemDto> items = new ArrayList<>();
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class SpendingItemDto {
+        private String category;
+        private String amount;
+        private Integer count;
     }
 }

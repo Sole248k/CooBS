@@ -33,7 +33,7 @@ public class AccountClient {
     public AccountClient(
             @Value("${app.clients.account.base-url:http://localhost:8082}") String accountServiceBaseUrl,
             @Value("${app.clients.account.connect-timeout-ms:2000}") int connectTimeout,
-            @Value("${app.clients.account.read-timeout-ms:3000}") int readTimeout,
+            @Value("${app.clients.account.read-timeout-ms:5000}") int readTimeout,
             JwtTokenProvider jwtTokenProvider) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofMillis(connectTimeout));
