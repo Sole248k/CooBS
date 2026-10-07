@@ -1643,55 +1643,35 @@ class ApiClient {
   // Transaction Reversals (Compensating Ledger Adjustments)
   // --------------------------------------------------------------------------
   public async reverseTransaction(payload: ReversalRequest): Promise<ReversalResponse> {
-    const endpoints = [
-      '/api/v1/reversals',
-      '/api/v1/transactions/reversals'
-    ];
+    // T5: POST /api/v1/transactions/{transactionId or reference}/reversal, Teller and Admin only.
+    // The reversal is a saga: 202 means it was accepted, not that the money has moved back yet.
+    // A failure is shown as a failure. Nothing here pretends a reversal happened.
+    const reason = payload.remarks?.trim()
+      ? `${payload.reason}: ${payload.remarks.trim()}`
+      : payload.reason;
 
-    for (const endpoint of endpoints) {
-      try {
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          headers: this.getAuthHeaders(),
-          body: JSON.stringify(payload)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          await this.getAllAccounts();
-          return {
-            reversalRef: data.reversalReference || data.reversalRef || `REV-${Date.now()}`,
-            originalTrackingRef: payload.originalTrackingRef,
-            status: 'REVERSED',
-            reversalTimestamp: data.reversalTimestamp || new Date().toISOString(),
-            message: data.message || 'Transaction successfully reversed.'
-          };
-        }
-      } catch {
-        // try fallback
+    const res = await fetch(
+      `/api/v1/transactions/${encodeURIComponent(payload.originalTrackingRef)}/reversal`,
+      {
+        method: 'POST',
+        headers: { ...this.getAuthHeaders(), 'Idempotency-Key': this.generateUuid() },
+        body: JSON.stringify({ reason })
       }
+    );
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || data.message || `Reversal was not accepted (HTTP ${res.status}).`);
     }
 
-    // Backend Blocker B1 & B2 Handling:
-    // ReversalServiceImpl is an empty mock stub and /api/v1/reversals is unmapped in Gateway.
-    // Graceful simulation:
-    const revRef = `REV-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    const result: ReversalResponse = {
-      reversalRef: revRef,
+    await this.getAllAccounts();
+    return {
+      reversalRef: data.referenceNo,
       originalTrackingRef: payload.originalTrackingRef,
-      status: 'REVERSED',
-      reversalTimestamp: new Date().toISOString(),
-      message: `Compensating ledger credit reversal ${revRef} authorized for ${payload.originalTrackingRef}. Reason: ${payload.reason}`
+      status: 'PENDING',
+      reversalTimestamp: data.createdAt || new Date().toISOString(),
+      message: `Reversal ${data.referenceNo} accepted and is being processed.`
     };
-
-    this.localNotifications.unshift({
-      id: Date.now(),
-      type: 'REVERSAL_PROCESSED',
-      message: `Transaction ${payload.originalTrackingRef} REVERSED by Teller. Reversal Ref: ${revRef}`,
-      isRead: false,
-      createdAt: new Date().toISOString()
-    });
-
-    return result;
   }
 
   // --------------------------------------------------------------------------
