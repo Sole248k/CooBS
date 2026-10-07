@@ -196,7 +196,7 @@ public class TimelineServiceImpl implements TimelineService {
                 .destinationAccountId(txn.getDestinationAccountId())
                 .destinationAccountNumber(txn.getDestinationAccountNumber())
                 .destinationBankCode(txn.getDestinationBankCode())
-                .amount(txn.getAmount())
+                .amount(com.group2.fse.transaction_service.dto.Money.toContractScale(txn.getAmount()))
                 .currency(txn.getCurrency())
                 .category(txn.getCategory())
                 .remarks(txn.getRemarks())

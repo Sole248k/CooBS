@@ -62,39 +62,43 @@ public class OrchestrationClient {
                 .build();
     }
 
-    /**
-     * Resolves destination account ID from account number if known on-premises.
-     */
-    public Optional<AccountLookupResponse> lookupAccountByNumber(String accountNumber) {
-        try {
-            String token = getServiceToken();
-            AccountLookupResponse res = accountRestClient.get()
-                    .uri("/internal/v1/accounts/by-number/{accountNumber}", accountNumber)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                    .retrieve()
-                    .body(AccountLookupResponse.class);
-            return Optional.ofNullable(res);
-        } catch (Exception ex) {
-            log.debug("Account lookup for {} failed or not reachable: {}", accountNumber, ex.getMessage());
-            return Optional.empty();
-        }
+    /** K7. Empty when account-service says the account does not exist. */
+    public Optional<AccountLookupResponse> findAccountByNumber(String accountNumber) {
+        return findAccount("/internal/v1/accounts/by-number/{accountNumber}", accountNumber);
+    }
+
+    /** K6. Empty when account-service says the account does not exist. */
+    public Optional<AccountLookupResponse> findAccountById(Long accountId) {
+        return findAccount("/internal/v1/accounts/{accountId}", accountId);
     }
 
     /**
-     * Resolves source account details (such as customer ID) from source account ID.
+     * A 404 is an answer: the account does not exist. Anything else that is not a 2xx, and any
+     * failure to reach account-service, is no answer, and the caller must not guess.
+     *
+     * @throws AccountLookupUnavailableException when account-service gave no usable answer
      */
-    public Optional<AccountLookupResponse> lookupAccountById(Long accountId) {
+    private Optional<AccountLookupResponse> findAccount(String uriTemplate, Object key) {
         try {
-            String token = getServiceToken();
-            AccountLookupResponse res = accountRestClient.get()
-                    .uri("/internal/v1/accounts/{accountId}", accountId)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                    .retrieve()
-                    .body(AccountLookupResponse.class);
-            return Optional.ofNullable(res);
-        } catch (Exception ex) {
-            log.debug("Account lookup for ID {} failed or not reachable: {}", accountId, ex.getMessage());
-            return Optional.empty();
+            return accountRestClient.get()
+                    .uri(uriTemplate, key)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + getServiceToken())
+                    .exchange((request, response) -> {
+                        if (response.getStatusCode().value() == 404) {
+                            return Optional.<AccountLookupResponse>empty();
+                        }
+                        if (!response.getStatusCode().is2xxSuccessful()) {
+                            throw new AccountLookupUnavailableException(
+                                    "account-service answered " + response.getStatusCode().value(), null);
+                        }
+                        AccountLookupResponse body = response.bodyTo(AccountLookupResponse.class);
+                        return body == null || body.getAccountId() == null
+                                ? Optional.<AccountLookupResponse>empty() : Optional.of(body);
+                    });
+        } catch (AccountLookupUnavailableException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw new AccountLookupUnavailableException("account-service could not be reached: " + ex.getMessage(), ex);
         }
     }
 

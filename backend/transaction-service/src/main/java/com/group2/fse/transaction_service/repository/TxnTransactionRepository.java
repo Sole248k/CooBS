@@ -24,5 +24,12 @@ public interface TxnTransactionRepository extends JpaRepository<TxnTransaction, 
 
     List<TxnTransaction> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
+    /** Transfers accepted in the window that are still PROCESSING and show no stage from the saga (4 or above). */
+    @Query("SELECT t FROM TxnTransaction t WHERE t.status = 'PROCESSING' "
+            + "AND t.createdAt > :notBefore AND t.createdAt < :before "
+            + "AND NOT EXISTS (SELECT 1 FROM TxnStageEvent e WHERE e.transactionId = t.transactionId AND e.stageNo > 3)")
+    List<TxnTransaction> findProcessingWithoutSagaStage(@Param("notBefore") java.time.Instant notBefore,
+                                                        @Param("before") java.time.Instant before);
+
     List<TxnTransaction> findBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(Long sourceAccountId, Long destinationAccountId);
 }
