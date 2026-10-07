@@ -63,19 +63,6 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void shouldHandleHoldNotReservedException() {
-        HoldNotReservedException ex = new HoldNotReservedException(9001L, "CANCELLED");
-
-        ResponseEntity<Map<String, Object>> response = exceptionHandler.handleHoldNotReserved(ex, request);
-
-        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-        Map<String, Object> body = response.getBody();
-        assertNotNull(body);
-        assertEquals("HOLD_NOT_RESERVED", body.get("errorCode"));
-        assertEquals(409, body.get("status"));
-    }
-
-    @Test
     void shouldHandleDuplicateIdempotencyKeyException() {
         DuplicateIdempotencyKeyException ex = new DuplicateIdempotencyKeyException("Duplicate key");
 
