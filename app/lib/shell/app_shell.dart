@@ -174,7 +174,7 @@ class _AppShellState extends State<AppShell> {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'Error: ${snapshot.error}',
+                error is ApiException ? error.message : 'Unable to connect to service. Please try again.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppTheme.errorCarmine),
               ),

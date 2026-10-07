@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../config/app_config.dart';
+import '../models/auth_models.dart';
 import '../models/problem_details.dart';
 import '../storage/secure_storage_service.dart';
 import 'api_exceptions.dart';
@@ -13,12 +14,19 @@ import 'circuit_breaker.dart';
 
 /// Unified API Client for the CooBS Mobile Application.
 /// Features dual-mode execution (Air-Gapped Fixtures vs. Live Gateway),
-/// automatic UUID idempotency tagging, RFC-7807 error parsing, and Circuit Breaker fail-fast resilience.
+/// automatic UUID idempotency tagging, RFC-7807 error parsing, automatic 401 token refresh,
+/// and Circuit Breaker fail-fast resilience.
 class ApiClient {
   final http.Client _httpClient;
   final SecureStorageService _storage;
   final CircuitBreaker circuitBreaker;
   final Uuid _uuid;
+
+  /// Active refresh lock to serialize concurrent token refresh calls.
+  Completer<String?>? _refreshCompleter;
+
+  /// Global callback triggered when session is invalidated due to rejected/expired token.
+  static void Function()? onSessionExpired;
 
   ApiClient({
     http.Client? httpClient,
@@ -28,6 +36,8 @@ class ApiClient {
         _storage = storage ?? SecureStorageService(),
         circuitBreaker = circuitBreaker ?? CircuitBreaker(),
         _uuid = const Uuid();
+
+  SecureStorageService get storage => _storage;
 
   /// Executes an HTTP GET request with fixture interceptor.
   Future<Map<String, dynamic>> get(
@@ -42,21 +52,12 @@ class ApiClient {
     }
 
     return circuitBreaker.execute(() async {
-      final uri = _buildUri(path, queryParams);
-      final headers = await _buildHeaders();
-
-      try {
-        final response = await _httpClient
-            .get(uri, headers: headers)
-            .timeout(AppConfig.requestTimeout);
-
-        return _processResponse(response);
-      } on TimeoutException {
-        throw NetworkTimeoutException();
-      } catch (e) {
-        if (e is ApiException) rethrow;
-        throw ConnectionException(e.toString());
-      }
+      return _executeWithAuthRefresh(
+        path: path,
+        send: (headers) => _httpClient
+            .get(_buildUri(path, queryParams), headers: headers)
+            .timeout(AppConfig.requestTimeout),
+      );
     });
   }
 
@@ -75,29 +76,128 @@ class ApiClient {
     }
 
     return circuitBreaker.execute(() async {
-      final uri = _buildUri(path);
-      final headers = await _buildHeaders(
+      final encodedBody = body != null ? jsonEncode(body) : null;
+      return _executeWithAuthRefresh(
+        path: path,
         isMoneyMovement: isMoneyMovement,
         idempotencyKey: idempotencyKey,
-      );
-
-      try {
-        final response = await _httpClient
+        send: (headers) => _httpClient
             .post(
-              uri,
+              _buildUri(path),
               headers: headers,
-              body: body != null ? jsonEncode(body) : null,
+              body: encodedBody,
             )
-            .timeout(AppConfig.requestTimeout);
-
-        return _processResponse(response);
-      } on TimeoutException {
-        throw NetworkTimeoutException();
-      } catch (e) {
-        if (e is ApiException) rethrow;
-        throw ConnectionException(e.toString());
-      }
+            .timeout(AppConfig.requestTimeout),
+      );
     });
+  }
+
+  /// Evaluates whether a route is an authentication lifecycle endpoint to prevent refresh recursion.
+  bool _isAuthPath(String path) {
+    final lower = path.toLowerCase();
+    return lower.contains('/auth/token/refresh') ||
+        lower.contains('/auth/token/revoke') ||
+        lower.contains('/auth/customers/login') ||
+        lower.contains('/auth/staff/login') ||
+        lower.contains('/login');
+  }
+
+  /// Executes an HTTP request with automatic 401 token refresh and retry.
+  Future<Map<String, dynamic>> _executeWithAuthRefresh({
+    required String path,
+    required Future<http.Response> Function(Map<String, String> headers) send,
+    bool isMoneyMovement = false,
+    String? idempotencyKey,
+  }) async {
+    final resolvedIdempotency = idempotencyKey ?? (isMoneyMovement ? _uuid.v4() : null);
+    final initialHeaders = await _buildHeaders(
+      isMoneyMovement: isMoneyMovement,
+      idempotencyKey: resolvedIdempotency,
+    );
+
+    try {
+      var response = await send(initialHeaders);
+
+      // Intercept 401 Unauthorized for non-auth endpoints and attempt silent token refresh
+      if (response.statusCode == 401 && !_isAuthPath(path)) {
+        final newAccessToken = await _performTokenRefresh();
+        if (newAccessToken != null && newAccessToken.isNotEmpty) {
+          final retryHeaders = await _buildHeaders(
+            isMoneyMovement: isMoneyMovement,
+            idempotencyKey: resolvedIdempotency,
+          );
+          response = await send(retryHeaders);
+        }
+      }
+
+      return _processResponse(response);
+    } on TimeoutException {
+      throw NetworkTimeoutException();
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ConnectionException(e.toString());
+    }
+  }
+
+  /// Exchanges the stored refresh token for a fresh access token at POST /api/v1/auth/token/refresh.
+  /// Deduplicates concurrent callers using an active Completer lock.
+  Future<String?> _performTokenRefresh() async {
+    if (_refreshCompleter != null) {
+      return _refreshCompleter!.future;
+    }
+
+    final completer = Completer<String?>();
+    _refreshCompleter = completer;
+
+    try {
+      final refreshToken = await _storage.getRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) {
+        await _storage.clearSession();
+        onSessionExpired?.call();
+        completer.complete(null);
+        return null;
+      }
+
+      final refreshUri = _buildUri('/auth/token/refresh');
+      final response = await _httpClient.post(
+        refreshUri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, application/problem+json',
+          'X-Correlation-ID': _uuid.v4(),
+        },
+        body: jsonEncode({'refreshToken': refreshToken}),
+      ).timeout(AppConfig.fastTimeout);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final decoded = jsonDecode(response.body);
+        final tokenData = TokenResponse.fromJson(
+          decoded is Map<String, dynamic> ? decoded : <String, dynamic>{},
+        );
+
+        if (tokenData.accessToken.isNotEmpty) {
+          await _storage.updateTokens(
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken.isNotEmpty ? tokenData.refreshToken : refreshToken,
+          );
+          completer.complete(tokenData.accessToken);
+          return tokenData.accessToken;
+        }
+      }
+
+      // Refresh token rejected or expired -> invalidate local session
+      await _storage.clearSession();
+      onSessionExpired?.call();
+      completer.complete(null);
+      return null;
+    } catch (_) {
+      await _storage.clearSession();
+      onSessionExpired?.call();
+      completer.complete(null);
+      return null;
+    } finally {
+      _refreshCompleter = null;
+    }
   }
 
   /// Builds query URI from relative path or absolute URL.
