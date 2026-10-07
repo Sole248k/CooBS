@@ -128,25 +128,13 @@ public class PostingEngineImpl implements PostingEngine {
 
     @Override
     public Balance applyDebit(Balance balance, BigDecimal amount) {
-        BigDecimal currentBalance = balance.getAvailableBalance();
-        validateSufficientFunds(balance.getAccountId(), currentBalance, amount);
-
-        return move(balance, amount.negate());
+        validateSufficientFunds(balance.getAccountId(), balance.getAvailableBalance(), amount);
+        return post(balance, amount.negate(), amount.negate());
     }
 
     @Override
     public Balance applyCredit(Balance balance, BigDecimal amount) {
-        return move(balance, amount);
-    }
-
-    /**
-     * A posting moves the available and the ledger balance together. Only a hold moves one
-     * without the other, and HoldService does that itself.
-     */
-    private Balance move(Balance balance, BigDecimal delta) {
-        balance.setAvailableBalance(calculateCredit(balance.getAvailableBalance(), delta));
-        balance.setLedgerBalance(calculateCredit(balance.getLedgerBalance(), delta));
-        return balanceRepository.save(balance);
+        return post(balance, amount, amount);
     }
 
     @Override
@@ -210,10 +198,7 @@ public class PostingEngineImpl implements PostingEngine {
         Balance balance = lockAccount(accountId, enforceActiveStatus);
 
         BigDecimal currentBalance = balance.getAvailableBalance();
-        validateSufficientFunds(accountId, currentBalance, amount);
-
-        BigDecimal newBalance = calculateDebit(currentBalance, amount);
-        move(balance, amount.negate());
+        BigDecimal newBalance = applyDebit(balance, amount).getAvailableBalance();
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
         User approvedBy = actorId != null ? User.builder().userId(actorId).build() : null;
@@ -263,8 +248,7 @@ public class PostingEngineImpl implements PostingEngine {
         Balance balance = lockAccount(accountId, enforceActiveStatus);
 
         BigDecimal currentBalance = balance.getAvailableBalance();
-        BigDecimal newBalance = calculateCredit(currentBalance, amount);
-        move(balance, amount);
+        BigDecimal newBalance = applyCredit(balance, amount).getAvailableBalance();
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
         User approvedBy = actorId != null ? User.builder().userId(actorId).build() : null;
@@ -318,10 +302,9 @@ public class PostingEngineImpl implements PostingEngine {
 
         BigDecimal srcPrev = sourceBalance.getAvailableBalance();
         BigDecimal dstPrev = destinationBalance.getAvailableBalance();
-        BigDecimal dstNew = calculateCredit(dstPrev, amount);
 
-        move(sourceBalance, amount.negate());
-        move(destinationBalance, amount);
+        BigDecimal srcNew = applyDebit(sourceBalance, amount).getAvailableBalance();
+        BigDecimal dstNew = applyCredit(destinationBalance, amount).getAvailableBalance();
 
         String refDebit = referenceNo != null && referenceNo.length() > 33
                 ? referenceNo.substring(0, 33) + "-D"
