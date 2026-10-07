@@ -14,6 +14,7 @@ import com.group2.fse.risk_engine.dto.FraudCheckResult;
 import com.group2.fse.risk_engine.dto.LimitCheckResult;
 import com.group2.fse.risk_engine.dto.RiskEvaluationRequest;
 import com.group2.fse.risk_engine.dto.RiskEvaluationResponse;
+import com.group2.fse.risk_engine.exception.RiskUnavailableException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,7 +59,9 @@ public class RiskEvaluator {
 
         VelocityCounter.VelocityState velocityState = velocityCounter.getVelocityState(request.getCustomerId());
         if (!velocityState.isRedisAvailable()) {
-            reasons.add(REASON_REDIS_UNAVAILABLE);
+            // Without the counters neither the daily limit nor the velocity can be checked.
+            // Approving on a guess of "nothing used today" would switch the limits off.
+            throw new RiskUnavailableException("The velocity and daily-limit counters cannot be read.");
         }
 
         // Use request velocity override if specified in test/contract fixture, otherwise Redis counter
@@ -133,45 +136,39 @@ public class RiskEvaluator {
         String formattedScore = String.format(Locale.US, "%.2f", compositeScore);
 
         // 4. Decision Gate Evaluation
-        String decision;
+        // The fraud outcome follows the score alone and the limit outcome follows the limit
+        // alone, so a transfer over its daily limit is reported as a limit failure and not as fraud.
         String fraudOutcome;
-
-        if (!withinLimit) {
-            // Hard block on limit breach
-            decision = DECISION_DECLINE;
-            fraudOutcome = OUTCOME_FAILED;
-        } else if (compositeScore < 0.60) {
-            // Clean approval band (< 0.60)
-            decision = DECISION_APPROVE;
+        if (compositeScore < 0.60) {
+            // Clean band (< 0.60)
             fraudOutcome = OUTCOME_PASSED;
-            boolean redisDown = reasons.contains(REASON_REDIS_UNAVAILABLE);
-            boolean amlaFlag = reasons.contains(REASON_AMLA_THRESHOLD);
-            reasons.clear();
-            if (redisDown) {
-                reasons.add(REASON_REDIS_UNAVAILABLE);
-            }
-            if (amlaFlag) {
-                reasons.add(REASON_AMLA_THRESHOLD);
-            }
         } else if (compositeScore <= 0.85) {
-            // Elevated risk band (0.60 - 0.85) -> DECLINE with REVIEW_REQUIRED
-            decision = DECISION_DECLINE;
+            // Elevated risk band (0.60 - 0.85) -> REVIEW_REQUIRED
             fraudOutcome = OUTCOME_FAILED;
             if (!reasons.contains(REASON_REVIEW_REQUIRED)) {
                 reasons.add(0, REASON_REVIEW_REQUIRED);
             }
         } else {
-            // Outright high risk (> 0.85) -> DECLINE with HIGH_RISK
-            decision = DECISION_DECLINE;
+            // Outright high risk (> 0.85) -> HIGH_RISK
             fraudOutcome = OUTCOME_FAILED;
             if (!reasons.contains(REASON_HIGH_RISK)) {
                 reasons.add(0, REASON_HIGH_RISK);
             }
         }
 
+        String decision = withinLimit && OUTCOME_PASSED.equals(fraudOutcome) ? DECISION_APPROVE : DECISION_DECLINE;
+        if (DECISION_APPROVE.equals(decision)) {
+            // An approval carries no rule reasons, only the AMLA flag when it applies.
+            boolean amlaFlag = reasons.contains(REASON_AMLA_THRESHOLD);
+            reasons.clear();
+            if (amlaFlag) {
+                reasons.add(REASON_AMLA_THRESHOLD);
+            }
+        }
+
         // 5. If Approved, update Redis counters
         if (DECISION_APPROVE.equals(decision)) {
-            velocityCounter.recordApprovedTransfer(request.getCustomerId(), request.getAmount());
+            velocityCounter.recordApprovedTransfer(request.getCustomerId(), request.getTransactionId(), request.getAmount());
         }
 
         long durationMs = System.currentTimeMillis() - startTime;
