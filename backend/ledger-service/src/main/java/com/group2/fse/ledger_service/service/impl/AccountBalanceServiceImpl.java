@@ -73,19 +73,59 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
             return MutationResult.failure(accountId, referenceNo, "Debit amount must be greater than zero.");
         }
 
-        PostingLegResult leg;
-        try {
-            leg = postingEngine.postDebit(accountId, amount, referenceNo, actorId, clientIp, false);
-        } catch (AccountNotFoundException ex) {
+        Optional<Balance> balanceOpt = balanceRepository.findByAccountId(accountId);
+        if (balanceOpt.isEmpty()) {
             return MutationResult.failure(accountId, referenceNo, "Account balance record not found.");
         } catch (InsufficientFundsException ex) {
             return MutationResult.failure(accountId, referenceNo, "Insufficient funds for debit operation.");
         }
 
-        publishMutationEvent(leg);
+        BigDecimal newBalance = currentBalance.subtract(amount);
+        post(balance, newBalance.subtract(currentBalance));
 
-        return MutationResult.success(accountId, referenceNo, leg.getTransactionId(),
-                leg.getPreviousBalance(), leg.getNewBalance(), amount);
+        Account account = balance.getAccount();
+        if (account == null) {
+            account = Account.builder().accountId(accountId).build();
+        }
+
+        Transaction txn = Transaction.builder()
+                .account(account)
+                .referenceNo(referenceNo)
+                .transactionType("DEBIT")
+                .amount(amount)
+                .previousBalance(currentBalance)
+                .newBalance(newBalance)
+                .status("COMPLETED")
+                .approvedBy(actorId != null ? User.builder().userId(actorId).build() : null)
+                .build();
+
+        Transaction savedTxn = transactionRepository.save(txn);
+        Long txnId = savedTxn != null ? savedTxn.getTransactionId() : null;
+
+        dualWriteLedgerAuditService.recordMutationAudit(
+                txnId != null ? txnId : 0L,
+                accountId,
+                "DEBIT",
+                amount,
+                currentBalance,
+                newBalance,
+                actorId,
+                clientIp
+        );
+
+        publishMutationEvent(
+                txnId != null ? txnId : 0L,
+                accountId,
+                account != null ? account.getAccountNumber() : null,
+                "DEBIT",
+                amount,
+                currentBalance,
+                newBalance,
+                referenceNo,
+                account != null && account.getCustomer() != null ? account.getCustomer().getCustomerId() : null
+        );
+
+        return MutationResult.success(accountId, referenceNo, txnId, currentBalance, newBalance, amount);
     }
 
     @Override
@@ -101,17 +141,60 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
             return MutationResult.failure(accountId, referenceNo, "Credit amount must be greater than zero.");
         }
 
-        PostingLegResult leg;
-        try {
-            leg = postingEngine.postCredit(accountId, amount, referenceNo, actorId, clientIp, false);
-        } catch (AccountNotFoundException ex) {
+        Optional<Balance> balanceOpt = balanceRepository.findByAccountId(accountId);
+        if (balanceOpt.isEmpty()) {
             return MutationResult.failure(accountId, referenceNo, "Account balance record not found.");
         }
 
-        publishMutationEvent(leg);
+        Balance balance = balanceOpt.get();
+        BigDecimal currentBalance = balance.getAvailableBalance();
+        BigDecimal newBalance = currentBalance.add(amount);
 
-        return MutationResult.success(accountId, referenceNo, leg.getTransactionId(),
-                leg.getPreviousBalance(), leg.getNewBalance(), amount);
+        post(balance, newBalance.subtract(currentBalance));
+
+        Account account = balance.getAccount();
+        if (account == null) {
+            account = Account.builder().accountId(accountId).build();
+        }
+
+        Transaction txn = Transaction.builder()
+                .account(account)
+                .referenceNo(referenceNo)
+                .transactionType("CREDIT")
+                .amount(amount)
+                .previousBalance(currentBalance)
+                .newBalance(newBalance)
+                .status("COMPLETED")
+                .approvedBy(actorId != null ? User.builder().userId(actorId).build() : null)
+                .build();
+
+        Transaction savedTxn = transactionRepository.save(txn);
+        Long txnId = savedTxn != null ? savedTxn.getTransactionId() : null;
+
+        dualWriteLedgerAuditService.recordMutationAudit(
+                txnId != null ? txnId : 0L,
+                accountId,
+                "CREDIT",
+                amount,
+                currentBalance,
+                newBalance,
+                actorId,
+                clientIp
+        );
+
+        publishMutationEvent(
+                txnId != null ? txnId : 0L,
+                accountId,
+                account != null ? account.getAccountNumber() : null,
+                "CREDIT",
+                amount,
+                currentBalance,
+                newBalance,
+                referenceNo,
+                account != null && account.getCustomer() != null ? account.getCustomer().getCustomerId() : null
+        );
+
+        return MutationResult.success(accountId, referenceNo, txnId, currentBalance, newBalance, amount);
     }
 
     // =========================================================================
@@ -134,25 +217,99 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         Long srcCustId = null;
 
         try {
-            postingEngine.validatePositiveAmount(amount, "Transfer");
-
-            // Locked here first so a transfer that fails later still reports the source customer;
-            // postTransfer re-reads the same two rows inside this transaction.
-            OrderedAccountLocks locks = postingEngine.lockAccountsInOrder(srcId, dstId);
-            Account lockedSource = locks.getSourceBalance().getAccount();
-            if (lockedSource != null && lockedSource.getCustomer() != null) {
-                srcCustId = lockedSource.getCustomer().getCustomerId();
+            if (srcId == null || dstId == null) {
+                throw new InvalidTransactionException("Source and destination account IDs are required.");
+            }
+            if (srcId.equals(dstId)) {
+                throw new InvalidTransactionException("Source and destination accounts must be distinct accounts.");
+            }
+            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new InvalidTransactionException("Transfer amount must be greater than zero.");
             }
 
-            PostingTransferResult result = postingEngine.postTransfer(srcId, dstId, amount, ref, actorId, clientIp);
+            // Deadlock-free ordered lock acquisition: min(src, dst) then max(src, dst)
+            Long firstId = Math.min(srcId, dstId);
+            Long secondId = Math.max(srcId, dstId);
 
-            BigDecimal srcPrev = result.getSourcePreviousBalance();
-            BigDecimal srcNew = result.getSourceNewBalance();
-            BigDecimal dstPrev = result.getDestinationPreviousBalance();
-            BigDecimal dstNew = result.getDestinationNewBalance();
-            Long dstCustId = result.getDestinationCustomerId();
-            Transaction debitTxn = result.getDebitTransaction();
-            Transaction creditTxn = result.getCreditTransaction();
+            Balance firstBalance = balanceRepository.findByAccountId(firstId)
+                    .orElseThrow(() -> new AccountNotFoundException(firstId));
+
+            Balance secondBalance = balanceRepository.findByAccountId(secondId)
+                    .orElseThrow(() -> new AccountNotFoundException(secondId));
+
+            Balance sourceBalance = srcId.equals(firstId) ? firstBalance : secondBalance;
+            Balance destinationBalance = dstId.equals(firstId) ? firstBalance : secondBalance;
+
+            // Status invariants: Reject transfers if either source or destination account is not ACTIVE (e.g. FROZEN, CLOSED)
+            if (sourceBalance.getAccount() != null && sourceBalance.getAccount().getStatus() != null &&
+                    !"ACTIVE".equalsIgnoreCase(sourceBalance.getAccount().getStatus())) {
+                throw new AccountNotActiveException(srcId, sourceBalance.getAccount().getStatus());
+            }
+
+            if (destinationBalance.getAccount() != null && destinationBalance.getAccount().getStatus() != null &&
+                    !"ACTIVE".equalsIgnoreCase(destinationBalance.getAccount().getStatus())) {
+                throw new AccountNotActiveException(dstId, destinationBalance.getAccount().getStatus());
+            }
+
+            if (sourceBalance.getAccount() != null && sourceBalance.getAccount().getCustomer() != null) {
+                srcCustId = sourceBalance.getAccount().getCustomer().getCustomerId();
+            }
+
+            BigDecimal srcPrev = sourceBalance.getAvailableBalance();
+            if (srcPrev.compareTo(amount) < 0) {
+                throw new InsufficientFundsException(srcId, srcPrev, amount);
+            }
+
+            BigDecimal srcNew = srcPrev.subtract(amount);
+            BigDecimal dstPrev = destinationBalance.getAvailableBalance();
+            BigDecimal dstNew = dstPrev.add(amount);
+
+            post(sourceBalance, amount.negate());
+            post(destinationBalance, amount);
+
+            String refDebit = ref != null && ref.length() > 33 ? ref.substring(0, 33) + "-D" : (ref != null ? ref + "-D" : null);
+            String refCredit = ref != null && ref.length() > 33 ? ref.substring(0, 33) + "-C" : (ref != null ? ref + "-C" : null);
+
+            // Oracle Master SoR: Save paired transaction records
+            Account srcAccount = sourceBalance.getAccount() != null ? sourceBalance.getAccount() : Account.builder().accountId(srcId).build();
+            Account dstAccount = destinationBalance.getAccount() != null ? destinationBalance.getAccount() : Account.builder().accountId(dstId).build();
+            User approvedByUser = actorId != null ? User.builder().userId(actorId).build() : null;
+
+            Transaction debitTxn = Transaction.builder()
+                    .account(srcAccount)
+                    .referenceNo(refDebit)
+                    .transactionType("DEBIT")
+                    .amount(amount)
+                    .previousBalance(srcPrev)
+                    .newBalance(srcNew)
+                    .status("COMPLETED")
+                    .approvedBy(approvedByUser)
+                    .build();
+            Transaction savedDebitTxn = transactionRepository.save(debitTxn);
+
+            Transaction creditTxn = Transaction.builder()
+                    .account(dstAccount)
+                    .referenceNo(refCredit)
+                    .transactionType("CREDIT")
+                    .amount(amount)
+                    .previousBalance(dstPrev)
+                    .newBalance(dstNew)
+                    .status("COMPLETED")
+                    .approvedBy(approvedByUser)
+                    .build();
+            Transaction savedCreditTxn = transactionRepository.save(creditTxn);
+
+            // PostgreSQL Forensic Audit Store: Simultaneous dual-write for both legs
+            dualWriteLedgerAuditService.recordMutationAudit(
+                    savedDebitTxn.getTransactionId() != null ? savedDebitTxn.getTransactionId() : 0L,
+                    srcId, "DEBIT", amount, srcPrev, srcNew, actorId, clientIp
+            );
+            dualWriteLedgerAuditService.recordMutationAudit(
+                    savedCreditTxn.getTransactionId() != null ? savedCreditTxn.getTransactionId() : 0L,
+                    dstId, "CREDIT", amount, dstPrev, dstNew, actorId, clientIp
+            );
+
+            Long dstCustId = dstAccount != null && dstAccount.getCustomer() != null ? dstAccount.getCustomer().getCustomerId() : null;
 
             // Publish domain mutation events for both legs of the transfer
             publishMutationEvent(
@@ -224,8 +381,45 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DebitCreditResponseDto mutateDebit(DebitCreditRequestDto request, Long actorId, String clientIp) {
-        PostingLegResult leg = postingEngine.postDebit(
-                request.getAccountId(), request.getAmount(), request.getReferenceNo(), actorId, clientIp, true);
+        Long accountId = request.getAccountId();
+        BigDecimal amount = request.getAmount();
+        String ref = request.getReferenceNo();
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTransactionException("Debit amount must be greater than zero.");
+        }
+
+        Balance balance = balanceRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+
+        BigDecimal currentBalance = balance.getAvailableBalance();
+        if (currentBalance.compareTo(amount) < 0) {
+            throw new InsufficientFundsException(accountId, currentBalance, amount);
+        }
+
+        BigDecimal newBalance = currentBalance.subtract(amount);
+        post(balance, newBalance.subtract(currentBalance));
+
+        Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
+        if (account != null && account.getStatus() != null && !"ACTIVE".equalsIgnoreCase(account.getStatus())) {
+            throw new AccountNotActiveException(accountId, account.getStatus());
+        }
+        Transaction txn = Transaction.builder()
+                .account(account)
+                .referenceNo(ref)
+                .transactionType("DEBIT")
+                .amount(amount)
+                .previousBalance(currentBalance)
+                .newBalance(newBalance)
+                .status("COMPLETED")
+                .approvedBy(actorId != null ? User.builder().userId(actorId).build() : null)
+                .build();
+        Transaction savedTxn = transactionRepository.save(txn);
+        Long txnId = savedTxn != null ? savedTxn.getTransactionId() : 0L;
+
+        dualWriteLedgerAuditService.recordMutationAudit(
+                txnId, accountId, "DEBIT", amount, currentBalance, newBalance, actorId, clientIp
+        );
 
         publishMutationEvent(leg);
         return toResponse(leg);
@@ -234,8 +428,41 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DebitCreditResponseDto mutateCredit(DebitCreditRequestDto request, Long actorId, String clientIp) {
-        PostingLegResult leg = postingEngine.postCredit(
-                request.getAccountId(), request.getAmount(), request.getReferenceNo(), actorId, clientIp, true);
+        Long accountId = request.getAccountId();
+        BigDecimal amount = request.getAmount();
+        String ref = request.getReferenceNo();
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTransactionException("Credit amount must be greater than zero.");
+        }
+
+        Balance balance = balanceRepository.findByAccountId(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+
+        BigDecimal currentBalance = balance.getAvailableBalance();
+        BigDecimal newBalance = currentBalance.add(amount);
+        post(balance, newBalance.subtract(currentBalance));
+
+        Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
+        if (account != null && account.getStatus() != null && !"ACTIVE".equalsIgnoreCase(account.getStatus())) {
+            throw new AccountNotActiveException(accountId, account.getStatus());
+        }
+        Transaction txn = Transaction.builder()
+                .account(account)
+                .referenceNo(ref)
+                .transactionType("CREDIT")
+                .amount(amount)
+                .previousBalance(currentBalance)
+                .newBalance(newBalance)
+                .status("COMPLETED")
+                .approvedBy(actorId != null ? User.builder().userId(actorId).build() : null)
+                .build();
+        Transaction savedTxn = transactionRepository.save(txn);
+        Long txnId = savedTxn != null ? savedTxn.getTransactionId() : 0L;
+
+        dualWriteLedgerAuditService.recordMutationAudit(
+                txnId, accountId, "CREDIT", amount, currentBalance, newBalance, actorId, clientIp
+        );
 
         publishMutationEvent(leg);
         return toResponse(leg);
@@ -256,32 +483,11 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
                 .build();
     }
 
-    private DebitCreditResponseDto toResponse(PostingLegResult leg) {
-        return DebitCreditResponseDto.builder()
-                .transactionId(leg.getTransactionId())
-                .accountId(leg.getAccountId())
-                .transactionType(leg.getTransactionType())
-                .amount(leg.getAmount())
-                .previousBalance(leg.getPreviousBalance())
-                .newBalance(leg.getNewBalance())
-                .status("COMPLETED")
-                .referenceNo(leg.getReferenceNo())
-                .timestamp(Instant.now())
-                .build();
-    }
-
-    private void publishMutationEvent(PostingLegResult leg) {
-        publishMutationEvent(
-                leg.getTransactionId(),
-                leg.getAccountId(),
-                leg.getAccountNumber(),
-                leg.getTransactionType(),
-                leg.getAmount(),
-                leg.getPreviousBalance(),
-                leg.getNewBalance(),
-                leg.getReferenceNo(),
-                leg.getCustomerId()
-        );
+    /** A posting moves the available and the ledger balance together; only a hold separates them. */
+    private void post(Balance balance, BigDecimal delta) {
+        balance.setAvailableBalance(balance.getAvailableBalance().add(delta));
+        balance.setLedgerBalance(balance.getLedgerBalance().add(delta));
+        balanceRepository.save(balance);
     }
 
     private void publishMutationEvent(
