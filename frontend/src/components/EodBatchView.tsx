@@ -92,9 +92,7 @@ const STEP_METADATA = [
 
 export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
   const [businessDate, setBusinessDate] = useState<string>(() => {
-    // Default to 2026-10-06 (or today's date)
-    const today = new Date().toISOString().split('T')[0];
-    return today.startsWith('2026') ? today : '2026-10-06';
+    return new Date().toISOString().split('T')[0];
   });
 
   const [activeRun, setActiveRun] = useState<BatchRunDetail | null>(null);
@@ -217,6 +215,12 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
       return;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (businessDate > todayStr) {
+      showToast('error', `Settlement rejected: ${businessDate} is in the future. Core banking EOD only permits settlement for current or past dates.`);
+      return;
+    }
+
     setIsTriggering(true);
     setDailySeal(null);
     setElapsedSeconds(0);
@@ -238,19 +242,16 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
     }
   };
 
-  // Fast reset demo view
+  // Reset demo view
   const handleResetDemo = () => {
     if (activeRun?.status === 'RUNNING') {
       showToast('info', 'Cannot reset while batch execution is in progress.');
       return;
     }
     setElapsedSeconds(0);
-    // Advance date to tomorrow or default date
-    const nextDate = new Date();
-    nextDate.setDate(nextDate.getDate() + 1);
-    const dateStr = nextDate.toISOString().split('T')[0];
-    setBusinessDate(dateStr.startsWith('2026') ? dateStr : '2026-10-06');
-    showToast('info', 'Demo state reset. Target business date prepared for fresh execution.');
+    const todayStr = new Date().toISOString().split('T')[0];
+    setBusinessDate(todayStr);
+    showToast('info', "Settlement target reset to today's active business date.");
   };
 
   const handleCopyHash = (hash: string) => {
@@ -536,7 +537,7 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
           marginTop: '20px'
         }}>
           {/* Business Date Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <label htmlFor="input-business-date" style={{ fontSize: '13px', fontWeight: '600', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Calendar size={15} color="#64748b" />
               Target Business Date:
@@ -545,7 +546,16 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
               id="input-business-date"
               type="date"
               value={businessDate}
-              onChange={(e) => setBusinessDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => {
+                const val = e.target.value;
+                const todayStr = new Date().toISOString().split('T')[0];
+                if (val > todayStr) {
+                  showToast('error', `Cannot select future date ${val}. Settlement is strictly restricted to current or past dates.`);
+                  return;
+                }
+                setBusinessDate(val);
+              }}
               disabled={activeRun?.status === 'RUNNING'}
               style={{
                 padding: '8px 12px',
@@ -562,7 +572,7 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
             <button
               type="button"
               id="btn-date-today"
-              onClick={() => setBusinessDate('2026-10-06')}
+              onClick={() => setBusinessDate(new Date().toISOString().split('T')[0])}
               disabled={activeRun?.status === 'RUNNING'}
               style={{
                 padding: '6px 12px',
@@ -574,8 +584,32 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
                 color: '#475569',
                 cursor: 'pointer'
               }}
+              title="Set to today's active business date"
             >
-              Default (2026-10-06)
+              Today
+            </button>
+            <button
+              type="button"
+              id="btn-date-yesterday"
+              onClick={() => {
+                const d = new Date();
+                d.setDate(d.getDate() - 1);
+                setBusinessDate(d.toISOString().split('T')[0]);
+              }}
+              disabled={activeRun?.status === 'RUNNING'}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: '1px solid #e2e8f0',
+                background: '#f8fafc',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#475569',
+                cursor: 'pointer'
+              }}
+              title="Set to yesterday for retroactive backlog settlement"
+            >
+              Yesterday (Backlog)
             </button>
           </div>
 
@@ -658,8 +692,8 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
         }}>
           <ShieldCheck size={16} style={{ flexShrink: 0 }} />
           <span>
-            <strong>Concurrency Protected (Contract B1):</strong> Triggering is restricted to Bank Administrators (<code style={{ fontFamily: 'JetBrains Mono, monospace' }}>ROLE_ADMIN</code>).
-            Duplicate concurrent executions are locked and rejected with <code style={{ fontFamily: 'JetBrains Mono, monospace' }}>HTTP 409 Conflict (BATCH_ALREADY_RUNNING)</code>.
+            <strong>Production Governance (Contract B1):</strong> Triggering is restricted to Bank Administrators (<code style={{ fontFamily: 'JetBrains Mono, monospace' }}>ROLE_ADMIN</code>).
+            Settlement is restricted to <strong>Today or Past Backlog</strong> dates (future dates rejected). Duplicate concurrent executions are locked with <code style={{ fontFamily: 'JetBrains Mono, monospace' }}>HTTP 409 Conflict</code>.
           </span>
         </div>
       </div>

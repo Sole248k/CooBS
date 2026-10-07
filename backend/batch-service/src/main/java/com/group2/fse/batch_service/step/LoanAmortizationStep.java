@@ -40,8 +40,9 @@ public class LoanAmortizationStep implements BatchStepExecutor {
             Thread.currentThread().interrupt();
         }
 
-        List<LoanSchedule> dueSchedules = loanScheduleRepository.findByDueDateLessThanEqualAndStatus(businessDate, "SCHEDULED");
-        int processed = dueSchedules.isEmpty() ? 1 : dueSchedules.size();
+        List<LoanSchedule> dueSchedules = loanScheduleRepository.findByDueDateLessThanEqualAndStatusIn(
+                businessDate, List.of("DUE", "SCHEDULED"));
+        int processed = dueSchedules.size();
         BigDecimal totalAmount = BigDecimal.ZERO;
 
         for (LoanSchedule ls : dueSchedules) {
@@ -55,16 +56,16 @@ public class LoanAmortizationStep implements BatchStepExecutor {
             loanScheduleRepository.save(ls);
         }
 
-        if (totalAmount.compareTo(BigDecimal.ZERO) == 0) {
-            totalAmount = new BigDecimal("5450.00");
-        }
+        String message = (processed > 0)
+                ? ("Processed " + processed + " amortization deductions")
+                : "No instalments due";
 
         log.info("[BatchRun #{}] LOAN_AMORTIZATION completed: {} installments processed, totalAmount={}", batchRunId, processed, totalAmount);
         return BatchStepResult.builder()
                 .success(true)
                 .itemsProcessed(processed)
                 .totalAmount(totalAmount)
-                .message(null)
+                .message(message)
                 .build();
     }
 }

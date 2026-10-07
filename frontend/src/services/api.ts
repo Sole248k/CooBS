@@ -1256,15 +1256,19 @@ class ApiClient {
         const err: ProblemDetails = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'An End-of-Day batch execution is currently in progress (BATCH_ALREADY_RUNNING).');
       } else {
-        const err: ProblemDetails = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `Failed to trigger EOD batch: HTTP ${res.status}`);
+        const err: any = await res.json().catch(() => ({}));
+        throw new Error(err.message || err.detail || `Failed to trigger EOD batch: HTTP ${res.status}`);
       }
     } catch (err: any) {
       if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
         throw err;
       }
       // Offline / standalone fallback simulation
-      const targetDate = businessDate || new Date().toISOString().split('T')[0];
+      const todayStr = new Date().toISOString().split('T')[0];
+      const targetDate = businessDate || todayStr;
+      if (targetDate > todayStr) {
+        throw new Error(`Business date cannot be in the future (requested: ${targetDate}, today: ${todayStr}).`);
+      }
       const newId = this.localBatchRuns.length > 0 ? Math.max(...this.localBatchRuns.map(r => r.batchRunId)) + 1 : 1;
       const initialRun: BatchRunDetail = {
         batchRunId: newId,

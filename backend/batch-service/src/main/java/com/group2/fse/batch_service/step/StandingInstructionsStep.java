@@ -41,7 +41,7 @@ public class StandingInstructionsStep implements BatchStepExecutor {
         }
 
         List<StandingInstruction> dueInstructions = standingInstructionRepository.findByNextRunDateLessThanEqualAndActiveTrue(businessDate);
-        int processed = dueInstructions.isEmpty() ? 1 : dueInstructions.size();
+        int processed = dueInstructions.size();
         BigDecimal totalAmount = BigDecimal.ZERO;
 
         for (StandingInstruction si : dueInstructions) {
@@ -52,16 +52,16 @@ public class StandingInstructionsStep implements BatchStepExecutor {
             standingInstructionRepository.save(si);
         }
 
-        if (totalAmount.compareTo(BigDecimal.ZERO) == 0) {
-            totalAmount = new BigDecimal("1000.00");
-        }
+        String message = (processed > 0)
+                ? ("Executed " + processed + " recurring instructions")
+                : "No instructions due";
 
         log.info("[BatchRun #{}] STANDING_INSTRUCTIONS completed: {} orders executed, totalAmount={}", batchRunId, processed, totalAmount);
         return BatchStepResult.builder()
                 .success(true)
                 .itemsProcessed(processed)
                 .totalAmount(totalAmount)
-                .message(null)
+                .message(message)
                 .build();
     }
 }

@@ -113,6 +113,19 @@ class BatchServiceImplTest {
     }
 
     @Test
+    @DisplayName("triggerEod throws IllegalArgumentException when business date is in the future")
+    void triggerEod_ThrowsWhenFutureDate() {
+        when(batchRunRepository.existsByStatus("RUNNING")).thenReturn(false);
+
+        EodTriggerRequestDto request = EodTriggerRequestDto.builder()
+                .businessDate(LocalDate.now().plusDays(1))
+                .build();
+
+        assertThrows(IllegalArgumentException.class, () -> batchService.triggerEod(request, 3L));
+        verify(batchRunRepository, never()).save(any(BatchRun.class));
+    }
+
+    @Test
     @DisplayName("getBatchRun returns mapped details DTO when run exists")
     void getBatchRun_Success() {
         when(batchRunRepository.findById(31L)).thenReturn(Optional.of(sampleRun));
