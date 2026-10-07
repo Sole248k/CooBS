@@ -1271,7 +1271,42 @@
       "name": "10. Edge Cases, Risk Guardrails & Negative Paths",
       "item": [
         {
-          "name": "10.0 Capture Sender Balance Before the Negative Paths",
+          "name": "10.0a Low-Balance Member Login (Liza Mercado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.collectionVariables.set(\"low_balance_token\", pm.response.json().authData.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"liza_mercado\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/customers/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "customers", "login"]
+            }
+          }
+        },
+        {
+          "name": "10.0b Capture the Low-Balance Member's Balance",
           "event": [
             {
               "listen": "test",
@@ -1293,13 +1328,13 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{customer_token}}"
+                "value": "Bearer {{low_balance_token}}"
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/accounts/{{source_account_id}}",
+              "raw": "{{baseUrl}}/api/v1/accounts/9",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "{{source_account_id}}"]
+              "path": ["api", "v1", "accounts", "9"]
             }
           }
         },
@@ -1311,10 +1346,11 @@
               "script": {
                 "exec": [
                   "pm.collectionVariables.set(\"fail_insufficient_key\", 'idem-inf-' + Date.now());",
-                  "// Just above the sender's balance, and well under the 100,000.00 daily limit, so that the",
-                  "// transfer passes the risk and limit checks and is stopped by the hold.",
-                  "var balance = parseFloat(pm.collectionVariables.get(\"sender_balance_now\") || \"50000\");",
-                  "pm.collectionVariables.set(\"insufficient_amount\", (balance + 1000).toFixed(2));"
+                  "// liza_mercado is seeded with PHP 150.00 for this case. A small amount just above her balance",
+                  "// passes the risk and limit checks and is stopped by the hold, and uses almost none of her",
+                  "// daily limit, which the risk engine counts even when the transfer later fails.",
+                  "var balance = parseFloat(pm.collectionVariables.get(\"sender_balance_now\") || \"150\");",
+                  "pm.collectionVariables.set(\"insufficient_amount\", (balance + 100).toFixed(2));"
                 ],
                 "type": "text/javascript"
               }
@@ -1338,7 +1374,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{customer_token}}"
+                "value": "Bearer {{low_balance_token}}"
               },
               {
                 "key": "Content-Type",
@@ -1351,7 +1387,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sourceAccountId\": 1,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"{{insufficient_amount}}\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"Excessive transfer that must fail\"\n}"
+              "raw": "{\n  \"sourceAccountId\": 9,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"{{insufficient_amount}}\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"Excessive transfer that must fail\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/transfers",
@@ -1402,7 +1438,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{customer_token}}"
+                "value": "Bearer {{low_balance_token}}"
               }
             ],
             "url": {
@@ -1450,7 +1486,7 @@
           }
         },
         {
-          "name": "10.1c Sender Balance Unchanged After the Failed Transfer",
+          "name": "10.1c Balance Unchanged After the Failed Transfer",
           "event": [
             {
               "listen": "test",
@@ -1459,7 +1495,7 @@
                   "pm.test(\"Status code is 200 OK\", function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "pm.test(\"No hold was left on the sender\", function () {",
+                  "pm.test(\"No hold was left on the account\", function () {",
                   "    var before = parseFloat(pm.collectionVariables.get(\"sender_balance_before_insufficient\"));",
                   "    pm.expect(parseFloat(pm.response.json().availableBalance)).to.be.closeTo(before, 0.01);",
                   "});"
@@ -1473,13 +1509,13 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{customer_token}}"
+                "value": "Bearer {{low_balance_token}}"
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/accounts/{{source_account_id}}",
+              "raw": "{{baseUrl}}/api/v1/accounts/9",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "{{source_account_id}}"]
+              "path": ["api", "v1", "accounts", "9"]
             }
           }
         },
