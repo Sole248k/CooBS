@@ -28,6 +28,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -113,28 +115,17 @@ class ReversalControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/ledger/reversals: Supports dual public endpoint path")
-    void testReverse_PublicAlias_Success() throws Exception {
+    @DisplayName("POST /api/v1/ledger/reversals: the public path does not exist")
+    void testReverse_PublicPathIsNotMapped() throws Exception {
         ReversalRequestDto requestDto = ReversalRequestDto.builder()
                 .originalReferenceNo("TX-20261003-8F3A21C0")
                 .build();
 
-        ReversalResponseDto responseDto = ReversalResponseDto.builder()
-                .reversalReferenceNo("RV-001")
-                .originalReferenceNo("TX-20261003-8F3A21C0")
-                .status("POSTED")
-                .entries(List.of())
-                .timestamp(Instant.now())
-                .build();
-
-        when(reversalService.processReversal(any(ReversalRequestDto.class), any(), any()))
-                .thenReturn(responseDto);
-
         mockMvc.perform(post("/api/v1/ledger/reversals")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(requestDto)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("POSTED"));
+                        .content(objectMapper.writeValueAsString(requestDto)));
+
+        verify(reversalService, never()).processReversal(any(), any(), any());
     }
 
     @Test
