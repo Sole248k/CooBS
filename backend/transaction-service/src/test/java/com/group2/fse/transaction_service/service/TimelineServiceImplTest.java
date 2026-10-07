@@ -68,8 +68,8 @@ class TimelineServiceImplTest {
     void testGetTimelineCustomerViewDefault() {
         when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
         when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of(
-                TxnStageEvent.builder().stageNo(1).stageName("INGRESS_ACCEPTED").outcome("PASSED").occurredAt(Instant.now()).build(),
-                TxnStageEvent.builder().stageNo(2).stageName("PREFLIGHT_VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build()
+                TxnStageEvent.builder().stageNo(1).stageName("INITIATED").outcome("PASSED").occurredAt(Instant.now()).build(),
+                TxnStageEvent.builder().stageNo(2).stageName("VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build()
         ));
 
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
@@ -90,7 +90,7 @@ class TimelineServiceImplTest {
     void testGetTimelineStaffView() {
         when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
         when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of(
-                TxnStageEvent.builder().stageNo(1).stageName("INGRESS_ACCEPTED").outcome("PASSED").occurredAt(Instant.now()).build()
+                TxnStageEvent.builder().stageNo(1).stageName("INITIATED").outcome("PASSED").occurredAt(Instant.now()).build()
         ));
 
         TimelineResponseDto response = timelineService.getTimeline(transactionId.toString(), "STAFF", null);
@@ -99,7 +99,10 @@ class TimelineServiceImplTest {
         assertThat(response.getTotalStages()).isEqualTo(11);
         assertThat(response.getStages()).hasSize(11);
         assertThat(response.getStages().get(0).getStatus()).isEqualTo("COMPLETED");
-        assertThat(response.getStages().get(0).getTitle()).isEqualTo("Ingress Accepted");
+        assertThat(response.getStages().get(0).getTitle()).isEqualTo("Initiated");
+        assertThat(response.getStages()).extracting("stageName").containsExactly(
+                "INITIATED", "VALIDATED", "AUTHENTICATED", "FRAUD_CHECK", "LIMIT_CHECK", "FUNDS_CHECK",
+                "AUTHORIZED", "POSTED", "LEDGER_UPDATE", "NOTIFICATION", "RECONCILIATION");
         assertThat(response.getStages().get(1).getStatus()).isEqualTo("IN_PROGRESS");
         assertThat(response.getStages().get(2).getStatus()).isEqualTo("PENDING");
     }
@@ -175,9 +178,9 @@ class TimelineServiceImplTest {
     void testGetExecutionStatus() {
         when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
         when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of(
-                TxnStageEvent.builder().stageNo(1).stageName("INGRESS_ACCEPTED").outcome("PASSED").occurredAt(Instant.now()).build(),
-                TxnStageEvent.builder().stageNo(2).stageName("PREFLIGHT_VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build(),
-                TxnStageEvent.builder().stageNo(3).stageName("DISPATCHED_TO_ORCHESTRATOR").outcome("PASSED").occurredAt(Instant.now()).build()
+                TxnStageEvent.builder().stageNo(1).stageName("INITIATED").outcome("PASSED").occurredAt(Instant.now()).build(),
+                TxnStageEvent.builder().stageNo(2).stageName("VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build(),
+                TxnStageEvent.builder().stageNo(3).stageName("AUTHENTICATED").outcome("PASSED").occurredAt(Instant.now()).build()
         ));
 
         com.group2.fse.transaction_service.dto.ExecutionStatusResponseDto result =
