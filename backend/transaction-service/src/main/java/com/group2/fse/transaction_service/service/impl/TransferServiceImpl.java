@@ -71,14 +71,25 @@ public class TransferServiceImpl implements TransferService {
             String randomHex = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
             String referenceNo = "TX-" + datePart + "-" + randomHex;
 
-            log.info("Initiated transfer: transactionId={}, referenceNo={}, srcAccount={}, dstAccount={}, amount={}",
-                    transactionId, referenceNo, request.getSourceAccountId(), request.getDestinationAccountNumber(), request.getAmount());
+            Long customerId = null;
+            org.springframework.security.core.Authentication auth =
+                    org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.group2.fse.transaction_service.security.UserPrincipal principal) {
+                customerId = principal.getUserId();
+            }
+            if (customerId == null) {
+                var srcLookup = orchestrationClient.lookupAccountById(request.getSourceAccountId());
+                if (srcLookup.isPresent() && srcLookup.get().getCustomerId() != null) {
+                    customerId = srcLookup.get().getCustomerId();
+                }
+            }
 
             TxnTransaction txn = TxnTransaction.builder()
                     .transactionId(txUuid)
                     .referenceNo(referenceNo)
                     .idempotencyKey(hasKey ? idempotencyKey : null)
                     .channel("APP")
+                    .customerId(customerId)
                     .sourceAccountId(request.getSourceAccountId())
                     .destinationAccountNumber(request.getDestinationAccountNumber())
                     .destinationBankCode(request.getDestinationBankCode() != null ? request.getDestinationBankCode() : "COOBS")
