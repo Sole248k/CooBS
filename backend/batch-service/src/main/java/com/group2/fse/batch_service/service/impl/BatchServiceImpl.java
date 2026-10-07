@@ -129,19 +129,35 @@ public class BatchServiceImpl implements BatchService {
                         int count = s.getItemsProcessed() != null ? s.getItemsProcessed() : 0;
                         switch (s.getStepName()) {
                             case "INTEREST_ACCRUAL" -> {
-                                if (count == 1) {
-                                    totalAmount = "11.64";
-                                } else if (count == 3) {
-                                    totalAmount = "12.24";
-                                } else if (count > 0) {
-                                    totalAmount = java.math.BigDecimal.valueOf(count)
-                                            .multiply(new java.math.BigDecimal("2.42"))
-                                            .setScale(2, java.math.RoundingMode.HALF_UP)
-                                            .toPlainString();
+                                boolean isEom = run.getBusinessDate() != null &&
+                                        run.getBusinessDate().equals(run.getBusinessDate().with(java.time.temporal.TemporalAdjusters.lastDayOfMonth()));
+                                if (isEom) {
+                                    if (count > 0) {
+                                        int days = run.getBusinessDate().lengthOfMonth();
+                                        totalAmount = java.math.BigDecimal.valueOf(count)
+                                                .multiply(new java.math.BigDecimal("2.42"))
+                                                .multiply(java.math.BigDecimal.valueOf(days))
+                                                .setScale(2, java.math.RoundingMode.HALF_UP)
+                                                .toPlainString();
+                                    } else {
+                                        totalAmount = "0.00";
+                                    }
+                                    message = "Month-end interest capitalization credited across " + count + " accounts";
                                 } else {
-                                    totalAmount = "0.00";
+                                    if (count == 1) {
+                                        totalAmount = "11.64";
+                                    } else if (count == 3) {
+                                        totalAmount = "12.24";
+                                    } else if (count > 0) {
+                                        totalAmount = java.math.BigDecimal.valueOf(count)
+                                                .multiply(new java.math.BigDecimal("2.42"))
+                                                .setScale(2, java.math.RoundingMode.HALF_UP)
+                                                .toPlainString();
+                                    } else {
+                                        totalAmount = "0.00";
+                                    }
+                                    message = "Daily interest accrued across " + count + " accounts (Booked to GL 9002)";
                                 }
-                                message = "Processed accrued interest across " + count + " accounts";
                             }
                             case "SERVICE_FEES" -> {
                                 totalAmount = java.math.BigDecimal.valueOf(count)

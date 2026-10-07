@@ -268,6 +268,32 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
     showToast('info', `Inspecting Batch Run #${run.batchRunId} (${run.businessDate}).`);
   };
 
+  // Operational Governance: Date Gap & Backlog Catch-Up Detection
+  const completedRuns = allRuns.filter(r => r.status === 'COMPLETED');
+  const latestCompletedDateStr = completedRuns.reduce<string | null>((latest, r) => {
+    if (!latest || r.businessDate > latest) return r.businessDate;
+    return latest;
+  }, null);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const missingDates: string[] = [];
+
+  if (latestCompletedDateStr && latestCompletedDateStr < todayStr) {
+    const latestDate = new Date(latestCompletedDateStr + 'T00:00:00');
+    const todayDate = new Date(todayStr + 'T00:00:00');
+    const diffTime = todayDate.getTime() - latestDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+
+    if (diffDays >= 2) {
+      const curr = new Date(latestDate);
+      curr.setDate(curr.getDate() + 1);
+      while (curr < todayDate && missingDates.length < 5) {
+        missingDates.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+  }
+
   // Helper to get step status badge
   const renderStepStatus = (status: BatchStepStatus) => {
     switch (status) {
@@ -524,6 +550,36 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
                 5 – 8s Target
               </div>
             </div>
+            {latestCompletedDateStr && (
+              <>
+                <div style={{ width: '1px', height: '28px', background: '#cbd5e1' }} />
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase' }}>
+                    Ledger Continuity
+                  </div>
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: missingDates.length > 0 ? '#d97706' : '#059669',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    {missingDates.length > 0 ? (
+                      <>
+                        <AlertTriangle size={13} />
+                        <span>Gap ({missingDates[0]})</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={14} />
+                        <span>Closed to {latestCompletedDateStr}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -697,6 +753,120 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
           </span>
         </div>
       </div>
+
+      {/* 1B. Operational Governance Warning: Missed EOD / Date Gap Banner */}
+      {missingDates.length > 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          border: '1px solid #fcd34d',
+          borderRadius: '16px',
+          padding: '20px 24px',
+          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.08)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          animation: 'fadeIn 0.3s ease-in-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: '300px' }}>
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: '#fef3c7',
+                border: '1px solid #fde68a',
+                color: '#d97706',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <AlertTriangle size={22} />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#92400e', margin: 0 }}>
+                    Operational Gap Detected &mdash; Unclosed Historical Ledger
+                  </h3>
+                  <span style={{
+                    background: '#fef3c7',
+                    border: '1px solid #f59e0b',
+                    color: '#b45309',
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    textTransform: 'uppercase'
+                  }}>
+                    Core Banking Governance Rule
+                  </span>
+                </div>
+
+                <p style={{ fontSize: '13px', color: '#78350f', margin: '6px 0 0 0', lineHeight: 1.5, maxWidth: '780px' }}>
+                  The last verified completed EOD closure was for <strong style={{ fontFamily: 'JetBrains Mono, monospace' }}>{latestCompletedDateStr}</strong>.
+                  Standard financial accounting requires business days to be closed in <strong>strict chronological sequence</strong>.
+                  Closing today (<span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{todayStr}</span>) without settling historical backlog will cause accrued interest and loan repayment gaps.
+                </p>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#92400e' }}>
+                    Next Sequential Date Due:
+                  </span>
+                  <span style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontWeight: '800',
+                    fontSize: '13px',
+                    background: '#ffffff',
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #fde68a',
+                    color: '#b45309'
+                  }}>
+                    {missingDates[0]}
+                  </span>
+                  {missingDates.length > 1 && (
+                    <span style={{ fontSize: '12px', color: '#b45309', fontWeight: '500' }}>
+                      (+{missingDates.length - 1} subsequent unclosed day{missingDates.length > 2 ? 's' : ''})
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                id="btn-catchup-backlog"
+                onClick={() => {
+                  setBusinessDate(missingDates[0]);
+                  showToast('info', `Target business date set to backlog date ${missingDates[0]}. Click "Execute End-of-Day Batch" to run.`);
+                }}
+                disabled={activeRun?.status === 'RUNNING'}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: activeRun?.status === 'RUNNING' ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 2px 6px rgba(217, 119, 6, 0.3)',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Automatically sets Target Date to the oldest unclosed business date"
+              >
+                <span>Run Catch-Up ({missingDates[0]})</span>
+                <ArrowRight size={15} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. 6-Step Visual Pipeline Stepper Cards */}
       <div>

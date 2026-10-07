@@ -46,7 +46,7 @@ public class Balance {
         } else {
             this.availableBalance = this.availableBalance.setScale(4, java.math.RoundingMode.HALF_UP);
         }
-        if (this.ledgerBalance == null) {
+        if (this.ledgerBalance == null || this.ledgerBalance.compareTo(this.availableBalance) < 0) {
             this.ledgerBalance = this.availableBalance;
         } else {
             this.ledgerBalance = this.ledgerBalance.setScale(4, java.math.RoundingMode.HALF_UP);

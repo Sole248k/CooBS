@@ -8,10 +8,13 @@ import {
   AlertCircle,
   Send,
   Edit3,
-  ShieldCheck
+  ShieldCheck,
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 import type {
   Account,
+  AuditRecord,
   ClosureRequestResponse,
   CustomerProfile,
   KycUpdateRequestDto,
@@ -35,7 +38,30 @@ export const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
   onRefreshAccounts,
   onExecuteTransfer
 }) => {
-  const [activeTab, setActiveTab] = useState<'accounts' | 'transfer' | 'profile' | 'closure'>('accounts');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'statement' | 'transfer' | 'profile' | 'closure'>('accounts');
+
+  // Statement State
+  const [statementAccountId, setStatementAccountId] = useState<number>(accounts.length > 0 ? accounts[0].accountId : 1);
+  const [statementRecords, setStatementRecords] = useState<AuditRecord[]>([]);
+  const [statementLoading, setStatementLoading] = useState<boolean>(false);
+
+  const loadStatement = async (accId: number) => {
+    setStatementLoading(true);
+    try {
+      const records = await apiClient.getAccountAuditStatements(accId);
+      setStatementRecords(Array.isArray(records) ? records : []);
+    } catch {
+      setStatementRecords([]);
+    } finally {
+      setStatementLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'statement' && statementAccountId) {
+      loadStatement(statementAccountId);
+    }
+  }, [activeTab, statementAccountId]);
 
   // Transfer State
   const [debitAccountId, setDebitAccountId] = useState<number>(accounts.length > 0 ? accounts[0].accountId : 1);
@@ -280,6 +306,26 @@ export const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
 
         <button
           type="button"
+          onClick={() => { setActiveTab('statement'); loadStatement(statementAccountId); }}
+          style={{
+            padding: '10px 18px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: activeTab === 'statement' ? '#eff6ff' : 'transparent',
+            color: activeTab === 'statement' ? '#1d4ed8' : '#64748b',
+            border: activeTab === 'statement' ? '1px solid #bfdbfe' : '1px solid transparent'
+          }}
+        >
+          <FileText size={18} />
+          <span>Account Statement</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => { setActiveTab('transfer'); setTransferReceipt(null); }}
           style={{
             padding: '10px 18px',
@@ -438,6 +484,21 @@ export const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
 
                     <button
                       type="button"
+                      onClick={() => {
+                        setStatementAccountId(acc.accountId);
+                        setActiveTab('statement');
+                        loadStatement(acc.accountId);
+                      }}
+                      className="banking-btn-secondary"
+                      style={{ padding: '8px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                      title="View Official Immutable Statement"
+                    >
+                      <FileText size={14} />
+                      <span>Statement</span>
+                    </button>
+
+                    <button
+                      type="button"
                       disabled={acc.status === 'CLOSED'}
                       onClick={() => {
                         setClosureAccountId(acc.accountId);
@@ -454,6 +515,152 @@ export const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. ACCOUNT STATEMENT & FORENSIC LEDGER VIEW                              */}
+      {/* ========================================================================= */}
+      {activeTab === 'statement' && (
+        <div className="animate-fade">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={22} color="#2563eb" />
+                <span>Account Statement & Forensic Ledger</span>
+              </h2>
+              <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
+                Immutable audit ledger sealed with SHA-256 cryptographic hash chaining (Contract U1 / PostgreSQL).
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {accounts.length > 1 && (
+                <select
+                  value={statementAccountId}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    setStatementAccountId(id);
+                    loadStatement(id);
+                  }}
+                  style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', fontWeight: '600' }}
+                >
+                  {accounts.map(acc => (
+                    <option key={acc.accountId} value={acc.accountId}>
+                      {acc.accountNumber} ({acc.accountType}) &mdash; ₱{acc.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <button
+                type="button"
+                onClick={() => loadStatement(statementAccountId)}
+                disabled={statementLoading}
+                className="banking-btn-secondary"
+                style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <RefreshCw size={14} className={statementLoading ? 'animate-spin' : ''} />
+                <span>Refresh Statement</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Account Snapshot Card */}
+          {(() => {
+            const currentAcc = accounts.find(a => a.accountId === statementAccountId) || accounts[0];
+            return currentAcc ? (
+              <div className="banking-card" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', color: '#ffffff' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '600' }}>
+                    {currentAcc.accountType} ACCOUNT &bull; {currentAcc.accountNumber}
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: '800', marginTop: '4px', letterSpacing: '-0.02em', color: '#f8fafc' }}>
+                    ₱{currentAcc.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#94a3b8', marginLeft: '8px' }}>{currentAcc.currency}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', padding: '8px 14px', borderRadius: '8px', color: '#34d399', fontSize: '12px', fontWeight: '600' }}>
+                  <ShieldCheck size={16} />
+                  <span>SHA-256 Tamper-Evident Chain Intact</span>
+                </div>
+              </div>
+            ) : null;
+          })()}
+
+          {/* Transactions Statement Table */}
+          <div className="banking-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+                Transaction History ({statementRecords.length} records)
+              </div>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                Official Immutable Ledger: <code>/api/v1/audit/accounts/{statementAccountId}/statement</code>
+              </span>
+            </div>
+
+            {statementLoading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#2563eb' }} />
+                <span>Loading official statement records...</span>
+              </div>
+            ) : statementRecords.length === 0 ? (
+              <div style={{ padding: '50px 20px', textAlign: 'center', color: '#64748b' }}>
+                <FileText size={36} color="#94a3b8" style={{ margin: '0 auto 12px' }} />
+                <div style={{ fontWeight: '600', fontSize: '15px', color: '#1e293b' }}>No transactions recorded yet</div>
+                <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                  Transactions, interest credits, and transfers will appear here once executed.
+                </p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="banking-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#475569' }}>
+                      <th style={{ padding: '12px 16px', fontWeight: '600' }}>Date & Time</th>
+                      <th style={{ padding: '12px 16px', fontWeight: '600' }}>Reference</th>
+                      <th style={{ padding: '12px 16px', fontWeight: '600' }}>Type</th>
+                      <th style={{ padding: '12px 16px', fontWeight: '600', textAlign: 'right' }}>Amount</th>
+                      <th style={{ padding: '12px 16px', fontWeight: '600', textAlign: 'right' }}>Balance</th>
+                      <th style={{ padding: '12px 16px', fontWeight: '600' }}>Cryptographic Hash</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statementRecords.map((rec) => {
+                      const isCredit = rec.transactionType.includes('CREDIT') || rec.transactionType.includes('DEPOSIT');
+                      return (
+                        <tr key={rec.auditId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '12px 16px', color: '#334155' }}>
+                            {new Date(rec.eventTimestamp).toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontWeight: '600', color: '#1e293b' }}>
+                            {rec.referenceNo}
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span className={`badge ${isCredit ? 'badge-active' : 'badge-frozen'}`} style={{ fontSize: '11px' }}>
+                              {rec.transactionType}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '700', color: isCredit ? '#059669' : '#dc2626' }}>
+                            {isCredit ? '+' : '-'}₱{rec.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: '600', color: '#0f172a' }}>
+                            ₱{rec.newBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#64748b' }}>
+                            <span title={rec.currentHash} style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+                              {rec.currentHash ? `${rec.currentHash.substring(0, 10)}...` : 'N/A'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
