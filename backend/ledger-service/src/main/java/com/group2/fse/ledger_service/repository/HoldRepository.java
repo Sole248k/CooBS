@@ -18,8 +18,8 @@ public interface HoldRepository extends JpaRepository<Hold, Long> {
     Optional<Hold> findByReferenceNo(String referenceNo);
 
     /**
-     * Locks the hold row, so a capture and a release of the same hold run one after the other
-     * and the second one sees the status the first one committed.
+     * Locks the HOLD row so capture and release of the same hold are serialized.
+     * Callers must take this lock before any BALANCE lock.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints({
