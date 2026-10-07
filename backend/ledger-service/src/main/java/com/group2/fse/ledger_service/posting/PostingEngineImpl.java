@@ -44,7 +44,6 @@ public class PostingEngineImpl implements PostingEngine {
         }
 
         Balance balance = balanceRepository.findByAccountId(accountId)
-                .or(() -> balanceRepository.findById(accountId))
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
         if (enforceActiveStatus && balance.getAccount() != null && balance.getAccount().getStatus() != null &&
@@ -69,11 +68,9 @@ public class PostingEngineImpl implements PostingEngine {
         Long secondId = Math.max(sourceAccountId, destinationAccountId);
 
         Balance firstBalance = balanceRepository.findByAccountId(firstId)
-                .or(() -> balanceRepository.findById(firstId))
                 .orElseThrow(() -> new AccountNotFoundException(firstId));
 
         Balance secondBalance = balanceRepository.findByAccountId(secondId)
-                .or(() -> balanceRepository.findById(secondId))
                 .orElseThrow(() -> new AccountNotFoundException(secondId));
 
         Balance sourceBalance = sourceAccountId.equals(firstId) ? firstBalance : secondBalance;
@@ -122,16 +119,21 @@ public class PostingEngineImpl implements PostingEngine {
         BigDecimal currentBalance = balance.getAvailableBalance();
         validateSufficientFunds(balance.getAccountId(), currentBalance, amount);
 
-        BigDecimal newBalance = calculateDebit(currentBalance, amount);
-        balance.setAvailableBalance(newBalance);
-        return balanceRepository.save(balance);
+        return move(balance, amount.negate());
     }
 
     @Override
     public Balance applyCredit(Balance balance, BigDecimal amount) {
-        BigDecimal currentBalance = balance.getAvailableBalance();
-        BigDecimal newBalance = calculateCredit(currentBalance, amount);
-        balance.setAvailableBalance(newBalance);
+        return move(balance, amount);
+    }
+
+    /**
+     * A posting moves the available and the ledger balance together. Only a hold moves one
+     * without the other, and HoldService does that itself.
+     */
+    private Balance move(Balance balance, BigDecimal delta) {
+        balance.setAvailableBalance(calculateCredit(balance.getAvailableBalance(), delta));
+        balance.setLedgerBalance(calculateCredit(balance.getLedgerBalance(), delta));
         return balanceRepository.save(balance);
     }
 
@@ -199,8 +201,7 @@ public class PostingEngineImpl implements PostingEngine {
         validateSufficientFunds(accountId, currentBalance, amount);
 
         BigDecimal newBalance = calculateDebit(currentBalance, amount);
-        balance.setAvailableBalance(newBalance);
-        balanceRepository.save(balance);
+        move(balance, amount.negate());
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
         User approvedBy = actorId != null ? User.builder().userId(actorId).build() : null;
@@ -251,8 +252,7 @@ public class PostingEngineImpl implements PostingEngine {
 
         BigDecimal currentBalance = balance.getAvailableBalance();
         BigDecimal newBalance = calculateCredit(currentBalance, amount);
-        balance.setAvailableBalance(newBalance);
-        balanceRepository.save(balance);
+        move(balance, amount);
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
         User approvedBy = actorId != null ? User.builder().userId(actorId).build() : null;
@@ -311,10 +311,8 @@ public class PostingEngineImpl implements PostingEngine {
         BigDecimal dstPrev = destinationBalance.getAvailableBalance();
         BigDecimal dstNew = calculateCredit(dstPrev, amount);
 
-        sourceBalance.setAvailableBalance(srcNew);
-        destinationBalance.setAvailableBalance(dstNew);
-        balanceRepository.save(sourceBalance);
-        balanceRepository.save(destinationBalance);
+        move(sourceBalance, amount.negate());
+        move(destinationBalance, amount);
 
         String refDebit = referenceNo != null && referenceNo.length() > 33
                 ? referenceNo.substring(0, 33) + "-D"

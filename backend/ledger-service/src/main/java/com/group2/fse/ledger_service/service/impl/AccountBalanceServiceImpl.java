@@ -76,9 +76,6 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
 
         Optional<Balance> balanceOpt = balanceRepository.findByAccountId(accountId);
         if (balanceOpt.isEmpty()) {
-            balanceOpt = balanceRepository.findById(accountId);
-        }
-        if (balanceOpt.isEmpty()) {
             return MutationResult.failure(accountId, referenceNo, "Account balance record not found.");
         }
 
@@ -90,8 +87,7 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         }
 
         BigDecimal newBalance = currentBalance.subtract(amount);
-        balance.setAvailableBalance(newBalance);
-        balanceRepository.save(balance);
+        post(balance, newBalance.subtract(currentBalance));
 
         Account account = balance.getAccount();
         if (account == null) {
@@ -153,9 +149,6 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
 
         Optional<Balance> balanceOpt = balanceRepository.findByAccountId(accountId);
         if (balanceOpt.isEmpty()) {
-            balanceOpt = balanceRepository.findById(accountId);
-        }
-        if (balanceOpt.isEmpty()) {
             return MutationResult.failure(accountId, referenceNo, "Account balance record not found.");
         }
 
@@ -163,8 +156,7 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         BigDecimal currentBalance = balance.getAvailableBalance();
         BigDecimal newBalance = currentBalance.add(amount);
 
-        balance.setAvailableBalance(newBalance);
-        balanceRepository.save(balance);
+        post(balance, newBalance.subtract(currentBalance));
 
         Account account = balance.getAccount();
         if (account == null) {
@@ -246,11 +238,9 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
             Long secondId = Math.max(srcId, dstId);
 
             Balance firstBalance = balanceRepository.findByAccountId(firstId)
-                    .or(() -> balanceRepository.findById(firstId))
                     .orElseThrow(() -> new AccountNotFoundException(firstId));
 
             Balance secondBalance = balanceRepository.findByAccountId(secondId)
-                    .or(() -> balanceRepository.findById(secondId))
                     .orElseThrow(() -> new AccountNotFoundException(secondId));
 
             Balance sourceBalance = srcId.equals(firstId) ? firstBalance : secondBalance;
@@ -280,10 +270,8 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
             BigDecimal dstPrev = destinationBalance.getAvailableBalance();
             BigDecimal dstNew = dstPrev.add(amount);
 
-            sourceBalance.setAvailableBalance(srcNew);
-            destinationBalance.setAvailableBalance(dstNew);
-            balanceRepository.save(sourceBalance);
-            balanceRepository.save(destinationBalance);
+            post(sourceBalance, amount.negate());
+            post(destinationBalance, amount);
 
             String refDebit = ref != null && ref.length() > 33 ? ref.substring(0, 33) + "-D" : (ref != null ? ref + "-D" : null);
             String refCredit = ref != null && ref.length() > 33 ? ref.substring(0, 33) + "-C" : (ref != null ? ref + "-C" : null);
@@ -408,7 +396,6 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         }
 
         Balance balance = balanceRepository.findByAccountId(accountId)
-                .or(() -> balanceRepository.findById(accountId))
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
         BigDecimal currentBalance = balance.getAvailableBalance();
@@ -417,8 +404,7 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         }
 
         BigDecimal newBalance = currentBalance.subtract(amount);
-        balance.setAvailableBalance(newBalance);
-        balanceRepository.save(balance);
+        post(balance, newBalance.subtract(currentBalance));
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
         if (account != null && account.getStatus() != null && !"ACTIVE".equalsIgnoreCase(account.getStatus())) {
@@ -478,13 +464,11 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
         }
 
         Balance balance = balanceRepository.findByAccountId(accountId)
-                .or(() -> balanceRepository.findById(accountId))
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
         BigDecimal currentBalance = balance.getAvailableBalance();
         BigDecimal newBalance = currentBalance.add(amount);
-        balance.setAvailableBalance(newBalance);
-        balanceRepository.save(balance);
+        post(balance, newBalance.subtract(currentBalance));
 
         Account account = balance.getAccount() != null ? balance.getAccount() : Account.builder().accountId(accountId).build();
         if (account != null && account.getStatus() != null && !"ACTIVE".equalsIgnoreCase(account.getStatus())) {
@@ -536,7 +520,6 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
     @Transactional(readOnly = true)
     public BalanceResponseDto getAccountBalance(Long accountId) {
         Balance balance = balanceRepository.findReadOnlyByAccountId(accountId)
-                .or(() -> balanceRepository.findById(accountId))
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
         return BalanceResponseDto.builder()
@@ -546,6 +529,13 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
                 .asOfTimestamp(Instant.now())
                 .isCached(false)
                 .build();
+    }
+
+    /** A posting moves the available and the ledger balance together; only a hold separates them. */
+    private void post(Balance balance, BigDecimal delta) {
+        balance.setAvailableBalance(balance.getAvailableBalance().add(delta));
+        balance.setLedgerBalance(balance.getLedgerBalance().add(delta));
+        balanceRepository.save(balance);
     }
 
     private void publishMutationEvent(
