@@ -18,12 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Controller exposing Core Ledger Reversal endpoints.
- * Implements Handshake H3 L7 contract: POST /internal/v1/ledger/reversals
- * and public alias POST /api/v1/ledger/reversals.
+ * Implements Handshake H3 L7 contract: POST /internal/v1/ledger/reversals.
+ * Internal only: a reversal is started by the saga, never by a browser.
  */
 @Slf4j
 @RestController
-@RequestMapping({"/internal/v1/ledger/reversals", "/api/v1/ledger/reversals"})
+@RequestMapping("/internal/v1/ledger/reversals")
 @RequiredArgsConstructor
 public class ReversalController {
 
