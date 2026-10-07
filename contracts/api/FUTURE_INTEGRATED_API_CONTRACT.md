@@ -135,6 +135,7 @@ Every service returns the existing problem shape. `errorCode` is the field clien
 | `ACCOUNT_NON_ZERO_BALANCE` | 400 | account |
 | `ACCOUNT_ACTIVE_FLAG_EXISTS` | 422 | account |
 | `ACCOUNT_NOT_OWNED` (new) | 403 | transaction |
+| `ACCOUNT_UNAVAILABLE` (new) | 503 | transaction |
 | `TRANSACTION_NOT_FOUND` (new) | 404 | transaction, orchestration |
 | `INSUFFICIENT_FUNDS` | 422 | ledger |
 | `DUPLICATE_IDEMPOTENCY_KEY` | 409 | ledger, transaction |
