@@ -18,6 +18,8 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -321,7 +323,62 @@ class TransferSagaTest {
 
         assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
         assertThat(ledgerCalls()).contains(new Call(CAPTURE, t.transactionId() + ":capture", null, null));
-        assertThat(CALLS).extracting(Call::path).doesNotContain(RELEASE, HOLD, RISK);
+        // Other tests leave their own rows in flight, and recovery rightly resumes those too.
+        assertThat(ledgerCalls()).doesNotContain(new Call(RELEASE, t.transactionId() + ":release", null, null),
+                new Call(HOLD, t.transactionId() + ":hold", null, null));
+    }
+
+    @Test
+    void o1SavesThePayloadWithTheRow_soASagaThatNeverRanIsRecovered() throws Exception {
+        StartTransferRequest t = transfer();
+        String service = tokens.generateToken(0L, "transaction-service", List.of("ROLE_SERVICE"));
+
+        // The executor is a mock, so the saga never runs: the service died right after answering 202.
+        mockMvc.perform(post("/internal/v1/sagas/transfers").header("Authorization", "Bearer " + service)
+                .contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(t)))
+                .andExpect(status().isAccepted());
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.STARTED);
+        assertThat(row(t).getPayload()).isNotNull();
+        assertThat(row(t).getReferenceNo()).isEqualTo(t.referenceNo());
+
+        runSagasInline();
+        recovery.sweepOlderThan(Instant.now().plusSeconds(1));
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+    }
+
+    @Test
+    void scheduledSweep_leavesAFreshRowAloneAndRetriesAStaleOne() {
+        StartTransferRequest t = transfer();
+        STUBS.put(CAPTURE, new Stub(503, "{}", 0));
+        saga.run(t, "corr");
+        assertThat(row(t).getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+        STUBS.put(CAPTURE, ok("L4-capture-hold.response.json"));
+        runSagasInline();
+
+        recovery.sweepOlderThan(Instant.now().minus(Duration.ofMinutes(1)));
+        assertThat(row(t).getState()).as("changed a moment ago: a live thread may still own it")
+                .isEqualTo(SagaState.FUNDS_RESERVED);
+
+        CALLS.clear();
+        recovery.sweepOlderThan(Instant.now().plusSeconds(1));
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        assertThat(ledgerCalls()).contains(new Call(CAPTURE, t.transactionId() + ":capture", null, null));
+        assertThat(ledgerCalls()).doesNotContain(new Call(RELEASE, t.transactionId() + ":release", null, null),
+                new Call(HOLD, t.transactionId() + ":hold", null, null));
+    }
+
+    @Test
+    void stageEventThatCannotBePublished_doesNotCutTheSagaShort() {
+        when(kafkaTemplate.send(anyString(), anyString(), anyString()))
+                .thenThrow(new IllegalStateException("broker unreachable"));
+        StartTransferRequest t = transfer();
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
     }
 
     @Test
@@ -470,6 +527,14 @@ class TransferSagaTest {
         return new StartTransferRequest(UUID.randomUUID(), e.referenceNo(), e.channel(), e.customerId(),
                 e.sourceAccountId(), e.destinationAccountId(), e.destinationBankCode(), e.amount(), e.currency(),
                 e.actorId(), e.actorType());
+    }
+
+    /** Makes the mocked executor run a resumed saga on the calling thread. */
+    private void runSagasInline() {
+        doAnswer(invocation -> {
+            invocation.<Runnable>getArgument(0).run();
+            return null;
+        }).when(applicationTaskExecutor).execute(any(Runnable.class));
     }
 
     private SagaInstance row(StartTransferRequest t) {

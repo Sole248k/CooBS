@@ -1,32 +1,35 @@
 package com.group2.fse.orchestration_service.saga;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartReversalRequest;
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartTransferRequest;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Startup sweep. A saga whose row stopped short of an end state when the service went down
- * is run again from its saved payload; {@code run} continues from the saved state and the
- * ledger's idempotency keys make the repeated call safe. A hold is never released here on
- * a guess: FUNDS_RESERVED retries the capture, exactly as a live saga would.
+ * Picks up sagas left in flight: once at startup, then on a schedule. A saga whose row
+ * stopped short of an end state is run again from its saved payload; {@code run} continues
+ * from the saved state and the ledger's idempotency keys make the repeated call safe. A hold
+ * is never released here on a guess: FUNDS_RESERVED retries the capture, exactly as a live
+ * saga would.
  *
  * POSTED is not swept. It waits on events, not on a call this service makes.
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class SagaRecoveryRunner implements ApplicationRunner {
 
     private static final List<SagaState> IN_FLIGHT = List.of(
@@ -37,13 +40,42 @@ public class SagaRecoveryRunner implements ApplicationRunner {
     private final ReversalSaga reversalSaga;
     private final JsonMapper jsonMapper;
     private final AsyncTaskExecutor applicationTaskExecutor;
+    private final Duration staleAfter;
 
-    // ponytail: sweeps every in-flight row, so a second instance starting while the first is
-    // mid-saga repeats that saga's step. Idempotency keys keep the ledger correct; add an
-    // updated_at cutoff or a row claim if the service is scaled past one instance.
+    public SagaRecoveryRunner(SagaRepository sagas, TransferSaga transferSaga, ReversalSaga reversalSaga,
+            JsonMapper jsonMapper, AsyncTaskExecutor applicationTaskExecutor,
+            @Value("${app.saga.sweep-stale-after}") Duration staleAfter) {
+        this.sagas = sagas;
+        this.transferSaga = transferSaga;
+        this.reversalSaga = reversalSaga;
+        this.jsonMapper = jsonMapper;
+        this.applicationTaskExecutor = applicationTaskExecutor;
+        this.staleAfter = staleAfter;
+    }
+
+    // ponytail: the startup sweep takes every in-flight row, so a second instance starting
+    // while the first is mid-saga repeats that saga's step. Idempotency keys keep the ledger
+    // correct; add a row claim if the service is scaled past one instance.
     @Override
     public void run(ApplicationArguments args) {
-        List<SagaInstance> stuck = sagas.findByStateIn(IN_FLIGHT);
+        resumeAll(sagas.findByStateIn(IN_FLIGHT));
+    }
+
+    /**
+     * The scheduled sweep. A row that changed within {@code app.saga.sweep-stale-after} is left
+     * alone, because a live thread is probably still working on it. A saga parked at its stage
+     * does not change its row, so it is tried again on every sweep until the ledger answers.
+     */
+    @Scheduled(initialDelayString = "${app.saga.sweep-interval-ms}", fixedDelayString = "${app.saga.sweep-interval-ms}")
+    public void sweep() {
+        sweepOlderThan(Instant.now().minus(staleAfter));
+    }
+
+    void sweepOlderThan(Instant cutoff) {
+        resumeAll(sagas.findByStateInAndUpdatedAtBefore(IN_FLIGHT, cutoff));
+    }
+
+    private void resumeAll(List<SagaInstance> stuck) {
         if (!stuck.isEmpty()) {
             log.info("Recovering {} saga(s) left in flight", stuck.size());
         }

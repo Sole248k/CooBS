@@ -1,5 +1,6 @@
 package com.group2.fse.orchestration_service.saga;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -16,11 +17,24 @@ public interface SagaRepository extends JpaRepository<SagaInstance, UUID> {
 
     List<SagaInstance> findByStateIn(Collection<SagaState> states);
 
+    List<SagaInstance> findByStateInAndUpdatedAtBefore(Collection<SagaState> states, Instant cutoff);
+
     /** A repeated start for the same transaction returns the existing saga instead of a second one. */
     default SagaInstance findOrCreate(UUID transactionId) {
+        return findOrCreate(transactionId, null, null);
+    }
+
+    /**
+     * Creates the row with its payload in one write, so there is never a saga that recovery
+     * cannot run again.
+     */
+    default SagaInstance findOrCreate(UUID transactionId, String referenceNo, String payload) {
         return findByTransactionId(transactionId).orElseGet(() -> {
             try {
-                return saveAndFlush(new SagaInstance(transactionId));
+                SagaInstance saga = new SagaInstance(transactionId);
+                saga.setReferenceNo(referenceNo);
+                saga.setPayload(payload);
+                return saveAndFlush(saga);
             } catch (DataIntegrityViolationException raced) {
                 return findByTransactionId(transactionId).orElseThrow();
             }
