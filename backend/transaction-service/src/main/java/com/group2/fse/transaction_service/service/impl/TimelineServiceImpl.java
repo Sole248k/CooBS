@@ -13,6 +13,10 @@ import com.group2.fse.transaction_service.service.TimelineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import com.group2.fse.transaction_service.exception.TransferRejectedException;
+import com.group2.fse.transaction_service.security.UserPrincipal;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +53,7 @@ public class TimelineServiceImpl implements TimelineService {
     @Transactional(readOnly = true)
     public ExecutionStatusResponseDto getExecutionStatus(String identifier) {
         TxnTransaction txn = resolveTransaction(identifier);
+        requireReadable(txn, currentAuthentication());
         List<TxnStageEvent> events = stageEventRepository.findByTransactionIdOrderByStageNoAsc(txn.getTransactionId());
         Map<Integer, TxnStageEvent> eventByStage = events.stream()
                 .collect(Collectors.toMap(TxnStageEvent::getStageNo, e -> e, (e1, e2) -> e1));
@@ -171,11 +176,13 @@ public class TimelineServiceImpl implements TimelineService {
     @Transactional(readOnly = true)
     public TimelineResponseDto getTimeline(String identifier, String requestedView, Authentication authentication) {
         TxnTransaction txn = resolveTransaction(identifier);
+        Authentication caller = authentication != null ? authentication : currentAuthentication();
+        requireReadable(txn, caller);
         List<TxnStageEvent> events = stageEventRepository.findByTransactionIdOrderByStageNoAsc(txn.getTransactionId());
         Map<Integer, TxnStageEvent> eventByStage = events.stream()
                 .collect(Collectors.toMap(TxnStageEvent::getStageNo, e -> e, (e1, e2) -> e1));
 
-        boolean isStaffView = determineIsStaffView(requestedView, authentication);
+        boolean isStaffView = determineIsStaffView(requestedView, caller);
         if (isStaffView) {
             return buildStaffTimeline(txn, eventByStage);
         } else {
@@ -187,6 +194,7 @@ public class TimelineServiceImpl implements TimelineService {
     @Transactional(readOnly = true)
     public TransactionDetailResponseDto getTransactionDetail(String identifier) {
         TxnTransaction txn = resolveTransaction(identifier);
+        requireReadable(txn, currentAuthentication());
         return TransactionDetailResponseDto.builder()
                 .transactionId(txn.getTransactionId())
                 .referenceNo(txn.getReferenceNo())
@@ -294,23 +302,43 @@ public class TimelineServiceImpl implements TimelineService {
                 .orElseThrow(() -> new TransactionNotFoundException("Transaction not found for identifier: " + identifier));
     }
 
+    /**
+     * The staff view carries risk scores and decline reasons, so it follows the caller's role
+     * and never the query parameter: a customer who asks for view=STAFF gets the customer view.
+     * Staff may ask for the customer view to see what the customer sees.
+     */
     private boolean determineIsStaffView(String requestedView, Authentication authentication) {
-        if ("STAFF".equalsIgnoreCase(requestedView)) {
-            return true;
+        return isStaffOrService(authentication) && !"CUSTOMER".equalsIgnoreCase(requestedView);
+    }
+
+    /** Tellers, admins and other services may read any transaction; a customer only their own. */
+    private void requireReadable(TxnTransaction txn, Authentication authentication) {
+        if (isStaffOrService(authentication)) {
+            return;
         }
-        if ("CUSTOMER".equalsIgnoreCase(requestedView)) {
+        Long userId = authentication != null && authentication.getPrincipal() instanceof UserPrincipal principal
+                ? principal.getUserId() : null;
+        if (userId == null || !userId.equals(txn.getCustomerId())) {
+            throw new TransferRejectedException(HttpStatus.FORBIDDEN, "AUTH_ACCESS_DENIED", "Access Denied",
+                    "This transaction belongs to another customer.");
+        }
+    }
+
+    private static boolean isStaffOrService(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
             return false;
         }
-
-        if (authentication != null && authentication.getAuthorities() != null) {
-            for (GrantedAuthority authority : authentication.getAuthorities()) {
-                String auth = authority.getAuthority();
-                if (auth.contains("STAFF") || auth.contains("TELLER") || auth.contains("ADMIN") || auth.contains("SERVICE")) {
-                    return true;
-                }
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            String role = authority.getAuthority();
+            if ("ROLE_TELLER".equals(role) || "ROLE_ADMIN".equals(role) || "ROLE_SERVICE".equals(role)) {
+                return true;
             }
         }
         return false;
+    }
+
+    private static Authentication currentAuthentication() {
+        return SecurityContextHolder.getContext().getAuthentication();
     }
 
     private TimelineResponseDto buildStaffTimeline(TxnTransaction txn, Map<Integer, TxnStageEvent> eventByStage) {
