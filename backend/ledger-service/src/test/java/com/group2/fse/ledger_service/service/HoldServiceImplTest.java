@@ -5,7 +5,9 @@ import com.group2.fse.ledger_service.entity.Account;
 import com.group2.fse.ledger_service.entity.Balance;
 import com.group2.fse.ledger_service.entity.Hold;
 import com.group2.fse.ledger_service.entity.Transaction;
+import com.group2.fse.ledger_service.exception.DuplicateIdempotencyKeyException;
 import com.group2.fse.ledger_service.exception.HoldNotFoundException;
+import com.group2.fse.ledger_service.exception.HoldNotReservedException;
 import com.group2.fse.ledger_service.posting.OrderedAccountLocks;
 import com.group2.fse.ledger_service.posting.PostingEngine;
 import com.group2.fse.ledger_service.repository.BalanceRepository;
@@ -97,7 +99,7 @@ class HoldServiceImplTest {
 
         when(holdRepository.findByReferenceNo("TX-20261003-8F3A21C0")).thenReturn(Optional.empty());
         when(postingEngine.lockAccount(1L, true)).thenReturn(sourceBalance);
-        when(postingEngine.calculateDebit(new BigDecimal("50000.0000"), new BigDecimal("2500.00")))
+        when(postingEngine.calculateDebit(new BigDecimal("50000.0000"), new BigDecimal("2500.0000")))
                 .thenReturn(new BigDecimal("47500.0000"));
         when(balanceRepository.save(any(Balance.class))).thenReturn(sourceBalance);
 
@@ -121,7 +123,7 @@ class HoldServiceImplTest {
 
         verify(postingEngine).validatePositiveAmount(new BigDecimal("2500.00"), "Hold");
         verify(postingEngine).lockAccount(1L, true);
-        verify(postingEngine).validateSufficientFunds(eq(1L), any(BigDecimal.class), eq(new BigDecimal("2500.00")));
+        verify(postingEngine).validateSufficientFunds(eq(1L), any(BigDecimal.class), eq(new BigDecimal("2500.0000")));
         verify(balanceRepository).save(sourceBalance);
         verify(holdRepository).save(any(Hold.class));
     }
@@ -145,7 +147,7 @@ class HoldServiceImplTest {
                 .build();
 
         when(holdRepository.findByReferenceNo("TX-20261003-8F3A21C0")).thenReturn(Optional.of(existingHold));
-        when(balanceRepository.findByAccountId(1L)).thenReturn(Optional.of(sourceBalance));
+        when(balanceRepository.findReadOnlyByAccountId(1L)).thenReturn(Optional.of(sourceBalance));
 
         PlaceHoldResponseDto response = holdService.placeHold(request, "idemp-repeat");
 
@@ -230,6 +232,123 @@ class HoldServiceImplTest {
 
         verify(balanceRepository).save(sourceBalance);
         verify(holdRepository).save(hold);
+    }
+
+    private Hold holdWithStatus(String status) {
+        return Hold.builder()
+                .holdId(9001L)
+                .account(sourceAccount)
+                .referenceNo("TX-20261003-8F3A21C0")
+                .amount(new BigDecimal("2500.0000"))
+                .status(status)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    @Test
+    @DisplayName("placeHold refuses a reference that already belongs to a hold with another amount or account")
+    void testPlaceHoldReplayWithDifferentAmountOrAccount() {
+        when(holdRepository.findByReferenceNo("TX-20261003-8F3A21C0")).thenReturn(Optional.of(holdWithStatus("RESERVED")));
+
+        PlaceHoldRequestDto otherAmount = PlaceHoldRequestDto.builder()
+                .referenceNo("TX-20261003-8F3A21C0").accountId(1L).amount(new BigDecimal("9000.00")).build();
+        PlaceHoldRequestDto otherAccount = PlaceHoldRequestDto.builder()
+                .referenceNo("TX-20261003-8F3A21C0").accountId(2L).amount(new BigDecimal("2500.00")).build();
+
+        assertThatThrownBy(() -> holdService.placeHold(otherAmount, "idemp-1"))
+                .isInstanceOf(DuplicateIdempotencyKeyException.class);
+        assertThatThrownBy(() -> holdService.placeHold(otherAccount, "idemp-1"))
+                .isInstanceOf(DuplicateIdempotencyKeyException.class);
+        verify(postingEngine, never()).lockAccount(anyLong(), anyBoolean());
+        verify(balanceRepository, never()).save(any(Balance.class));
+    }
+
+    @Test
+    @DisplayName("placeHold returns the hold a concurrent request placed while this one waited for the balance lock")
+    void testPlaceHoldFindsTheHoldPlacedWhileWaitingForTheLock() {
+        PlaceHoldRequestDto request = PlaceHoldRequestDto.builder()
+                .referenceNo("TX-20261003-8F3A21C0").accountId(1L).amount(new BigDecimal("2500.00")).build();
+
+        when(holdRepository.findByReferenceNo("TX-20261003-8F3A21C0"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(holdWithStatus("RESERVED")));
+        when(postingEngine.lockAccount(1L, true)).thenReturn(sourceBalance);
+
+        PlaceHoldResponseDto response = holdService.placeHold(request, "idemp-1");
+
+        assertThat(response.getHoldId()).isEqualTo(9001L);
+        verify(balanceRepository, never()).save(any(Balance.class));
+        verify(holdRepository, never()).save(any(Hold.class));
+    }
+
+    @Test
+    @DisplayName("placeHold takes the same rounded amount from the balance as it stores on the hold")
+    void testPlaceHoldRoundsOnce() {
+        PlaceHoldRequestDto request = PlaceHoldRequestDto.builder()
+                .referenceNo("TX-20261003-8F3A21C0").accountId(1L).amount(new BigDecimal("100.00005")).build();
+
+        when(holdRepository.findByReferenceNo("TX-20261003-8F3A21C0")).thenReturn(Optional.empty());
+        when(postingEngine.lockAccount(1L, true)).thenReturn(sourceBalance);
+        when(postingEngine.calculateDebit(new BigDecimal("50000.0000"), new BigDecimal("100.0001")))
+                .thenReturn(new BigDecimal("49899.9999"));
+        when(holdRepository.save(any(Hold.class))).thenAnswer(i -> i.getArgument(0));
+
+        PlaceHoldResponseDto response = holdService.placeHold(request, "idemp-1");
+
+        assertThat(response.getAvailableBalance()).isEqualByComparingTo("49900.00");
+        verify(holdRepository).save(argThat(h -> h.getAmount().equals(new BigDecimal("100.0001"))));
+    }
+
+    @Test
+    @DisplayName("captureHold on a released hold is refused with HoldNotReservedException and posts nothing")
+    void testCaptureReleasedHold() {
+        when(holdRepository.findByIdForUpdate(9001L)).thenReturn(Optional.of(holdWithStatus("CANCELLED")));
+
+        assertThatThrownBy(() -> holdService.captureHold(9001L,
+                CaptureHoldRequestDto.builder().destinationAccountId(2L).build(), "idemp-cap"))
+                .isInstanceOf(HoldNotReservedException.class);
+        verify(postingEngine, never()).lockAccountsInOrder(anyLong(), anyLong());
+        verify(balanceRepository, never()).save(any(Balance.class));
+    }
+
+    @Test
+    @DisplayName("releaseHold on a captured hold is refused with HoldNotReservedException and restores nothing")
+    void testReleaseCapturedHold() {
+        when(holdRepository.findByIdForUpdate(9001L)).thenReturn(Optional.of(holdWithStatus("POSTED")));
+        when(postingEngine.lockAccount(1L, false)).thenReturn(sourceBalance);
+
+        assertThatThrownBy(() -> holdService.releaseHold(9001L,
+                ReleaseHoldRequestDto.builder().reason("TIMEOUT").build(), "idemp-rel"))
+                .isInstanceOf(HoldNotReservedException.class);
+        verify(balanceRepository, never()).save(any(Balance.class));
+    }
+
+    @Test
+    @DisplayName("releaseHold twice restores the funds once")
+    void testReleaseTwice() {
+        when(holdRepository.findByIdForUpdate(9001L)).thenReturn(Optional.of(holdWithStatus("CANCELLED")));
+        when(postingEngine.lockAccount(1L, false)).thenReturn(sourceBalance);
+
+        ReleaseHoldResponseDto response = holdService.releaseHold(9001L,
+                ReleaseHoldRequestDto.builder().reason("TIMEOUT").build(), "idemp-rel");
+
+        assertThat(response.getStatus()).isEqualTo("CANCELLED");
+        verify(balanceRepository, never()).save(any(Balance.class));
+    }
+
+    @Test
+    @DisplayName("capture and release read the hold through the locking query, never the plain one")
+    void testCaptureAndReleaseLockTheHoldRow() {
+        when(holdRepository.findByIdForUpdate(9001L)).thenReturn(Optional.of(holdWithStatus("CANCELLED")));
+        when(postingEngine.lockAccount(1L, false)).thenReturn(sourceBalance);
+
+        holdService.releaseHold(9001L, ReleaseHoldRequestDto.builder().reason("TIMEOUT").build(), "idemp-rel");
+        assertThatThrownBy(() -> holdService.captureHold(9001L,
+                CaptureHoldRequestDto.builder().destinationAccountId(2L).build(), "idemp-cap"))
+                .isInstanceOf(HoldNotReservedException.class);
+
+        verify(holdRepository, times(2)).findByIdForUpdate(9001L);
+        verify(holdRepository, never()).findById(anyLong());
     }
 
     @Test

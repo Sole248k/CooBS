@@ -108,4 +108,17 @@ class DtoValidationTest {
         Set<ConstraintViolation<DebitCreditRequestDto>> violations = validator.validate(dto);
         assertThat(violations).isNotEmpty();
     }
+
+    @Test
+    @DisplayName("PlaceHoldRequestDto with > 4 decimal places should fail validation")
+    void holdScaleExceedingFourFails() {
+        PlaceHoldRequestDto dto = PlaceHoldRequestDto.builder()
+                .referenceNo("TX-20261003-8F3A21C0")
+                .accountId(1L)
+                .amount(new BigDecimal("100.00005"))
+                .build();
+
+        Set<ConstraintViolation<PlaceHoldRequestDto>> violations = validator.validate(dto);
+        assertThat(violations).isNotEmpty();
+    }
 }

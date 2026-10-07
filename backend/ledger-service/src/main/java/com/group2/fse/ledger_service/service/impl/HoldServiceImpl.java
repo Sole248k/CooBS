@@ -7,7 +7,7 @@ import com.group2.fse.ledger_service.entity.Transaction;
 import com.group2.fse.ledger_service.entity.User;
 import com.group2.fse.ledger_service.exception.DuplicateIdempotencyKeyException;
 import com.group2.fse.ledger_service.exception.HoldNotFoundException;
-import com.group2.fse.ledger_service.exception.InvalidTransactionException;
+import com.group2.fse.ledger_service.exception.HoldNotReservedException;
 import com.group2.fse.ledger_service.posting.OrderedAccountLocks;
 import com.group2.fse.ledger_service.posting.PostingEngine;
 import com.group2.fse.ledger_service.repository.BalanceRepository;
@@ -55,14 +55,9 @@ public class HoldServiceImpl implements HoldService {
         log.info("Processing place hold request: refNo={}, accountId={}, amount={}",
                 request.getReferenceNo(), request.getAccountId(), request.getAmount());
 
-        // Idempotency check via reference number
         Optional<Hold> existingHold = holdRepository.findByReferenceNo(request.getReferenceNo());
         if (existingHold.isPresent()) {
-            Hold hold = existingHold.get();
-            requireSameHoldRequest(hold, request);
-            log.info("Idempotent hit: hold already exists for refNo={}, holdId={}", request.getReferenceNo(), hold.getHoldId());
-            Balance balance = balanceRepository.findByAccountId(hold.getAccount().getAccountId()).orElse(null);
-            return buildExistingHoldResponse(hold, balance);
+            return replayedHold(existingHold.get(), request);
         }
 
         postingEngine.validatePositiveAmount(request.getAmount(), "Hold");
@@ -70,20 +65,18 @@ public class HoldServiceImpl implements HoldService {
         // Row-level pessimistic write lock
         Balance balance = postingEngine.lockAccount(request.getAccountId(), true);
 
-        // A concurrent request with the same reference may have committed while this one waited
-        // for the balance lock, so the check above is repeated now that the lock is held.
-        Optional<Hold> racedHold = holdRepository.findByReferenceNo(request.getReferenceNo());
-        if (racedHold.isPresent()) {
-            Hold hold = racedHold.get();
-            requireSameHoldRequest(hold, request);
-            log.info("Idempotent hit after balance lock: refNo={}, holdId={}", request.getReferenceNo(), hold.getHoldId());
-            return buildExistingHoldResponse(hold, balance);
+        // A concurrent request with the same reference may have placed the hold while this one waited for the lock.
+        existingHold = holdRepository.findByReferenceNo(request.getReferenceNo());
+        if (existingHold.isPresent()) {
+            return replayedHold(existingHold.get(), request);
         }
 
-        postingEngine.validateSufficientFunds(request.getAccountId(), balance.getAvailableBalance(), request.getAmount());
+        // The hold and the balance must take the same amount, so it is rounded once, here.
+        BigDecimal amount = request.getAmount().setScale(4, RoundingMode.HALF_UP);
+        postingEngine.validateSufficientFunds(request.getAccountId(), balance.getAvailableBalance(), amount);
 
         // Hold debit only reduces availableBalance; ledgerBalance remains intact until capture
-        BigDecimal newAvailableBalance = postingEngine.calculateDebit(balance.getAvailableBalance(), request.getAmount());
+        BigDecimal newAvailableBalance = postingEngine.calculateDebit(balance.getAvailableBalance(), amount);
         balance.setAvailableBalance(newAvailableBalance);
         balanceRepository.save(balance);
 
@@ -92,7 +85,7 @@ public class HoldServiceImpl implements HoldService {
         Hold hold = Hold.builder()
                 .account(balance.getAccount())
                 .referenceNo(request.getReferenceNo())
-                .amount(request.getAmount().setScale(4, RoundingMode.HALF_UP))
+                .amount(amount)
                 .status("RESERVED")
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -119,8 +112,6 @@ public class HoldServiceImpl implements HoldService {
         log.info("Processing capture hold request: holdId={}, destinationAccountId={}",
                 holdId, request.getDestinationAccountId());
 
-        // Hold row first, balances second: the same order as releaseHold, so the two cannot deadlock
-        // and the status check below sees committed state.
         Hold hold = holdRepository.findByIdForUpdate(holdId)
                 .orElseThrow(() -> new HoldNotFoundException(holdId));
 
@@ -130,8 +121,7 @@ public class HoldServiceImpl implements HoldService {
         }
 
         if (!"RESERVED".equalsIgnoreCase(hold.getStatus())) {
-            throw new InvalidTransactionException(
-                    String.format("Hold %d is not in RESERVED status (current: %s)", holdId, hold.getStatus()));
+            throw new HoldNotReservedException(holdId, hold.getStatus());
         }
 
         Long sourceAccountId = hold.getAccount().getAccountId();
@@ -268,7 +258,6 @@ public class HoldServiceImpl implements HoldService {
     public ReleaseHoldResponseDto releaseHold(Long holdId, ReleaseHoldRequestDto request, String idempotencyKey) {
         log.info("Processing release hold request: holdId={}, reason={}", holdId, request != null ? request.getReason() : "N/A");
 
-        // Hold row first, balance second: the same order as captureHold.
         Hold hold = holdRepository.findByIdForUpdate(holdId)
                 .orElseThrow(() -> new HoldNotFoundException(holdId));
 
@@ -285,8 +274,7 @@ public class HoldServiceImpl implements HoldService {
         }
 
         if (!"RESERVED".equalsIgnoreCase(hold.getStatus())) {
-            throw new InvalidTransactionException(
-                    String.format("Cannot release hold %d with status %s", holdId, hold.getStatus()));
+            throw new HoldNotReservedException(holdId, hold.getStatus());
         }
 
         // Return reserved amount to availableBalance
@@ -330,43 +318,26 @@ public class HoldServiceImpl implements HoldService {
                 .build();
     }
 
-    /**
-     * A replay is only a replay if it asks for the same hold. The same reference with another
-     * account or amount is a conflict (409), not an idempotent hit.
-     */
-    private void requireSameHoldRequest(Hold hold, PlaceHoldRequestDto request) {
-        boolean sameAccount = Objects.equals(hold.getAccount().getAccountId(), request.getAccountId());
-        boolean sameAmount = request.getAmount() != null && hold.getAmount().compareTo(request.getAmount()) == 0;
-        if (!sameAccount || !sameAmount) {
-            log.warn("Hold replay mismatch for refNo={}, holdId={}: sameAccount={}, sameAmount={}",
-                    hold.getReferenceNo(), hold.getHoldId(), sameAccount, sameAmount);
+    /** A repeat of the same request returns the first result; the same reference for anything else is refused. */
+    private PlaceHoldResponseDto replayedHold(Hold hold, PlaceHoldRequestDto request) {
+        Long accountId = hold.getAccount().getAccountId();
+        if (!accountId.equals(request.getAccountId()) || request.getAmount() == null
+                || hold.getAmount().compareTo(request.getAmount().setScale(4, RoundingMode.HALF_UP)) != 0) {
             throw new DuplicateIdempotencyKeyException(String.format(
-                    "Hold reference %s was already used for a different account or amount", hold.getReferenceNo()));
+                    "Reference %s already belongs to a hold with a different account or amount", hold.getReferenceNo()));
         }
-    }
-
-    private PlaceHoldResponseDto buildExistingHoldResponse(Hold hold, Balance balance) {
+        log.info("Idempotent hit: hold already exists for refNo={}, holdId={}", hold.getReferenceNo(), hold.getHoldId());
+        Balance balance = balanceRepository.findReadOnlyByAccountId(accountId).orElse(null);
         return PlaceHoldResponseDto.builder()
                 .holdId(hold.getHoldId())
                 .referenceNo(hold.getReferenceNo())
-                .accountId(hold.getAccount().getAccountId())
+                .accountId(accountId)
                 .amount(hold.getAmount().setScale(2, RoundingMode.HALF_UP))
                 .status(hold.getStatus())
                 .availableBalance(balance != null ? balance.getAvailableBalance().setScale(2, RoundingMode.HALF_UP) : null)
                 .ledgerBalance(balance != null ? balance.getLedgerBalance().setScale(2, RoundingMode.HALF_UP) : null)
                 .createdAt(hold.getCreatedAt() != null ? hold.getCreatedAt().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT) : Instant.now().toString())
                 .build();
-    }
-
-    /**
-     * Journal reference for one leg of a capture. TRANSACTION.reference_no is VARCHAR2(36), so a
-     * hold reference longer than 34 characters (possible only for holds placed before the DTO
-     * limit) is cut to make room for the suffix.
-     */
-    private String legReference(String referenceNo, String suffix) {
-        int maxBaseLength = JOURNAL_REFERENCE_MAX_LENGTH - suffix.length();
-        String base = referenceNo.length() > maxBaseLength ? referenceNo.substring(0, maxBaseLength) : referenceNo;
-        return base + suffix;
     }
 
     private void evictBalanceCache(Long accountId) {
