@@ -271,7 +271,7 @@ public class TransferServiceImpl implements TransferService {
     }
 
     /** Keys belong to the caller: the same key from two people is two different keys. */
-    private static String scopedKey(Caller caller, String idempotencyKey) {
+    static String scopedKey(Caller caller, String idempotencyKey) {
         String key = idempotencyKey == null ? "" : idempotencyKey.trim();
         if (key.isEmpty() || key.length() > MAX_KEY_LENGTH) {
             throw new TransferRejectedException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST_PARAMETERS",
@@ -281,7 +281,7 @@ public class TransferServiceImpl implements TransferService {
         return caller.userId() + ":" + key;
     }
 
-    private static Caller currentCaller() {
+    static Caller currentCaller() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof UserPrincipal principal) || principal.getUserId() == null) {
             throw new TransferRejectedException(HttpStatus.FORBIDDEN, "AUTH_ACCESS_DENIED", "Access Denied",
@@ -293,7 +293,7 @@ public class TransferServiceImpl implements TransferService {
     }
 
     /** The incoming correlation ID is carried on, so one request can be followed across services. */
-    private static String correlationId() {
+    static String correlationId() {
         if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
             String header = attributes.getRequest().getHeader("X-Correlation-ID");
             if (header != null && !header.isBlank()) {
@@ -303,6 +303,6 @@ public class TransferServiceImpl implements TransferService {
         return UUID.randomUUID().toString();
     }
 
-    private record Caller(Long userId, boolean staff) {
+    record Caller(Long userId, boolean staff) {
     }
 }

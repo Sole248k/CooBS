@@ -24,8 +24,16 @@ public interface TxnTransactionRepository extends JpaRepository<TxnTransaction, 
 
     List<TxnTransaction> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
-    /** Transfers accepted in the window that are still PROCESSING and show no stage from the saga (4 or above). */
-    @Query("SELECT t FROM TxnTransaction t WHERE t.status = 'PROCESSING' "
+    boolean existsByReversesTransactionIdAndStatusIn(UUID reversesTransactionId, java.util.Collection<String> statuses);
+
+    Optional<TxnTransaction> findFirstByReversesTransactionIdAndStatus(UUID reversesTransactionId, String status);
+
+    /**
+     * Transfers accepted in the window that are still PROCESSING and show no stage from the saga
+     * (4 or above). Reversals are left out: their saga start needs the staff member who asked,
+     * and is sent again when that person repeats the request.
+     */
+    @Query("SELECT t FROM TxnTransaction t WHERE t.status = 'PROCESSING' AND t.reversesTransactionId IS NULL "
             + "AND t.createdAt > :notBefore AND t.createdAt < :before "
             + "AND NOT EXISTS (SELECT 1 FROM TxnStageEvent e WHERE e.transactionId = t.transactionId AND e.stageNo > 3)")
     List<TxnTransaction> findProcessingWithoutSagaStage(@Param("notBefore") java.time.Instant notBefore,

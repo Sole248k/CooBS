@@ -203,7 +203,9 @@ public class TimelineServiceImpl implements TimelineService {
                 .status(txn.getStatus())
                 .failureCode(txn.getFailureCode())
                 .failureReason(txn.getFailureCode())
-                .reversedByTransactionId(txn.getReversesTransactionId())
+                .reversedByTransactionId(transactionRepository
+                        .findFirstByReversesTransactionIdAndStatus(txn.getTransactionId(), "POSTED")
+                        .map(TxnTransaction::getTransactionId).orElse(null))
                 .createdAt(txn.getCreatedAt())
                 .completedAt(txn.getCompletedAt())
                 .build();
@@ -230,6 +232,7 @@ public class TimelineServiceImpl implements TimelineService {
 
         transactionRepository.findByTransactionId(transactionId).ifPresent(txn -> {
             if (transactionStatus != null && !transactionStatus.isBlank()
+                    && !"REVERSED".equalsIgnoreCase(txn.getStatus())
                     && !(isFinished(txn.getStatus()) && isInProgress(transactionStatus))) {
                 txn.setStatus(transactionStatus);
             }
@@ -246,6 +249,18 @@ public class TimelineServiceImpl implements TimelineService {
                 }
             }
             transactionRepository.save(txn);
+
+            // The ledger has posted the compensating entries (or released the hold), so the
+            // transfer this reversal points at is now reversed.
+            if (txn.getReversesTransactionId() != null && "POSTED".equalsIgnoreCase(transactionStatus)) {
+                transactionRepository.findByTransactionId(txn.getReversesTransactionId()).ifPresent(original -> {
+                    if (!"REVERSED".equalsIgnoreCase(original.getStatus())) {
+                        original.setStatus("REVERSED");
+                        transactionRepository.save(original);
+                        log.info("Transfer {} is REVERSED by {}", original.getTransactionId(), txn.getTransactionId());
+                    }
+                });
+            }
         });
     }
 

@@ -159,6 +159,40 @@ class TimelineServiceImplTest {
     }
 
     @Test
+    @DisplayName("recordStage marks the original REVERSED when its reversal posts")
+    void testRecordStageReversalPostedMarksTheOriginalReversed() {
+        UUID reversalId = UUID.randomUUID();
+        TxnTransaction reversal = TxnTransaction.builder()
+                .transactionId(reversalId)
+                .referenceNo("RV-20261003-11AA22BB")
+                .status("PROCESSING")
+                .reversesTransactionId(transactionId)
+                .build();
+        testTxn.setStatus("POSTED");
+        when(stageEventRepository.findByTransactionIdAndStageNo(reversalId, 8)).thenReturn(Optional.empty());
+        when(transactionRepository.findByTransactionId(reversalId)).thenReturn(Optional.of(reversal));
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+
+        timelineService.recordStage(reversalId, 8, "POSTED", "PASSED", "Reversal posted", Instant.now(), "POSTED", null);
+
+        assertThat(reversal.getStatus()).isEqualTo("POSTED");
+        assertThat(testTxn.getStatus()).isEqualTo("REVERSED");
+        verify(transactionRepository).save(testTxn);
+    }
+
+    @Test
+    @DisplayName("recordStage leaves a reversed transfer REVERSED when one of its own late stages arrives")
+    void testRecordStageDoesNotUndoReversed() {
+        testTxn.setStatus("REVERSED");
+        when(stageEventRepository.findByTransactionIdAndStageNo(transactionId, 10)).thenReturn(Optional.empty());
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+
+        timelineService.recordStage(transactionId, 10, "NOTIFICATION", "PASSED", null, Instant.now(), "POSTED", null);
+
+        assertThat(testTxn.getStatus()).isEqualTo("REVERSED");
+    }
+
+    @Test
     @DisplayName("recordStage does not put a finished transfer back in progress when an early stage arrives late")
     void testRecordStageLateEarlyStageKeepsFinishedStatus() {
         testTxn.setStatus("FAILED");
