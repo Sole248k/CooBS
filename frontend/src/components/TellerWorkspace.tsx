@@ -2171,7 +2171,7 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
 
                   {reversalResult ? (
                     <div style={{ background: '#ecfdf5', padding: '12px', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '12px', color: '#065f46' }}>
-                      <strong>Reversal Completed:</strong> {reversalResult.message}
+                      <strong>Reversal Requested:</strong> {reversalResult.message}
                       <div style={{ fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
                         Reference: {reversalResult.reversalRef}
                       </div>
