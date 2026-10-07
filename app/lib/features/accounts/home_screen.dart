@@ -4,6 +4,7 @@ import '../../core/storage/secure_storage_service.dart';
 import '../beneficiaries/beneficiary_screens.dart';
 import '../loans/loan_screens.dart';
 import '../profile/tab_screens.dart';
+import '../scores/scores_screen.dart';
 import 'demo_store.dart';
 import 'ui.dart';
 
@@ -275,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : txCard(tx.take(5).toList()),
                 const SizedBox(height: 22),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const TbdPage())),
+                  circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const ScoresPage())),
                   circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
                   circ(Icons.credit_card, 'Manage\nCards', () => snack(context, 'Card management coming soon in Phase 2')),
                 ]),
@@ -345,11 +346,3 @@ class SeeAllPage extends StatelessWidget {
   }
 }
 
-class TbdPage extends StatelessWidget {
-  const TbdPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Pg('Scores & Habits', [
-        SizedBox(height: 60),
-        Center(child: Text('To be developed', style: TextStyle(fontSize: 18, color: kMut))),
-      ]);
-}
