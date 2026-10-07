@@ -31,6 +31,16 @@ class SecureStorageService {
     if (username != null) await write(_keyUsername, username);
   }
 
+  Future<void> updateTokens({
+    required String accessToken,
+    String? refreshToken,
+  }) async {
+    await write(_keyAccessToken, accessToken);
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      await write(_keyRefreshToken, refreshToken);
+    }
+  }
+
   Future<String?> getAccessToken() => read(_keyAccessToken);
   Future<String?> getRefreshToken() => read(_keyRefreshToken);
   Future<int?> getUserId() async {

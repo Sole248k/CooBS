@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'core/network/api_client.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  ApiClient.onSessionExpired = () {
+    AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(AppRouter.login, (_) => false);
+  };
   runApp(const CooBSApp());
 }
 
@@ -16,6 +20,7 @@ class CooBSApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: AppRouter.navigatorKey,
       title: 'CooBS Member Banking',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

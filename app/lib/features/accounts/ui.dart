@@ -51,9 +51,13 @@ Widget panel(List<Widget> kids) => Card(
     child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: kids)));
 
 Widget logoBox() => Container(
-    width: 110, height: 36, alignment: Alignment.center,
-    decoration: BoxDecoration(border: Border.all(color: kMut), borderRadius: BorderRadius.circular(8)),
-    child: const Text('LOGO SPACE', style: TextStyle(fontSize: 11, color: kMut)));
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(8)),
+    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.account_balance_rounded, color: Color(0xFF00D4B2), size: 16),
+      SizedBox(width: 6),
+      Text('CooBS', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+    ]));
 
 Widget miniTag(String t) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
