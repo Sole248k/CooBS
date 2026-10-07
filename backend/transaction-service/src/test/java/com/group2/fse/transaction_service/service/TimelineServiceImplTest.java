@@ -156,6 +156,21 @@ class TimelineServiceImplTest {
     }
 
     @Test
+    @DisplayName("recordStage does not put a finished transfer back in progress when an early stage arrives late")
+    void testRecordStageLateEarlyStageKeepsFinishedStatus() {
+        testTxn.setStatus("FAILED");
+        testTxn.setFailureCode("HIGH_RISK");
+        when(stageEventRepository.findByTransactionIdAndStageNo(transactionId, 3)).thenReturn(Optional.empty());
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+
+        timelineService.recordStage(transactionId, 3, "AUTHENTICATED", "PASSED", null, Instant.now(), "PROCESSING", null);
+
+        verify(stageEventRepository).save(any(TxnStageEvent.class));
+        assertThat(testTxn.getStatus()).isEqualTo("FAILED");
+        assertThat(testTxn.getFailureCode()).isEqualTo("HIGH_RISK");
+    }
+
+    @Test
     @DisplayName("getExecutionStatus builds Ingress -> Screened -> Committed -> Notified execution state flow")
     void testGetExecutionStatus() {
         when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));

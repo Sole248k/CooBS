@@ -228,7 +228,8 @@ public class TimelineServiceImpl implements TimelineService {
         stageEventRepository.save(stageEvent);
 
         transactionRepository.findByTransactionId(transactionId).ifPresent(txn -> {
-            if (transactionStatus != null && !transactionStatus.isBlank()) {
+            if (transactionStatus != null && !transactionStatus.isBlank()
+                    && !(isFinished(txn.getStatus()) && isInProgress(transactionStatus))) {
                 txn.setStatus(transactionStatus);
             }
             if (failureCode != null && !failureCode.isBlank()) {
@@ -245,6 +246,17 @@ public class TimelineServiceImpl implements TimelineService {
             }
             transactionRepository.save(txn);
         });
+    }
+
+    // Stages 1 to 3 and stages 4 to 11 come from two publishers, so an early stage can be read
+    // after the saga has already ended. It must not put a finished transfer back in progress.
+    private static boolean isFinished(String status) {
+        return "POSTED".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status)
+                || "REVERSED".equalsIgnoreCase(status);
+    }
+
+    private static boolean isInProgress(String status) {
+        return "INITIATED".equalsIgnoreCase(status) || "PROCESSING".equalsIgnoreCase(status);
     }
 
     private TxnTransaction resolveTransaction(String identifier) {
