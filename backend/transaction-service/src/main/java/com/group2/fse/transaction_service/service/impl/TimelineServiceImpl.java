@@ -30,18 +30,19 @@ public class TimelineServiceImpl implements TimelineService {
     private final TxnTransactionRepository transactionRepository;
     private final TxnStageEventRepository stageEventRepository;
 
+    // Stage names are the contract's (section 2.7); the title is the same name in words.
     private static final List<StaffStageDef> STAFF_STAGE_DEFINITIONS = List.of(
-            new StaffStageDef(1, "INGRESS_ACCEPTED", "Ingress Accepted", "transaction-service"),
-            new StaffStageDef(2, "PREFLIGHT_VALIDATED", "Pre-flight Solvency Checked", "transaction-service"),
-            new StaffStageDef(3, "DISPATCHED_TO_ORCHESTRATOR", "Dispatched to Orchestrator", "transaction-service"),
-            new StaffStageDef(4, "SAGA_INITIALIZED", "Saga State Machine Initialized", "orchestration-service"),
-            new StaffStageDef(5, "RISK_EVALUATION_REQUESTED", "Risk Evaluation Requested", "orchestration-service"),
-            new StaffStageDef(6, "RISK_EVALUATION_COMPLETED", "Risk Screening Passed", "orchestration-service"),
-            new StaffStageDef(7, "LEDGER_HOLD_RESERVED", "Ledger Balance Hold Reserved", "orchestration-service"),
-            new StaffStageDef(8, "LEDGER_POSTED", "Double-Entry SoR Committed", "orchestration-service"),
-            new StaffStageDef(9, "EVENT_EMITTED", "Domain Event Emitted", "orchestration-service"),
-            new StaffStageDef(10, "NOTIFICATIONS_DISPATCHED", "Member Notifications Sent", "orchestration-service"),
-            new StaffStageDef(11, "COMPLETED", "Saga Fully Reconciled", "orchestration-service")
+            new StaffStageDef(1, "INITIATED", "Initiated", "transaction-service"),
+            new StaffStageDef(2, "VALIDATED", "Validated", "transaction-service"),
+            new StaffStageDef(3, "AUTHENTICATED", "Authenticated", "transaction-service"),
+            new StaffStageDef(4, "FRAUD_CHECK", "Fraud Check", "orchestration-service"),
+            new StaffStageDef(5, "LIMIT_CHECK", "Limit Check", "orchestration-service"),
+            new StaffStageDef(6, "FUNDS_CHECK", "Funds Check", "orchestration-service"),
+            new StaffStageDef(7, "AUTHORIZED", "Authorized", "orchestration-service"),
+            new StaffStageDef(8, "POSTED", "Posted", "orchestration-service"),
+            new StaffStageDef(9, "LEDGER_UPDATE", "Ledger Update", "orchestration-service"),
+            new StaffStageDef(10, "NOTIFICATION", "Notification", "orchestration-service"),
+            new StaffStageDef(11, "RECONCILIATION", "Reconciliation", "orchestration-service")
     );
 
     @Override

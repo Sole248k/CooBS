@@ -105,30 +105,30 @@ public class TransferServiceImpl implements TransferService {
             TxnStageEvent stage1 = TxnStageEvent.builder()
                     .transactionId(txUuid)
                     .stageNo(1)
-                    .stageName("INGRESS_ACCEPTED")
+                    .stageName("INITIATED")
                     .outcome("PASSED")
                     .occurredAt(now)
                     .build();
             TxnStageEvent stage2 = TxnStageEvent.builder()
                     .transactionId(txUuid)
                     .stageNo(2)
-                    .stageName("PREFLIGHT_VALIDATED")
+                    .stageName("VALIDATED")
                     .outcome("PASSED")
                     .occurredAt(now.plusMillis(10))
                     .build();
             TxnStageEvent stage3 = TxnStageEvent.builder()
                     .transactionId(txUuid)
                     .stageNo(3)
-                    .stageName("DISPATCHED_TO_ORCHESTRATOR")
+                    .stageName("AUTHENTICATED")
                     .outcome("PASSED")
                     .occurredAt(now.plusMillis(20))
                     .build();
             stageEventRepository.saveAll(List.of(stage1, stage2, stage3));
 
             // Publish ingress stages to transaction.stage.changed.v1 (Day 5 Event Propagation)
-            stageEventPublisher.publishStage(txUuid, referenceNo, 1, "INGRESS_ACCEPTED", "PASSED", "Ingress Intake accepted");
-            stageEventPublisher.publishStage(txUuid, referenceNo, 2, "PREFLIGHT_VALIDATED", "PASSED", "Preflight validation passed");
-            stageEventPublisher.publishStage(txUuid, referenceNo, 3, "DISPATCHED_TO_ORCHESTRATOR", "PASSED", "Dispatched to orchestrator");
+            stageEventPublisher.publishStage(txUuid, referenceNo, 1, "INITIATED", "PASSED", "Ingress Intake accepted");
+            stageEventPublisher.publishStage(txUuid, referenceNo, 2, "VALIDATED", "PASSED", "Preflight validation passed");
+            stageEventPublisher.publishStage(txUuid, referenceNo, 3, "AUTHENTICATED", "PASSED", "Dispatched to orchestrator");
 
             // Trigger orchestration-service asynchronously (O1)
             triggerOrchestration(txUuid, referenceNo, request);
