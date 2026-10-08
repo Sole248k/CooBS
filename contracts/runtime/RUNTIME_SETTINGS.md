@@ -104,6 +104,22 @@ spring.jpa.hibernate.ddl-auto=validate
 
 `customer-service`, `transaction-service` and `orchestration-service` receive these today. `auth-service` and `notification-service` receive them when their owners move them onto `identity_db` and `notification_db`; until then they keep their current variables.
 
+### Cloud databases on SQL Server (opt-in)
+
+In Azure the four cloud databases are Azure SQL. `docker-compose.azure-sql.yml` runs the same thing locally: a SQL Server 2022 container (`sqlserver-cloud-db`) and a loader for `database/azure-sql/`. The databases, schemas and owning services are the ones in the table above. The override changes no `application.properties`; it supplies Spring's own variables, which take precedence over the PostgreSQL lines there. The five services carry the SQL Server JDBC driver beside the PostgreSQL one, so the same image runs on either.
+
+| Variable | Value in the override | Note |
+| --- | --- | --- |
+| `CLOUD_DB_PASSWORD` | From `.env` | The `sa` password. No default: Compose stops if it is missing. The Kubernetes Secret uses the same name |
+| `SQLSERVER_CLOUD_PORT` | `1433` | Host port, published on `127.0.0.1` only |
+| `SPRING_DATASOURCE_URL` | `jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=<database>;encrypt=true;trustServerCertificate=true;loginTimeout=30` | `trustServerCertificate=true` is for the local container only; Azure SQL uses `false` |
+| `SPRING_DATASOURCE_DRIVER_CLASS_NAME` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` | |
+| `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | `sa`, `CLOUD_DB_PASSWORD` | |
+| `SPRING_JPA_DATABASE_PLATFORM`, `SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT` | `org.hibernate.dialect.SQLServerDialect` | |
+| `POSTGRES_CLOUD_SCHEMA` | Unchanged: `txn` or `saga` | SQL Server has the same schemas |
+
+`notification-service` takes the same values through its own names: `DATABASE_URL`, `DATABASE_DRIVER`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`.
+
 ### On-premises
 
 | Store | Variables | Used by |

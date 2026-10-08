@@ -1,0 +1,133 @@
+# ==============================================================================
+# Opt-in override: run the four cloud databases on SQL Server, as they run in Azure SQL.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.azure-sql.yml --profile app --profile expansion up -d --build
+#
+# It adds a SQL Server 2022 container and a one-shot loader for database/azure-sql/, and points
+# auth, customer, transaction, orchestration and notification at it through Spring's own
+# variables. No application.properties changes. Needs CLOUD_DB_PASSWORD in .env.
+#
+# The five services carry the SQL Server JDBC driver (mssql-jdbc in each pom.xml), so rebuild
+# their images with --build. To load the scripts and start one service first:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.azure-sql.yml --profile app --profile expansion up -d --build sqlserver-cloud-init orchestration-service
+#
+# postgres-cloud-db still starts and is left alone: batch-service writes notification_db over
+# its own PostgreSQL connection, so with this file those rows go to a database that
+# notification-service no longer reads.
+#
+# The loader runs once per data volume. To load again: down -v, or remove sqlserver_cloud_data.
+# When all five services run on it, Dev 8 moves this into docker-compose.yml in place of
+# postgres-cloud-db and this file is deleted.
+# ==============================================================================
+x-sqlserver-datasource: &sqlserver-datasource
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  SPRING_DATASOURCE_USERNAME: sa
+  SPRING_DATASOURCE_PASSWORD: ${CLOUD_DB_PASSWORD:?CLOUD_DB_PASSWORD is required}
+  SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.SQLServerDialect
+  SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.SQLServerDialect
+
+x-sqlserver-loaded: &sqlserver-loaded
+  sqlserver-cloud-init:
+    condition: service_completed_successfully
+
+services:
+  sqlserver-cloud-db:
+    profiles:
+      - app
+      - expansion
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-cloud-db
+    ports:
+      - "127.0.0.1:${SQLSERVER_CLOUD_PORT:-1433}:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${CLOUD_DB_PASSWORD:?CLOUD_DB_PASSWORD is required}
+      MSSQL_MEMORY_LIMIT_MB: 1536
+    volumes:
+      - sqlserver_cloud_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -b -Q 'SELECT 1' > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # The SQL Server image runs no init scripts by itself, so this container loads them and exits.
+  # coobs_seed_done is an empty database created after the last script: it marks a full load.
+  # Without it the four databases are dropped and loaded again, because the scripts cannot run twice.
+  sqlserver-cloud-init:
+    profiles:
+      - app
+      - expansion
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver-cloud-init
+    depends_on:
+      sqlserver-cloud-db:
+        condition: service_healthy
+    environment:
+      SQLCMDPASSWORD: ${CLOUD_DB_PASSWORD:?CLOUD_DB_PASSWORD is required}
+    volumes:
+      - ./database/azure-sql:/scripts:ro
+    entrypoint:
+      - /bin/bash
+      - -ec
+      - |
+        run() { /opt/mssql-tools18/bin/sqlcmd -S sqlserver-cloud-db -U sa -C -b -x -f 65001 "$$@"; }
+        if run -Q "IF DB_ID(N'coobs_seed_done') IS NULL RAISERROR('not loaded', 16, 1)" > /dev/null; then
+          echo "Cloud databases are already loaded."
+          exit 0
+        fi
+        run -Q "DROP DATABASE IF EXISTS identity_db; DROP DATABASE IF EXISTS customer_db; DROP DATABASE IF EXISTS transaction_db; DROP DATABASE IF EXISTS notification_db;"
+        run -i /scripts/01_create_databases.sql
+        run -d identity_db     -i /scripts/02_identity_db.sql
+        run -d customer_db     -i /scripts/03_customer_db.sql
+        run -d transaction_db  -i /scripts/04_transaction_db.sql
+        run -d notification_db -i /scripts/05_notification_db.sql
+        run -Q "CREATE DATABASE coobs_seed_done"
+        echo "Cloud databases loaded."
+    restart: "no"
+    networks:
+      - core-banking-net
+
+  auth-service:
+    depends_on: *sqlserver-loaded
+    environment:
+      <<: *sqlserver-datasource
+      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=identity_db;encrypt=true;trustServerCertificate=true;loginTimeout=30
+
+  customer-service:
+    depends_on: *sqlserver-loaded
+    environment:
+      <<: *sqlserver-datasource
+      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=customer_db;encrypt=true;trustServerCertificate=true;loginTimeout=30
+
+  # POSTGRES_CLOUD_SCHEMA (txn, saga) still comes from docker-compose.yml; SQL Server has the same schemas.
+  transaction-service:
+    depends_on: *sqlserver-loaded
+    environment:
+      <<: *sqlserver-datasource
+      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=transaction_db;encrypt=true;trustServerCertificate=true;loginTimeout=30
+
+  orchestration-service:
+    depends_on: *sqlserver-loaded
+    environment:
+      <<: *sqlserver-datasource
+      SPRING_DATASOURCE_URL: jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=transaction_db;encrypt=true;trustServerCertificate=true;loginTimeout=30
+
+  # notification-service reads its own DATABASE_* names and sets no dialect.
+  notification-service:
+    depends_on: *sqlserver-loaded
+    environment:
+      DATABASE_URL: jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=notification_db;encrypt=true;trustServerCertificate=true;loginTimeout=30
+      DATABASE_DRIVER: com.microsoft.sqlserver.jdbc.SQLServerDriver
+      DATABASE_USERNAME: sa
+      DATABASE_PASSWORD: ${CLOUD_DB_PASSWORD:?CLOUD_DB_PASSWORD is required}
+
+volumes:
+  sqlserver_cloud_data:
+    driver: local
