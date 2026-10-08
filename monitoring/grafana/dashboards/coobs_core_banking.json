@@ -42,7 +42,7 @@
           "color": {
             "mode": "thresholds"
           },
-          "max": 6,
+          "max": 12,
           "min": 0,
           "thresholds": {
             "mode": "absolute",
@@ -53,11 +53,11 @@
               },
               {
                 "color": "yellow",
-                "value": 4
+                "value": 8
               },
               {
                 "color": "green",
-                "value": 6
+                "value": 12
               }
             ]
           },
@@ -222,6 +222,315 @@
         "x": 0,
         "y": 5
       },
+      "id": 104,
+      "title": "EXECUTIVE SLA COMPLIANCE & FRAUD SCORING (FIN-807)",
+      "type": "row"
+    },
+    {
+      "id": 11,
+      "title": "Risk Engine P95 Latency SLA (<40ms)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 6
+      },
+      "description": "Target: P95 < 40ms contractual SLA boundary for risk & fraud scoring",
+      "targets": [
+        {
+          "expr": "(histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"risk-engine\"}[1m])) by (le)) or histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"risk-engine\"}[1m])) by (le)) or vector(0)) * 1000",
+          "legendFormat": "P95 Latency"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "max": 60,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 40
+              }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "options": {
+        "orientation": "auto",
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Edge Gateway P99 Ingress SLA (<500ms)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 6
+      },
+      "description": "Target: P99 < 500ms edge ingress SLA boundary",
+      "targets": [
+        {
+          "expr": "(histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"api-gateway\"}[1m])) by (le)) or histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{job=\"api-gateway\"}[1m])) by (le)) or vector(0)) * 1000",
+          "legendFormat": "P99 Latency"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "max": 600,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 350
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "options": {
+        "orientation": "auto",
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "Transfer Saga P95 Latency SLA (<1500ms)",
+      "type": "gauge",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 6
+      },
+      "description": "Target: P95 < 1500ms for 11-stage distributed saga completion",
+      "targets": [
+        {
+          "expr": "(histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"orchestration-service\"}[1m])) by (le)) or histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"orchestration-service\"}[1m])) by (le)) or vector(0)) * 1000",
+          "legendFormat": "P95 Latency"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "min": 0,
+          "max": 2000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 1500
+              }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "options": {
+        "orientation": "auto",
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "Active SLA & System Alerts Firing",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "description": "Number of firing Prometheus alerts",
+      "targets": [
+        {
+          "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "legendFormat": "Firing Alerts"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "unit": "none"
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Risk Engine Evaluation Latency (P50, P90, P95 vs 40ms SLA)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{job=\"risk-engine\"}[1m])) by (le)) * 1000",
+          "legendFormat": "P50 (Median)"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum(rate(http_server_requests_seconds_bucket{job=\"risk-engine\"}[1m])) by (le)) * 1000",
+          "legendFormat": "P90"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"risk-engine\"}[1m])) by (le)) * 1000",
+          "legendFormat": "P95 (SLA Boundary: 40ms)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "lineWidth": 2
+          },
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 40
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "Gateway Rate-Limiting (429 Drops) & 5xx Server Errors",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{status=\"429\"}[1m])) or vector(0)",
+          "legendFormat": "429 Rate Limit Drops"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])) or vector(0)",
+          "legendFormat": "5xx Server Errors"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 15,
+            "lineWidth": 2
+          },
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
       "id": 101,
       "title": "TRANSACTION TRAFFIC & LATENCY WATERFALLS",
       "type": "row"
@@ -234,7 +543,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 6
+        "y": 19
       },
       "targets": [
         {
@@ -261,7 +570,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 6
+        "y": 19
       },
       "targets": [
         {
@@ -309,7 +618,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 27
       },
       "id": 102,
       "title": "DATABASE CONNECTION POOLS (HikariCP)",
@@ -323,7 +632,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 15
+        "y": 28
       },
       "targets": [
         {
@@ -349,7 +658,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 28
       },
       "targets": [
         {
@@ -391,7 +700,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 36
       },
       "id": 103,
       "title": "JVM TELEMETRY & BANKING MUTATIONS",
@@ -405,7 +714,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 37
       },
       "targets": [
         {
@@ -435,7 +744,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 37
       },
       "targets": [
         {
@@ -482,7 +791,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "CooBS Core Banking — Operational Command Center",
+  "title": "CooBS Core Banking \u2014 Operational Command Center",
   "uid": "coobs-core-overview",
   "version": 1
 }

@@ -39,3 +39,54 @@ groups:
         annotations:
           summary: "HikariCP database connection pool is 90% saturated on {{ $labels.application }}"
           description: "Active database connections exceed 90% of available pool capacity for over 1 minute."
+
+      # ------------------------------------------------------------------------
+      # SLA Violation Alerts (FIN-807 Production Hardening)
+      # ------------------------------------------------------------------------
+      - alert: RiskEvaluationSlaBreachP95
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job="risk-engine"}[1m])) by (le)) > 0.040
+        for: 30s
+        labels:
+          severity: critical
+          sla: "40ms"
+        annotations:
+          summary: "Risk engine P95 latency SLA breached (>40ms)"
+          description: "P95 latency of risk evaluation engine is {{ $value | humanizeDuration }}, exceeding the strict 40ms contractual SLA boundary."
+
+      - alert: GatewayEdgeIngressSlaBreachP99
+        expr: histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{job="api-gateway"}[1m])) by (le)) > 0.500
+        for: 1m
+        labels:
+          severity: warning
+          sla: "500ms"
+        annotations:
+          summary: "API Gateway edge ingress P99 latency exceeded 500ms"
+          description: "99th percentile of edge gateway incoming requests is {{ $value | humanizeDuration }}, exceeding the 500ms SLA target."
+
+      - alert: TransferSagaLatencySlaBreachP95
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job="orchestration-service"}[1m])) by (le)) > 1.500
+        for: 1m
+        labels:
+          severity: warning
+          sla: "1500ms"
+        annotations:
+          summary: "Transfer Saga Orchestration P95 latency exceeded 1500ms"
+          description: "P95 latency of 11-stage distributed transfer saga orchestration exceeds 1.5s."
+
+      - alert: HighRateLimitBurstSurge
+        expr: sum(rate(http_server_requests_seconds_count{status="429"}[1m])) > 20
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 429 Rate Limit rejection rate detected (>20 req/s)"
+          description: "Redis rate limiter is actively shedding over 20 requests per second at the edge gateway perimeter."
+
+      - alert: KafkaConsumerLagHigh
+        expr: sum(kafka_consumergroup_lag) by (consumergroup) > 500
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer group {{ $labels.consumergroup }} lag > 500"
+          description: "Asynchronous event consumer group {{ $labels.consumergroup }} lag has exceeded 500 uncommitted offsets."

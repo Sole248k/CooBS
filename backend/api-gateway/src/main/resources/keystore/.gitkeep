@@ -1,0 +1,2 @@
+# Keystore placeholder for TLS/HTTPS certificates
+# Run scripts/generate_tls_certs.ps1 -CopyToGateway to generate local keystore.p12

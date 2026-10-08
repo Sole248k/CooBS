@@ -15,6 +15,22 @@ param jwtSecret string = ''
 @secure()
 param postgresPassword string = ''
 
+@description('Optional Internal Service Secret (coobs-risk-internal-secret-2026)')
+@secure()
+param internalServiceSecret string = ''
+
+@description('Optional Oracle Master DB admin password')
+@secure()
+param oraclePassword string = ''
+
+@description('Optional Event Hubs primary connection string')
+@secure()
+param eventHubsConnectionString string = ''
+
+@description('Optional Redis access key')
+@secure()
+param redisKey string = ''
+
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
   location: location
@@ -34,7 +50,10 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-// Optional secret seeding if provided
+// -----------------------------------------------------------------------------
+// Production Secrets Seeding
+// -----------------------------------------------------------------------------
+
 resource secretJwt 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(jwtSecret)) {
   parent: keyVault
   name: 'jwt-secret'
@@ -48,6 +67,38 @@ resource secretPostgres 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!em
   name: 'postgres-password'
   properties: {
     value: postgresPassword
+  }
+}
+
+resource secretInternal 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(internalServiceSecret)) {
+  parent: keyVault
+  name: 'internal-service-secret'
+  properties: {
+    value: internalServiceSecret
+  }
+}
+
+resource secretOracle 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(oraclePassword)) {
+  parent: keyVault
+  name: 'oracle-password'
+  properties: {
+    value: oraclePassword
+  }
+}
+
+resource secretEventHubs 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(eventHubsConnectionString)) {
+  parent: keyVault
+  name: 'eventhubs-connection-string'
+  properties: {
+    value: eventHubsConnectionString
+  }
+}
+
+resource secretRedis 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(redisKey)) {
+  parent: keyVault
+  name: 'redis-key'
+  properties: {
+    value: redisKey
   }
 }
 

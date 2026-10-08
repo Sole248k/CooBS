@@ -1,0 +1,124 @@
+# ==============================================================================
+# Production Cloud Hardening: Ingress TLS & Azure Key Vault Secret Integration
+# Task: FIN-807 - TLS Certificates & Ingress Routing
+# ==============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: coobs-edge-ingress
+  namespace: default
+  labels:
+    app.kubernetes.io/name: coobs-edge-ingress
+    app.kubernetes.io/part-of: coobs-platform
+    tier: edge
+  annotations:
+    # Ingress Controller Class (supports AGIC or NGINX)
+    kubernetes.io/ingress.class: "azure/application-gateway"
+    appgw.ingress.kubernetes.io/ssl-redirect: "true"
+    appgw.ingress.kubernetes.io/connection-draining: "true"
+    appgw.ingress.kubernetes.io/connection-draining-timeout: "30"
+    appgw.ingress.kubernetes.io/cookie-based-affinity: "false"
+    
+    # Dual-compatibility annotations for ingress-nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    
+    # Automated TLS lifecycle via cert-manager or Azure Key Vault CSI driver
+    cert-manager.io/cluster-issuer: "coobs-ca-issuer"
+spec:
+  tls:
+    - hosts:
+        - "api.coobs.internal"
+        - "coobs-gateway.southeastasia.cloudapp.azure.com"
+      secretName: coobs-tls-secret
+  rules:
+    - host: "api.coobs.internal"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+    - host: "coobs-gateway.southeastasia.cloudapp.azure.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+---
+# ==============================================================================
+# Azure Key Vault Secrets Store CSI Driver Provider Class
+# Maps Azure Key Vault Secrets directly to Kubernetes native Secrets
+# ==============================================================================
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: coobs-keyvault-tls-provider
+  namespace: default
+spec:
+  provider: azure
+  secretObjects:
+    - secretName: coobs-tls-secret
+      type: kubernetes.io/tls
+      data:
+        - objectName: coobs-tls-cert
+          key: tls.key
+        - objectName: coobs-tls-cert
+          key: tls.crt
+    - secretName: coobs-app-secrets
+      type: Opaque
+      data:
+        - objectName: jwt-secret
+          key: JWT_SECRET
+        - objectName: internal-service-secret
+          key: INTERNAL_SERVICE_SECRET
+        - objectName: postgres-password
+          key: POSTGRES_PASSWORD
+        - objectName: oracle-password
+          key: ORACLE_PASSWORD
+        - objectName: redis-key
+          key: REDIS_PASSWORD
+        - objectName: eventhubs-connection-string
+          key: KAFKA_CONNECTION_STRING
+  parameters:
+    usePodIdentity: "false"
+    useVMManagedIdentity: "true"
+    userAssignedIdentityID: ""
+    keyvaultName: "kv-coobs-dev"
+    cloudName: "AzurePublicCloud"
+    objects: |
+      array:
+        - |
+          objectName: coobs-tls-cert
+          objectType: cert
+        - |
+          objectName: jwt-secret
+          objectType: secret
+        - |
+          objectName: internal-service-secret
+          objectType: secret
+        - |
+          objectName: postgres-password
+          objectType: secret
+        - |
+          objectName: oracle-password
+          objectType: secret
+        - |
+          objectName: redis-key
+          objectType: secret
+        - |
+          objectName: eventhubs-connection-string
+          objectType: secret
+    tenantId: ""

@@ -113,3 +113,9 @@ graphify-out/
 tasks/
 graphify-out/
 scratch/
+# TLS Private Keys & Keystores (FIN-807)
+*.p12
+*.key
+backend/api-gateway/src/main/resources/keystore/*.p12
+infra/certs/*.p12
+infra/certs/*.key
