@@ -63,13 +63,6 @@ export interface ProblemDetails {
   timestamp?: string;
 }
 
-export interface GatewayRoute {
-  route_id: string;
-  uri: string;
-  predicates: string[];
-  order?: number;
-}
-
 export interface AuditRecord {
   auditId: number;
   transactionId: number;

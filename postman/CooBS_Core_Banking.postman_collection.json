@@ -47,21 +47,17 @@
           }
         },
         {
-          "name": "1.2 Gateway Dynamic Routes Inspection",
+          "name": "1.2 Gateway Routes Not Exposed (Assert 404)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"Status code is 200 OK\", function () {",
-                  "    pm.response.to.have.status(200);",
+                  "pm.test(\"Status code is 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
                   "});",
-                  "pm.test(\"Gateway discovers registered microservice routes\", function () {",
-                  "    var routes = pm.response.json();",
-                  "    pm.expect(routes).to.be.an(\"array\");",
-                  "    pm.expect(routes.length).to.be.at.least(4);",
-                  "    var routeIds = routes.map(r => r.route_id || r.id);",
-                  "    pm.expect(routeIds).to.include.members([\"auth-service-route\", \"account-service-accounts-route\", \"ledger-service-route\"]);",
+                  "pm.test(\"The gateway does not publish its routing table\", function () {",
+                  "    pm.expect(pm.response.text()).to.not.include(\"route_id\");",
                   "});"
                 ],
                 "type": "text/javascript"

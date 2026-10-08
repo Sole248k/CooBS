@@ -72,14 +72,6 @@ try {
     exit 1
 }
 
-try {
-    $routesRes = Invoke-RestMethod -Uri "$GwUrl/actuator/gateway/routes" -Method Get -TimeoutSec 10
-    $routeIds = ($routesRes | ForEach-Object { $_.route_id }) -join ", "
-    Write-PassMessage "Discovered Gateway Routes: $routeIds"
-} catch {
-    Write-WarnMessage "Actuator gateway routes endpoint unavailable, proceeding with standard routes."
-}
-
 # -----------------------------------------------------------------------------
 # STEP 2: Seed Customer Authentication (auth-service via Gateway)
 # -----------------------------------------------------------------------------
