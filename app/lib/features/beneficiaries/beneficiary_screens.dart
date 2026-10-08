@@ -4,26 +4,28 @@ import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 
 class BeneficiariesPage extends StatelessWidget {
-  const BeneficiariesPage({super.key});
+  /// True when hosted as a bottom-nav tab (no back arrow).
+  final bool tab;
+  const BeneficiariesPage({super.key, this.tab = false});
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: Demo.i,
         builder: (context, _) => Pg('Beneficiaries', [
           if (Demo.i.bens.isEmpty)
-            const Padding(padding: EdgeInsets.all(40), child: Center(child: Text('No beneficiaries yet', style: TextStyle(color: kMut))))
+            Padding(padding: EdgeInsets.all(40), child: Center(child: Text('No beneficiaries yet', style: TextStyle(color: kMut))))
           else
             Card(
               child: Column(children: [
                 for (final b in Demo.i.bens)
                   ListTile(
-                    leading: const CircleAvatar(backgroundColor: Color(0xFFE4EDFF), child: Icon(Icons.person_outline, color: kNavy)),
+                    leading: CircleAvatar(backgroundColor: kInBg, child: Icon(Icons.person_outline, color: kNavyFg)),
                     title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text('${b.rel} · ${b.mobile.isEmpty ? 'No mobile' : b.mobile}'),
                   ),
               ]),
             ),
           bigBtn('Add beneficiary', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddBeneficiaryPage()))),
-        ]),
+        ], tab: tab),
       );
 }
 
@@ -67,7 +69,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
         tf(t('pob'), 'Place of birth'),
       ],
       [
-        const Text('Additional supporting information. Provide the beneficiary\'s current residence address and mobile number.', style: TextStyle(color: kMut, fontSize: 13)),
+        Text('Additional supporting information. Provide the beneficiary\'s current residence address and mobile number.', style: TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
         dd('Country of residence', const ['Philippines', 'Other'], v['cty'], (x) => v['cty'] = x),
         tf(t('a1'), 'Address line 1'),
@@ -76,7 +78,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
         tf(t('em'), 'Email address', k: TextInputType.emailAddress),
       ],
       [
-        const Text('Upload supporting documents. Make sure the information is clearly visible.', style: TextStyle(color: kMut, fontSize: 13)),
+        Text('Upload supporting documents. Make sure the information is clearly visible.', style: TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
         Align(
             alignment: Alignment.centerLeft,
@@ -90,7 +92,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
       ],
     ];
     return Pg('Add beneficiary', [...body[step], bigBtn(step == 2 ? 'Save' : 'Next', next)],
-        chip: Text('${step + 1} / 3', style: const TextStyle(color: kBlue, fontWeight: FontWeight.w700)),
+        chip: Text('${step + 1} / 3', style: TextStyle(color: kBlue, fontWeight: FontWeight.w700)),
         onBack: () => step == 0 ? Navigator.pop(context) : setState(() => step--));
   }
 }

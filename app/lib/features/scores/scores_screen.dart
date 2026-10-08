@@ -41,7 +41,9 @@ List<Debit> debitsFor(int a) {
 }
 
 class ScoresPage extends StatefulWidget {
-  const ScoresPage({super.key});
+  /// True when hosted as a bottom-nav tab (no back arrow).
+  final bool tab;
+  const ScoresPage({super.key, this.tab = false});
   @override
   State<ScoresPage> createState() => _ScoresPageState();
 }
@@ -57,10 +59,10 @@ class _ScoresPageState extends State<ScoresPage> {
   Widget scoreCard() => Card(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 28),
-          child: Column(children: const [
-            Text('832', style: TextStyle(fontSize: 84, fontWeight: FontWeight.w800, color: Color(0xFF1B3F6E), height: 1.1)),
-            SizedBox(height: 8),
-            Text('Your Credit Score', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1B3F6E))),
+          child: Column(children: [
+            Text('832', style: TextStyle(fontSize: 84, fontWeight: FontWeight.w800, color: kNavyFg, height: 1.1)),
+            const SizedBox(height: 8),
+            Text('Your Credit Score', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kNavyFg)),
           ]),
         ),
       );
@@ -73,7 +75,7 @@ class _ScoresPageState extends State<ScoresPage> {
   Widget dot(Color c, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
         Container(width: 10, height: 10, color: c),
         const SizedBox(width: 6),
-        Text(t, style: const TextStyle(fontSize: 12, color: kMut)),
+        Text(t, style: TextStyle(fontSize: 12, color: kMut)),
         const SizedBox(width: 14),
       ]);
 
@@ -91,7 +93,7 @@ class _ScoresPageState extends State<ScoresPage> {
               SizedBox(
                   width: 28, height: h,
                   child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    for (final t in [60, 40, 20, 0]) Text('$t', style: const TextStyle(fontSize: 11, color: kMut)),
+                    for (final t in [60, 40, 20, 0]) Text('$t', style: TextStyle(fontSize: 11, color: kMut)),
                   ])),
               Expanded(
                 child: Column(children: [
@@ -99,7 +101,7 @@ class _ScoresPageState extends State<ScoresPage> {
                     height: h,
                     child: Stack(children: [
                       for (final f in [0.0, 1 / 3, 2 / 3, 1.0])
-                        Positioned(left: 0, right: 0, top: f * (h - 1), child: Container(height: 1, color: const Color(0xFFE6EAE8))),
+                        Positioned(left: 0, right: 0, top: f * (h - 1), child: Container(height: 1, color: kLine)),
                       Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                         for (var i = 0; i < 12; i++)
                           Expanded(child: Align(alignment: Alignment.bottomCenter, child: i < chk.length ? bar(i, h) : const SizedBox())),
@@ -108,7 +110,7 @@ class _ScoresPageState extends State<ScoresPage> {
                   ),
                   const SizedBox(height: 6),
                   Row(children: [
-                    for (final m in months) Expanded(child: Text(m, textAlign: TextAlign.center, style: const TextStyle(fontSize: 9, color: kMut))),
+                    for (final m in months) Expanded(child: Text(m, textAlign: TextAlign.center, style: TextStyle(fontSize: 9, color: kMut))),
                   ]),
                 ]),
               ),
@@ -123,10 +125,10 @@ class _ScoresPageState extends State<ScoresPage> {
 
   Widget row(Debit d) => ListTile(
         isThreeLine: true,
-        leading: const CircleAvatar(backgroundColor: Color(0xFFFBE9E7), child: Icon(Icons.north_east, size: 18, color: kRed)),
+        leading: CircleAvatar(backgroundColor: kOutBg, child: Icon(Icons.north_east, size: 18, color: kRed)),
         title: Text(d.activity, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         subtitle: Text('To ${d.receiver}\n${d.ref} · ${Demo.i.accts[d.acct].type}'),
-        trailing: Text('-${peso(d.amt)}', style: const TextStyle(fontWeight: FontWeight.w600, color: kRed)),
+        trailing: Text('-${peso(d.amt)}', style: TextStyle(fontWeight: FontWeight.w600, color: kRed)),
       );
 
   @override
@@ -143,7 +145,7 @@ class _ScoresPageState extends State<ScoresPage> {
       Padding(
         padding: const EdgeInsets.only(top: 20, bottom: 4),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Debit transaction history', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1B3F6E))),
+          Text('Debit transaction history', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kNavyFg)),
           PopupMenuButton<int>(
             onSelected: (v) => setState(() { acct = v; page = 0; }),
             itemBuilder: (_) => <PopupMenuEntry<int>>[
@@ -168,11 +170,11 @@ class _ScoresPageState extends State<ScoresPage> {
       Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          IconButton(icon: const Icon(Icons.arrow_left, size: 38, color: kNavy), onPressed: page > 0 ? () => setState(() => page--) : null),
+          IconButton(icon: Icon(Icons.arrow_left, size: 38, color: kNavyFg), onPressed: page > 0 ? () => setState(() => page--) : null),
           Text('${page + 1} / $pages', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          IconButton(icon: const Icon(Icons.arrow_right, size: 38, color: kNavy), onPressed: page < pages - 1 ? () => setState(() => page++) : null),
+          IconButton(icon: Icon(Icons.arrow_right, size: 38, color: kNavyFg), onPressed: page < pages - 1 ? () => setState(() => page++) : null),
         ]),
       ),
-    ]);
+    ], tab: widget.tab);
   }
 }

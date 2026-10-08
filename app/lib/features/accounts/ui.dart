@@ -1,8 +1,23 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/theme_controller.dart';
 import 'demo_store.dart';
 
-const kBlue = Color(0xFF1E5BD8), kNavy = Color(0xFF14305F), kInk = Color(0xFF14231B);
-const kMut = Color(0xFF6B7A72), kBg = Color(0xFFF3F5F4), kRed = Color(0xFFC0392B);
+/// Mobile palette. Getters (not consts) so every screen follows the dark mode toggle.
+bool get kDark => ThemeController.i.dark;
+Color get kBlue => kDark ? const Color(0xFF6E9BFF) : const Color(0xFF1E5BD8);
+Color get kNavy => kDark ? const Color(0xFF2B4C8C) : const Color(0xFF14305F); // fills
+Color get kNavyFg => kDark ? const Color(0xFF6E9BFF) : const Color(0xFF14305F); // text & icons
+Color get kInk => kDark ? const Color(0xFFE6EAF0) : const Color(0xFF14231B);
+Color get kMut => kDark ? const Color(0xFF8C98A8) : const Color(0xFF6B7A72);
+Color get kBg => kDark ? const Color(0xFF0E1420) : const Color(0xFFF3F5F4);
+Color get kRed => kDark ? const Color(0xFFFF7A6B) : const Color(0xFFC0392B);
+Color get kSurface => kDark ? const Color(0xFF182131) : Colors.white;
+Color get kLine => kDark ? const Color(0xFF243044) : const Color(0xFFECEFEE);
+Color get kInBg => kDark ? const Color(0xFF1F2E4D) : const Color(0xFFE4EDFF);
+Color get kOutBg => kDark ? const Color(0xFF3A2224) : const Color(0xFFFBE9E7);
+Color get kFaint => kDark ? const Color(0xFF5C6878) : const Color(0xFF9AA5AD);
+Color get kSkel => kDark ? const Color(0xFF222C3D) : const Color(0xFFE3E8EC);
+Color get kDot => kDark ? const Color(0xFF3A4658) : const Color(0xFFC3CCC7);
 const grads = [
   [Color(0xFF0B2A6F), Color(0xFF1E5BD8), Color(0xFF4A8CFF)], // Checking
   [Color(0xFF6E0F1A), Color(0xFFC0272D), Color(0xFFEF5A52)], // Savings
@@ -42,7 +57,7 @@ Widget tag(String t, int g) => Container(
 Widget statRow(String k, String v) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(k, style: const TextStyle(color: kMut)),
+      Text(k, style: TextStyle(color: kMut)),
       const SizedBox(width: 12),
       Flexible(child: Text(v, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
     ]));
@@ -61,31 +76,33 @@ Widget logoBox() => Container(
 
 Widget miniTag(String t) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(color: const Color(0xFFE4EDFF), borderRadius: BorderRadius.circular(10)),
-    child: Text(t, style: const TextStyle(color: kNavy, fontSize: 11, fontWeight: FontWeight.w600)));
+    decoration: BoxDecoration(color: kInBg, borderRadius: BorderRadius.circular(10)),
+    child: Text(t, style: TextStyle(color: kNavyFg, fontSize: 11, fontWeight: FontWeight.w600)));
 
 Widget txRow(Tx x) {
   final out = x.amt < 0;
   return ListTile(
     leading: CircleAvatar(
-        backgroundColor: out ? const Color(0xFFFBE9E7) : const Color(0xFFE4EDFF),
-        child: Icon(out ? Icons.north_east : Icons.south_west, size: 18, color: out ? kRed : kNavy)),
+        backgroundColor: out ? kOutBg : kInBg,
+        child: Icon(out ? Icons.north_east : Icons.south_west, size: 18, color: out ? kRed : kNavyFg)),
     title: Text(x.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
     subtitle: Text('${x.ref} · ${x.date == today ? 'Today' : fmt(x.date)}'),
     trailing: Text('${out ? '-' : '+'}${peso(x.amt.abs())}',
-        style: TextStyle(fontWeight: FontWeight.w600, color: out ? kRed : kNavy)),
+        style: TextStyle(fontWeight: FontWeight.w600, color: out ? kRed : kNavyFg)),
   );
 }
 
 Widget txCard(List<Tx> l) => Card(child: Column(children: [for (final x in l) txRow(x)]));
 
 /// Standard sub-page: back arrow, title, optional chip.
+/// With [tab] true it is hosted as a bottom-nav tab: no back arrow.
 class Pg extends StatelessWidget {
   final String title;
   final Widget? chip;
   final List<Widget> kids;
   final VoidCallback? onBack;
-  const Pg(this.title, this.kids, {super.key, this.chip, this.onBack});
+  final bool tab;
+  const Pg(this.title, this.kids, {super.key, this.chip, this.onBack, this.tab = false});
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: kBg,
@@ -93,9 +110,10 @@ class Pg extends StatelessWidget {
           backgroundColor: kBg,
           foregroundColor: kInk,
           centerTitle: false,
-          leading: BackButton(onPressed: onBack ?? () => Navigator.pop(context)),
+          automaticallyImplyLeading: false,
+          leading: tab ? null : BackButton(onPressed: onBack ?? () => Navigator.pop(context)),
           title: Row(children: [
-            Text(title, style: const TextStyle(color: kInk, fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(title, style: TextStyle(color: kInk, fontSize: 18, fontWeight: FontWeight.w700)),
             if (chip != null) ...[const SizedBox(width: 10), chip!],
           ]),
         ),

@@ -5,14 +5,22 @@ import 'core/network/api_client.dart';
 import 'core/router/app_router.dart';
 import 'core/session/inactivity_watcher.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_controller.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Override fixture mode to false for live gateway execution unless explicitly enabled via --dart-define
-  AppConfig.useFixtures = const bool.fromEnvironment('USE_FIXTURES', defaultValue: false);
+  AppConfig.useFixtures = const bool.fromEnvironment(
+    'USE_FIXTURES',
+    defaultValue: false,
+  );
   ApiClient.onSessionExpired = () {
-    AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(AppRouter.login, (_) => false);
+    AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(
+      AppRouter.login,
+      (_) => false,
+    );
   };
+  await ThemeController.i.load(); // restore saved dark mode before first frame
   runApp(const CooBSApp());
 }
 
@@ -23,15 +31,19 @@ class CooBSApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: AppRouter.navigatorKey,
-      title: 'CooBS Member Banking',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      initialRoute: initialRoute ?? AppRouter.initial,
-      onGenerateRoute: AppRouter.onGenerateRoute,
-      builder: (context, child) => InactivityWatcher(
-        child: child ?? const SizedBox.shrink(),
+    return ListenableBuilder(
+      listenable: ThemeController.i,
+      builder: (context, _) => MaterialApp(
+        navigatorKey: AppRouter.navigatorKey,
+        title: 'CooBS Member Banking',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeController.i.mode,
+        initialRoute: initialRoute ?? AppRouter.initial,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        builder: (context, child) =>
+            InactivityWatcher(child: child ?? const SizedBox.shrink()),
       ),
     );
   }

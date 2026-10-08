@@ -88,11 +88,11 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
   }
 
   Widget banner(Map<String, dynamic> p) => Card(
-        color: const Color(0xFFFBE9E7),
+        color: kOutBg,
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${p['title']} (${p['errorCode']})', style: const TextStyle(color: kRed, fontWeight: FontWeight.w700)),
+            Text('${p['title']} (${p['errorCode']})', style: TextStyle(color: kRed, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             Text('${p['detail']}'),
             for (final x in (p['invalidParams'] as List)) Text('• ${x['name']}: ${x['reason']}', style: const TextStyle(fontSize: 12)),
@@ -149,10 +149,10 @@ class RemittanceResultPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Pg('Transfer submitted', [
         Center(child: Column(children: [
-          const Icon(Icons.check_circle_outline, size: 56, color: kBlue),
+          Icon(Icons.check_circle_outline, size: 56, color: kBlue),
           const SizedBox(height: 8),
           Text(money(cents), style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
-          Text('to $dest · $bank', style: const TextStyle(color: kMut)),
+          Text('to $dest · $bank', style: TextStyle(color: kMut)),
         ])),
         const SizedBox(height: 12),
         panel([

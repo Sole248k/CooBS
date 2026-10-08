@@ -29,7 +29,7 @@ class FixtureMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Pg('Fixture screens', [
-        const Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Each screen runs on mock JSON only.', style: TextStyle(color: kMut))),
+        Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Each screen runs on mock JSON only.', style: TextStyle(color: kMut))),
         item(context, 'Customer 360 (mobile home)', 'M1, K5, K6, N1', const MobileShell()),
         item(context, 'Remittance Transfer', 'K5, R1, M3, M2, E1, E2', const RemittanceScreen()),
         item(context, 'Simulated KYC Intake', 'K1, K2 (pending, verified, rejected)', const KycIntakeScreen()),

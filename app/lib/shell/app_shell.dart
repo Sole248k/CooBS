@@ -47,7 +47,10 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
+    // Teller/web shell stays on the light theme; dark mode is mobile-only.
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: LayoutBuilder(
       builder: (context, constraints) {
         final isWideScreen = constraints.maxWidth >= 640;
 
@@ -165,6 +168,7 @@ class _AppShellState extends State<AppShell> {
                 ),
         );
       },
+      ),
     );
   }
 

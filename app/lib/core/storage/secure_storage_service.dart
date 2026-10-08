@@ -59,11 +59,13 @@ class SecureStorageService {
       _memoryFallback.clear();
       return;
     }
+    // Delete only session keys so device preferences (e.g. dark mode) survive logout.
+    _memoryFallback.clear();
     try {
-      await _storage.deleteAll();
-    } catch (_) {
-      _memoryFallback.clear();
-    }
+      for (final key in [_keyAccessToken, _keyRefreshToken, _keyUserId, _keyUsername]) {
+        await _storage.delete(key: key);
+      }
+    } catch (_) {}
   }
 
   @visibleForTesting

@@ -11,7 +11,7 @@ import '../scores/scores_screen.dart';
 import 'demo_store.dart';
 import 'ui.dart';
 
-/// Mobile shell: fixed logo header + dark floating bottom bar.
+/// Mobile shell: fixed logo header + floating pill bottom bar (icon-only tabs).
 class MobileShell extends StatefulWidget {
   const MobileShell({super.key});
   @override
@@ -20,12 +20,59 @@ class MobileShell extends StatefulWidget {
 
 class _MobileShellState extends State<MobileShell> {
   int i = 0;
+  // Pay QR (PayQrScreen in tab_screens.dart) is kept but not in the bar for now;
+  // re-add it here and in the IndexedStack below if it comes back in scope.
   static const _tabs = [
-    [Icons.home_outlined, 'Home'],
-    [Icons.qr_code_scanner, 'Pay QR'],
-    [Icons.notifications_none, 'Alerts'],
-    [Icons.person_outline, 'Profile'],
+    (Icons.home_outlined, 'Home'),
+    (Icons.leaderboard_outlined, 'Score & Habits'),
+    (Icons.notifications_none, 'Notifications'),
+    (Icons.people_outline, 'Beneficiaries'),
+    (Icons.person_outline, 'Profile'),
   ];
+  static const _alerts = 2;
+
+  Widget _navBtn(int k) {
+    final sel = i == k, bell = k == _alerts;
+    final ico = kDark ? const Color(0xFFE6EAF0) : const Color(0xFF111111);
+    final btn = Container(
+      width: bell ? 64 : 48,
+      height: bell ? 64 : 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: bell
+            ? (kDark ? const Color(0xFF2B5BD0) : const Color(0xFF14305F))
+            : sel
+                ? (kDark ? const Color(0xFF33415A) : const Color(0xFFDCDFE3))
+                : (kDark ? const Color(0xFF222C3D) : const Color(0xFFF0F1F2)),
+      ),
+      child: Icon(_tabs[k].$1, size: bell ? 30 : 24, color: bell ? Colors.white : ico),
+    );
+    return Tooltip(
+      message: _tabs[k].$2,
+      child: InkResponse(
+        onTap: () => setState(() => i = k),
+        radius: bell ? 34 : 26,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          bell
+              ? ListenableBuilder(
+                  listenable: Demo.i,
+                  builder: (context, _) => Badge(
+                    isLabelVisible: Demo.i.unread > 0,
+                    label: Text('${Demo.i.unread}'),
+                    backgroundColor: const Color(0xFFC0392B),
+                    offset: const Offset(-2, 2),
+                    child: btn,
+                  ),
+                )
+              : btn,
+          if (!bell) ...[
+            const SizedBox(height: 4),
+            Container(width: 4, height: 4, decoration: BoxDecoration(shape: BoxShape.circle, color: sel ? ico : Colors.transparent)),
+          ],
+        ]),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -61,11 +108,12 @@ class _MobileShellState extends State<MobileShell> {
                   ]),
                 ),
                 Expanded(
-                  child: IndexedStack(index: i, children: [
-                    const HomeScreen(),
-                    const PayQrScreen(),
-                    const AlertsScreen(),
-                    const ProfileScreen(),
+                  child: IndexedStack(index: i, children: const [
+                    HomeScreen(),
+                    ScoresPage(tab: true),
+                    AlertsScreen(),
+                    BeneficiariesPage(tab: true),
+                    ProfileScreen(),
                   ]),
                 ),
               ]),
@@ -79,31 +127,17 @@ class _MobileShellState extends State<MobileShell> {
               constraints: const BoxConstraints(maxWidth: 600),
               child: Container(
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: const Color(0xFF111111), borderRadius: BorderRadius.circular(24)),
-                child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  for (var k = 0; k < _tabs.length; k++)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => setState(() => i = k),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                            color: i == k ? Colors.white12 : null, borderRadius: BorderRadius.circular(14)),
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          ListenableBuilder(
-                            listenable: Demo.i,
-                            builder: (context, _) => Badge(
-                                isLabelVisible: k == 2 && Demo.i.unread > 0,
-                                label: Text('${Demo.i.unread}'),
-                                child: Icon(_tabs[k][0] as IconData, color: i == k ? Colors.white : Colors.white54)),
-                          ),
-                          Text(_tabs[k][1] as String,
-                              style: TextStyle(fontSize: 10, color: i == k ? Colors.white : Colors.white54)),
-                        ]),
-                      ),
-                    ),
-                ]),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: kSurface,
+                  borderRadius: BorderRadius.circular(44),
+                  border: Border.all(color: kLine),
+                  boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 2))],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [for (var k = 0; k < _tabs.length; k++) _navBtn(k)],
+                ),
               ),
             ),
           ),
@@ -150,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                  child: Text(status, style: const TextStyle(fontSize: 11, color: kInk, fontWeight: FontWeight.w600))),
+                  child: Text(status, style: const TextStyle(fontSize: 11, color: Color(0xFF14231B), fontWeight: FontWeight.w600))),
             ]),
             ...kids,
           ]),
@@ -227,19 +261,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-  Widget circ(IconData ic, String t, VoidCallback? f) => InkWell(
-        onTap: f,
-        borderRadius: BorderRadius.circular(40),
-        child: SizedBox(
-          width: 100,
-          child: Column(children: [
-            CircleAvatar(radius: 32, backgroundColor: const Color(0xFFCBD3DC), child: Icon(ic, color: kNavy, size: 26)),
-            const SizedBox(height: 8),
-            Text(t, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
-          ]),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: d,
@@ -258,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
               for (var i = 0; i < 3; i++)
                 Container(
                     margin: const EdgeInsets.fromLTRB(3, 12, 3, 0), width: d.cur == i ? 18 : 7, height: 7,
-                    decoration: BoxDecoration(color: d.cur == i ? kInk : const Color(0xFFC3CCC7), borderRadius: BorderRadius.circular(4))),
+                    decoration: BoxDecoration(color: d.cur == i ? kInk : kDot, borderRadius: BorderRadius.circular(4))),
             ]),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -270,9 +291,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? const Text('All bills are fully paid.')
                         : Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              const Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
+                              Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
                               Text(peso(r2(nb.amt - nb.paid)), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-                              Text('Due Date on ${fmt(nb.due)}', style: const TextStyle(fontSize: 12, color: kMut)),
+                              Text('Due Date on ${fmt(nb.due)}', style: TextStyle(fontSize: 12, color: kMut)),
                             ]),
                             SizedBox(
                                 width: 150,
@@ -287,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     const Text('Recent transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                     if (tx.isNotEmpty)
-                      TextButton(onPressed: () => go(const SeeAllPage()), child: const Text('See all', style: TextStyle(color: kBlue))),
+                      TextButton(onPressed: () => go(const SeeAllPage()), child: Text('See all', style: TextStyle(color: kBlue))),
                   ]),
                 ),
                 failed
@@ -295,18 +316,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     : tx.isEmpty
                     ? Container(
                         width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 44),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                        decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(16)),
                         child: Column(children: [
-                          const Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF9AA5AD))),
-                          Text(d.cur == 2 ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
+                          Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kFaint)),
+                          Text(d.cur == 2 ? 'Apply for a loan' : 'No transactions yet', style: TextStyle(color: kFaint)),
                         ]))
                     : txCard(tx.take(5).toList()),
-                const SizedBox(height: 22),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const ScoresPage())),
-                  circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
-                  circ(Icons.credit_card, 'Manage\nCards', () => snack(context, 'Card management coming soon in Phase 2')),
-                ]),
+                const SizedBox(height: 12),
                 if (d.cur == 2 && l != null)
                   Center(child: TextButton(onPressed: d.resetLoan, child: const Text('Reset loan (tester only)'))),
               ]),
@@ -336,7 +352,7 @@ class _MoneySheetState extends State<MoneySheet> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(widget.transfer ? 'Transfer' : 'Deposit', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         Text(widget.transfer ? 'From ${a.no} (${peso(a.bal)}) to another bank.' : 'Move money from ${a.no} to your other account.',
-            style: const TextStyle(color: kMut, fontSize: 13)),
+            style: TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
         if (widget.transfer) ...[
           Padding(
@@ -394,7 +410,7 @@ class SeeAllPage extends StatelessWidget {
 
 class _Skeleton extends StatelessWidget {
   const _Skeleton();
-  Widget bar(double h, [double? w]) => Container(height: h, width: w, decoration: BoxDecoration(color: const Color(0xFFE3E8EC), borderRadius: BorderRadius.circular(14)));
+  Widget bar(double h, [double? w]) => Container(height: h, width: w, decoration: BoxDecoration(color: kSkel, borderRadius: BorderRadius.circular(14)));
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
@@ -415,11 +431,11 @@ class _Offline extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.all(32),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.wifi_off, size: 40, color: kMut),
+          Icon(Icons.wifi_off, size: 40, color: kMut),
           const SizedBox(height: 14),
           const Text('Service Temporarily Unavailable', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          const Text("We can't reach the bank right now. Please try again.", textAlign: TextAlign.center, style: TextStyle(color: kMut)),
+          Text("We can't reach the bank right now. Please try again.", textAlign: TextAlign.center, style: TextStyle(color: kMut)),
           bigBtn('Retry connection', retry),
         ]),
       );
