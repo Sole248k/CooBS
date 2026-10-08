@@ -450,7 +450,7 @@ services:
     image: postgres:16-alpine
     container_name: postgres-cloud-db
     ports:
-      - "${POSTGRES_CLOUD_PORT:-5435}:5432"
+      - "127.0.0.1:${POSTGRES_CLOUD_PORT:-5435}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_CLOUD_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -479,7 +479,7 @@ services:
       dockerfile: Dockerfile
     container_name: customer-service
     ports:
-      - "${CUSTOMER_SERVICE_PORT:-8089}:8089"
+      - "127.0.0.1:${CUSTOMER_SERVICE_PORT:-8089}:8089"
     depends_on:
       postgres-cloud-db:
         condition: service_healthy
@@ -521,7 +521,7 @@ services:
       dockerfile: Dockerfile
     container_name: transaction-service
     ports:
-      - "${TRANSACTION_SERVICE_PORT:-8090}:8090"
+      - "127.0.0.1:${TRANSACTION_SERVICE_PORT:-8090}:8090"
     depends_on:
       postgres-cloud-db:
         condition: service_healthy
@@ -568,7 +568,7 @@ services:
       dockerfile: Dockerfile
     container_name: orchestration-service
     ports:
-      - "${ORCHESTRATION_SERVICE_PORT:-8091}:8091"
+      - "127.0.0.1:${ORCHESTRATION_SERVICE_PORT:-8091}:8091"
     depends_on:
       postgres-cloud-db:
         condition: service_healthy
@@ -612,7 +612,7 @@ services:
       dockerfile: Dockerfile
     container_name: risk-engine
     ports:
-      - "${RISK_ENGINE_PORT:-8092}:8092"
+      - "127.0.0.1:${RISK_ENGINE_PORT:-8092}:8092"
     depends_on:
       redis-cache:
         condition: service_healthy
@@ -645,7 +645,7 @@ services:
       dockerfile: Dockerfile
     container_name: batch-service
     ports:
-      - "${BATCH_SERVICE_PORT:-8093}:8093"
+      - "127.0.0.1:${BATCH_SERVICE_PORT:-8093}:8093"
     depends_on:
       postgres-audit-db:
         condition: service_healthy
@@ -683,7 +683,7 @@ services:
       dockerfile: Dockerfile
     container_name: mobile-bff
     ports:
-      - "${MOBILE_BFF_PORT:-8094}:8094"
+      - "127.0.0.1:${MOBILE_BFF_PORT:-8094}:8094"
     depends_on:
       customer-service:
         condition: service_healthy

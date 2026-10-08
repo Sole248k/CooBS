@@ -13,7 +13,6 @@ import type {
   Customer360Response,
   CustomerProfile,
   DailyAuditSealResponse,
-  GatewayRoute,
   KycRequestResponse,
   KycUpdateRequestDto,
   NotificationItem,
@@ -537,34 +536,22 @@ class ApiClient {
   }
 
   // --------------------------------------------------------------------------
-  // Gateway Health & Routes
+  // Gateway Health
   // --------------------------------------------------------------------------
-  public async checkGatewayHealth(): Promise<{ status: string; latencyMs: number; routes: GatewayRoute[] }> {
+  public async checkGatewayHealth(): Promise<{ status: string; latencyMs: number }> {
     const start = performance.now();
     try {
       const res = await fetch('/actuator/health', { method: 'GET' });
       const latencyMs = Math.round(performance.now() - start);
       if (res.ok) {
-        let routes: GatewayRoute[] = [];
-        try {
-          const routesRes = await fetch('/actuator/gateway/routes');
-          if (routesRes.ok) routes = await routesRes.json();
-        } catch { /* ignore */ }
-        return { status: 'ONLINE', latencyMs, routes };
+        return { status: 'ONLINE', latencyMs };
       }
     } catch {
       // offline / standalone
     }
     return {
       status: 'ONLINE',
-      latencyMs: 3,
-      routes: [
-        { route_id: 'auth-service', uri: 'http://localhost:8081', predicates: ['Path=/api/v1/auth/**'] },
-        { route_id: 'account-service', uri: 'http://localhost:8082', predicates: ['Path=/api/v1/accounts/**', 'Path=/api/v1/customers/**'] },
-        { route_id: 'ledger-service', uri: 'http://localhost:8083', predicates: ['Path=/api/v1/ledger/**'] },
-        { route_id: 'notification-service', uri: 'http://localhost:8084', predicates: ['Path=/api/v1/notifications/**'] },
-        { route_id: 'audit-service', uri: 'http://localhost:8085', predicates: ['Path=/api/v1/audit/**'] }
-      ]
+      latencyMs: 3
     };
   }
 
