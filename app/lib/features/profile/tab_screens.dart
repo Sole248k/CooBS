@@ -96,7 +96,7 @@ class ProfileScreen extends StatelessWidget {
               ListTile(
                   title: const Text('Verify identity'),
                   subtitle: const Text('Submit your details for review'),
-                  trailing: AnimatedBuilder(animation: Demo.i, builder: (_, __) => kycChip(Demo.i.kyc)),
+                  trailing: AnimatedBuilder(animation: Demo.i, builder: (context, _) => kycChip(Demo.i.kyc)),
                   onTap: () => go(context, const KycIntakeScreen())),
               ListTile(title: const Text('Security & tokens'), subtitle: const Text('Password and active sessions'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const SecurityPage())),
               ListTile(

@@ -42,7 +42,7 @@ class _MobileShellState extends State<MobileShell> {
                     Row(children: [
                     AnimatedBuilder(
                       animation: Demo.i,
-                      builder: (_, __) => InkWell(
+                      builder: (context, _) => InkWell(
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycIntakeScreen())),
                           child: kycChip(Demo.i.kyc)),
                     ),
@@ -93,7 +93,7 @@ class _MobileShellState extends State<MobileShell> {
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
                           ListenableBuilder(
                             listenable: Demo.i,
-                            builder: (_, __) => Badge(
+                            builder: (context, _) => Badge(
                                 isLabelVisible: k == 2 && Demo.i.unread > 0,
                                 label: Text('${Demo.i.unread}'),
                                 child: Icon(_tabs[k][0] as IconData, color: i == k ? Colors.white : Colors.white54)),
@@ -124,7 +124,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    if (Demo.i.state == LoadState.loading) Demo.i.load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && Demo.i.state == LoadState.loading) {
+        Demo.i.load();
+      }
+    });
   }
 
   void go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w));
