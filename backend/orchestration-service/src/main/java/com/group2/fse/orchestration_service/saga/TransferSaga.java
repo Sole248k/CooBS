@@ -37,12 +37,17 @@ import lombok.extern.slf4j.Slf4j;
  * effect. The saga stays where it is and {@link SagaRecoveryRunner} runs it again. Only a
  * hold that is still unanswered after the retry window is given up: RISK_APPROVED goes to
  * COMPENSATING with the hold the ledger finally reports, and ends FAILED once it is released.
+ *
+ * A transfer for another bank is refused at STARTED with INTERBANK_REJECTED, before risk or
+ * the ledger is asked anything, until the outbound inter-bank path exists.
  */
 @Slf4j
 @Service
 public class TransferSaga {
 
     private static final String LEDGER_UNAVAILABLE = "LEDGER_UNAVAILABLE";
+    private static final String INTERBANK_REJECTED = "INTERBANK_REJECTED";
+    private static final String OWN_BANK_CODE = "COOBS";
     /** How often one run reloads the row after losing a race for it before leaving it to the sweep. */
     private static final int MAX_CONFLICTS = 3;
 
@@ -116,6 +121,9 @@ public class TransferSaga {
                 if (conflicts > 0) {
                     saga = reload(saga);
                 }
+                if (saga.getState() == SagaState.STARTED && isOutboundInterbank(transfer)) {
+                    refuseInterbank(saga, transfer);
+                }
                 if (saga.getState() == SagaState.STARTED) {
                     checkRisk(saga, transfer);
                 }
@@ -151,6 +159,24 @@ public class TransferSaga {
             save(saved, SagaState.COMPENSATING);
         }
         return saved;
+    }
+
+    /** A missing bank code means this bank, as at T1; any other code makes the transfer outbound. */
+    private static boolean isOutboundInterbank(StartTransferRequest t) {
+        String bankCode = t.destinationBankCode();
+        return bankCode != null && !bankCode.isBlank() && !OWN_BANK_CODE.equalsIgnoreCase(bankCode.trim());
+    }
+
+    /**
+     * There is no outbound inter-bank path yet: no partner call and no settlement posting. The
+     * steps below would credit destinationAccountId as if the money had stayed in this bank, so
+     * the transfer is refused while nothing has been asked of risk or the ledger. It ends at
+     * stage 4, the first stage this service owns.
+     */
+    private void refuseInterbank(SagaInstance saga, StartTransferRequest t) {
+        log.warn("Transaction {} is for bank {}; refused, outbound inter-bank transfers are not supported",
+                t.transactionId(), t.destinationBankCode());
+        fail(saga, t, Stage.FRAUD_CHECK, INTERBANK_REJECTED, "outbound inter-bank transfers are not supported");
     }
 
     /** Stages 4 and 5. Fails closed: anything other than a clear APPROVE ends the saga before any hold. */

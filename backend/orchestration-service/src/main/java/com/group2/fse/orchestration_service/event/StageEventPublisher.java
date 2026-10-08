@@ -76,6 +76,8 @@ public class StageEventPublisher {
             case "INSUFFICIENT_FUNDS" -> "Your available balance is not enough for this transfer.";
             case "LIMIT_EXCEEDED" -> "This transfer is over your daily limit.";
             case "RISK_DECLINED" -> "This transfer could not be approved. Please contact your branch.";
+            case "INTERBANK_REJECTED" -> "Transfers to other banks are not available yet. "
+                    + "No money has left your account.";
             default -> "We could not complete this transfer. No money has left your account.";
         };
     }
