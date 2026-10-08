@@ -3,6 +3,7 @@ package com.group2.fse.orchestration_service.client;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -78,5 +79,52 @@ class DownstreamWarmUpTest {
         when(risk.evaluate(any())).thenThrow(new DownstreamException(null, "timed out", null));
 
         assertThat(warmUp(1).round()).isFalse();
+    }
+
+    @Test
+    void keepWarmSendsOneRoundEachTime_onceTheStartUpWarmUpHasFinished() {
+        when(customers.riskProfile(0L)).thenThrow(new DownstreamException("CUSTOMER_NOT_FOUND", "404", null));
+        DownstreamWarmUp warmUp = warmUp(10);
+        warmUp.warmUp();
+
+        warmUp.keepWarm();
+        warmUp.keepWarm();
+
+        // Four rounds at start-up, then one for each interval.
+        verify(risk, times(6)).evaluate(any());
+        verify(customers, times(6)).riskProfile(0L);
+    }
+
+    @Test
+    void keepWarmWaitsForTheStartUpWarmUp_soTheTwoDoNotRunTogether() {
+        warmUp(10).keepWarm();
+
+        verify(risk, never()).evaluate(any());
+        verify(customers, never()).riskProfile(0L);
+    }
+
+    @Test
+    void keepWarmStillRuns_whenTheStartUpWarmUpGaveUp() {
+        when(customers.riskProfile(0L)).thenThrow(new DownstreamException(null, "timed out", null));
+        when(risk.evaluate(any())).thenThrow(new DownstreamException(null, "timed out", null));
+        DownstreamWarmUp warmUp = warmUp(2);
+        warmUp.warmUp();
+
+        // A round that gets no answer is not an error; the next interval sends another.
+        warmUp.keepWarm();
+        warmUp.keepWarm();
+
+        verify(risk, times(4)).evaluate(any());
+    }
+
+    @Test
+    void aSwitchedOffWarmUpSendsNothing() {
+        DownstreamWarmUp off = new DownstreamWarmUp(customers, risk, false, 1, Duration.ZERO);
+        off.warmUp();
+
+        off.keepWarm();
+
+        // Only the four rounds the test ran by calling warmUp() itself.
+        verify(risk, times(4)).evaluate(any());
     }
 }
