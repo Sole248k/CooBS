@@ -1,6 +1,0 @@
-target/*
-!target/*.jar
-.git
-.vscode
-.idea
-*.iml
