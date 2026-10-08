@@ -134,6 +134,8 @@ Whether `batch-service` publishes its step event itself or through the ledger ou
 | Variable | Rule |
 | --- | --- |
 | `JWT_SECRET` | The same value in every service. No fallback in any `application.properties`: a missing secret fails at startup |
+| `INTERNAL_SERVICE_SECRET` | risk-engine only: the value it accepts in the `X-Internal-Secret` header. No fallback: a missing value fails at startup. Compose takes it from `.env` |
+| Database passwords (`POSTGRES_CLOUD_PASSWORD`, `POSTGRES_PASSWORD`, `APP_USER_PASSWORD`, `DATABASE_PASSWORD`) | No fallback in any `application.properties`: a missing password fails at startup |
 | `JWT_EXPIRATION_MS` | Default 86400000 |
 | `CORS_ALLOWED_ORIGINS` | Default `http://localhost:3000,http://localhost:5173,http://localhost:8088,http://127.0.0.1:8088`. Fixed port `8088` handles Flutter web development (H14). Native Android (`10.0.2.2:8080`) uses direct OS sockets, bypassing browser SOP with zero CORS friction |
 
