@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/auth_models.dart';
 import '../../core/network/api_client.dart';
+import '../../core/network/api_exceptions.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../accounts/home_screen.dart';
 import '../accounts/ui.dart';
@@ -42,8 +43,11 @@ class _LoginScreenState extends State<LoginScreen> {
         body: {'username': username, 'password': password},
       );
       final token = TokenResponse.fromJson(response);
+      if (token.accessToken.isEmpty) {
+        throw UnauthorizedException('Invalid login credentials received');
+      }
       await _storage.saveTokens(
-        accessToken: token.accessToken.isNotEmpty ? token.accessToken : 'demo_token',
+        accessToken: token.accessToken,
         refreshToken: token.refreshToken,
         userId: token.userId > 0 ? token.userId : 1,
         username: username,
@@ -53,7 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        snack(context, 'Authentication failed: $e');
+        final message = e is ApiException ? e.message : 'Authentication failed. Please verify your credentials.';
+        snack(context, message);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

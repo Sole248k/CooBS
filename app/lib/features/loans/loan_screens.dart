@@ -148,23 +148,37 @@ class PayAdvanceSheet extends StatefulWidget {
 
 class _PayAdvanceSheetState extends State<PayAdvanceSheet> {
   late final amt = TextEditingController(text: '${r2(Demo.i.loan!.next!.amt - Demo.i.loan!.next!.paid)}');
-  String src = 'Checking';
+  int selectedAcctIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     final d = Demo.i;
+    final acctOptions = [
+      for (int i = 0; i < d.accts.length; i++) '${d.accts[i].type} (${d.accts[i].no})'
+    ];
+    final selectedLabel = selectedAcctIndex < acctOptions.length
+        ? acctOptions[selectedAcctIndex]
+        : (acctOptions.isNotEmpty ? acctOptions.first : null);
+
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 22, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Pay in Advance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         const Text('Pay now to settle your next bill early. Any extra goes to the following bills.', style: TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
-        dd('Pay from', [for (final a in d.accts) a.type], src, (x) => src = x ?? src),
+        if (acctOptions.isNotEmpty && selectedLabel != null)
+          dd('Pay from', acctOptions, selectedLabel, (x) {
+            final idx = acctOptions.indexOf(x ?? '');
+            if (idx != -1) setState(() => selectedAcctIndex = idx);
+          }),
         tf(amt, 'Amount (₱)', k: const TextInputType.numberWithOptions(decimal: true)),
         Text('Outstanding balance: ${peso(d.loan!.balance)}', style: const TextStyle(color: kMut, fontSize: 12)),
         bigBtn('Pay', () {
           final v = double.tryParse(amt.text) ?? 0;
-          final err = d.payAdvance(d.accts.indexWhere((a) => a.type == src), v);
+          if (selectedAcctIndex < 0 || selectedAcctIndex >= d.accts.length) {
+            return snack(context, 'Please select a valid account');
+          }
+          final err = d.payAdvance(selectedAcctIndex, v);
           if (err != null) return snack(context, err);
           Navigator.pop(context);
           snack(context, 'Paid ${peso(v)} toward your loan');

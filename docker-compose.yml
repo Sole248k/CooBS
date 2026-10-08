@@ -139,6 +139,7 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.evaluated.v1.DLT --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic transaction.stage.changed.v1.DLT --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.dispatched.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.events.DLT --partitions 3 --replication-factor 1
         echo "Available topics:"
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --list
     networks:
@@ -670,6 +671,48 @@ services:
     restart: unless-stopped
     networks:
       - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # mobile-bff (cloud) - Mobile Backend-for-Frontend middleware
+  # ----------------------------------------------------------------------------
+  mobile-bff:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/mobile-bff
+      dockerfile: Dockerfile
+    container_name: mobile-bff
+    ports:
+      - "${MOBILE_BFF_PORT:-8094}:8094"
+    depends_on:
+      customer-service:
+        condition: service_healthy
+      account-service:
+        condition: service_healthy
+      transaction-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8094
+      CUSTOMER_SERVICE_URL: http://customer-service:8089
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8094/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
 
   # ============================================================================
   # 13. PROMETHEUS (Time-Series Metrics Collection & Alerting)

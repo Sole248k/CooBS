@@ -1133,6 +1133,7 @@ CREATE TABLE IF NOT EXISTS txn.interbank_message (
 
 -- state: STARTED, RISK_APPROVED, FUNDS_RESERVED, POSTED, COMPLETED, FAILED, COMPENSATING, COMPENSATED
 -- transaction_id is the same value as txn.txn_transaction; no foreign key across owners.
+-- version is the optimistic lock on the row (SagaInstance @Version in orchestration-service).
 CREATE TABLE IF NOT EXISTS saga.saga_instance (
     saga_id UUID PRIMARY KEY,
     transaction_id UUID NOT NULL UNIQUE,
@@ -1142,7 +1143,8 @@ CREATE TABLE IF NOT EXISTS saga.saga_instance (
     risk_decision VARCHAR(20),
     failure_code VARCHAR(60),
     payload TEXT,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    version BIGINT NOT NULL DEFAULT 0
 );
 """]
 

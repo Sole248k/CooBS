@@ -72,7 +72,6 @@ One rule per row, each set to **Required**. Roles map to people as follows: Dev 
 | `/backend/ledger-service/*` | Dev 3 |
 | `/backend/notification-service/*` | Dev 3 |
 | `/backend/risk-engine/*` | Dev 4 |
-| `/backend/core-mock/*` | Dev 4 |
 | `/database/*` | Dev 5 |
 | `/backend/batch-service/*` | Dev 5 |
 | `/backend/audit-service/*` | Dev 5 |

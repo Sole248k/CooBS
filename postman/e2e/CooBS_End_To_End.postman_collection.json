@@ -40,6 +40,26 @@
       "key": "initial_receiver_balance",
       "value": "0",
       "type": "string"
+    },
+    {
+      "key": "poll_transfer",
+      "value": "0"
+    },
+    {
+      "key": "poll_timeline",
+      "value": "0"
+    },
+    {
+      "key": "poll_reversal_prep",
+      "value": "0"
+    },
+    {
+      "key": "poll_reversal",
+      "value": "0"
+    },
+    {
+      "key": "poll_insufficient",
+      "value": "0"
     }
   ],
   "item": [
@@ -665,20 +685,42 @@
           }
         },
         {
-          "name": "5.3 Verify Transaction Details (T2)",
+          "name": "5.3 Wait for the Transfer to Post (poll T2)",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// A repeat of this request waits one second first, so the saga has time to move.",
+                  "if (parseInt(pm.collectionVariables.get(\"poll_transfer\") || \"0\", 10) > 0) {",
+                  "    setTimeout(function () {}, 1000);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"Status code is 200 OK\", function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
                   "var data = pm.response.json();",
-                  "pm.test(\"Transaction progressed to POSTED or COMPLETED\", function () {",
-                  "    pm.expect([\"POSTED\", \"COMPLETED\", \"PROCESSING\"]).to.include(data.status);",
-                  "    pm.expect(data.amount).to.eql(\"2500.00\");",
-                  "});"
+                  "var attempts = parseInt(pm.collectionVariables.get(\"poll_transfer\") || \"0\", 10);",
+                  "var stillRunning = pm.response.code === 200 && (data.status === \"INITIATED\" || data.status === \"PROCESSING\");",
+                  "if (stillRunning && attempts < 20) {",
+                  "    pm.collectionVariables.set(\"poll_transfer\", String(attempts + 1));",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.set(\"poll_transfer\", \"0\");",
+                  "    pm.test(\"Status code is 200 OK\", function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "    pm.test(\"Transfer reached POSTED\", function () {",
+                  "        pm.expect(data.status, \"failureCode: \" + data.failureCode).to.eql(\"POSTED\");",
+                  "    });",
+                  "    pm.test(\"Amount is the string 2500.00\", function () {",
+                  "        pm.expect(data.amount).to.eql(\"2500.00\");",
+                  "    });",
+                  "}"
                 ],
                 "type": "text/javascript"
               }
@@ -700,24 +742,50 @@
           }
         },
         {
-          "name": "5.4 Verify 11-Stage Saga Timeline (T3)",
+          "name": "5.4 Verify 11-Stage Saga Timeline (poll T3)",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// A repeat of this request waits one second first, so the saga has time to move.",
+                  "if (parseInt(pm.collectionVariables.get(\"poll_timeline\") || \"0\", 10) > 0) {",
+                  "    setTimeout(function () {}, 1000);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"Status code is 200 OK\", function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
                   "var data = pm.response.json();",
-                  "pm.test(\"Timeline has stages array\", function () {",
-                  "    pm.expect(data.stages).to.be.an(\"array\");",
-                  "    pm.expect(data.stages.length).to.be.at.least(1);",
-                  "});",
-                  "pm.test(\"Latest stage outcome is PASSED\", function () {",
-                  "    var latest = data.stages[data.stages.length - 1];",
-                  "    pm.expect(latest.outcome).to.eql(\"PASSED\");",
-                  "});"
+                  "var attempts = parseInt(pm.collectionVariables.get(\"poll_timeline\") || \"0\", 10);",
+                  "var stillRunning = pm.response.code === 200 && (data.status !== \"FAILED\" && !(data.stages || []).some(function (s) { return s.stageNo === 11 && s.outcome === \"PASSED\"; }));",
+                  "if (stillRunning && attempts < 20) {",
+                  "    pm.collectionVariables.set(\"poll_timeline\", String(attempts + 1));",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.set(\"poll_timeline\", \"0\");",
+                  "    pm.test(\"Status code is 200 OK\", function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "    pm.test(\"Staff timeline has eleven stages\", function () {",
+                  "        pm.expect(data.stages).to.be.an(\"array\");",
+                  "        pm.expect(data.stages.length).to.eql(11);",
+                  "    });",
+                  "    pm.test(\"Stage names are the contract's (section 2.7)\", function () {",
+                  "        pm.expect(data.stages.map(function (s) { return s.stageName; })).to.eql([",
+                  "            \"INITIATED\", \"VALIDATED\", \"AUTHENTICATED\", \"FRAUD_CHECK\", \"LIMIT_CHECK\", \"FUNDS_CHECK\",",
+                  "            \"AUTHORIZED\", \"POSTED\", \"LEDGER_UPDATE\", \"NOTIFICATION\", \"RECONCILIATION\"]);",
+                  "    });",
+                  "    pm.test(\"All eleven stages PASSED\", function () {",
+                  "        var notPassed = data.stages.filter(function (s) { return s.outcome !== \"PASSED\"; })",
+                  "            .map(function (s) { return s.stageNo + \" \" + s.stageName + \" \" + s.outcome; });",
+                  "        pm.expect(notPassed).to.eql([]);",
+                  "    });",
+                  "}"
                 ],
                 "type": "text/javascript"
               }
@@ -876,6 +944,57 @@
           }
         },
         {
+          "name": "7.1a Wait for the Transfer to Post (poll T2)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// A repeat of this request waits one second first, so the saga has time to move.",
+                  "if (parseInt(pm.collectionVariables.get(\"poll_reversal_prep\") || \"0\", 10) > 0) {",
+                  "    setTimeout(function () {}, 1000);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var data = pm.response.json();",
+                  "var attempts = parseInt(pm.collectionVariables.get(\"poll_reversal_prep\") || \"0\", 10);",
+                  "var stillRunning = pm.response.code === 200 && (data.status === \"INITIATED\" || data.status === \"PROCESSING\");",
+                  "if (stillRunning && attempts < 20) {",
+                  "    pm.collectionVariables.set(\"poll_reversal_prep\", String(attempts + 1));",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.set(\"poll_reversal_prep\", \"0\");",
+                  "    pm.test(\"Transfer to be reversed reached POSTED\", function () {",
+                  "        pm.expect(data.status, \"failureCode: \" + data.failureCode).to.eql(\"POSTED\");",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{reversal_target_tx_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{reversal_target_tx_id}}"]
+            }
+          }
+        },
+        {
           "name": "7.2 Staff Reversal Request (T5 / O2)",
           "event": [
             {
@@ -892,14 +1011,19 @@
               "listen": "test",
               "script": {
                 "exec": [
+                  "pm.collectionVariables.set(\"reversal_accepted\", \"false\");",
                   "pm.test(\"Status code is 202 Accepted or 200 OK\", function () {",
                   "    pm.expect([200, 202]).to.include(pm.response.code);",
                   "});",
                   "var data = pm.response.json();",
-                  "pm.test(\"Reversal accepted with transactionId\", function () {",
+                  "pm.test(\"Reversal accepted and points at the original\", function () {",
                   "    pm.expect(data.transactionId).to.not.be.empty;",
+                  "    pm.expect(data.reversesTransactionId).to.eql(pm.collectionVariables.get(\"reversal_target_tx_id\"));",
                   "});",
-                  "pm.collectionVariables.set(\"dynamic_reversal_id\", data.transactionId);"
+                  "if (pm.response.code === 200 || pm.response.code === 202) {",
+                  "    pm.collectionVariables.set(\"reversal_accepted\", \"true\");",
+                  "    pm.collectionVariables.set(\"dynamic_reversal_id\", data.transactionId);",
+                  "}"
                 ],
                 "type": "text/javascript"
               }
@@ -923,7 +1047,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reason\": \"Disputed transaction by customer\",\n  \"actorId\": 3\n}"
+              "raw": "{\n  \"reason\": \"Disputed transaction by customer\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{reversal_target_tx_id}}/reversal",
@@ -933,19 +1057,40 @@
           }
         },
         {
-          "name": "7.3 Verify Original Transaction State is REVERSED",
+          "name": "7.3 Verify Original Transaction State is REVERSED (poll T2)",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// A repeat of this request waits one second first, so the saga has time to move.",
+                  "if (parseInt(pm.collectionVariables.get(\"poll_reversal\") || \"0\", 10) > 0) {",
+                  "    setTimeout(function () {}, 1000);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"Status code is 200 OK\", function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
                   "var data = pm.response.json();",
-                  "pm.test(\"Original transaction status updated to REVERSED\", function () {",
-                  "    pm.expect([\"REVERSED\", \"COMPENSATED\"]).to.include(data.status);",
-                  "});"
+                  "var attempts = parseInt(pm.collectionVariables.get(\"poll_reversal\") || \"0\", 10);",
+                  "var stillRunning = pm.response.code === 200 && (pm.collectionVariables.get(\"reversal_accepted\") === \"true\" && data.status !== \"REVERSED\");",
+                  "if (stillRunning && attempts < 20) {",
+                  "    pm.collectionVariables.set(\"poll_reversal\", String(attempts + 1));",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.set(\"poll_reversal\", \"0\");",
+                  "    pm.test(\"Status code is 200 OK\", function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "    pm.test(\"Original transaction status updated to REVERSED\", function () {",
+                  "        pm.expect(data.status).to.eql(\"REVERSED\");",
+                  "        pm.expect(data.reversedByTransactionId).to.eql(pm.collectionVariables.get(\"dynamic_reversal_id\"));",
+                  "    });",
+                  "}"
                 ],
                 "type": "text/javascript"
               }
@@ -972,7 +1117,7 @@
       "name": "08. Real-Time In-App Notifications",
       "item": [
         {
-          "name": "8.1 Customer Notifications (GET /api/v1/notifications)",
+          "name": "8.1 Customer Notifications (N1)",
           "event": [
             {
               "listen": "test",
@@ -1004,9 +1149,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/notifications",
+              "raw": "{{baseUrl}}/api/v1/notifications/my-notifications",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "notifications"]
+              "path": ["api", "v1", "notifications", "my-notifications"]
             }
           }
         },
@@ -1050,7 +1195,7 @@
       "name": "09. Cryptographic Audit Chain & Forensic Integrity",
       "item": [
         {
-          "name": "9.1 Verify Cryptographic Hash Chain (Audit Service)",
+          "name": "9.1 Verify Cryptographic Hash Chain (U3)",
           "event": [
             {
               "listen": "test",
@@ -1079,14 +1224,14 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/audit/chain/verify",
+              "raw": "{{baseUrl}}/api/v1/audit/verify-chain/{{source_account_id}}",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "audit", "chain", "verify"]
+              "path": ["api", "v1", "audit", "verify-chain", "{{source_account_id}}"]
             }
           }
         },
         {
-          "name": "9.2 Account Audit Trail",
+          "name": "9.2 Account Audit Statement (U1)",
           "event": [
             {
               "listen": "test",
@@ -1114,9 +1259,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/audit/accounts/1/trail",
+              "raw": "{{baseUrl}}/api/v1/audit/accounts/{{source_account_id}}/statement",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "audit", "accounts", "1", "trail"]
+              "path": ["api", "v1", "audit", "accounts", "{{source_account_id}}", "statement"]
             }
           }
         }
@@ -1126,13 +1271,86 @@
       "name": "10. Edge Cases, Risk Guardrails & Negative Paths",
       "item": [
         {
-          "name": "10.1 Insufficient Funds Transfer (Assert 422)",
+          "name": "10.0a Low-Balance Member Login (Liza Mercado)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.collectionVariables.set(\"low_balance_token\", pm.response.json().authData.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"liza_mercado\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/customers/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "customers", "login"]
+            }
+          }
+        },
+        {
+          "name": "10.0b Capture the Low-Balance Member's Balance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var available = parseFloat(pm.response.json().availableBalance);",
+                  "pm.collectionVariables.set(\"sender_balance_before_insufficient\", String(available));",
+                  "pm.collectionVariables.set(\"sender_balance_now\", String(available));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{low_balance_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/9",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "9"]
+            }
+          }
+        },
+        {
+          "name": "10.1 Insufficient Funds Transfer (T1 - Accepted, Fails Later)",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "exec": [
-                  "pm.collectionVariables.set(\"fail_insufficient_key\", 'idem-inf-' + Date.now());"
+                  "pm.collectionVariables.set(\"fail_insufficient_key\", 'idem-inf-' + Date.now());",
+                  "// liza_mercado is seeded with PHP 150.00 for this case. A small amount just above her balance",
+                  "// passes the risk and limit checks and is stopped by the hold, and uses almost none of her",
+                  "// daily limit, which the risk engine counts even when the transfer later fails.",
+                  "var balance = parseFloat(pm.collectionVariables.get(\"sender_balance_now\") || \"150\");",
+                  "pm.collectionVariables.set(\"insufficient_amount\", (balance + 100).toFixed(2));"
                 ],
                 "type": "text/javascript"
               }
@@ -1141,13 +1359,11 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"Status code is 422 Unprocessable Entity or 400 Bad Request\", function () {",
-                  "    pm.expect([400, 422]).to.include(pm.response.code);",
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
                   "});",
                   "var data = pm.response.json();",
-                  "pm.test(\"Error code specifies INSUFFICIENT_FUNDS or LIMIT_EXCEEDED\", function () {",
-                  "    pm.expect([\"INSUFFICIENT_FUNDS\", \"LIMIT_EXCEEDED\", \"RISK_DECLINED\"]).to.include(data.errorCode);",
-                  "});"
+                  "pm.collectionVariables.set(\"insufficient_tx_id\", data.transactionId);"
                 ],
                 "type": "text/javascript"
               }
@@ -1158,7 +1374,7 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{customer_token}}"
+                "value": "Bearer {{low_balance_token}}"
               },
               {
                 "key": "Content-Type",
@@ -1171,12 +1387,135 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sourceAccountId\": 1,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"999999999.00\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"Excessive transfer that must fail\"\n}"
+              "raw": "{\n  \"sourceAccountId\": 9,\n  \"destinationAccountNumber\": \"ACC_10000002\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"{{insufficient_amount}}\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"Excessive transfer that must fail\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/transfers",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "transactions", "transfers"]
+            }
+          }
+        },
+        {
+          "name": "10.1a Insufficient Funds Ends FAILED (poll T2)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// A repeat of this request waits one second first, so the saga has time to move.",
+                  "if (parseInt(pm.collectionVariables.get(\"poll_insufficient\") || \"0\", 10) > 0) {",
+                  "    setTimeout(function () {}, 1000);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var data = pm.response.json();",
+                  "var attempts = parseInt(pm.collectionVariables.get(\"poll_insufficient\") || \"0\", 10);",
+                  "var stillRunning = pm.response.code === 200 && (data.status === \"INITIATED\" || data.status === \"PROCESSING\");",
+                  "if (stillRunning && attempts < 20) {",
+                  "    pm.collectionVariables.set(\"poll_insufficient\", String(attempts + 1));",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.set(\"poll_insufficient\", \"0\");",
+                  "    pm.test(\"Transfer ended FAILED with INSUFFICIENT_FUNDS\", function () {",
+                  "        pm.expect(data.status).to.eql(\"FAILED\");",
+                  "        pm.expect(data.failureCode).to.eql(\"INSUFFICIENT_FUNDS\");",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{low_balance_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{insufficient_tx_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{insufficient_tx_id}}"]
+            }
+          }
+        },
+        {
+          "name": "10.1b Insufficient Funds Fails at FUNDS_CHECK (T3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Stage 6 FUNDS_CHECK is the one that FAILED\", function () {",
+                  "    var failed = (data.stages || []).filter(function (s) { return s.outcome === \"FAILED\"; });",
+                  "    pm.expect(failed.length).to.eql(1);",
+                  "    pm.expect(failed[0].stageNo).to.eql(6);",
+                  "    pm.expect(failed[0].stageName).to.eql(\"FUNDS_CHECK\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{insufficient_tx_id}}/timeline",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{insufficient_tx_id}}", "timeline"]
+            }
+          }
+        },
+        {
+          "name": "10.1c Balance Unchanged After the Failed Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"No hold was left on the account\", function () {",
+                  "    var before = parseFloat(pm.collectionVariables.get(\"sender_balance_before_insufficient\"));",
+                  "    pm.expect(parseFloat(pm.response.json().availableBalance)).to.be.closeTo(before, 0.01);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{low_balance_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/9",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "9"]
             }
           }
         },
@@ -1287,6 +1626,66 @@
               "raw": "{{baseUrl}}/api/v1/accounts/2",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "accounts", "2"]
+            }
+          }
+        },
+        {
+          "name": "10.5 Customer Token on a Ledger Endpoint (Assert 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ledger/accounts/{{source_account_id}}/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ledger", "accounts", "{{source_account_id}}", "balance"]
+            }
+          }
+        },
+        {
+          "name": "10.6 Internal Path Through the Gateway (Assert 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/internal/v1/sagas/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["internal", "v1", "sagas", "00000000-0000-0000-0000-000000000000"]
             }
           }
         }

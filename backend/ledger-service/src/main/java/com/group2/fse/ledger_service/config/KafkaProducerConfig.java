@@ -62,4 +62,25 @@ public class KafkaProducerConfig {
     public KafkaTemplate<String, Object> kafkaTemplate(ProducerFactory<String, Object> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
+
+    /**
+     * Outbox rows already hold JSON text, so they are sent as they are. The JSON template above
+     * would serialize the string a second time and consumers would receive a quoted string.
+     */
+    @Bean
+    public ProducerFactory<String, String> outboxProducerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.ACKS_CONFIG, acks);
+        configProps.put(ProducerConfig.RETRIES_CONFIG, retries);
+        configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, enableIdempotence);
+        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, maxInFlightRequests);
+
+        return new DefaultKafkaProducerFactory<>(configProps, new StringSerializer(), new StringSerializer());
+    }
+
+    @Bean
+    public KafkaTemplate<String, String> outboxKafkaTemplate(ProducerFactory<String, String> outboxProducerFactory) {
+        return new KafkaTemplate<>(outboxProducerFactory);
+    }
 }

@@ -7,6 +7,7 @@ import '../../shell/app_shell.dart';
 
 /// Declarative Named Routing & Route Registry.
 class AppRouter {
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   static const String initial = '/';
   static const String login = '/login';
   static const String mobile = '/mobile';

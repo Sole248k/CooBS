@@ -24,6 +24,8 @@ public class TransactionDetailResponseDto {
     private Long destinationAccountId;
     private String destinationAccountNumber;
     private String destinationBankCode;
+    /** A string on the wire; set it through Money.toContractScale so it has two to four decimals. */
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private BigDecimal amount;
     private String currency;
     private String category;

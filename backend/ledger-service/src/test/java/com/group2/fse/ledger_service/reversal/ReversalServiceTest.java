@@ -115,6 +115,9 @@ class ReversalServiceTest {
                 .newBalance(new BigDecimal("27875.0000"))
                 .status("COMPLETED")
                 .build();
+
+        // No reversal is in the journal yet, whatever reversal reference a test uses.
+        lenient().when(transactionRepository.findByOriginalReferenceNo(startsWith("RV-"))).thenReturn(List.of());
     }
 
     @Test
@@ -130,7 +133,6 @@ class ReversalServiceTest {
                 .actorId(3L)
                 .build();
 
-        when(transactionRepository.existsByReferenceNo(anyString())).thenReturn(false);
         when(transactionRepository.findByOriginalReferenceNo("TX-20261003-8F3A21C0"))
                 .thenReturn(List.of(originalDebitTxn, originalCreditTxn));
         when(transactionRepository.existsByReversesTransaction_TransactionId(anyLong())).thenReturn(false);
@@ -203,7 +205,6 @@ class ReversalServiceTest {
                 .build();
 
         when(transactionRepository.findByOriginalReferenceNo("TX-NONEXISTENT")).thenReturn(List.of());
-        when(transactionRepository.findByReferenceNo("TX-NONEXISTENT")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> reversalService.processReversal(request, 1L, "127.0.0.1"))
                 .isInstanceOf(TransactionNotFoundException.class)
@@ -274,5 +275,72 @@ class ReversalServiceTest {
         assertThatThrownBy(() -> reversalService.processReversal(request, 1L, "127.0.0.1"))
                 .isInstanceOf(InvalidTransactionException.class)
                 .hasMessageContaining("Cannot reverse a reversal");
+    }
+
+    private Transaction storedReversalLeg(long id, Account account, String ref, String type, Transaction reverses,
+                                          String newBalance) {
+        return Transaction.builder()
+                .transactionId(id)
+                .account(account)
+                .referenceNo(ref)
+                .transactionType(type)
+                .amount(new BigDecimal("2500.0000"))
+                .newBalance(new BigDecimal(newBalance))
+                .status("COMPLETED")
+                .reversesTransaction(reverses)
+                .build();
+    }
+
+    @Test
+    @DisplayName("A repeat of an applied reversal returns the stored entries and moves no money")
+    void testProcessReversal_RepeatReturnsTheStoredResult() {
+        ReversalRequestDto request = ReversalRequestDto.builder()
+                .originalReferenceNo("TX-20261003-8F3A21C0")
+                .reversalReferenceNo("RV-20261003-11AA22BB")
+                .reason("Customer dispute approved")
+                .actorId(3L)
+                .build();
+        when(transactionRepository.findByOriginalReferenceNo("RV-20261003-11AA22BB")).thenReturn(List.of(
+                storedReversalLeg(5003L, senderAccount, "RV-20261003-11AA22BB-C", "REVERSAL_CREDIT", originalDebitTxn, "49625.0000"),
+                storedReversalLeg(5004L, recipientAccount, "RV-20261003-11AA22BB-D", "REVERSAL_DEBIT", originalCreditTxn, "25375.0000")));
+
+        ReversalResponseDto response = reversalService.processReversal(request, 3L, "127.0.0.1");
+
+        assertThat(response.getStatus()).isEqualTo("POSTED");
+        assertThat(response.getReversalReferenceNo()).isEqualTo("RV-20261003-11AA22BB");
+        assertThat(response.getOriginalReferenceNo()).isEqualTo("TX-20261003-8F3A21C0");
+        assertThat(response.getEntries()).extracting("transactionId").containsExactly(5003L, 5004L);
+        assertThat(response.getEntries()).extracting("transactionType").containsExactly("REVERSAL_CREDIT", "REVERSAL_DEBIT");
+        assertThat(response.getEntries().get(0).getNewBalance()).isEqualByComparingTo("49625.00");
+        verify(postingEngine, never()).lockAccountsInOrder(anyLong(), anyLong());
+        verify(transactionRepository, never()).save(any(Transaction.class));
+    }
+
+    @Test
+    @DisplayName("Throws 409 when the reversal reference was already used for a different original")
+    void testProcessReversal_ReferenceUsedForAnotherOriginal() {
+        ReversalRequestDto request = ReversalRequestDto.builder()
+                .originalReferenceNo("TX-20261003-OTHER000")
+                .reversalReferenceNo("RV-20261003-11AA22BB")
+                .build();
+        when(transactionRepository.findByOriginalReferenceNo("RV-20261003-11AA22BB")).thenReturn(List.of(
+                storedReversalLeg(5003L, senderAccount, "RV-20261003-11AA22BB-C", "REVERSAL_CREDIT", originalDebitTxn, "49625.0000")));
+
+        assertThatThrownBy(() -> reversalService.processReversal(request, 3L, "127.0.0.1"))
+                .isInstanceOf(TransactionAlreadyReversedException.class);
+
+        verify(postingEngine, never()).lockAccountsInOrder(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("A posting is looked up by its exact reference and leg references, never by a pattern")
+    void testLegReferencesAreExact() {
+        assertThat(com.group2.fse.ledger_service.repository.TransactionRepository.legReferences("TX-20261003-8F3A21C0"))
+                .containsExactly("TX-20261003-8F3A21C0", "TX-20261003-8F3A21C0-D", "TX-20261003-8F3A21C0-C");
+
+        String long36 = "TX-20261006-0123456789-0123456789-AB";
+        assertThat(com.group2.fse.ledger_service.repository.TransactionRepository.legReferences(long36))
+                .contains(long36, long36.substring(0, 33) + "-D", long36.substring(0, 34) + "-C")
+                .allSatisfy(reference -> assertThat(reference.length()).isLessThanOrEqualTo(36));
     }
 }

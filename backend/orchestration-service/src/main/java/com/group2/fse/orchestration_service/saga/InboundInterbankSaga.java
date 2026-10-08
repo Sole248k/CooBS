@@ -9,7 +9,6 @@ import com.group2.fse.orchestration_service.client.DownstreamException;
 import com.group2.fse.orchestration_service.client.InternalApi;
 import com.group2.fse.orchestration_service.client.LedgerClient;
 import com.group2.fse.orchestration_service.dto.SagaDtos.InboundInterbankRequest;
-import com.group2.fse.orchestration_service.event.StageEventPublisher;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,7 +25,7 @@ public class InboundInterbankSaga {
 
     private final SagaRepository sagas;
     private final LedgerClient ledger;
-    private final StageEventPublisher events;
+    private final StageEvents events;
 
     /**
      * @throws DownstreamException when the ledger gives no answer. The saga stays STARTED and
@@ -46,7 +45,7 @@ public class InboundInterbankSaga {
             String failureCode = post(r);
             saga.setFailureCode(failureCode);
             saga.setState(failureCode == null ? SagaState.COMPLETED : SagaState.FAILED);
-            sagas.saveAndFlush(saga);
+            sagas.store(saga);
 
             for (Stage stage : Stage.values()) {
                 if (stage.no() < Stage.POSTED.no()) {

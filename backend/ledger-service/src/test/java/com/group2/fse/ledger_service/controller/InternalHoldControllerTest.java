@@ -2,6 +2,7 @@ package com.group2.fse.ledger_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.group2.fse.ledger_service.dto.*;
+import com.group2.fse.ledger_service.exception.DuplicateIdempotencyKeyException;
 import com.group2.fse.ledger_service.exception.GlobalExceptionHandler;
 import com.group2.fse.ledger_service.exception.HoldNotFoundException;
 import com.group2.fse.ledger_service.service.HoldService;
@@ -20,6 +21,7 @@ import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -196,5 +198,59 @@ class InternalHoldControllerTest {
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST_PARAMETERS"));
+    }
+
+    @Test
+    @DisplayName("L3: a hold amount with five decimals is rejected, not rounded")
+    void holdWithFiveDecimalAmount_isRejectedWith400() throws Exception {
+        mockMvc.perform(post("/internal/v1/ledger/holds")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"referenceNo\":\"TX-20261006-FFFF0001\",\"accountId\":1,\"amount\":100.00005}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST_PARAMETERS"))
+                .andExpect(jsonPath("$.invalidParams[0].field").value("amount"));
+
+        verifyNoInteractions(holdService);
+    }
+
+    @Test
+    @DisplayName("L3: a referenceNo longer than 34 characters is rejected")
+    void referenceLongerThan34Chars_isRejectedWith400() throws Exception {
+        String ref35 = "TX-20261006-0123456789-0123456789AB";
+
+        mockMvc.perform(post("/internal/v1/ledger/holds")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"referenceNo\":\"" + ref35 + "\",\"accountId\":1,\"amount\":100.00}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_REQUEST_PARAMETERS"))
+                .andExpect(jsonPath("$.invalidParams[0].field").value("referenceNo"));
+
+        verifyNoInteractions(holdService);
+    }
+
+    @Test
+    @DisplayName("L3: a 34-character referenceNo and a four-decimal amount are accepted")
+    void referenceOf34CharsAndFourDecimalAmount_areAccepted() throws Exception {
+        String ref34 = "TX-20261006-0123456789-0123456789A";
+        when(holdService.placeHold(any(PlaceHoldRequestDto.class), any()))
+                .thenReturn(PlaceHoldResponseDto.builder().holdId(9001L).referenceNo(ref34).status("RESERVED").build());
+
+        mockMvc.perform(post("/internal/v1/ledger/holds")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"referenceNo\":\"" + ref34 + "\",\"accountId\":1,\"amount\":100.0001}"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("L3: a replay with the same reference but a different amount returns 409")
+    void placeHoldReplayWithDifferentAmount_returns409() throws Exception {
+        when(holdService.placeHold(any(PlaceHoldRequestDto.class), any()))
+                .thenThrow(new DuplicateIdempotencyKeyException("Hold reference already used with a different amount"));
+
+        mockMvc.perform(post("/internal/v1/ledger/holds")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"referenceNo\":\"TX-20261006-DDDD0001\",\"accountId\":1,\"amount\":900.00}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("DUPLICATE_IDEMPOTENCY_KEY"));
     }
 }

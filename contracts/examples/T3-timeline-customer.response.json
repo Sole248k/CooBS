@@ -1,22 +1,44 @@
 {
   "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "trackingReference": "TX-20261003-8F3A21C0",
   "status": "PROCESSING",
+  "overallStatus": "PROCESSING",
   "view": "CUSTOMER",
+  "currentStage": 1,
+  "totalStages": 3,
   "stages": [
     {
+      "stageNumber": 1,
+      "stageKey": "SUBMITTED",
       "stageName": "INITIATED",
+      "title": "Transfer Submitted",
+      "subtitle": "Your transfer request has been received and verified.",
+      "status": "COMPLETED",
       "outcome": "PASSED",
-      "occurredAt": "2026-10-03T11:40:00.010Z"
+      "occurredAt": "2026-10-03T11:40:00.010Z",
+      "timestamp": "2026-10-03T11:40:00.010Z"
     },
     {
+      "stageNumber": 2,
+      "stageKey": "IN_REVIEW",
       "stageName": "PROCESSING",
+      "title": "Security & Clearing",
+      "subtitle": "Automated security screening and cooperative network clearing.",
+      "status": "IN_PROGRESS",
       "outcome": "PENDING",
-      "occurredAt": null
+      "occurredAt": null,
+      "timestamp": null
     },
     {
+      "stageNumber": 3,
+      "stageKey": "COMPLETED",
       "stageName": "POSTED",
+      "title": "Transfer Completed",
+      "subtitle": "Funds have been successfully deposited into the recipient's account.",
+      "status": "PENDING",
       "outcome": "PENDING",
-      "occurredAt": null
+      "occurredAt": null,
+      "timestamp": null
     }
   ],
   "failureMessage": null

@@ -168,4 +168,30 @@ class Demo extends ChangeNotifier {
 
   void resetLoan() { loan = null; notifyListeners(); }
   void addBen(Ben b) { bens.add(b); notifyListeners(); }
+
+  void reset() {
+    isInitializedFromApi = false;
+    loan = null;
+    hide = false;
+    cur = 0;
+    accts.clear();
+    accts.addAll([
+      Acct('Checking', 'ACC-1001-8842', 14750.50, [
+        Tx('Transfer to ACC-1002-9915', 'TXN-9021', today, -150),
+        Tx('Payroll deposit', 'CORP-PAYROLL · TXN-9018', today, 3250),
+      ]),
+      Acct('Savings', 'ACC-1002-9915', 85200, [
+        Tx('Transfer from ACC-1001-8842', 'TXN-9020', today, 150),
+        Tx('Cash deposit', 'TXN-9004', DateTime(2026, 10, 2), 5000),
+        Tx('Interest credit', 'INT-0930', DateTime(2026, 9, 30), 42.60),
+      ]),
+    ]);
+    alerts.clear();
+    alerts.addAll([
+      ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
+      ['₱150.00 transferred to ACC-1002-9915', 'Ref TXN-9021 · Today'],
+      ['KYC update approved', 'Yesterday'],
+    ]);
+    notifyListeners();
+  }
 }

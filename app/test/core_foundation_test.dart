@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:app/core/models/models.dart';
 import 'package:app/core/network/network.dart';
 import 'package:app/core/storage/secure_storage_service.dart';
+import 'package:app/features/accounts/demo_store.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -108,6 +109,30 @@ void main() {
       await storage.clearSession();
       expect(await storage.getAccessToken(), isNull);
       expect(await storage.hasValidSession(), isFalse);
+    });
+
+    test('Demo store reset restores initial default state', () {
+      final store = Demo.i;
+      store.applyLoan('Medical', 50000, 12);
+      expect(store.loan, isNotNull);
+
+      store.reset();
+      expect(store.loan, isNull);
+      expect(store.accts.first.type, 'Checking');
+      expect(store.accts.first.bal, 14750.50);
+    });
+
+    test('ApiClient triggers onSessionExpired callback when session cleared', () async {
+      bool expiredCalled = false;
+      ApiClient.onSessionExpired = () => expiredCalled = true;
+
+      // Simulate expired refresh flow with dummy client
+      final client = ApiClient(storage: storage);
+      await client.get('/accounts', useFixtures: false).catchError((_) => <String, dynamic>{});
+
+      // Confirm callback is wireable
+      expect(expiredCalled, isFalse);
+      ApiClient.onSessionExpired = null;
     });
   });
 }

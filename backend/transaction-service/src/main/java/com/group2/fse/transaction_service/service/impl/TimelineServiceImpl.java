@@ -13,6 +13,10 @@ import com.group2.fse.transaction_service.service.TimelineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import com.group2.fse.transaction_service.exception.TransferRejectedException;
+import com.group2.fse.transaction_service.security.UserPrincipal;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,24 +34,26 @@ public class TimelineServiceImpl implements TimelineService {
     private final TxnTransactionRepository transactionRepository;
     private final TxnStageEventRepository stageEventRepository;
 
+    // Stage names are the contract's (section 2.7); the title is the same name in words.
     private static final List<StaffStageDef> STAFF_STAGE_DEFINITIONS = List.of(
-            new StaffStageDef(1, "INGRESS_ACCEPTED", "Ingress Accepted", "transaction-service"),
-            new StaffStageDef(2, "PREFLIGHT_VALIDATED", "Pre-flight Solvency Checked", "transaction-service"),
-            new StaffStageDef(3, "DISPATCHED_TO_ORCHESTRATOR", "Dispatched to Orchestrator", "transaction-service"),
-            new StaffStageDef(4, "SAGA_INITIALIZED", "Saga State Machine Initialized", "orchestration-service"),
-            new StaffStageDef(5, "RISK_EVALUATION_REQUESTED", "Risk Evaluation Requested", "orchestration-service"),
-            new StaffStageDef(6, "RISK_EVALUATION_COMPLETED", "Risk Screening Passed", "orchestration-service"),
-            new StaffStageDef(7, "LEDGER_HOLD_RESERVED", "Ledger Balance Hold Reserved", "orchestration-service"),
-            new StaffStageDef(8, "LEDGER_POSTED", "Double-Entry SoR Committed", "orchestration-service"),
-            new StaffStageDef(9, "EVENT_EMITTED", "Domain Event Emitted", "orchestration-service"),
-            new StaffStageDef(10, "NOTIFICATIONS_DISPATCHED", "Member Notifications Sent", "orchestration-service"),
-            new StaffStageDef(11, "COMPLETED", "Saga Fully Reconciled", "orchestration-service")
+            new StaffStageDef(1, "INITIATED", "Initiated", "transaction-service"),
+            new StaffStageDef(2, "VALIDATED", "Validated", "transaction-service"),
+            new StaffStageDef(3, "AUTHENTICATED", "Authenticated", "transaction-service"),
+            new StaffStageDef(4, "FRAUD_CHECK", "Fraud Check", "orchestration-service"),
+            new StaffStageDef(5, "LIMIT_CHECK", "Limit Check", "orchestration-service"),
+            new StaffStageDef(6, "FUNDS_CHECK", "Funds Check", "orchestration-service"),
+            new StaffStageDef(7, "AUTHORIZED", "Authorized", "orchestration-service"),
+            new StaffStageDef(8, "POSTED", "Posted", "orchestration-service"),
+            new StaffStageDef(9, "LEDGER_UPDATE", "Ledger Update", "orchestration-service"),
+            new StaffStageDef(10, "NOTIFICATION", "Notification", "orchestration-service"),
+            new StaffStageDef(11, "RECONCILIATION", "Reconciliation", "orchestration-service")
     );
 
     @Override
     @Transactional(readOnly = true)
     public ExecutionStatusResponseDto getExecutionStatus(String identifier) {
         TxnTransaction txn = resolveTransaction(identifier);
+        requireReadable(txn, currentAuthentication());
         List<TxnStageEvent> events = stageEventRepository.findByTransactionIdOrderByStageNoAsc(txn.getTransactionId());
         Map<Integer, TxnStageEvent> eventByStage = events.stream()
                 .collect(Collectors.toMap(TxnStageEvent::getStageNo, e -> e, (e1, e2) -> e1));
@@ -170,11 +176,13 @@ public class TimelineServiceImpl implements TimelineService {
     @Transactional(readOnly = true)
     public TimelineResponseDto getTimeline(String identifier, String requestedView, Authentication authentication) {
         TxnTransaction txn = resolveTransaction(identifier);
+        Authentication caller = authentication != null ? authentication : currentAuthentication();
+        requireReadable(txn, caller);
         List<TxnStageEvent> events = stageEventRepository.findByTransactionIdOrderByStageNoAsc(txn.getTransactionId());
         Map<Integer, TxnStageEvent> eventByStage = events.stream()
                 .collect(Collectors.toMap(TxnStageEvent::getStageNo, e -> e, (e1, e2) -> e1));
 
-        boolean isStaffView = determineIsStaffView(requestedView, authentication);
+        boolean isStaffView = determineIsStaffView(requestedView, caller);
         if (isStaffView) {
             return buildStaffTimeline(txn, eventByStage);
         } else {
@@ -186,6 +194,7 @@ public class TimelineServiceImpl implements TimelineService {
     @Transactional(readOnly = true)
     public TransactionDetailResponseDto getTransactionDetail(String identifier) {
         TxnTransaction txn = resolveTransaction(identifier);
+        requireReadable(txn, currentAuthentication());
         return TransactionDetailResponseDto.builder()
                 .transactionId(txn.getTransactionId())
                 .referenceNo(txn.getReferenceNo())
@@ -195,14 +204,16 @@ public class TimelineServiceImpl implements TimelineService {
                 .destinationAccountId(txn.getDestinationAccountId())
                 .destinationAccountNumber(txn.getDestinationAccountNumber())
                 .destinationBankCode(txn.getDestinationBankCode())
-                .amount(txn.getAmount())
+                .amount(com.group2.fse.transaction_service.dto.Money.toContractScale(txn.getAmount()))
                 .currency(txn.getCurrency())
                 .category(txn.getCategory())
                 .remarks(txn.getRemarks())
                 .status(txn.getStatus())
                 .failureCode(txn.getFailureCode())
                 .failureReason(txn.getFailureCode())
-                .reversedByTransactionId(txn.getReversesTransactionId())
+                .reversedByTransactionId(transactionRepository
+                        .findFirstByReversesTransactionIdAndStatus(txn.getTransactionId(), "POSTED")
+                        .map(TxnTransaction::getTransactionId).orElse(null))
                 .createdAt(txn.getCreatedAt())
                 .completedAt(txn.getCompletedAt())
                 .build();
@@ -228,7 +239,9 @@ public class TimelineServiceImpl implements TimelineService {
         stageEventRepository.save(stageEvent);
 
         transactionRepository.findByTransactionId(transactionId).ifPresent(txn -> {
-            if (transactionStatus != null && !transactionStatus.isBlank()) {
+            if (transactionStatus != null && !transactionStatus.isBlank()
+                    && !"REVERSED".equalsIgnoreCase(txn.getStatus())
+                    && !(isFinished(txn.getStatus()) && isInProgress(transactionStatus))) {
                 txn.setStatus(transactionStatus);
             }
             if (failureCode != null && !failureCode.isBlank()) {
@@ -244,7 +257,30 @@ public class TimelineServiceImpl implements TimelineService {
                 }
             }
             transactionRepository.save(txn);
+
+            // The ledger has posted the compensating entries (or released the hold), so the
+            // transfer this reversal points at is now reversed.
+            if (txn.getReversesTransactionId() != null && "POSTED".equalsIgnoreCase(transactionStatus)) {
+                transactionRepository.findByTransactionId(txn.getReversesTransactionId()).ifPresent(original -> {
+                    if (!"REVERSED".equalsIgnoreCase(original.getStatus())) {
+                        original.setStatus("REVERSED");
+                        transactionRepository.save(original);
+                        log.info("Transfer {} is REVERSED by {}", original.getTransactionId(), txn.getTransactionId());
+                    }
+                });
+            }
         });
+    }
+
+    // Stages 1 to 3 and stages 4 to 11 come from two publishers, so an early stage can be read
+    // after the saga has already ended. It must not put a finished transfer back in progress.
+    private static boolean isFinished(String status) {
+        return "POSTED".equalsIgnoreCase(status) || "FAILED".equalsIgnoreCase(status)
+                || "REVERSED".equalsIgnoreCase(status);
+    }
+
+    private static boolean isInProgress(String status) {
+        return "INITIATED".equalsIgnoreCase(status) || "PROCESSING".equalsIgnoreCase(status);
     }
 
     private TxnTransaction resolveTransaction(String identifier) {
@@ -266,23 +302,43 @@ public class TimelineServiceImpl implements TimelineService {
                 .orElseThrow(() -> new TransactionNotFoundException("Transaction not found for identifier: " + identifier));
     }
 
+    /**
+     * The staff view carries risk scores and decline reasons, so it follows the caller's role
+     * and never the query parameter: a customer who asks for view=STAFF gets the customer view.
+     * Staff may ask for the customer view to see what the customer sees.
+     */
     private boolean determineIsStaffView(String requestedView, Authentication authentication) {
-        if ("STAFF".equalsIgnoreCase(requestedView)) {
-            return true;
+        return isStaffOrService(authentication) && !"CUSTOMER".equalsIgnoreCase(requestedView);
+    }
+
+    /** Tellers, admins and other services may read any transaction; a customer only their own. */
+    private void requireReadable(TxnTransaction txn, Authentication authentication) {
+        if (isStaffOrService(authentication)) {
+            return;
         }
-        if ("CUSTOMER".equalsIgnoreCase(requestedView)) {
+        Long userId = authentication != null && authentication.getPrincipal() instanceof UserPrincipal principal
+                ? principal.getUserId() : null;
+        if (userId == null || !userId.equals(txn.getCustomerId())) {
+            throw new TransferRejectedException(HttpStatus.FORBIDDEN, "AUTH_ACCESS_DENIED", "Access Denied",
+                    "This transaction belongs to another customer.");
+        }
+    }
+
+    private static boolean isStaffOrService(Authentication authentication) {
+        if (authentication == null || authentication.getAuthorities() == null) {
             return false;
         }
-
-        if (authentication != null && authentication.getAuthorities() != null) {
-            for (GrantedAuthority authority : authentication.getAuthorities()) {
-                String auth = authority.getAuthority();
-                if (auth.contains("STAFF") || auth.contains("TELLER") || auth.contains("ADMIN") || auth.contains("SERVICE")) {
-                    return true;
-                }
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            String role = authority.getAuthority();
+            if ("ROLE_TELLER".equals(role) || "ROLE_ADMIN".equals(role) || "ROLE_SERVICE".equals(role)) {
+                return true;
             }
         }
         return false;
+    }
+
+    private static Authentication currentAuthentication() {
+        return SecurityContextHolder.getContext().getAuthentication();
     }
 
     private TimelineResponseDto buildStaffTimeline(TxnTransaction txn, Map<Integer, TxnStageEvent> eventByStage) {

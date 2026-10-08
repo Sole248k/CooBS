@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/models/remittance_models.dart';
 import '../../core/network/api_client.dart';
+import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
 import 'tracking_models.dart';
 
@@ -45,6 +46,8 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
   int _selectedMilestoneIndex = 0; // 0 to 3
   bool _isStaffMode = false;
   Timer? _pollingTimer;
+  bool _userSelectedMilestone = false;
+  bool _isPollingInFlight = false;
 
   static final DateFormat _dateFormat = DateFormat('MMM dd, yyyy • HH:mm:ss');
 
@@ -90,18 +93,21 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     super.dispose();
   }
 
-  void _applyTimeline(TransactionTimelineResponse timeline) {
+  void _applyTimeline(TransactionTimelineResponse timeline, {bool isAutoPoll = false}) {
     _rawTimeline = timeline;
     _milestones = MilestoneMapper.mapFromTimeline(timeline);
-    final activeIdx = _milestones.indexWhere((m) => m.isInProgress);
-    final failedIdx = _milestones.indexWhere((m) => m.isFailed);
 
-    if (failedIdx != -1) {
-      _selectedMilestoneIndex = failedIdx;
-    } else if (activeIdx != -1) {
-      _selectedMilestoneIndex = activeIdx;
-    } else {
-      _selectedMilestoneIndex = _milestones.isNotEmpty ? _milestones.length - 1 : 0;
+    if (!_userSelectedMilestone || !isAutoPoll) {
+      final activeIdx = _milestones.indexWhere((m) => m.isInProgress);
+      final failedIdx = _milestones.indexWhere((m) => m.isFailed);
+
+      if (failedIdx != -1) {
+        _selectedMilestoneIndex = failedIdx;
+      } else if (activeIdx != -1) {
+        _selectedMilestoneIndex = activeIdx;
+      } else {
+        _selectedMilestoneIndex = _milestones.isNotEmpty ? _milestones.length - 1 : 0;
+      }
     }
 
     _managePolling(timeline);
@@ -123,23 +129,29 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
   }
 
   Future<void> _silentPollTimeline(String reference) async {
+    if (_isPollingInFlight) return;
+    _isPollingInFlight = true;
     try {
       final queryParams = _isStaffMode ? {'view': 'staff'} : <String, String>{};
+      final safeRef = Uri.encodeComponent(reference);
       final data = await _apiClient.get(
-        '/mobile/transactions/$reference/timeline',
+        '/mobile/transactions/$safeRef/timeline',
         queryParams: queryParams,
       );
       if (mounted) {
         final timeline = TransactionTimelineResponse.fromJson(data);
-        setState(() => _applyTimeline(timeline));
+        setState(() => _applyTimeline(timeline, isAutoPoll: true));
       }
     } catch (_) {
       // Background poll silently preserves existing UI state
+    } finally {
+      _isPollingInFlight = false;
     }
   }
 
   Future<void> _loadTimeline(String reference) async {
     _pollingTimer?.cancel();
+    _userSelectedMilestone = false;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -147,8 +159,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
 
     try {
       final queryParams = _isStaffMode ? {'view': 'staff'} : <String, String>{};
+      final safeRef = Uri.encodeComponent(reference);
       final data = await _apiClient.get(
-        '/mobile/transactions/$reference/timeline',
+        '/mobile/transactions/$safeRef/timeline',
         queryParams: queryParams,
       );
       final timeline = TransactionTimelineResponse.fromJson(data);
@@ -162,7 +175,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = e is ApiException ? e.message : 'Unable to load timeline. Please try again.';
           _isLoading = false;
         });
       }
@@ -434,7 +447,10 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         final isSelected = _selectedMilestoneIndex == milestoneIdx;
 
         return GestureDetector(
-          onTap: () => setState(() => _selectedMilestoneIndex = milestoneIdx),
+          onTap: () => setState(() {
+            _selectedMilestoneIndex = milestoneIdx;
+            _userSelectedMilestone = true;
+          }),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -468,7 +484,10 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
 
         return InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => setState(() => _selectedMilestoneIndex = idx),
+          onTap: () => setState(() {
+            _selectedMilestoneIndex = idx;
+            _userSelectedMilestone = true;
+          }),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
             child: Row(

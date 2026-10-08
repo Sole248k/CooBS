@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/network/api_client.dart';
+import '../../core/storage/secure_storage_service.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../auth/auth_screens.dart';
@@ -7,6 +9,21 @@ import '../auth/auth_screens.dart';
 Widget _title(String t) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
     child: Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)));
+
+Future<void> _handleLogout(BuildContext context) async {
+  try {
+    await ApiClient().post('/auth/token/revoke');
+  } catch (_) {}
+  await SecureStorageService().clearSession();
+  Demo.i.reset();
+  if (context.mounted) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+}
 
 /// Dummy Pay QR screen (no camera yet).
 class PayQrScreen extends StatelessWidget {
@@ -61,17 +78,24 @@ class ProfileScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Card(
             child: Column(children: [
-              const ListTile(
-                  leading: CircleAvatar(backgroundColor: Color(0xFFE4EDFF), child: Icon(Icons.person_outline, color: kNavy)),
-                  title: Text('john_doe', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('Customer')),
+              FutureBuilder<String?>(
+                future: SecureStorageService().getUsername(),
+                builder: (context, snapshot) {
+                  final username = snapshot.data ?? 'john_doe';
+                  return ListTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFFE4EDFF), child: Icon(Icons.person_outline, color: kNavy)),
+                    title: Text(username, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: const Text('Customer'),
+                  );
+                },
+              ),
               const Divider(height: 1),
               ListTile(title: const Text('KYC details'), subtitle: const Text('Name, address, occupation'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const KycDetailsPage())),
               ListTile(title: const Text('Verify identity'), subtitle: const Text('Upload ID and selfie'), trailing: miniTag('Pending'), onTap: () => go(context, const KycVerifyPage(fromProfile: true))),
               ListTile(title: const Text('Security & tokens'), subtitle: const Text('Password and active sessions'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const SecurityPage())),
               ListTile(
                   title: const Text('Log out'),
-                  onTap: () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false)),
+                  onTap: () => _handleLogout(context)),
             ]),
           ),
         ),
@@ -133,6 +157,6 @@ class _SecurityPageState extends State<SecurityPage> {
         tf(nw, 'New password', obscure: true),
         bigBtn('Change password', () => snack(context, 'Password updated.')),
         const SizedBox(height: 10),
-        OutlinedButton(onPressed: () => snack(context, 'Signed out of all devices.'), child: const Text('Sign out all devices')),
+        OutlinedButton(onPressed: () => _handleLogout(context), child: const Text('Sign out all devices')),
       ]);
 }

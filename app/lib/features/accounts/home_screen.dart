@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/storage/secure_storage_service.dart';
 import '../beneficiaries/beneficiary_screens.dart';
 import '../loans/loan_screens.dart';
 import '../profile/tab_screens.dart';
+import '../scores/scores_screen.dart';
 import 'demo_store.dart';
 import 'ui.dart';
 
@@ -33,14 +35,17 @@ class _MobileShellState extends State<MobileShell> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Container(
-                        width: 110, height: 36, alignment: Alignment.center,
-                        decoration: BoxDecoration(border: Border.all(color: kMut), borderRadius: BorderRadius.circular(8)),
-                        child: const Text('LOGO SPACE', style: TextStyle(fontSize: 11, color: kMut))),
-                    Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(20)),
-                        child: const Text('@john_doe', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
+                    logoBox(),
+                    FutureBuilder<String?>(
+                      future: SecureStorageService().getUsername(),
+                      builder: (context, snapshot) {
+                        final user = snapshot.data ?? 'john_doe';
+                        return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(20)),
+                            child: Text('@$user', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)));
+                      },
+                    ),
                   ]),
                 ),
                 Expanded(
@@ -271,9 +276,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     : txCard(tx.take(5).toList()),
                 const SizedBox(height: 22),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const TbdPage())),
+                  circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const ScoresPage())),
                   circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
-                  circ(Icons.credit_card, 'Manage\nCards', null), // placeholder: leads nowhere
+                  circ(Icons.credit_card, 'Manage\nCards', () => snack(context, 'Card management coming soon in Phase 2')),
                 ]),
                 if (d.cur == 2 && l != null)
                   Center(child: TextButton(onPressed: d.resetLoan, child: const Text('Reset loan (tester only)'))),
@@ -341,11 +346,3 @@ class SeeAllPage extends StatelessWidget {
   }
 }
 
-class TbdPage extends StatelessWidget {
-  const TbdPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Pg('Scores & Habits', [
-        SizedBox(height: 60),
-        Center(child: Text('To be developed', style: TextStyle(fontSize: 18, color: kMut))),
-      ]);
-}

@@ -1,6 +1,7 @@
 package com.group2.fse.orchestration_service.saga;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeast;
@@ -18,6 +19,9 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 
+import org.apache.kafka.common.KafkaException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +39,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -55,7 +62,8 @@ import tools.jackson.databind.json.JsonMapper;
  * own. The downstream services are a stub HTTP server answering with the contract examples,
  * so timeouts, status codes and idempotency keys go over a real socket.
  */
-@SpringBootTest
+// The scheduled sweep is pushed out of reach; the tests call sweep() themselves.
+@SpringBootTest(properties = "app.saga.sweep-interval=1d")
 @AutoConfigureMockMvc
 class TransferSagaTest {
 
@@ -75,6 +83,8 @@ class TransferSagaTest {
 
     private static final Map<String, Stub> STUBS = new ConcurrentHashMap<>();
     private static final List<Call> CALLS = new CopyOnWriteArrayList<>();
+    /** Run once, while the stub is answering that path: what another thread does in the meantime. */
+    private static final Map<String, Runnable> MEANWHILE = new ConcurrentHashMap<>();
     private static final HttpServer SERVER = startServer();
 
     @Autowired
@@ -89,6 +99,8 @@ class TransferSagaTest {
     private SagaRepository sagas;
     @Autowired
     private JsonMapper jsonMapper;
+    @Autowired
+    private JdbcTemplate jdbc;
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -116,6 +128,7 @@ class TransferSagaTest {
         reset(kafkaTemplate);
         CALLS.clear();
         STUBS.clear();
+        MEANWHILE.clear();
         STUBS.put("/internal/v1/customers/1/risk-profile", ok("C7-risk-profile.response.json"));
         STUBS.put(RISK, ok("R1-risk-evaluate.response.json"));
         STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 0));
@@ -245,14 +258,82 @@ class TransferSagaTest {
     }
 
     @Test
-    void ledgerUnreachableBeforeTheHold_failsWithNothingToUndo() {
+    void ledgerErrorOnTheHold_isNotMarkedFailedBecauseTheHoldMayExist() {
         STUBS.put(HOLD, new Stub(503, "{}", 0));
         StartTransferRequest t = transfer();
 
         saga.run(t, "corr");
 
-        assertFailed(t, "LEDGER_UNAVAILABLE");
+        assertThat(row(t).getState()).isEqualTo(SagaState.RISK_APPROVED);
+        assertThat(row(t).getFailureCode()).isNull();
         assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD);
+        assertThat(stages()).endsWith("5 LIMIT_CHECK PASSED PROCESSING");
+    }
+
+    @Test
+    void holdTimesOut_isNotMarkedFailedAndTheNextRunRepeatsTheSameHold() {
+        // Slower than the 2 s ledger client timeout: the ledger may well have placed the hold.
+        STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 2500));
+        StartTransferRequest t = transfer();
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.RISK_APPROVED);
+        assertThat(row(t).getFailureCode()).isNull();
+        assertThat(stages()).noneMatch(stage -> stage.contains("FAILED"));
+
+        STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 0));
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        Call hold = new Call(HOLD, t.transactionId() + ":hold", null, null);
+        assertThat(ledgerCalls()).containsExactly(hold, hold,
+                new Call(CAPTURE, t.transactionId() + ":capture", null, null));
+    }
+
+    @Test
+    void holdStillUnansweredAfterTheRetryWindow_releasesTheHoldTheLedgerReturnsAndFails() {
+        StartTransferRequest t = riskApproved(Duration.ofMinutes(10));
+
+        saga.run(t, "corr");
+
+        SagaInstance row = row(t);
+        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row.getFailureCode()).isEqualTo("LEDGER_UNAVAILABLE");
+        assertThat(row.getHoldId()).isEqualTo(9001L);
+        assertThat(ledgerCalls()).containsExactly(
+                new Call(HOLD, t.transactionId() + ":hold", null, null),
+                new Call(RELEASE, t.transactionId() + ":release", null, null));
+        assertThat(stages()).containsExactly("6 FUNDS_CHECK FAILED FAILED");
+    }
+
+    @Test
+    void holdStillUnansweredAfterTheRetryWindow_staysInFlightWhileTheLedgerIsSilent() {
+        STUBS.put(HOLD, new Stub(503, "{}", 0));
+        StartTransferRequest t = riskApproved(Duration.ofMinutes(10));
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.RISK_APPROVED);
+        assertThat(row(t).getFailureCode()).isNull();
+        assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD);
+    }
+
+    @Test
+    void holdPlacedAfterTheRetryWindow_releaseUnanswered_staysCompensatingAndTheNextRunReleases() {
+        STUBS.put(RELEASE, new Stub(503, "{}", 0));
+        StartTransferRequest t = riskApproved(Duration.ofMinutes(10));
+        saga.run(t, "corr");
+        assertThat(row(t).getState()).isEqualTo(SagaState.COMPENSATING);
+        assertThat(row(t).getHoldId()).isEqualTo(9001L);
+        CALLS.clear();
+        STUBS.put(RELEASE, ok("L5-release-hold.response.json"));
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row(t).getFailureCode()).isEqualTo("LEDGER_UNAVAILABLE");
+        assertThat(CALLS).extracting(Call::path).containsExactly(RELEASE);
     }
 
     @Test
@@ -322,6 +403,80 @@ class TransferSagaTest {
         assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
         assertThat(ledgerCalls()).contains(new Call(CAPTURE, t.transactionId() + ":capture", null, null));
         assertThat(CALLS).extracting(Call::path).doesNotContain(RELEASE, HOLD, RISK);
+    }
+
+    @Test
+    void scheduledSweep_resumesAStaleRiskApprovedSagaAndLeavesAFreshOneAlone() {
+        StartTransferRequest stale = transfer();
+        StartTransferRequest fresh = transfer();
+        for (StartTransferRequest t : List.of(stale, fresh)) {
+            SagaInstance row = sagas.findOrCreate(t.transactionId(), t.referenceNo(),
+                    jsonMapper.writeValueAsString(t));
+            row.setState(SagaState.RISK_APPROVED);
+            sagas.saveAndFlush(row);
+        }
+        lastWritten(stale, Duration.ofMinutes(2));
+        runTasksInline();
+
+        recovery.sweep();
+
+        assertThat(row(stale).getState()).isEqualTo(SagaState.POSTED);
+        assertThat(row(fresh).getState()).isEqualTo(SagaState.RISK_APPROVED);
+        assertThat(ledgerCalls()).contains(new Call(HOLD, stale.transactionId() + ":hold", null, null),
+                new Call(CAPTURE, stale.transactionId() + ":capture", null, null));
+        assertThat(ledgerCalls()).extracting(Call::idempotencyKey).noneMatch(
+                key -> key.startsWith(fresh.transactionId().toString()));
+    }
+
+    @Test
+    void transferAcceptedButNeverRun_isRecoveredFromThePayloadSavedWithTheRow() throws Exception {
+        StartTransferRequest t = transfer();
+        String service = tokens.generateToken(0L, "transaction-service", List.of("ROLE_SERVICE"));
+        // The mocked executor drops the task: the service went down between the 202 and the run.
+        mockMvc.perform(post("/internal/v1/sagas/transfers").header("Authorization", "Bearer " + service)
+                .contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(t)))
+                .andExpect(status().isAccepted());
+        assertThat(row(t).getState()).isEqualTo(SagaState.STARTED);
+        assertThat(CALLS).isEmpty();
+        runTasksInline();
+
+        recovery.run(null);
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        assertThat(row(t).getReferenceNo()).isEqualTo(t.referenceNo());
+        assertThat(ledgerCalls()).contains(new Call(HOLD, t.transactionId() + ":hold", null, null),
+                new Call(CAPTURE, t.transactionId() + ":capture", null, null));
+    }
+
+    @Test
+    void reversalAcceptedButNeverRun_isRecoveredFromThePayloadSavedWithTheRow() throws Exception {
+        StartReversalRequest r = new StartReversalRequest(
+                UUID.randomUUID(), UUID.randomUUID(), "RV-NEVER-RAN-001", "Dispute unknown", 3L);
+        String service = tokens.generateToken(0L, "transaction-service", List.of("ROLE_SERVICE"));
+        mockMvc.perform(post("/internal/v1/sagas/reversals").header("Authorization", "Bearer " + service)
+                .contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(r)))
+                .andExpect(status().isAccepted());
+        runTasksInline();
+
+        recovery.run(null);
+
+        SagaInstance row = sagas.findByTransactionId(r.transactionId()).orElseThrow();
+        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row.getFailureCode()).isEqualTo("TRANSACTION_NOT_FOUND");
+    }
+
+    @Test
+    void kafkaRejectsEveryStageEvent_sagaStillPosts() {
+        when(kafkaTemplate.send(anyString(), anyString(), anyString()))
+                .thenThrow(new KafkaException("broker unavailable"));
+        StartTransferRequest t = transfer();
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        assertThat(ledgerCalls()).containsExactly(
+                new Call(HOLD, t.transactionId() + ":hold", null, null),
+                new Call(CAPTURE, t.transactionId() + ":capture", null, null));
     }
 
     @Test
@@ -433,6 +588,43 @@ class TransferSagaTest {
     }
 
     @Test
+    void reversalCancelsWhileTheHoldIsBeingPlaced_theTransferDoesNotOverwriteItAndNeverPosts() {
+        StartTransferRequest t = transfer();
+        StartReversalRequest r = new StartReversalRequest(
+                UUID.randomUUID(), t.transactionId(), "RV-RACE-001", "Customer cancelled", 3L);
+        // The reversal finds the transfer at RISK_APPROVED and cancels it while the transfer's
+        // own thread is still waiting for the ledger to answer the hold.
+        MEANWHILE.put(HOLD, () -> reversalSaga.run(r, "corr-rev"));
+
+        saga.run(t, "corr");
+
+        assertThat(sagas.findByTransactionId(r.transactionId()).orElseThrow().getState())
+                .isEqualTo(SagaState.COMPLETED);
+        SagaInstance row = row(t);
+        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row.getFailureCode()).isEqualTo("CANCELLED_BEFORE_HOLD");
+        // The hold the ledger placed for the cancelled transfer is given back, never captured.
+        assertThat(ledgerCalls()).containsExactly(
+                new Call(HOLD, t.transactionId() + ":hold", null, null),
+                new Call(RELEASE, t.transactionId() + ":release", null, null));
+    }
+
+    @Test
+    void sagaRowSavedFromAStaleCopy_isRejected() {
+        UUID id = UUID.randomUUID();
+        sagas.findOrCreate(id);
+        SagaInstance mine = sagas.findByTransactionId(id).orElseThrow();
+        SagaInstance theirs = sagas.findByTransactionId(id).orElseThrow();
+        theirs.setState(SagaState.FAILED);
+        sagas.saveAndFlush(theirs);
+
+        mine.setState(SagaState.RISK_APPROVED);
+
+        assertThatThrownBy(() -> sagas.saveAndFlush(mine)).isInstanceOf(OptimisticLockingFailureException.class);
+        assertThat(sagas.findByTransactionId(id).orElseThrow().getState()).isEqualTo(SagaState.FAILED);
+    }
+
+    @Test
     void reversalOfUnknownTransfer_failsWithTransactionNotFound() {
         UUID revId = UUID.randomUUID();
         StartReversalRequest revReq = new StartReversalRequest(
@@ -464,12 +656,100 @@ class TransferSagaTest {
     // --- helpers ---
 
     /** The O1 contract example with a fresh transaction ID. */
+    @Test
+    void reversalGetsNoAnswerFromTheLedger_staysInFlightAndTheNextRunRepeatsTheSameReversal() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-20261003-8F3A21C0");
+        original.setState(SagaState.POSTED);
+        sagas.saveAndFlush(original);
+        StartReversalRequest revReq = new StartReversalRequest(
+                UUID.randomUUID(), origId, "RV-20261003-11AA22BB", "Customer dispute approved", 3L);
+        STUBS.put(REVERSAL, new Stub(503, "{}", 0));
+
+        reversalSaga.run(revReq, "corr-rev-silent");
+
+        SagaInstance waiting = sagas.findByTransactionId(revReq.transactionId()).orElseThrow();
+        assertThat(waiting.getState()).isEqualTo(SagaState.STARTED);
+        assertThat(waiting.getFailureCode()).isNull();
+
+        STUBS.put(REVERSAL, ok("L7-reversal.response.json"));
+        reversalSaga.run(revReq, "corr-rev-silent");
+
+        assertThat(sagas.findByTransactionId(revReq.transactionId()).orElseThrow().getState())
+                .isEqualTo(SagaState.COMPLETED);
+        assertThat(ledgerCalls()).containsExactly(
+                new Call(REVERSAL, revReq.transactionId() + ":reversal", null, null),
+                new Call(REVERSAL, revReq.transactionId() + ":reversal", null, null));
+    }
+
+    @Test
+    void reversalRefusedByTheLedger_failsWithTheLedgersCode() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-20261003-8F3A21C0");
+        original.setState(SagaState.POSTED);
+        sagas.saveAndFlush(original);
+        StartReversalRequest revReq = new StartReversalRequest(
+                UUID.randomUUID(), origId, "RV-20261003-22BB33CC", "Second dispute", 3L);
+        STUBS.put(REVERSAL, new Stub(409, "{\"errorCode\":\"ALREADY_REVERSED\",\"status\":409}", 0));
+
+        reversalSaga.run(revReq, "corr-rev-refused");
+
+        SagaInstance failed = sagas.findByTransactionId(revReq.transactionId()).orElseThrow();
+        assertThat(failed.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(failed.getFailureCode()).isEqualTo("ALREADY_REVERSED");
+    }
+
+    @Test
+    void reversalOfHeldTransfer_releaseUnanswered_staysInFlightAndTheOriginalKeepsItsState() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-HELD-002");
+        original.setHoldId(9001L);
+        original.setState(SagaState.FUNDS_RESERVED);
+        sagas.saveAndFlush(original);
+        StartReversalRequest revReq = new StartReversalRequest(
+                UUID.randomUUID(), origId, "RV-CANCEL-002", "Cancelled at the counter", 3L);
+        STUBS.put(RELEASE, new Stub(503, "{}", 0));
+
+        reversalSaga.run(revReq, "corr-rev-release-silent");
+
+        assertThat(sagas.findByTransactionId(revReq.transactionId()).orElseThrow().getState())
+                .isEqualTo(SagaState.STARTED);
+        assertThat(sagas.findByTransactionId(origId).orElseThrow().getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+    }
+
     private StartTransferRequest transfer() {
         StartTransferRequest e = jsonMapper.readValue(example("O1-start-transfer-saga.request.json"),
                 StartTransferRequest.class);
         return new StartTransferRequest(UUID.randomUUID(), e.referenceNo(), e.channel(), e.customerId(),
                 e.sourceAccountId(), e.destinationAccountId(), e.destinationBankCode(), e.amount(), e.currency(),
                 e.actorId(), e.actorType());
+    }
+
+    /** Recovery hands sagas to the executor, which is a mock; this makes it run them on the calling thread. */
+    private void runTasksInline() {
+        doAnswer(invocation -> {
+            invocation.<Runnable>getArgument(0).run();
+            return null;
+        }).when(applicationTaskExecutor).execute(any(Runnable.class));
+    }
+
+    /** A transfer whose saga has been waiting at RISK_APPROVED for this long. */
+    private StartTransferRequest riskApproved(Duration waiting) {
+        StartTransferRequest t = transfer();
+        SagaInstance row = sagas.findOrCreate(t.transactionId(), t.referenceNo(), jsonMapper.writeValueAsString(t));
+        row.setState(SagaState.RISK_APPROVED);
+        sagas.saveAndFlush(row);
+        lastWritten(t, waiting);
+        return t;
+    }
+
+    /** Ages a saga row. A save cannot do it, because every save stamps updated_at with the current time. */
+    private void lastWritten(StartTransferRequest t, Duration ago) {
+        jdbc.update("update saga_instance set updated_at = ? where transaction_id = ?",
+                Timestamp.from(Instant.now().minus(ago)), t.transactionId());
     }
 
     private SagaInstance row(StartTransferRequest t) {
@@ -523,6 +803,10 @@ class TransferSagaTest {
                 CALLS.add(new Call(path, exchange.getRequestHeaders().getFirst("Idempotency-Key"),
                         exchange.getRequestHeaders().getFirst("Authorization"),
                         exchange.getRequestHeaders().getFirst("X-Correlation-ID")));
+                Runnable meanwhile = MEANWHILE.remove(path);
+                if (meanwhile != null) {
+                    meanwhile.run();
+                }
                 Stub stub = STUBS.getOrDefault(path, new Stub(404, "{}", 0));
                 try {
                     Thread.sleep(stub.delayMs());
