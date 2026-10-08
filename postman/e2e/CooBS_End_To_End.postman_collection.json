@@ -84,6 +84,20 @@
       "key": "lock_test_ref",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "dynamic_batch_run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "batch_business_date",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "poll_batch",
+      "value": "0"
     }
   ],
   "item": [
@@ -2719,6 +2733,295 @@
                 "v1",
                 "ledger",
                 "transfers"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. End-of-Day (EOD) Batch Pipeline (batch-service)",
+      "item": [
+        {
+          "name": "11.1 List Seeded Batch Runs (B3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Batch runs list returned as array\", function () {",
+                  "    pm.expect(data).to.be.an(\"array\");",
+                  "    pm.expect(data.length).to.be.at.least(1);",
+                  "});",
+                  "pm.test(\"Batch run contains required schema fields\", function () {",
+                  "    var sampleRun = data[0];",
+                  "    pm.expect(sampleRun.batchRunId).to.be.a(\"number\");",
+                  "    pm.expect(sampleRun.businessDate).to.be.a(\"string\");",
+                  "    pm.expect(sampleRun.status).to.be.oneOf([\"RUNNING\", \"COMPLETED\", \"HALTED\", \"FAILED\"]);",
+                  "    pm.expect(sampleRun.steps).to.be.an(\"array\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch/eod/runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "batch",
+                "eod",
+                "runs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11.2 Block Customer from Triggering EOD Batch (B1 - Security Negative Path)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Customer role blocked from administrative batch trigger\", function () {",
+                  "    pm.expect(data.status).to.eql(403);",
+                  "    pm.expect(data.error).to.include(\"Forbidden\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch/eod/trigger",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "batch",
+                "eod",
+                "trigger"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11.3 Trigger On-Demand EOD Batch Run (B1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Batch run accepted and initialized\", function () {",
+                  "    pm.expect(data.batchRunId).to.be.a(\"number\");",
+                  "    pm.expect(data.businessDate).to.be.a(\"string\");",
+                  "    pm.expect(data.status).to.eql(\"RUNNING\");",
+                  "    pm.expect(data.startedAt).to.not.be.empty;",
+                  "});",
+                  "pm.collectionVariables.set(\"dynamic_batch_run_id\", String(data.batchRunId));",
+                  "pm.collectionVariables.set(\"batch_business_date\", data.businessDate);",
+                  "pm.collectionVariables.set(\"poll_batch\", \"0\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch/eod/trigger",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "batch",
+                "eod",
+                "trigger"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11.4 Poll EOD Batch Run Completion & Verify Pipeline Stages (B2)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (parseInt(pm.collectionVariables.get(\"poll_batch\") || \"0\", 10) > 0) {",
+                  "    setTimeout(function () {}, 1000);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var data = pm.response.json();",
+                  "var attempts = parseInt(pm.collectionVariables.get(\"poll_batch\") || \"0\", 10);",
+                  "var stillRunning = pm.response.code === 200 && data.status === \"RUNNING\";",
+                  "",
+                  "if (stillRunning && attempts < 25) {",
+                  "    pm.collectionVariables.set(\"poll_batch\", String(attempts + 1));",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.set(\"poll_batch\", \"0\");",
+                  "    pm.test(\"Status code is 200 OK\", function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "    pm.test(\"EOD batch pipeline completed successfully\", function () {",
+                  "        pm.expect(data.status).to.eql(\"COMPLETED\");",
+                  "        pm.expect(data.finishedAt).to.not.be.empty;",
+                  "    });",
+                  "    pm.test(\"All 6 pipeline stages executed in order\", function () {",
+                  "        pm.expect(data.steps).to.be.an(\"array\").with.lengthOf(6);",
+                  "        var expectedSteps = [",
+                  "            \"INTEREST_ACCRUAL\",",
+                  "            \"SERVICE_FEES\",",
+                  "            \"STANDING_INSTRUCTIONS\",",
+                  "            \"LOAN_AMORTIZATION\",",
+                  "            \"GL_RECONCILIATION\",",
+                  "            \"AUDIT_SEAL\"",
+                  "        ];",
+                  "        var stepNames = data.steps.map(function(s) { return s.stepName; });",
+                  "        expectedSteps.forEach(function(expected) {",
+                  "            pm.expect(stepNames).to.include(expected);",
+                  "        });",
+                  "        data.steps.forEach(function(s) {",
+                  "            pm.expect(s.status).to.eql(\"COMPLETED\");",
+                  "        });",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch/eod/runs/{{dynamic_batch_run_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "batch",
+                "eod",
+                "runs",
+                "{{dynamic_batch_run_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11.5 Verify Cryptographic Daily Audit Seal (U4)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Cryptographic daily seal verified\", function () {",
+                  "    pm.expect(data.businessDate).to.eql(pm.collectionVariables.get(\"batch_business_date\"));",
+                  "    pm.expect(data.sealHash).to.match(/^[a-f0-9]{64}$/i);",
+                  "    pm.expect(data.sealedAt).to.not.be.empty;",
+                  "    pm.expect(data.lastAuditId).to.be.a(\"number\").and.at.least(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/audit/seals/{{batch_business_date}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "seals",
+                "{{batch_business_date}}"
               ]
             }
           }
