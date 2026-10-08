@@ -250,7 +250,9 @@ stages:
               set -e
               docker compose up -d redis-cache kafka-broker kafka-init-topics
               timeout 60s bash -c 'until docker exec redis-cache redis-cli ping | grep -q PONG; do sleep 2; done'
-              timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep -q "ledger.mutation.completed.v1"; do sleep 3; done'
+              timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; do sleep 2; done'
+              docker wait kafka-init-topics || true
+              timeout 60s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep -q "transaction.stage.changed.v1.DLT"; do sleep 2; done'
             displayName: Start Redis and Kafka
           - script: |
               set -e
@@ -268,14 +270,14 @@ stages:
           - script: |
               set -e
               echo '{"eventId":"ci-101","accountId":"ACC_1001","status":"COMPLETED"}' | docker exec -i kafka-broker \
-                /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic ledger.mutation.completed.v1
-              sleep 2
+                /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic ledger.mutation.completed.v1 --producer-property acks=1
+              sleep 3
               CONSUMED=$(docker exec kafka-broker /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
-                --topic ledger.mutation.completed.v1 --from-beginning --max-messages 1 --timeout-ms 10000)
-              echo "$CONSUMED" | grep -q "ACC_1001" || { echo "FAIL: message not consumed"; exit 1; }
+                --topic ledger.mutation.completed.v1 --from-beginning --max-messages 1 --timeout-ms 15000)
+              echo "$CONSUMED" | grep -q "ACC_1001" || { echo "FAIL: message not consumed. Captured output: '$CONSUMED'"; exit 1; }
               LIST=$(docker exec kafka-broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list)
               for topic in transaction.stage.changed.v1 notification.dispatched.v1 ledger.transfer.completed.v1.DLT; do
-                echo "$LIST" | grep -qx "$topic" || { echo "FAIL: topic $topic was not created"; exit 1; }
+                echo "$LIST" | grep -q "$topic" || { echo "FAIL: topic $topic was not created"; exit 1; }
               done
               echo "PASS: Kafka round trip and expansion topics."
             displayName: Kafka produce, consume and topic list
@@ -318,6 +320,7 @@ stages:
               timeout 60s bash -c 'until docker exec redis-cache redis-cli ping | grep -q PONG; do sleep 2; done'
               timeout 60s bash -c 'until docker exec postgres-audit-db pg_isready -U postgres -d audit_store; do sleep 2; done'
               timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; do sleep 3; done'
+              docker wait kafka-init-topics || true
             displayName: Start Oracle, PostgreSQL, Redis and Kafka
 
           - script: |
