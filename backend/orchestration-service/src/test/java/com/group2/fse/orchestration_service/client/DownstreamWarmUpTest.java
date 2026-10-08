@@ -23,16 +23,32 @@ class DownstreamWarmUpTest {
     }
 
     @Test
-    void warmUpRequestCannotBeApprovedOrRecorded() {
+    void warmUpRequestIsOneTheEngineApproves_forACustomerWhoDoesNotExist() {
         when(customers.riskProfile(0L)).thenThrow(new DownstreamException("CUSTOMER_NOT_FOUND", "404", null));
 
         warmUp(1).round();
 
         ArgumentCaptor<RiskClient.Request> request = ArgumentCaptor.forClass(RiskClient.Request.class);
         verify(risk).evaluate(request.capture());
-        // A daily limit of zero is over the limit for any amount: the engine declines and counts nothing.
-        assertThat(request.getValue().dailyLimit()).isEqualByComparingTo(BigDecimal.ZERO);
+        // Only an approval makes the engine write its counters, and that write is what must be warm.
+        assertThat(request.getValue().amount()).isLessThan(request.getValue().dailyLimit());
+        assertThat(request.getValue().customerRiskScore()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(request.getValue().isNewBeneficiary()).isFalse();
         assertThat(request.getValue().customerId()).isZero();
+    }
+
+    @Test
+    void everyRoundCarriesANewTransactionId_soTheEngineCountsItAndWritesAgain() {
+        when(customers.riskProfile(0L)).thenThrow(new DownstreamException("CUSTOMER_NOT_FOUND", "404", null));
+        DownstreamWarmUp warmUp = warmUp(1);
+
+        warmUp.round();
+        warmUp.round();
+
+        ArgumentCaptor<RiskClient.Request> requests = ArgumentCaptor.forClass(RiskClient.Request.class);
+        verify(risk, times(2)).evaluate(requests.capture());
+        assertThat(requests.getAllValues().get(0).transactionId())
+                .isNotEqualTo(requests.getAllValues().get(1).transactionId());
     }
 
     @Test
