@@ -223,8 +223,9 @@ class TransferSagaTest {
     }
 
     @Test
-    void riskEngineSlowerThan150ms_failsClosedWithNoLedgerCall() {
-        STUBS.put(RISK, new Stub(200, example("R1-risk-evaluate.response.json"), 600));
+    void riskEngineSlowerThanItsBudget_failsClosedWithNoLedgerCall() {
+        // The budget is 150 ms in production and 1 s in the test profile; the stub is twice as slow.
+        STUBS.put(RISK, new Stub(200, example("R1-risk-evaluate.response.json"), 2000));
         StartTransferRequest t = transfer();
 
         saga.run(t, "corr");
