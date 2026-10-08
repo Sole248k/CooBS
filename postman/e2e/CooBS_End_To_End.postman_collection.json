@@ -60,6 +60,10 @@
     {
       "key": "poll_insufficient",
       "value": "0"
+    },
+    {
+      "key": "poll_over_limit",
+      "value": "0"
     }
   ],
   "item": [
@@ -1686,6 +1690,339 @@
               "raw": "{{baseUrl}}/internal/v1/sagas/00000000-0000-0000-0000-000000000000",
               "host": ["{{baseUrl}}"],
               "path": ["internal", "v1", "sagas", "00000000-0000-0000-0000-000000000000"]
+            }
+          }
+        },
+        {
+          "name": "10.7 Capture the Sender's Balance Before the Over-Limit Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.collectionVariables.set(\"over_limit_balance_before\", String(parseFloat(pm.response.json().availableBalance)));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{counterparty_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "2"]
+            }
+          }
+        },
+        {
+          "name": "10.7a Over Daily Limit Transfer (T1 - Accepted, Fails Later)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set(\"over_limit_key\", 'idem-lim-' + Date.now());",
+                  "// maria_santos is seeded with a daily limit of PHP 100,000.00 and sends nothing else in this",
+                  "// suite. One centavo over the limit fails the limit check whatever she has used today, while",
+                  "// her fraud score stays under 0.60, so the saga must stop at stage 5 and not at stage 4.",
+                  "// A declined transfer is not counted, so this step uses none of her limit and can be repeated.",
+                  "pm.collectionVariables.set(\"over_limit_amount\", \"100000.01\");"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.collectionVariables.set(\"over_limit_tx_id\", data.transactionId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{counterparty_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{over_limit_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": 2,\n  \"destinationAccountNumber\": \"ACC_10000001\",\n  \"destinationBankCode\": \"COOBS\",\n  \"amount\": \"{{over_limit_amount}}\",\n  \"currency\": \"PHP\",\n  \"category\": \"TRANSFER\",\n  \"remarks\": \"Over the daily limit, must fail at the limit check\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/transfers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "transfers"]
+            }
+          }
+        },
+        {
+          "name": "10.7b Over Daily Limit Ends FAILED (poll T2)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// A repeat of this request waits one second first, so the saga has time to move.",
+                  "if (parseInt(pm.collectionVariables.get(\"poll_over_limit\") || \"0\", 10) > 0) {",
+                  "    setTimeout(function () {}, 1000);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var data = pm.response.json();",
+                  "var attempts = parseInt(pm.collectionVariables.get(\"poll_over_limit\") || \"0\", 10);",
+                  "var stillRunning = pm.response.code === 200 && (data.status === \"INITIATED\" || data.status === \"PROCESSING\");",
+                  "if (stillRunning && attempts < 20) {",
+                  "    pm.collectionVariables.set(\"poll_over_limit\", String(attempts + 1));",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "    pm.collectionVariables.set(\"poll_over_limit\", \"0\");",
+                  "    pm.test(\"Transfer ended FAILED with LIMIT_EXCEEDED\", function () {",
+                  "        pm.expect(data.status).to.eql(\"FAILED\");",
+                  "        pm.expect(data.failureCode).to.eql(\"LIMIT_EXCEEDED\");",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{counterparty_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{over_limit_tx_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{over_limit_tx_id}}"]
+            }
+          }
+        },
+        {
+          "name": "10.7c Over Daily Limit Fails at LIMIT_CHECK (T3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var stages = pm.response.json().stages || [];",
+                  "function stage(no) { return stages.filter(function (s) { return s.stageNo === no; })[0] || {}; }",
+                  "pm.test(\"Stage 5 LIMIT_CHECK is the one that FAILED\", function () {",
+                  "    var failed = stages.filter(function (s) { return s.outcome === \"FAILED\"; });",
+                  "    pm.expect(failed.length).to.eql(1);",
+                  "    pm.expect(failed[0].stageNo).to.eql(5);",
+                  "    pm.expect(failed[0].stageName).to.eql(\"LIMIT_CHECK\");",
+                  "});",
+                  "pm.test(\"Stage 4 FRAUD_CHECK passed: a limit breach is not a fraud decline\", function () {",
+                  "    pm.expect(stage(4).stageName).to.eql(\"FRAUD_CHECK\");",
+                  "    pm.expect(stage(4).outcome).to.eql(\"PASSED\");",
+                  "});",
+                  "pm.test(\"Nothing ran after the limit check, so no hold was placed\", function () {",
+                  "    [6, 7, 8, 9, 10, 11].forEach(function (no) {",
+                  "        pm.expect(stage(no).outcome, \"stage \" + no).to.eql(\"PENDING\");",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{over_limit_tx_id}}/timeline",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{over_limit_tx_id}}", "timeline"]
+            }
+          }
+        },
+        {
+          "name": "10.7d Balance Unchanged After the Over-Limit Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"No hold was left on the account\", function () {",
+                  "    var before = parseFloat(pm.collectionVariables.get(\"over_limit_balance_before\"));",
+                  "    pm.expect(parseFloat(pm.response.json().availableBalance)).to.be.closeTo(before, 0.01);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{counterparty_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "2"]
+            }
+          }
+        },
+        {
+          "name": "10.8 Another Member's Transaction (T2 - Assert 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Error code AUTH_ACCESS_DENIED returned, with no transaction data\", function () {",
+                  "    pm.expect(data.errorCode).to.eql(\"AUTH_ACCESS_DENIED\");",
+                  "    pm.expect(data).to.not.have.property(\"amount\");",
+                  "    pm.expect(data).to.not.have.property(\"stages\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{low_balance_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}"]
+            }
+          }
+        },
+        {
+          "name": "10.8a Another Member's Timeline (T3 - Assert 403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Error code AUTH_ACCESS_DENIED returned, with no transaction data\", function () {",
+                  "    pm.expect(data.errorCode).to.eql(\"AUTH_ACCESS_DENIED\");",
+                  "    pm.expect(data).to.not.have.property(\"amount\");",
+                  "    pm.expect(data).to.not.have.property(\"stages\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{low_balance_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}/timeline",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}", "timeline"]
+            }
+          }
+        },
+        {
+          "name": "10.8b Customer Asking for the Staff View Gets Three Stages (T3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"The owner still gets the three-stage customer view\", function () {",
+                  "    pm.expect((pm.response.json().stages || []).length).to.eql(3);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}/timeline?view=STAFF",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}", "timeline"],
+              "query": [
+                {
+                  "key": "view",
+                  "value": "STAFF"
+                }
+              ]
             }
           }
         }
