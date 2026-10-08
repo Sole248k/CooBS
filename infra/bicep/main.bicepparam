@@ -1,7 +1,7 @@
 using './main.bicep'
 
 param environmentName = 'dev'
-param location = 'southeastasia'
+param location = 'indonesiacentral'
 param baseName = 'coobs'
 param postgresAdminUser = 'postgresadmin'
 param postgresAdminPassword = 'AuditPassword123!'

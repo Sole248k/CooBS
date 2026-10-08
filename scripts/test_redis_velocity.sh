@@ -11,7 +11,9 @@ echo " CooBS Platform - Redis Velocity Keys & TTL Verification (FIN-803)"
 echo "================================================================="
 
 REDIS_CMD() {
-  if command -v docker >/dev/null 2>&1 && docker ps | grep -q "redis-cache"; then
+  # No pipe into grep here: under pipefail, grep -q can exit before docker ps has finished writing,
+  # docker ps then dies on the closed pipe, and the check reads as "container not running".
+  if command -v docker >/dev/null 2>&1 && [ -n "$(docker ps --quiet --filter 'name=^redis-cache$' 2>/dev/null)" ]; then
     docker exec redis-cache redis-cli "$@"
   elif command -v redis-cli >/dev/null 2>&1; then
     redis-cli "$@"
