@@ -163,8 +163,8 @@ public class StaffBffServiceImpl implements StaffBffService {
 
         List<Map<String, Object>> recentTx = c360.get("recentTransactions") instanceof List ?
                 (List<Map<String, Object>>) c360.get("recentTransactions") : Collections.emptyList();
-        Map<String, String> spending = c360.get("spendingBreakdown") instanceof Map ?
-                (Map<String, String>) c360.get("spendingBreakdown") : Collections.emptyMap();
+        Map<String, Object> spending = c360.get("spendingBreakdown") instanceof Map ?
+                (Map<String, Object>) c360.get("spendingBreakdown") : Collections.emptyMap();
         List<Map<String, Object>> beneficiaries = c360.get("savedBeneficiaries") instanceof List ?
                 (List<Map<String, Object>>) c360.get("savedBeneficiaries") : Collections.emptyList();
 
