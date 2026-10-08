@@ -187,6 +187,18 @@ public class MobileBffServiceImpl implements MobileBffService {
         log.info("Intake remittance for Customer [{}]: dstAccount={}, amount={}",
                 customerId, request.getDestinationAccountNumber(), request.getAmount());
 
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Transfer amount must be greater than zero");
+        }
+        if (request.getAmount().compareTo(new BigDecimal("500000.00")) > 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Transfer amount exceeds single-transaction ceiling of ₱500,000.00");
+        }
+
+        if (request.getSourceAccountNumber() != null &&
+                request.getSourceAccountNumber().trim().equalsIgnoreCase(request.getDestinationAccountNumber().trim())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Source account and destination account cannot be the same");
+        }
+
         Long sourceAccountId = request.getSourceAccountId();
 
         // Security Guard (BOLA / IDOR Prevention):
@@ -195,6 +207,11 @@ public class MobileBffServiceImpl implements MobileBffService {
             Map<String, Object> accMap = accountServiceClient.fetchAccountById(sourceAccountId, correlationId);
             if (accMap == null) {
                 throw new ApiException(HttpStatus.NOT_FOUND, "Source account not found: " + sourceAccountId);
+            }
+
+            if (accMap.get("accountNumber") != null &&
+                    accMap.get("accountNumber").toString().trim().equalsIgnoreCase(request.getDestinationAccountNumber().trim())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Source account and destination account cannot be the same");
             }
 
             Object ownerIdObj = accMap.get("customerId");
@@ -234,21 +251,35 @@ public class MobileBffServiceImpl implements MobileBffService {
             List<MobileAccountSummary> accounts = accountServiceClient.fetchCustomerAccounts(customerId, correlationId);
             MobileAccountSummary primary = selectPrimaryAccount(accounts);
             if (primary.getAccountId() != null && primary.getAccountId() > 0) {
+                if (primary.getAccountNumber() != null &&
+                        primary.getAccountNumber().trim().equalsIgnoreCase(request.getDestinationAccountNumber().trim())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "Source account and destination account cannot be the same");
+                }
                 sourceAccountId = primary.getAccountId();
             } else {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Source account could not be resolved for transfer");
             }
         }
 
+        // Sanitize remarks: strip dangerous injection characters and clamp length
+        String rawRemarks = request.getRemarks() != null ? request.getRemarks() : "";
+        String sanitizedRemarks = rawRemarks
+                .replaceAll("[<>]", "")
+                .replaceAll("[\\r\\n\\t]", " ")
+                .trim();
+        if (sanitizedRemarks.length() > 150) {
+            sanitizedRemarks = sanitizedRemarks.substring(0, 150);
+        }
+
         // Prepare downstream transfer request
         Map<String, Object> transferPayload = new HashMap<>();
         transferPayload.put("sourceAccountId", sourceAccountId);
-        transferPayload.put("destinationAccountNumber", request.getDestinationAccountNumber());
-        transferPayload.put("destinationBankCode", request.getDestinationBankCode() != null ? request.getDestinationBankCode() : "COOBS");
+        transferPayload.put("destinationAccountNumber", request.getDestinationAccountNumber().trim());
+        transferPayload.put("destinationBankCode", request.getDestinationBankCode() != null ? request.getDestinationBankCode().trim() : "COOBS");
         transferPayload.put("amount", request.getAmount().setScale(2, RoundingMode.HALF_UP));
         transferPayload.put("currency", request.getCurrency() != null ? request.getCurrency() : "PHP");
         transferPayload.put("category", request.getCategory() != null ? request.getCategory() : "TRANSFER");
-        transferPayload.put("remarks", request.getRemarks() != null ? request.getRemarks() : "");
+        transferPayload.put("remarks", sanitizedRemarks);
 
         Map<String, Object> response = transactionServiceClient.initiateTransfer(
                 transferPayload, idempotencyKey, bearerToken, correlationId);

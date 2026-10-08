@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 /// Handles environment toggles, gateway routing, and air-gapped fixture mode.
 class AppConfig {
   /// Whether the app operates in offline air-gapped mock mode using local JSON fixtures.
-  /// Set to true by default for Day 2/Day 3 development (Handshake H15/H18).
+  /// Set to true by default for zero-backend unit tests; overridden to false in main.dart for live gateway runtime.
   static bool useFixtures = const bool.fromEnvironment('USE_FIXTURES', defaultValue: true);
 
   /// Spring Cloud Gateway base host.
   /// Android Emulator uses 10.0.2.2 to reach host localhost; Web/Desktop uses localhost.
   static String get gatewayBaseUrl {
+    const customGateway = String.fromEnvironment('GATEWAY_URL');
+    if (customGateway.isNotEmpty) return customGateway;
     if (kIsWeb) {
       return 'http://localhost:8080';
     }

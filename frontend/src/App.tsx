@@ -62,6 +62,33 @@ export function App() {
     return () => clearInterval(interval);
   }, [session, loadData]);
 
+  // Banking Standard: 15-minute Session Inactivity Timeout (PCI-DSS 4.0 / BSP)
+  useEffect(() => {
+    if (!session) return;
+    const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        await apiClient.logout();
+        setSession(null);
+        setIsSwitchUserOpen(false);
+        setIsNotificationOpen(false);
+        showToast('error', 'Session expired due to 15 minutes of inactivity for your security.');
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach(evt => window.addEventListener(evt, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach(evt => window.removeEventListener(evt, resetTimer));
+    };
+  }, [session]);
+
   // Handle Login
   const handleLoginSuccess = (newSession: AuthSession) => {
     setSession(newSession);
@@ -69,8 +96,8 @@ export function App() {
   };
 
   // Handle Logout
-  const handleLogout = () => {
-    apiClient.logout();
+  const handleLogout = async () => {
+    await apiClient.logout();
     setSession(null);
     setIsSwitchUserOpen(false);
     setIsNotificationOpen(false);

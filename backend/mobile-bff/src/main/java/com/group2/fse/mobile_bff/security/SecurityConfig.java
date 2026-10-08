@@ -35,10 +35,34 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.deny())
+                        .contentTypeOptions(org.springframework.security.config.Customizer.withDefaults())
+                        .xssProtection(org.springframework.security.config.Customizer.withDefaults())
+                        .cacheControl(org.springframework.security.config.Customizer.withDefaults())
+                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'"))
+                )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/liveness", "/actuator/health/readiness", "/actuator/info").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/mobile/**").authenticated()
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(
+                                "{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\",\"path\":\"" + request.getRequestURI() + "\"}"
+                            );
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+                            response.getWriter().write(
+                                "{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Access is denied\",\"path\":\"" + request.getRequestURI() + "\"}"
+                            );
+                        })
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -53,14 +77,19 @@ public class SecurityConfig {
                 .filter(s -> !s.isEmpty())
                 .toList();
 
-        if (origins.isEmpty() || origins.contains("*")) {
+        if (origins.isEmpty()) {
+            config.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173"));
+            config.setAllowCredentials(true);
+        } else if (origins.contains("*")) {
+            // Banking security standard: never allow credentials with wildcard origin pattern
             config.setAllowedOriginPatterns(List.of("*"));
+            config.setAllowCredentials(false);
         } else {
             config.setAllowedOrigins(origins);
+            config.setAllowCredentials(true);
         }
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-Id"));
-        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

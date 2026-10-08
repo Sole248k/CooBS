@@ -37,7 +37,9 @@ public class AccountServiceClient {
     public List<MobileAccountSummary> fetchCustomerAccounts(Long customerId, String correlationId) {
         List<MobileAccountSummary> list = new ArrayList<>();
         try {
-            String url = accountServiceBaseUrl + "/internal/v1/customers/" + customerId + "/accounts";
+            String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(accountServiceBaseUrl)
+                    .pathSegment("internal", "v1", "customers", String.valueOf(customerId), "accounts")
+                    .build().encode().toUriString();
             log.debug("Fetching customer accounts from: {}", url);
 
             HttpHeaders headers = new HttpHeaders();
@@ -91,7 +93,9 @@ public class AccountServiceClient {
 
     public Map<String, Object> fetchAccountByNumber(String accountNumber, String correlationId) {
         try {
-            String url = accountServiceBaseUrl + "/internal/v1/accounts/by-number/" + accountNumber;
+            String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(accountServiceBaseUrl)
+                    .pathSegment("internal", "v1", "accounts", "by-number", accountNumber)
+                    .build().encode().toUriString();
             log.debug("Fetching account by number from: {}", url);
 
             HttpHeaders headers = new HttpHeaders();
@@ -120,7 +124,9 @@ public class AccountServiceClient {
 
     public Map<String, Object> fetchAccountById(Long accountId, String correlationId) {
         try {
-            String url = accountServiceBaseUrl + "/internal/v1/accounts/" + accountId;
+            String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(accountServiceBaseUrl)
+                    .pathSegment("internal", "v1", "accounts", String.valueOf(accountId))
+                    .build().encode().toUriString();
             log.debug("Fetching account by ID from: {}", url);
 
             HttpHeaders headers = new HttpHeaders();

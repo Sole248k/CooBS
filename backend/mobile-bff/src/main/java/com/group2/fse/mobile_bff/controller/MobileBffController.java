@@ -16,7 +16,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import org.springframework.validation.annotation.Validated;
+
 @Slf4j
+@Validated
 @RestController
 @RequestMapping("/api/v1/mobile")
 @RequiredArgsConstructor
@@ -37,7 +42,7 @@ public class MobileBffController {
 
         Long customerId = resolveCustomerId(authentication);
         String authHeader = resolveAuthorization(authorization, authentication);
-        log.info("Received M1 Dashboard request for Customer [{}] (correlationId={})", customerId, correlationId);
+        log.info("Received M1 Dashboard request for Customer [{}] (correlationId={})", customerId, sanitizeForLog(correlationId));
 
         MobileDashboardResponse response = mobileBffService.getDashboard(customerId, correlationId, authHeader);
         return ResponseEntity.ok(response);
@@ -50,7 +55,9 @@ public class MobileBffController {
     @GetMapping("/transactions/{trackingReference}/timeline")
     @PreAuthorize("hasRole('CUSTOMER') or hasRole('ROLE_CUSTOMER')")
     public ResponseEntity<MobileTimelineResponse> getTimeline(
-            @PathVariable("trackingReference") String trackingReference,
+            @PathVariable("trackingReference")
+            @Pattern(regexp = "^[A-Za-z0-9_-]{1,64}$", message = "Invalid tracking reference format")
+            String trackingReference,
             Authentication authentication,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
@@ -58,7 +65,7 @@ public class MobileBffController {
         Long customerId = resolveCustomerId(authentication);
         String authHeader = resolveAuthorization(authorization, authentication);
         log.info("Received M2 Timeline request for reference [{}] by customer [{}] (correlationId={})",
-                trackingReference, customerId, correlationId);
+                sanitizeForLog(trackingReference), customerId, sanitizeForLog(correlationId));
 
         MobileTimelineResponse response = mobileBffService.getTimeline(trackingReference, customerId, correlationId, authHeader);
         return ResponseEntity.ok(response);
@@ -73,7 +80,9 @@ public class MobileBffController {
     public ResponseEntity<MobileRemittanceResponse> submitRemittance(
             @Valid @RequestBody MobileRemittanceRequest request,
             Authentication authentication,
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader(value = "Idempotency-Key", required = false)
+            @Size(max = 64, message = "Idempotency-Key header exceeds maximum allowable length")
+            String idempotencyKey,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
 
@@ -84,12 +93,17 @@ public class MobileBffController {
         Long customerId = resolveCustomerId(authentication);
         String authHeader = resolveAuthorization(authorization, authentication);
         log.info("Received M3 Remittance request for Customer [{}] (idempotencyKey={}, correlationId={})",
-                customerId, idempotencyKey, correlationId);
+                customerId, sanitizeForLog(idempotencyKey), sanitizeForLog(correlationId));
 
         MobileRemittanceResponse response = mobileBffService.submitRemittance(
                 request, idempotencyKey, customerId, correlationId, authHeader);
 
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    private String sanitizeForLog(String input) {
+        if (input == null) return "";
+        return input.replaceAll("[\\r\\n]", "_");
     }
 
     private String resolveAuthorization(String authorization, Authentication authentication) {

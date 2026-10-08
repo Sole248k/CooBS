@@ -405,3 +405,17 @@ docker compose ps
 docker compose logs -f ledger-service
 docker compose logs -f audit-service
 ```
+
+---
+
+## 10. Client Applications & Testing Guides
+
+For step-by-step instructions on running and testing the client interfaces against the backend microservices:
+
+- **Comprehensive End-to-End Client Testing Guide:** [`TESTING_GUIDE.md`](TESTING_GUIDE.md)
+  - Flutter Mobile App setup (True Wi-Fi LAN, USB / ADB Reverse, Android Emulator, offline fixtures).
+  - React Teller Web Portal setup (`frontend/`).
+  - Pre-seeded test accounts, security verification checklists, and troubleshooting guide (`SocketException`, ADB port conflicts).
+- **Mobile Application Documentation:** [`app/README.md`](app/README.md)
+- **Web Frontend Documentation:** [`frontend/README.md`](frontend/README.md)
+

@@ -17,11 +17,18 @@ export const TransferView: React.FC<TransferViewProps> = ({
   initialSourceId,
   onExecuteTransfer
 }) => {
-  const generateUuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  const generateUuid = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  };
+
+  const generateRef = () => `REF-UI-${Math.floor(Math.random() * 900000 + 100000)}`;
 
   const [sourceAccountId, setSourceAccountId] = useState<number>(
     initialSourceId || (accounts.length > 0 ? accounts[0].accountId : 1)
@@ -30,12 +37,12 @@ export const TransferView: React.FC<TransferViewProps> = ({
     accounts.length > 1 ? accounts[1].accountId : 2
   );
   const [amount, setAmount] = useState<string>('250.00');
-  const [referenceNo, setReferenceNo] = useState<string>(`REF-UI-${Math.floor(Math.random() * 900000 + 100000)}`);
+  const [referenceNo, setReferenceNo] = useState<string>(generateRef);
   const [remarks, setRemarks] = useState<string>('Real-time inter-account settlement');
 
   // Idempotency & Tracing State
-  const [idempotencyKey, setIdempotencyKey] = useState<string>(generateUuid());
-  const [correlationId, setCorrelationId] = useState<string>(generateUuid());
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(generateUuid);
+  const [correlationId, setCorrelationId] = useState<string>(generateUuid);
   const [lastUsedKey, setLastUsedKey] = useState<string | null>(null);
 
   // Submission State
@@ -94,6 +101,10 @@ export const TransferView: React.FC<TransferViewProps> = ({
       setErrorMessage('Transfer amount must be greater than zero.');
       return;
     }
+    if (numAmount > 500000.00) {
+      setErrorMessage('Transfer exceeds maximum allowable single transaction limit (₱500,000.00).');
+      return;
+    }
     if (isInsufficient) {
       setErrorMessage('Insufficient funds in the source account.');
       return;
@@ -102,13 +113,20 @@ export const TransferView: React.FC<TransferViewProps> = ({
     setIsSubmitting(true);
     setErrorMessage(null);
 
+    // Sanitize remarks: strip dangerous injection characters and clamp length
+    const sanitizedRemarks = remarks
+      .replace(/[<>]/g, '')
+      .replace(/[\r\n\t]/g, ' ')
+      .trim()
+      .slice(0, 150);
+
     try {
       const payload: TransferRequest = {
         sourceAccountId,
         destinationAccountId: destAccountId,
         amount: numAmount,
         referenceNo,
-        remarks
+        remarks: sanitizedRemarks || 'Inter-account transfer'
       };
 
       const result = await onExecuteTransfer(payload, idempotencyKey, correlationId);

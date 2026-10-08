@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../../shell/app_shell.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../auth/auth_screens.dart';
@@ -93,6 +94,12 @@ class ProfileScreen extends StatelessWidget {
               ListTile(title: const Text('KYC details'), subtitle: const Text('Name, address, occupation'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const KycDetailsPage())),
               ListTile(title: const Text('Verify identity'), subtitle: const Text('Upload ID and selfie'), trailing: miniTag('Pending'), onTap: () => go(context, const KycVerifyPage(fromProfile: true))),
               ListTile(title: const Text('Security & tokens'), subtitle: const Text('Password and active sessions'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const SecurityPage())),
+              ListTile(
+                title: const Text('Live Saga & Audit Timeline'),
+                subtitle: const Text('Distributed transfers, timeline & resilience'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => go(context, const AppShell()),
+              ),
               ListTile(
                   title: const Text('Log out'),
                   onTap: () => _handleLogout(context)),
