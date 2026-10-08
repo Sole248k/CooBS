@@ -28,7 +28,8 @@ public class TransactionServiceClient {
 
     public Map<String, Object> executeAssistedTransfer(Map<String, Object> payload, String idempotencyKey, String bearerToken, String correlationId) {
         String url = transactionServiceBaseUrl + "/api/v1/transactions/transfers";
-        HttpHeaders headers = createHeaders(bearerToken, correlationId, idempotencyKey);
+        String effectiveIdempotencyKey = (idempotencyKey != null && !idempotencyKey.isBlank()) ? idempotencyKey : java.util.UUID.randomUUID().toString();
+        HttpHeaders headers = createHeaders(bearerToken, correlationId, effectiveIdempotencyKey);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
@@ -68,7 +69,8 @@ public class TransactionServiceClient {
 
     public Map<String, Object> requestReversal(String transactionId, String reason, String idempotencyKey, String bearerToken, String correlationId) {
         String url = transactionServiceBaseUrl + "/api/v1/transactions/" + transactionId + "/reversal";
-        HttpHeaders headers = createHeaders(bearerToken, correlationId, idempotencyKey);
+        String effectiveIdempotencyKey = (idempotencyKey != null && !idempotencyKey.isBlank()) ? idempotencyKey : java.util.UUID.randomUUID().toString();
+        HttpHeaders headers = createHeaders(bearerToken, correlationId, effectiveIdempotencyKey);
         Map<String, String> payload = Map.of("reason", reason != null ? reason : "Branch customer counter dispute");
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(payload, headers);
 
@@ -80,8 +82,15 @@ public class TransactionServiceClient {
     private HttpHeaders createHeaders(String bearerToken, String correlationId, String idempotencyKey) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        if (bearerToken != null && !bearerToken.isBlank()) {
-            headers.set("Authorization", bearerToken.startsWith("Bearer ") ? bearerToken : "Bearer " + bearerToken);
+        String token = bearerToken;
+        if ((token == null || token.isBlank()) && org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication() != null) {
+            Object creds = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getCredentials();
+            if (creds instanceof String s && !s.isBlank()) {
+                token = s;
+            }
+        }
+        if (token != null && !token.isBlank()) {
+            headers.set("Authorization", token.startsWith("Bearer ") ? token : "Bearer " + token);
         }
         if (correlationId != null && !correlationId.isBlank()) {
             headers.set("X-Correlation-Id", correlationId);

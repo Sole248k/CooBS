@@ -46,6 +46,13 @@ public class SecurityConfig {
     }
 
     @Bean
+    public org.springframework.security.core.userdetails.UserDetailsService userDetailsService() {
+        return username -> {
+            throw new org.springframework.security.core.userdetails.UsernameNotFoundException("UserDetailsService disabled for stateless JWT");
+        };
+    }
+
+    @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
