@@ -21,9 +21,14 @@ import lombok.extern.slf4j.Slf4j;
  * after a start was declined although nothing was wrong.
  *
  * After start-up this calls the two services the risk stage needs, C7 and R1, until both
- * answer inside their budgets, and then a few times more. Neither call changes anything:
- * customer 0 does not exist, and the R1 request carries a daily limit of zero, so the engine
- * declines it and records nothing.
+ * answer inside their budgets, and then a few times more. Both calls are for customer 0, who
+ * does not exist, so no member is touched.
+ *
+ * The R1 request is one the engine approves, each time with a new transaction id. An approval
+ * is the only answer after which the engine writes its counters, and that write is most of the
+ * work in a real transfer: a request the engine declines left it cold, and the first transfer
+ * was still declined. What it leaves behind are the engine's counters for customer 0, which
+ * expire on their own.
  *
  * ponytail: this warms the stack once, when this service starts. If risk-engine or
  * customer-service is restarted on its own later, its first call is cold again.
@@ -34,6 +39,9 @@ public class DownstreamWarmUp {
 
     private static final Long NO_CUSTOMER = 0L;
     private static final int EXTRA_ROUNDS = 3;
+    private static final BigDecimal WARM_UP_AMOUNT = new BigDecimal("0.01");
+    // Far above anything the warm-up can add up to in a day, so the request stays approved.
+    private static final BigDecimal WARM_UP_DAILY_LIMIT = new BigDecimal("1000000.00");
 
     private final CustomerClient customers;
     private final RiskClient risk;
@@ -89,8 +97,8 @@ public class DownstreamWarmUp {
     boolean round() {
         return answered(() -> customers.riskProfile(NO_CUSTOMER))
                 & answered(() -> risk.evaluate(new RiskClient.Request(UUID.randomUUID(), NO_CUSTOMER,
-                        new BigDecimal("0.01"), "PHP", "APP", BigDecimal.ZERO, "TIER_3_FULL",
-                        new BigDecimal("0.00"), false)));
+                        WARM_UP_AMOUNT, "PHP", "APP", BigDecimal.ZERO, "TIER_3_FULL",
+                        WARM_UP_DAILY_LIMIT, false)));
     }
 
     /** A refusal, such as 404 for customer 0, is an answer: the path ran end to end. */
