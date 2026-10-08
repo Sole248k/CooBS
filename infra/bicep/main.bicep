@@ -25,6 +25,14 @@ param postgresAdminPassword string
 @secure()
 param jwtSecret string = ''
 
+@description('Internal service-to-service shared secret for risk-engine M2M calls')
+@secure()
+param internalServiceSecret string = ''
+
+@description('Oracle Master System of Record database admin password')
+@secure()
+param oraclePassword string = ''
+
 @description('Unique suffix for globally unique resources (Storage, ACR, KV, Redis)')
 param uniqueSuffix string = uniqueString(resourceGroup().id)
 
@@ -79,21 +87,7 @@ module acr './modules/acr.bicep' = {
 }
 
 // =============================================================================
-// 4. Azure Key Vault (Secrets Management)
-// =============================================================================
-module keyvault './modules/keyvault.bicep' = {
-  name: 'deploy-keyvault'
-  params: {
-    location: location
-    keyVaultName: 'kv-${baseName}-${cleanUniqueSuffix}'
-    jwtSecret: jwtSecret
-    postgresPassword: postgresAdminPassword
-    tags: tags
-  }
-}
-
-// =============================================================================
-// 5. Azure Event Hubs (Kafka Surface Backbone)
+// 4. Azure Event Hubs (Kafka Surface Backbone)
 // =============================================================================
 module eventhubs './modules/eventhubs.bicep' = {
   name: 'deploy-eventhubs'
@@ -107,13 +101,31 @@ module eventhubs './modules/eventhubs.bicep' = {
 }
 
 // =============================================================================
-// 6. Azure Cache for Redis (Basic C1, 1GB RAM)
+// 5. Azure Cache for Redis (Basic C1, 1GB RAM)
 // =============================================================================
 module redis './modules/redis.bicep' = {
   name: 'deploy-redis'
   params: {
     location: location
     redisName: 'redis-${baseName}-${cleanUniqueSuffix}'
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 6. Azure Key Vault (Production Secrets Management & Hardening)
+// =============================================================================
+module keyvault './modules/keyvault.bicep' = {
+  name: 'deploy-keyvault'
+  params: {
+    location: location
+    keyVaultName: 'kv-${baseName}-${cleanUniqueSuffix}'
+    jwtSecret: jwtSecret
+    postgresPassword: postgresAdminPassword
+    internalServiceSecret: internalServiceSecret
+    oraclePassword: oraclePassword
+    eventHubsConnectionString: eventhubs.outputs.primaryConnectionString
+    redisKey: redis.outputs.redisPrimaryKey
     tags: tags
   }
 }

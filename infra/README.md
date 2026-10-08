@@ -147,23 +147,21 @@ az group delete --name rg-coobs-dev --yes --no-wait
 
 ---
 
-## 7. Handover Notes & Next Actions for Dev 8 (Jared)
+## 7. Handover Notes & Accomplishments (Dev 8 - Jared)
 
-**What Dev 1 (Carl) has scaffolded:**
+**Infrastructure Delivered (FIN-807 Production Hardening):**
 - [x] Complete modular Bicep architecture under `infra/bicep/modules/`.
 - [x] VNet subnetting, Private DNS zone, and NSGs for PostgreSQL and AKS.
 - [x] Pre-configured Event Hubs with all 13 microservice topics and consumer groups.
 - [x] Pre-configured 6 PostgreSQL databases on the Flexible Server.
 - [x] AKS cluster with Azure CNI, managed identity, Container Insights, and ACR pull permission.
 - [x] FinOps budget guardrails (1GB/day log quota, 1 TU Event Hubs cap).
+- [x] **Azure Key Vault Secrets Provisioning (`keyvault.bicep`):** Full catalog seeded: `jwt-secret`, `postgres-password`, `internal-service-secret`, `oracle-password`, `eventhubs-connection-string`, `redis-key`.
+- [x] **Ingress & TLS Hardening (`infra/k8s/ingress-tls.yaml`):** Production Ingress manifest with TLS termination, Azure Key Vault CSI SecretProviderClass integration, and strict TLS 1.2/1.3 ciphers.
+- [x] **TLS Keystore Generation (`scripts/generate_tls_certs.ps1` / `.sh`):** Automated PKCS12 keystore & X.509 certificate provisioning for Spring Boot edge gateway and Kubernetes secrets.
 
-**Recommended Next Actions for Jared:**
+**Next Target-State Actions:**
 1. **Azure Pipelines CI Integration (`azure-pipelines.yml`):**
-   - Add a PR validation job that runs `az bicep build --file infra/bicep/main.bicep` on pull requests modifying `/infra/*`.
-2. **Key Vault Secret Population:**
-   - Establish standard secret keys in `kv-coobs-dev` (e.g., `POSTGRES-ADMIN-PASSWORD`, `JWT-SECRET-KEY`, `EVENTHUBS-CONNECTION-STRING`).
-3. **Ingress & TLS Setup:**
-   - Deploy `ingress-nginx` or Azure Application Gateway Ingress Controller (AGIC) to `snet-appgw`.
-   - Setup `cert-manager` for SSL termination.
-4. **Kubernetes Configuration Manifests:**
+   - Run `az bicep build --file infra/bicep/main.bicep` on pull requests modifying `/infra/*`.
+2. **Kubernetes Configuration Manifests:**
    - Map backend Spring Boot and Flutter environment variables (`SPRING_PROFILES_ACTIVE=prod`, `SPRING_KAFKA_BOOTSTRAP_SERVERS`, `SPRING_DATASOURCE_URL`) to Kubernetes ConfigMaps referencing the outputs defined in `main.bicep`.
