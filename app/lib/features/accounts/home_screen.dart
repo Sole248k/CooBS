@@ -225,67 +225,70 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, _) {
           final tx = d.curTx, l = d.loan;
           final nb = l?.next;
-          return ListView(padding: const EdgeInsets.only(top: 4, bottom: 16), children: [
-            SizedBox(
-              height: 262,
-              child: PageView(controller: pc, onPageChanged: d.setCur, children: [acctCard(0), acctCard(1), loanCard()]),
-            ),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              for (var i = 0; i < 3; i++)
-                Container(
-                    margin: const EdgeInsets.fromLTRB(3, 12, 3, 0), width: d.cur == i ? 18 : 7, height: 7,
-                    decoration: BoxDecoration(color: d.cur == i ? kInk : const Color(0xFFC3CCC7), borderRadius: BorderRadius.circular(4))),
-            ]),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (d.cur == 2 && l != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: nb == null
-                        ? const Text('All bills are fully paid.')
-                        : Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              const Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
-                              Text(peso(r2(nb.amt - nb.paid)), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-                              Text('Due Date on ${fmt(nb.due)}', style: const TextStyle(fontSize: 12, color: kMut)),
-                            ]),
-                            SizedBox(
-                                width: 150,
-                                child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48), backgroundColor: kNavy),
-                                    onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const PayAdvanceSheet()),
-                                    child: const Text('Pay in Advance'))),
-                          ]),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 20, bottom: 6),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Recent transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    if (tx.isNotEmpty)
-                      TextButton(onPressed: () => go(const SeeAllPage()), child: const Text('See all', style: TextStyle(color: kBlue))),
-                  ]),
-                ),
-                tx.isEmpty
-                    ? Container(
-                        width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 44),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                        child: Column(children: [
-                          const Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF9AA5AD))),
-                          Text(d.cur == 2 ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
-                        ]))
-                    : txCard(tx.take(5).toList()),
-                const SizedBox(height: 22),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const ScoresPage())),
-                  circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
-                  circ(Icons.credit_card, 'Manage\nCards', () => snack(context, 'Card management coming soon in Phase 2')),
-                ]),
-                if (d.cur == 2 && l != null)
-                  Center(child: TextButton(onPressed: d.resetLoan, child: const Text('Reset loan (tester only)'))),
+          return RefreshIndicator(
+            onRefresh: () => d.initFromApi(force: true),
+            child: ListView(padding: const EdgeInsets.only(top: 4, bottom: 16), children: [
+              SizedBox(
+                height: 262,
+                child: PageView(controller: pc, onPageChanged: d.setCur, children: [acctCard(0), acctCard(1), loanCard()]),
+              ),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                for (var i = 0; i < 3; i++)
+                  Container(
+                      margin: const EdgeInsets.fromLTRB(3, 12, 3, 0), width: d.cur == i ? 18 : 7, height: 7,
+                      decoration: BoxDecoration(color: d.cur == i ? kInk : const Color(0xFFC3CCC7), borderRadius: BorderRadius.circular(4))),
               ]),
-            ),
-          ]);
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (d.cur == 2 && l != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: nb == null
+                          ? const Text('All bills are fully paid.')
+                          : Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                const Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
+                                Text(peso(r2(nb.amt - nb.paid)), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                                Text('Due Date on ${fmt(nb.due)}', style: const TextStyle(fontSize: 12, color: kMut)),
+                              ]),
+                              SizedBox(
+                                  width: 150,
+                                  child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48), backgroundColor: kNavy),
+                                      onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const PayAdvanceSheet()),
+                                      child: const Text('Pay in Advance'))),
+                            ]),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 20, bottom: 6),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Recent transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      if (tx.isNotEmpty)
+                        TextButton(onPressed: () => go(const SeeAllPage()), child: const Text('See all', style: TextStyle(color: kBlue))),
+                    ]),
+                  ),
+                  tx.isEmpty
+                      ? Container(
+                          width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 44),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                          child: Column(children: [
+                            const Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF9AA5AD))),
+                            Text(d.cur == 2 ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
+                          ]))
+                      : txCard(tx.take(5).toList()),
+                  const SizedBox(height: 22),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                    circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const ScoresPage())),
+                    circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
+                    circ(Icons.credit_card, 'Manage\nCards', () => snack(context, 'Card management coming soon in Phase 2')),
+                  ]),
+                  if (d.cur == 2 && l != null)
+                    Center(child: TextButton(onPressed: d.resetLoan, child: const Text('Reset loan (tester only)'))),
+                ]),
+              ),
+            ]),
+          );
         },
       );
 }

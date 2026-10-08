@@ -66,18 +66,34 @@ class Demo extends ChangeNotifier {
   static final Demo i = Demo();
   bool isInitializedFromApi = false;
 
-  Future<void> initFromApi([ApiClient? client]) async {
-    if (isInitializedFromApi) return;
+  Future<void> initFromApi({ApiClient? client, bool force = false}) async {
+    if (isInitializedFromApi && !force) return;
     final api = client ?? ApiClient();
     try {
       final json = await api.get('/mobile/dashboard');
       final dash = MobileDashboardResponse.fromJson(json);
       if (accts.isNotEmpty && dash.primaryAccount.availableBalance > 0) {
+        final mappedTx = dash.recentTransactions.isNotEmpty
+            ? dash.recentTransactions.map((t) {
+                final isOut = t.direction.toUpperCase() == 'OUT';
+                final signAmt = isOut ? -t.amount.abs() : t.amount.abs();
+                final label = t.remarks.isNotEmpty
+                    ? t.remarks
+                    : (isOut ? 'Transfer Out' : 'Received Funds');
+                return Tx(
+                  label,
+                  t.trackingReference.isNotEmpty ? t.trackingReference : 'TXN',
+                  t.submittedAt,
+                  signAmt,
+                );
+              }).toList()
+            : accts[0].tx;
+
         accts[0] = Acct(
           dash.primaryAccount.accountType.isNotEmpty ? dash.primaryAccount.accountType : accts[0].type,
           dash.primaryAccount.accountNumber.isNotEmpty ? dash.primaryAccount.accountNumber : accts[0].no,
           dash.primaryAccount.availableBalance,
-          accts[0].tx,
+          mappedTx,
         );
       }
       isInitializedFromApi = true;

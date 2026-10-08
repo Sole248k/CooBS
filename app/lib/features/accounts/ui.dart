@@ -66,12 +66,14 @@ Widget miniTag(String t) => Container(
 
 Widget txRow(Tx x) {
   final out = x.amt < 0;
+  final now = DateTime.now();
+  final isToday = x.date.year == now.year && x.date.month == now.month && x.date.day == now.day;
   return ListTile(
     leading: CircleAvatar(
         backgroundColor: out ? const Color(0xFFFBE9E7) : const Color(0xFFE4EDFF),
         child: Icon(out ? Icons.north_east : Icons.south_west, size: 18, color: out ? kRed : kNavy)),
     title: Text(x.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-    subtitle: Text('${x.ref} · ${x.date == today ? 'Today' : fmt(x.date)}'),
+    subtitle: Text('${x.ref} · ${isToday ? 'Today' : fmt(x.date)}'),
     trailing: Text('${out ? '-' : '+'}${peso(x.amt.abs())}',
         style: TextStyle(fontWeight: FontWeight.w600, color: out ? kRed : kNavy)),
   );
