@@ -1,6 +1,8 @@
 package com.group2.fse.transaction_service.client;
 
 import com.group2.fse.transaction_service.client.dto.AccountLookupResponse;
+import com.group2.fse.transaction_service.client.dto.InboundInterbankSagaRequest;
+import com.group2.fse.transaction_service.client.dto.InboundInterbankSagaResponse;
 import com.group2.fse.transaction_service.client.dto.StartReversalSagaRequest;
 import com.group2.fse.transaction_service.client.dto.StartTransferSagaRequest;
 import com.group2.fse.transaction_service.security.jwt.JwtTokenProvider;
@@ -156,6 +158,33 @@ public class OrchestrationClient {
             log.info("Reversal saga start for txId={} answered {}", request.getTransactionId(), responseEntity.getStatusCode());
         } catch (Exception ex) {
             log.error("Failed to trigger reversal saga for txId={}: {}", request.getTransactionId(), ex.getMessage());
+        }
+    }
+
+    /**
+     * O4: Synchronously executes inbound inter-bank saga at orchestration-service (POST /internal/v1/sagas/inbound-interbank).
+     */
+    public InboundInterbankSagaResponse triggerInboundInterbankSaga(InboundInterbankSagaRequest request, String correlationId) {
+        try {
+            String token = getServiceToken();
+            log.info("Triggering inbound interbank saga O4 for txId={}, ref={}", request.getTransactionId(), request.getReferenceNo());
+
+            var requestSpec = orchestrationRestClient.post()
+                    .uri("/internal/v1/sagas/inbound-interbank")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .body(request);
+
+            if (correlationId != null && !correlationId.isBlank()) {
+                requestSpec.header("X-Correlation-ID", correlationId);
+            }
+
+            InboundInterbankSagaResponse response = requestSpec.retrieve().body(InboundInterbankSagaResponse.class);
+            log.info("Inbound interbank saga answered state={} for txId={}",
+                    response != null ? response.getSagaState() : "null", request.getTransactionId());
+            return response;
+        } catch (Exception ex) {
+            log.error("Failed to execute inbound interbank saga for txId={}: {}", request.getTransactionId(), ex.getMessage());
+            return new InboundInterbankSagaResponse(request.getTransactionId(), "FAILED", request.getReferenceNo());
         }
     }
 
