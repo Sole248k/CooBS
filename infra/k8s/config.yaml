@@ -1,0 +1,50 @@
+# Non-secret settings shared by the cloud workloads. Secrets are in coobs-app-secrets (see README.md).
+# The values marked REPLACE come from the Bicep deployment outputs.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coobs-config
+  labels:
+    app.kubernetes.io/part-of: coobs
+data:
+  # --- Cloud services: Kubernetes Service names, same hosts and ports as Compose ---
+  AUTH_SERVICE_URL: "http://auth-service:8081"
+  CUSTOMER_SERVICE_URL: "http://customer-service:8089"
+  TRANSACTION_SERVICE_URL: "http://transaction-service:8090"
+  ORCHESTRATION_SERVICE_URL: "http://orchestration-service:8091"
+  RISK_ENGINE_URL: "http://risk-engine:8092"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8084"
+  MOBILE_BFF_URL: "http://mobile-bff:8094"
+
+  # --- On-premises services: the names resolve to the VM through onprem-services.yaml ---
+  ACCOUNT_SERVICE_URL: "http://account-service:8082"
+  LEDGER_SERVICE_URL: "http://ledger-service:8083"
+  AUDIT_SERVICE_URL: "http://audit-service:8085"
+  BATCH_SERVICE_URL: "http://batch-service:8093"
+
+  # Private address of the on-premises VM. REPLACE with the address the Bicep gives it.
+  # Copied into the four EndpointSlices in onprem-services.yaml by kustomization.yaml.
+  ONPREM_VM_IP: "10.250.0.4"
+
+  # --- Kafka, one broker in this cluster (kafka.yaml) ---
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:29092"
+  # Fixed private address of the internal load balancer the VM uses to reach Kafka.
+  # REPLACE with a free address in the AKS subnet; the VM's KAFKA_BOOTSTRAP_SERVERS is <this>:9094.
+  KAFKA_EXTERNAL_IP: "10.240.15.200"
+
+  # --- Azure SQL logical server. REPLACE with the server the Bicep creates ---
+  SQL_SERVER_FQDN: "REPLACE-server-name.database.windows.net"
+  CLOUD_DB_USER: "REPLACE-sql-admin-login"
+
+  # --- Azure Managed Redis. REPLACE the host; 10000 with TLS is that service's endpoint ---
+  # For Redis in the cluster instead, see optional/redis-in-cluster.yaml.
+  REDIS_HOST: "REPLACE-cache-name.indonesiacentral.redis.azure.net"
+  REDIS_PORT: "10000"
+  REDIS_SSL_ENABLED: "true"
+
+  # --- Common ---
+  JWT_EXPIRATION_MS: "86400000"
+  # Origins of browser clients. The gateway's own CORS list is still fixed in its application.yml.
+  CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"
+  # Same heap as the Compose expansion services, applied to all eight so each fits its 640Mi limit.
+  JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
