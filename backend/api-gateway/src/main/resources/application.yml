@@ -183,6 +183,19 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
+        # 9b. Staff BFF Routes (Teller & Admin Console Screen Aggregation)
+        - id: staff-bff-route
+          uri: ${STAFF_BFF_URL:http://localhost:8095}
+          predicates:
+            - Path=/api/v1/staff/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
         # 10. Orchestration Service Routes (Transfer and Reversal Saga Coordinator)
         # Saga and compensation query limits: 20 req/s, burst 40
         - id: orchestration-service-route

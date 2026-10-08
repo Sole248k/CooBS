@@ -22,5 +22,6 @@
         <module>risk-engine</module>
         <module>batch-service</module>
         <module>mobile-bff</module>
+        <module>staff-bff</module>
     </modules>
 </project>
