@@ -1,0 +1,14 @@
+{
+  "idTypes": [
+    "Passport",
+    "Driver's license",
+    "UMID",
+    "National ID"
+  ],
+  "civilStatuses": [
+    "Single",
+    "Married",
+    "Widowed",
+    "Separated"
+  ]
+}

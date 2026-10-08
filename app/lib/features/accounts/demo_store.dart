@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+import '../data/mobile_repo.dart';
+
 import '../../core/models/dashboard_models.dart';
 import '../../core/network/api_client.dart';
 
@@ -61,6 +63,8 @@ class Loan {
   }
 }
 
+enum LoadState { loading, ready, partial, offline }
+
 /// In-memory demo state (backed by ApiClient fixtures/network with local mutations).
 class Demo extends ChangeNotifier {
   static final Demo i = Demo();
@@ -99,6 +103,12 @@ class Demo extends ChangeNotifier {
     ]),
   ];
   Loan? loan;
+  LoadState state = LoadState.loading;
+  String memberName = 'John D.', kyc = 'VERIFIED', primaryNo = '';
+  int unread = 0;
+  List<String> unavailable = [];
+  String? forced; // tester: 'partial' | 'offline'
+  bool _kycTouched = false;
   bool hide = false;
   int cur = 0;
   final bens = <Ben>[const Ben('Juan Dela Cruz', 'Brother', '+63 917 000 1111')];
@@ -108,6 +118,63 @@ class Demo extends ChangeNotifier {
     ['KYC update approved', 'Yesterday'],
   ];
   void _alert(String m) => alerts.insert(0, [m, 'Just now']);
+
+  /// Loads Customer 360 data from the fixtures (M1, K5, K6, N1).
+  Future<void> load() async {
+    state = LoadState.loading;
+    notifyListeners();
+    try {
+      if (forced == 'offline') throw Exception('simulated outage');
+      final m1 = await ApiClient().get('/mobile/dashboard');
+      final k5 = await MobileRepo.myAccounts();
+      final k6 = (await MobileRepo.accountTx())['accounts'] as Map<String, dynamic>;
+      final n1 = await MobileRepo.notifications();
+      memberName = m1['member']['displayName'] as String;
+      if (!_kycTouched) kyc = m1['member']['kycStatus'] as String;
+      primaryNo = m1['primaryAccount']['accountNumber'] as String;
+      unread = (m1['unreadNotifications'] as num).toInt();
+      unavailable = [for (final x in (m1['unavailable'] as List? ?? [])) '$x'];
+      if (forced == 'partial') unavailable = ['recentTransactions'];
+      accts
+        ..clear()
+        ..addAll([
+          for (final a in k5)
+            Acct(
+              '${a['accountType']}'[0] + '${a['accountType']}'.substring(1).toLowerCase(),
+              a['accountNumber'] as String,
+              (a['availableBalance'] as num).toDouble(),
+              [
+                for (final t in (k6[a['accountNumber']] as List? ?? []))
+                  () {
+                    final d = DateTime.parse(t['createdAt'] as String).toLocal();
+                    final amt = double.parse('${t['amount']}');
+                    return Tx('${t['remarks']}'.isEmpty ? '${t['referenceNo']}' : '${t['remarks']}', '${t['referenceNo']}',
+                        DateTime(d.year, d.month, d.day), t['direction'] == 'OUT' ? -amt : amt);
+                  }()
+              ],
+            )
+        ]);
+      for (final n in (n1['content'] as List).reversed) {
+        alerts.insert(0, ['${n['message']}', fmt(DateTime.parse('${n['createdAt']}').toLocal())]);
+      }
+      state = unavailable.isEmpty ? LoadState.ready : LoadState.partial;
+    } catch (_) {
+      state = LoadState.offline;
+    }
+    notifyListeners();
+  }
+
+  void simulate(String? mode) { forced = mode; load(); }
+  void setKyc(String s) { kyc = s; _kycTouched = true; notifyListeners(); }
+
+  /// Local effect of a successful (mock) remittance so the cards and history stay consistent.
+  void applyRemittance(int from, double amt, double fee, String bank, String dest, String ref) {
+    accts[from].bal = r2(accts[from].bal - amt - fee);
+    accts[from].tx.insert(0, Tx('Transfer to $bank', ref, today, -amt));
+    if (fee > 0) accts[from].tx.insert(0, Tx('Transfer fee', ref, today, -fee));
+    _alert('${peso(amt)} transferred to $dest ($bank). Ref $ref');
+    notifyListeners();
+  }
 
   void toggleHide() { hide = !hide; notifyListeners(); }
   void setCur(int v) { cur = v; notifyListeners(); }

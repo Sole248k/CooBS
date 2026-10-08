@@ -1,0 +1,12 @@
+{
+  "customerId": 1,
+  "firstName": "John",
+  "middleInitial": "D",
+  "lastName": "Doe",
+  "address": "Quezon City, Metro Manila",
+  "civilStatus": "Single",
+  "occupation": "Software engineer",
+  "mobileNumber": "+639170000000",
+  "idType": "Passport",
+  "idNumber": "SIM-0000001"
+}

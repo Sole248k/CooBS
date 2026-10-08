@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../shell/app_shell.dart';
 import '../beneficiaries/beneficiary_screens.dart';
+import '../kyc/kyc_intake_screen.dart';
+import '../remittance/remittance_screen.dart';
 import '../loans/loan_screens.dart';
 import '../profile/tab_screens.dart';
 import '../scores/scores_screen.dart';
@@ -37,6 +39,14 @@ class _MobileShellState extends State<MobileShell> {
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     logoBox(),
+                    Row(children: [
+                    AnimatedBuilder(
+                      animation: Demo.i,
+                      builder: (context, _) => InkWell(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycIntakeScreen())),
+                          child: kycChip(Demo.i.kyc)),
+                    ),
+                    const SizedBox(width: 8),
                     FutureBuilder<String?>(
                       future: SecureStorageService().getUsername(),
                       builder: (context, snapshot) {
@@ -47,6 +57,7 @@ class _MobileShellState extends State<MobileShell> {
                             child: Text('@$user', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)));
                       },
                     ),
+                    ]),
                   ]),
                 ),
                 Expanded(
@@ -80,7 +91,13 @@ class _MobileShellState extends State<MobileShell> {
                         decoration: BoxDecoration(
                             color: i == k ? Colors.white12 : null, borderRadius: BorderRadius.circular(14)),
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(_tabs[k][0] as IconData, color: i == k ? Colors.white : Colors.white54),
+                          ListenableBuilder(
+                            listenable: Demo.i,
+                            builder: (context, _) => Badge(
+                                isLabelVisible: k == 2 && Demo.i.unread > 0,
+                                label: Text('${Demo.i.unread}'),
+                                child: Icon(_tabs[k][0] as IconData, color: i == k ? Colors.white : Colors.white54)),
+                          ),
                           Text(_tabs[k][1] as String,
                               style: TextStyle(fontSize: 10, color: i == k ? Colors.white : Colors.white54)),
                         ]),
@@ -107,7 +124,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    Demo.i.initFromApi();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && Demo.i.state == LoadState.loading) {
+        Demo.i.load();
+      }
+    });
   }
 
   void go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w));
@@ -163,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget acctCard(int i) {
     final a = d.accts[i];
-    return shell(i, a.type, 'ACTIVE', [
+    return shell(i, a.no == d.primaryNo ? '${a.type} · primary' : a.type, 'ACTIVE', [
       const SizedBox(height: 14),
       const Text('Account number', style: TextStyle(fontSize: 11, color: Colors.white70)),
       Text(a.no, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
@@ -173,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const SizedBox(height: 12),
       Row(children: [
         btn('Deposit', () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => MoneySheet(i, false))),
-        btn('Transfer', () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => MoneySheet(i, true))),
+        btn('Transfer', () => go(RemittanceScreen(from: i))),
       ]),
     ]);
   }
@@ -223,6 +244,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: d,
         builder: (context, _) {
+          if (d.state == LoadState.loading) return const _Skeleton();
+          if (d.state == LoadState.offline) return _Offline(d.load);
+          final failed = d.state == LoadState.partial && d.unavailable.contains('recentTransactions');
           final tx = d.curTx, l = d.loan;
           final nb = l?.next;
           return ListView(padding: const EdgeInsets.only(top: 4, bottom: 16), children: [
@@ -266,7 +290,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       TextButton(onPressed: () => go(const SeeAllPage()), child: const Text('See all', style: TextStyle(color: kBlue))),
                   ]),
                 ),
-                tx.isEmpty
+                failed
+                    ? _Warn(d.load)
+                    : tx.isEmpty
                     ? Container(
                         width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 44),
                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
@@ -365,3 +391,50 @@ class SeeAllPage extends StatelessWidget {
   }
 }
 
+
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+  Widget bar(double h, [double? w]) => Container(height: h, width: w, decoration: BoxDecoration(color: const Color(0xFFE3E8EC), borderRadius: BorderRadius.circular(14)));
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          bar(250),
+          const SizedBox(height: 22),
+          bar(18, 160),
+          const SizedBox(height: 10),
+          bar(160),
+        ]),
+      );
+}
+
+class _Offline extends StatelessWidget {
+  final VoidCallback retry;
+  const _Offline(this.retry);
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Icon(Icons.wifi_off, size: 40, color: kMut),
+          const SizedBox(height: 14),
+          const Text('Service Temporarily Unavailable', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          const Text("We can't reach the bank right now. Please try again.", textAlign: TextAlign.center, style: TextStyle(color: kMut)),
+          bigBtn('Retry connection', retry),
+        ]),
+      );
+}
+
+class _Warn extends StatelessWidget {
+  final VoidCallback retry;
+  const _Warn(this.retry);
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: const Color(0xFFFDF0D5), borderRadius: BorderRadius.circular(12)),
+        child: Row(children: [
+          const Expanded(child: Text('Recent transactions could not be loaded.', style: TextStyle(color: Color(0xFF6B4700)))),
+          TextButton(onPressed: retry, child: const Text('Retry')),
+        ]),
+      );
+}
