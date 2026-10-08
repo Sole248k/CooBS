@@ -46,7 +46,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/actuator/**",
-                                "/error"
+                                "/error",
+                                "/api/v1/interbank/**"
                         ).permitAll()
                         .requestMatchers("/internal/v1/**").hasRole("SERVICE")
                         .anyRequest().authenticated()
