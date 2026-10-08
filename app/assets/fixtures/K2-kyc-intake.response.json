@@ -1,0 +1,9 @@
+{
+  "submissionId": "KYC-20261007-0001",
+  "customerId": 1,
+  "submittedAt": "2026-10-07T09:20:00Z",
+  "simulated": true,
+  "status": "PENDING_REVIEW",
+  "reviewedAt": null,
+  "reviewNote": null
+}

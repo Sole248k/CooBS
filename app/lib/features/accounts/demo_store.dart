@@ -61,10 +61,31 @@ class Loan {
   }
 }
 
+enum LoadState { loading, ready, partial, offline }
+
 /// In-memory demo state (backed by ApiClient fixtures/network with local mutations).
 class Demo extends ChangeNotifier {
   static final Demo i = Demo();
   bool isInitializedFromApi = false;
+  LoadState state = LoadState.ready;
+  String kyc = 'VERIFIED';
+  String primaryNo = '';
+  int unread = 0;
+  List<String> unavailable = [];
+
+  Future<void> load() async => initFromApi(force: true);
+  void setKyc(String s) { kyc = s; notifyListeners(); }
+  void simulate(String? mode) { notifyListeners(); }
+
+  void applyRemittance(int from, double amt, double fee, String bank, String dest, String ref) {
+    if (accts.length > from) {
+      accts[from].bal = r2(accts[from].bal - amt - fee);
+      accts[from].tx.insert(0, Tx('Transfer to $bank', ref, today, -amt));
+      if (fee > 0) accts[from].tx.insert(0, Tx('Transfer fee', ref, today, -fee));
+      _alert('${peso(amt)} transferred to $dest ($bank). Ref $ref');
+      notifyListeners();
+    }
+  }
 
   Future<void> initFromApi({ApiClient? client, bool force = false}) async {
     if (isInitializedFromApi && !force) return;
