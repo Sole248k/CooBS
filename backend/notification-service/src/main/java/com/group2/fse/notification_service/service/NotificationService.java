@@ -57,10 +57,22 @@ public class NotificationService {
         Long customerId = p.getCustomerId() != null ? p.getCustomerId() : p.getAccountId();
         String type = p.getTransactionType() != null ? p.getTransactionType().toUpperCase() : "MUTATION";
 
-        String title = "DEBIT".equals(type) ? "Account Debited" : "Account Credited";
-        String actionVerb = "DEBIT".equals(type) ? "debited from" : "credited to";
-        String message = String.format("PHP %s was %s account %s. New balance: PHP %s.",
-                p.getAmount(), actionVerb, p.getAccountNumber(), p.getNewBalance());
+        String title;
+        String message;
+        if ("INTEREST_CREDIT".equalsIgnoreCase(type)) {
+            title = "Monthly Interest Credited";
+            String accNum = p.getAccountNumber() != null ? p.getAccountNumber() : "ACC_" + String.format("%08d", p.getAccountId());
+            message = String.format("Monthly Interest Credited: ₱%s has been added to your savings account %s.",
+                    p.getAmount(), accNum);
+        } else if ("DEBIT".equalsIgnoreCase(type)) {
+            title = "Account Debited";
+            message = String.format("PHP %s was debited from account %s. New balance: PHP %s.",
+                    p.getAmount(), p.getAccountNumber(), p.getNewBalance());
+        } else {
+            title = "Account Credited";
+            message = String.format("PHP %s was credited to account %s. New balance: PHP %s.",
+                    p.getAmount(), p.getAccountNumber(), p.getNewBalance());
+        }
 
         Notification notification = Notification.builder()
                 .customerId(customerId)

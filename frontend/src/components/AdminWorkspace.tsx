@@ -7,7 +7,8 @@ import {
   CheckCircle2,
   XCircle,
   Lock,
-  Unlock
+  Unlock,
+  CalendarClock
 } from 'lucide-react';
 import type {
   Account,
@@ -17,6 +18,7 @@ import type {
   ClosureRequestResponse
 } from '../types';
 import { apiClient } from '../services/api';
+import { EodBatchView } from './EodBatchView';
 
 interface AdminWorkspaceProps {
   onRefreshGlobalData: () => void;
@@ -27,7 +29,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
   onRefreshGlobalData,
   showToast
 }) => {
-  const [activeTab, setActiveTab] = useState<'closures' | 'audit' | 'governance'>('closures');
+  const [activeTab, setActiveTab] = useState<'closures' | 'audit' | 'governance' | 'batch'>('batch');
 
   // Closures State
   const [pendingClosures, setPendingClosures] = useState<ClosureRequestResponse[]>([]);
@@ -247,6 +249,27 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
         >
           <ShieldAlert size={18} />
           <span>Risk Holds & Governance</span>
+        </button>
+
+        <button
+          type="button"
+          id="tab-btn-batch"
+          onClick={() => setActiveTab('batch')}
+          style={{
+            padding: '10px 18px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: activeTab === 'batch' ? '#eff6ff' : 'transparent',
+            color: activeTab === 'batch' ? '#1d4ed8' : '#64748b',
+            border: activeTab === 'batch' ? '1px solid #bfdbfe' : '1px solid transparent'
+          }}
+        >
+          <CalendarClock size={18} />
+          <span>End-of-Day Settlement (Batch)</span>
         </button>
       </div>
 
@@ -713,6 +736,15 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4. END-OF-DAY BATCH PROCESSING & AUDIT SEAL                                */}
+      {/* ========================================================================= */}
+      {activeTab === 'batch' && (
+        <div className="animate-fade">
+          <EodBatchView showToast={showToast} />
         </div>
       )}
     </div>

@@ -288,3 +288,46 @@ export interface BatchRunDetails {
   steps: BatchStep[];
 }
 
+// ============================================================================
+// End-of-Day (EOD) Batch Pipeline & Daily Audit Seal Contracts
+// ============================================================================
+
+export type BatchStepStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+export type BatchRunStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'HALTED';
+
+export interface BatchStepItem {
+  stepNo: number;
+  stepName: string;
+  status: BatchStepStatus;
+  itemsProcessed: number;
+  totalAmount?: string;
+  durationMs?: number;
+  message?: string;
+}
+
+export interface BatchRunDetail {
+  batchRunId: number;
+  businessDate: string; // YYYY-MM-DD
+  status: BatchRunStatus;
+  triggeredBy?: number;
+  startedAt: string;
+  finishedAt?: string;
+  steps: BatchStepItem[];
+}
+
+export interface BatchTriggerResponse {
+  batchRunId: number;
+  businessDate: string;
+  status: BatchRunStatus;
+  startedAt: string;
+}
+
+export interface DailyAuditSealResponse {
+  businessDate: string;
+  lastAuditId: number;
+  sealHash: string;
+  sealedAt: string;
+  batchRunId?: number;
+}
+
+
