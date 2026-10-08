@@ -269,11 +269,14 @@ stages:
             displayName: Verify Redis velocity keys and TTL lifecycle (FIN-803)
           - script: |
               set -e
-              echo '{"eventId":"ci-101","accountId":"ACC_1001","status":"COMPLETED"}' | docker exec -i kafka-broker \
-                /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic ledger.mutation.completed.v1 --producer-property acks=1
-              sleep 3
-              CONSUMED=$(docker exec kafka-broker /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
-                --topic ledger.mutation.completed.v1 --from-beginning --max-messages 1 --timeout-ms 15000)
+              timeout 15s docker exec -i kafka-broker bash -c 'echo "{\"eventId\":\"ci-101\",\"accountId\":\"ACC_1001\",\"status\":\"COMPLETED\"}" | /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic ledger.mutation.completed.v1'
+              sleep 2
+              CONSUMED=$(timeout 15s docker exec kafka-broker /opt/kafka/bin/kafka-console-consumer.sh \
+                --bootstrap-server localhost:9092 \
+                --topic ledger.mutation.completed.v1 \
+                --from-beginning \
+                --max-messages 1 \
+                --timeout-ms 5000 2>&1 || true)
               echo "$CONSUMED" | grep -q "ACC_1001" || { echo "FAIL: message not consumed. Captured output: '$CONSUMED'"; exit 1; }
               LIST=$(docker exec kafka-broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list)
               for topic in transaction.stage.changed.v1 notification.dispatched.v1 ledger.transfer.completed.v1.DLT; do
@@ -316,9 +319,10 @@ stages:
 
           - script: |
               set -e
-              docker compose up -d oracle-core-db postgres-audit-db redis-cache kafka-broker kafka-init-topics
+              docker compose up -d oracle-core-db postgres-audit-db postgres-cloud-db redis-cache kafka-broker kafka-init-topics
               timeout 60s bash -c 'until docker exec redis-cache redis-cli ping | grep -q PONG; do sleep 2; done'
               timeout 60s bash -c 'until docker exec postgres-audit-db pg_isready -U postgres -d audit_store; do sleep 2; done'
+              timeout 60s bash -c 'until docker exec postgres-cloud-db pg_isready -U postgres -d identity_db; do sleep 2; done'
               timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; do sleep 3; done'
               docker wait kafka-init-topics || true
             displayName: Start Oracle, PostgreSQL, Redis and Kafka
@@ -380,7 +384,7 @@ stages:
   - stage: Package
     displayName: 4. Build container images
     dependsOn: Test
-    condition: and(succeeded(), or(eq(variables.isMain, 'True'), eq(variables.isRelease, 'True')))
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
       - job: images
         displayName: Build images
@@ -409,7 +413,7 @@ stages:
       - stage: Publish
         displayName: 5. Push images to registry
         dependsOn: Package
-        condition: and(succeeded(), or(eq(variables.isMain, 'True'), eq(variables.isRelease, 'True')))
+        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
         jobs:
           - job: push
             displayName: Push images
