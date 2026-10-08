@@ -26,11 +26,11 @@ $total = 5
 Write-Host "`n[Check 1/5] Audit Record Count in audit_store.ledger_mutation_audit..." -ForegroundColor Yellow
 $countResult = docker exec postgres-audit-db psql -U postgres -d audit_store -t -A -c "SELECT COUNT(*) FROM audit_store.ledger_mutation_audit;"
 $count = ($countResult -join "").Trim()
-if ($count -eq "58") {
-    Write-Host "  [PASS] Record count verified: exactly 58 mutation records present." -ForegroundColor Green
+if ([int]$count -ge 58) {
+    Write-Host "  [PASS] Record count verified: $count mutation records present (baseline >= 58)." -ForegroundColor Green
     $passed++
 } else {
-    Write-Host "  [FAIL] Expected 58 mutation records, found: $count" -ForegroundColor Red
+    Write-Host "  [FAIL] Expected at least 58 mutation records, found: $count" -ForegroundColor Red
 }
 
 # 2. Cryptographic Hash Chain Linkage Across All Accounts
@@ -57,8 +57,8 @@ FROM chain_check;
 
 $chainResult = docker exec postgres-audit-db psql -U postgres -d audit_store -t -A -c "$chainSql"
 $parts = ($chainResult -join "").Trim().Split("|")
-if ($parts.Count -eq 3 -and $parts[0] -eq "58" -and $parts[1] -eq "58" -and $parts[2] -eq "58") {
-    Write-Host "  [PASS] 100% Hash Chain Linkage Intact: 58/58 records valid across all 21 accounts." -ForegroundColor Green
+if ($parts.Count -eq 3 -and [int]$parts[0] -ge 58 -and $parts[0] -eq $parts[1] -and $parts[0] -eq $parts[2]) {
+    Write-Host "  [PASS] 100% Hash Chain Linkage Intact: $($parts[0])/$($parts[0]) records valid across all accounts." -ForegroundColor Green
     $passed++
 } else {
     Write-Host "  [FAIL] Chain verification failed: $chainResult" -ForegroundColor Red

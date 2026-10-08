@@ -122,7 +122,15 @@ public class ReversalSaga {
             events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
             events.passed(r.transactionId(), r.referenceNo(), Stage.RECONCILIATION, null);
         } catch (DownstreamException e) {
-            log.error("Reversal of transaction {} failed at ledger: {}", r.transactionId(), e.getMessage());
+            if (!e.refused()) {
+                // No answer is not a refusal: the ledger may have posted the reversal. The saga
+                // stays at STARTED and the sweep repeats the call with the same references, for
+                // which the ledger returns the reversal it already has.
+                log.error("Ledger did not answer reversal {}; saga left at STARTED for the sweep to repeat it: {}",
+                        r.transactionId(), e.getMessage());
+                return;
+            }
+            log.error("Ledger refused reversal {}: {}", r.transactionId(), e.getMessage());
             fail(reversalSaga, r, e.getErrorCode(), e.getMessage());
         }
     }
@@ -141,7 +149,14 @@ public class ReversalSaga {
             events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Hold cancelled and funds released");
             events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
         } catch (DownstreamException e) {
-            log.error("Failed to release hold {} for reversal {}: {}", original.getHoldId(), r.transactionId(), e.getMessage());
+            if (!e.refused()) {
+                // The release may have been applied. Both rows are left as they are for the sweep.
+                log.error("Ledger did not answer the release of hold {} for reversal {}; saga left at STARTED "
+                        + "for the sweep to repeat it: {}", original.getHoldId(), r.transactionId(), e.getMessage());
+                return;
+            }
+            log.error("Ledger refused to release hold {} for reversal {}: {}",
+                    original.getHoldId(), r.transactionId(), e.getMessage());
             fail(reversalSaga, r, e.getErrorCode(), e.getMessage());
         }
     }

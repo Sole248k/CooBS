@@ -71,7 +71,7 @@ class RiskEvaluatorTest {
         assertTrue(response.getFraudCheck().getReasons().isEmpty(), "Approved transfer reasons must be empty");
         assertTrue(Double.parseDouble(response.getScore()) < 0.60);
 
-        verify(velocityCounter).recordApprovedTransfer(eq(1L), eq(new BigDecimal("2500.00")));
+        verify(velocityCounter).recordApprovedTransfer(eq(1L), any(), eq(new BigDecimal("2500.00")));
     }
 
     @Test
@@ -108,7 +108,7 @@ class RiskEvaluatorTest {
         assertTrue(score >= 0.60 && score <= 0.85, "Score should fall into 0.60 - 0.85 band");
 
         // Must not record transfer in Redis on decline
-        verify(velocityCounter, never()).recordApprovedTransfer(any(), any());
+        verify(velocityCounter, never()).recordApprovedTransfer(any(), any(), any());
     }
 
     @Test
@@ -174,12 +174,14 @@ class RiskEvaluatorTest {
         // Then
         assertEquals("DECLINE", response.getDecision());
         assertEquals("FAILED", response.getLimitCheck().getOutcome());
+        // Score 0.22 is in the clean band: the limit failed, the fraud check did not.
+        assertEquals("PASSED", response.getFraudCheck().getOutcome());
         assertTrue(response.getFraudCheck().getReasons().contains("LIMIT_EXCEEDED"));
         assertTrue(response.getFraudCheck().getReasons().contains("TIER_DAILY_CEILING_REACHED"));
     }
 
     @Test
-    @DisplayName("Should flag REDIS_UNAVAILABLE when Redis is down without failing open silently")
+    @DisplayName("Should refuse to decide when Redis is down instead of approving with the limits switched off")
     void testRedisDownHandling() {
         // Given: Redis is unreachable
         when(velocityCounter.getVelocityState(5L)).thenReturn(
@@ -201,12 +203,11 @@ class RiskEvaluatorTest {
                 .isNewBeneficiary(true)
                 .build();
 
-        // When
-        RiskEvaluationResponse response = riskEvaluator.evaluate(request);
-
-        // Then
-        assertTrue(response.getFraudCheck().getReasons().contains("REDIS_UNAVAILABLE"),
-                "Should include REDIS_UNAVAILABLE flag in reasons");
+        // When / Then
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.group2.fse.risk_engine.exception.RiskUnavailableException.class,
+                () -> riskEvaluator.evaluate(request));
+        verify(velocityCounter, never()).recordApprovedTransfer(any(), any(), any());
     }
 
     @Test

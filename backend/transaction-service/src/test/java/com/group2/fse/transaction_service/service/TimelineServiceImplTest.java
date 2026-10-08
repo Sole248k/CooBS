@@ -59,8 +59,64 @@ class TimelineServiceImplTest {
                 .currency("PHP")
                 .category("TRANSFER")
                 .status("PROCESSING")
+                .customerId(1L)
                 .createdAt(Instant.now())
                 .build();
+        // Unless a test says otherwise, a teller is reading.
+        signInAs(16L, "teller_alice", "ROLE_TELLER");
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void signOut() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
+    private static UsernamePasswordAuthenticationToken signInAs(long userId, String username, String role) {
+        com.group2.fse.transaction_service.security.UserPrincipal principal =
+                com.group2.fse.transaction_service.security.UserPrincipal.create(userId, username, List.of(role));
+        UsernamePasswordAuthenticationToken auth =
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+        return auth;
+    }
+
+    @Test
+    @DisplayName("a customer who asks for the staff view gets the customer view")
+    void testCustomerAskingForStaffViewGetsCustomerView() {
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+        when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of());
+
+        TimelineResponseDto response = timelineService.getTimeline(
+                transactionId.toString(), "STAFF", signInAs(1L, "john_doe", "ROLE_CUSTOMER"));
+
+        assertThat(response.getView()).isEqualTo("CUSTOMER");
+        assertThat(response.getStages()).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("a customer cannot read another customer's timeline or transaction")
+    void testCustomerCannotReadAnotherCustomersTransaction() {
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+        UsernamePasswordAuthenticationToken maria = signInAs(2L, "maria_santos", "ROLE_CUSTOMER");
+
+        assertThatThrownBy(() -> timelineService.getTimeline(transactionId.toString(), null, maria))
+                .isInstanceOf(com.group2.fse.transaction_service.exception.TransferRejectedException.class)
+                .hasMessageContaining("another customer");
+        assertThatThrownBy(() -> timelineService.getTransactionDetail(transactionId.toString()))
+                .isInstanceOf(com.group2.fse.transaction_service.exception.TransferRejectedException.class);
+        assertThatThrownBy(() -> timelineService.getExecutionStatus(transactionId.toString()))
+                .isInstanceOf(com.group2.fse.transaction_service.exception.TransferRejectedException.class);
+    }
+
+    @Test
+    @DisplayName("a teller may ask for the customer view")
+    void testTellerMayAskForCustomerView() {
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+        when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of());
+
+        TimelineResponseDto response = timelineService.getTimeline(transactionId.toString(), "CUSTOMER", null);
+
+        assertThat(response.getView()).isEqualTo("CUSTOMER");
     }
 
     @Test
@@ -68,12 +124,11 @@ class TimelineServiceImplTest {
     void testGetTimelineCustomerViewDefault() {
         when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
         when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of(
-                TxnStageEvent.builder().stageNo(1).stageName("INGRESS_ACCEPTED").outcome("PASSED").occurredAt(Instant.now()).build(),
-                TxnStageEvent.builder().stageNo(2).stageName("PREFLIGHT_VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build()
+                TxnStageEvent.builder().stageNo(1).stageName("INITIATED").outcome("PASSED").occurredAt(Instant.now()).build(),
+                TxnStageEvent.builder().stageNo(2).stageName("VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build()
         ));
 
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "john_doe", "password", List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER")));
+        UsernamePasswordAuthenticationToken auth = signInAs(1L, "john_doe", "ROLE_CUSTOMER");
 
         TimelineResponseDto response = timelineService.getTimeline(transactionId.toString(), null, auth);
 
@@ -90,7 +145,7 @@ class TimelineServiceImplTest {
     void testGetTimelineStaffView() {
         when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
         when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of(
-                TxnStageEvent.builder().stageNo(1).stageName("INGRESS_ACCEPTED").outcome("PASSED").occurredAt(Instant.now()).build()
+                TxnStageEvent.builder().stageNo(1).stageName("INITIATED").outcome("PASSED").occurredAt(Instant.now()).build()
         ));
 
         TimelineResponseDto response = timelineService.getTimeline(transactionId.toString(), "STAFF", null);
@@ -99,7 +154,10 @@ class TimelineServiceImplTest {
         assertThat(response.getTotalStages()).isEqualTo(11);
         assertThat(response.getStages()).hasSize(11);
         assertThat(response.getStages().get(0).getStatus()).isEqualTo("COMPLETED");
-        assertThat(response.getStages().get(0).getTitle()).isEqualTo("Ingress Accepted");
+        assertThat(response.getStages().get(0).getTitle()).isEqualTo("Initiated");
+        assertThat(response.getStages()).extracting("stageName").containsExactly(
+                "INITIATED", "VALIDATED", "AUTHENTICATED", "FRAUD_CHECK", "LIMIT_CHECK", "FUNDS_CHECK",
+                "AUTHORIZED", "POSTED", "LEDGER_UPDATE", "NOTIFICATION", "RECONCILIATION");
         assertThat(response.getStages().get(1).getStatus()).isEqualTo("IN_PROGRESS");
         assertThat(response.getStages().get(2).getStatus()).isEqualTo("PENDING");
     }
@@ -156,13 +214,62 @@ class TimelineServiceImplTest {
     }
 
     @Test
+    @DisplayName("recordStage marks the original REVERSED when its reversal posts")
+    void testRecordStageReversalPostedMarksTheOriginalReversed() {
+        UUID reversalId = UUID.randomUUID();
+        TxnTransaction reversal = TxnTransaction.builder()
+                .transactionId(reversalId)
+                .referenceNo("RV-20261003-11AA22BB")
+                .status("PROCESSING")
+                .reversesTransactionId(transactionId)
+                .build();
+        testTxn.setStatus("POSTED");
+        when(stageEventRepository.findByTransactionIdAndStageNo(reversalId, 8)).thenReturn(Optional.empty());
+        when(transactionRepository.findByTransactionId(reversalId)).thenReturn(Optional.of(reversal));
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+
+        timelineService.recordStage(reversalId, 8, "POSTED", "PASSED", "Reversal posted", Instant.now(), "POSTED", null);
+
+        assertThat(reversal.getStatus()).isEqualTo("POSTED");
+        assertThat(testTxn.getStatus()).isEqualTo("REVERSED");
+        verify(transactionRepository).save(testTxn);
+    }
+
+    @Test
+    @DisplayName("recordStage leaves a reversed transfer REVERSED when one of its own late stages arrives")
+    void testRecordStageDoesNotUndoReversed() {
+        testTxn.setStatus("REVERSED");
+        when(stageEventRepository.findByTransactionIdAndStageNo(transactionId, 10)).thenReturn(Optional.empty());
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+
+        timelineService.recordStage(transactionId, 10, "NOTIFICATION", "PASSED", null, Instant.now(), "POSTED", null);
+
+        assertThat(testTxn.getStatus()).isEqualTo("REVERSED");
+    }
+
+    @Test
+    @DisplayName("recordStage does not put a finished transfer back in progress when an early stage arrives late")
+    void testRecordStageLateEarlyStageKeepsFinishedStatus() {
+        testTxn.setStatus("FAILED");
+        testTxn.setFailureCode("HIGH_RISK");
+        when(stageEventRepository.findByTransactionIdAndStageNo(transactionId, 3)).thenReturn(Optional.empty());
+        when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
+
+        timelineService.recordStage(transactionId, 3, "AUTHENTICATED", "PASSED", null, Instant.now(), "PROCESSING", null);
+
+        verify(stageEventRepository).save(any(TxnStageEvent.class));
+        assertThat(testTxn.getStatus()).isEqualTo("FAILED");
+        assertThat(testTxn.getFailureCode()).isEqualTo("HIGH_RISK");
+    }
+
+    @Test
     @DisplayName("getExecutionStatus builds Ingress -> Screened -> Committed -> Notified execution state flow")
     void testGetExecutionStatus() {
         when(transactionRepository.findByTransactionId(transactionId)).thenReturn(Optional.of(testTxn));
         when(stageEventRepository.findByTransactionIdOrderByStageNoAsc(transactionId)).thenReturn(List.of(
-                TxnStageEvent.builder().stageNo(1).stageName("INGRESS_ACCEPTED").outcome("PASSED").occurredAt(Instant.now()).build(),
-                TxnStageEvent.builder().stageNo(2).stageName("PREFLIGHT_VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build(),
-                TxnStageEvent.builder().stageNo(3).stageName("DISPATCHED_TO_ORCHESTRATOR").outcome("PASSED").occurredAt(Instant.now()).build()
+                TxnStageEvent.builder().stageNo(1).stageName("INITIATED").outcome("PASSED").occurredAt(Instant.now()).build(),
+                TxnStageEvent.builder().stageNo(2).stageName("VALIDATED").outcome("PASSED").occurredAt(Instant.now()).build(),
+                TxnStageEvent.builder().stageNo(3).stageName("AUTHENTICATED").outcome("PASSED").occurredAt(Instant.now()).build()
         ));
 
         com.group2.fse.transaction_service.dto.ExecutionStatusResponseDto result =

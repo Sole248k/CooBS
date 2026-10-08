@@ -139,6 +139,7 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.evaluated.v1.DLT --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic transaction.stage.changed.v1.DLT --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.dispatched.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.events.DLT --partitions 3 --replication-factor 1
         echo "Available topics:"
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --list
     networks:
@@ -449,7 +450,7 @@ services:
     image: postgres:16-alpine
     container_name: postgres-cloud-db
     ports:
-      - "${POSTGRES_CLOUD_PORT:-5435}:5432"
+      - "127.0.0.1:${POSTGRES_CLOUD_PORT:-5435}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_CLOUD_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -478,7 +479,7 @@ services:
       dockerfile: Dockerfile
     container_name: customer-service
     ports:
-      - "${CUSTOMER_SERVICE_PORT:-8089}:8089"
+      - "127.0.0.1:${CUSTOMER_SERVICE_PORT:-8089}:8089"
     depends_on:
       postgres-cloud-db:
         condition: service_healthy
@@ -520,7 +521,7 @@ services:
       dockerfile: Dockerfile
     container_name: transaction-service
     ports:
-      - "${TRANSACTION_SERVICE_PORT:-8090}:8090"
+      - "127.0.0.1:${TRANSACTION_SERVICE_PORT:-8090}:8090"
     depends_on:
       postgres-cloud-db:
         condition: service_healthy
@@ -567,7 +568,7 @@ services:
       dockerfile: Dockerfile
     container_name: orchestration-service
     ports:
-      - "${ORCHESTRATION_SERVICE_PORT:-8091}:8091"
+      - "127.0.0.1:${ORCHESTRATION_SERVICE_PORT:-8091}:8091"
     depends_on:
       postgres-cloud-db:
         condition: service_healthy
@@ -611,7 +612,7 @@ services:
       dockerfile: Dockerfile
     container_name: risk-engine
     ports:
-      - "${RISK_ENGINE_PORT:-8092}:8092"
+      - "127.0.0.1:${RISK_ENGINE_PORT:-8092}:8092"
     depends_on:
       redis-cache:
         condition: service_healthy
@@ -621,6 +622,7 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET is required}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
       JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
     healthcheck:
@@ -644,7 +646,7 @@ services:
       dockerfile: Dockerfile
     container_name: batch-service
     ports:
-      - "${BATCH_SERVICE_PORT:-8093}:8093"
+      - "127.0.0.1:${BATCH_SERVICE_PORT:-8093}:8093"
     depends_on:
       postgres-audit-db:
         condition: service_healthy
@@ -670,6 +672,48 @@ services:
     restart: unless-stopped
     networks:
       - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # mobile-bff (cloud) - Mobile Backend-for-Frontend middleware
+  # ----------------------------------------------------------------------------
+  mobile-bff:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/mobile-bff
+      dockerfile: Dockerfile
+    container_name: mobile-bff
+    ports:
+      - "127.0.0.1:${MOBILE_BFF_PORT:-8094}:8094"
+    depends_on:
+      customer-service:
+        condition: service_healthy
+      account-service:
+        condition: service_healthy
+      transaction-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8094
+      CUSTOMER_SERVICE_URL: http://customer-service:8089
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8094/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
 
   # ============================================================================
   # 13. PROMETHEUS (Time-Series Metrics Collection & Alerting)

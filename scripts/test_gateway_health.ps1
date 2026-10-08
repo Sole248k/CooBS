@@ -48,12 +48,16 @@ try {
     Write-Host "  [FAIL] Failed to reach health endpoint: $_" -ForegroundColor Red
 }
 
-Write-Host "`n[Check 2/3] Gateway Route Discovery (/actuator/gateway/routes)..." -ForegroundColor Yellow
+Write-Host "`n[Check 2/3] Gateway Routes Not Exposed (/actuator/gateway/routes)..." -ForegroundColor Yellow
 try {
-    $routes = Invoke-RestMethod -Uri "$GatewayUrl/actuator/gateway/routes" -Method Get -TimeoutSec 3
-    Write-Host "  [PASS] Discovered $($routes.Count) routes." -ForegroundColor Green
+    Invoke-RestMethod -Uri "$GatewayUrl/actuator/gateway/routes" -Method Get -TimeoutSec 3 | Out-Null
+    Write-Host "  [FAIL] The gateway publishes its routing table on the public port." -ForegroundColor Red
 } catch {
-    Write-Host "  [WARN] Route discovery endpoint unavailable or protected." -ForegroundColor Yellow
+    if ([int]$_.Exception.Response.StatusCode -eq 404) {
+        Write-Host "  [PASS] The routing table is not exposed." -ForegroundColor Green
+    } else {
+        Write-Host "  [WARN] Unexpected answer from the routes endpoint: $_" -ForegroundColor Yellow
+    }
 }
 
 Write-Host "`n[Check 3/3] Customer Authentication Probe (/api/v1/auth/customers/login)..." -ForegroundColor Yellow

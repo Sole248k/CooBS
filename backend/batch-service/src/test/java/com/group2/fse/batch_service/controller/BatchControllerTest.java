@@ -106,6 +106,21 @@ class BatchControllerTest {
     }
 
     @Test
+    @DisplayName("B1: POST /api/v1/batch/eod/trigger returns 400 Bad Request when business date is in the future")
+    void triggerEod_FutureDate_Returns400() throws Exception {
+        EodTriggerRequestDto request = EodTriggerRequestDto.builder()
+                .businessDate(LocalDate.now().plusDays(2))
+                .build();
+
+        mockMvc.perform(post("/api/v1/batch/eod/trigger")
+                        .principal(adminAuth)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Business date cannot be in the future"));
+    }
+
+    @Test
     @DisplayName("B2: GET /api/v1/batch/eod/runs/{batchRunId} returns 200 OK with steps matching contract shape")
     void getBatchRun_Returns200() throws Exception {
         BatchStepResponseDto stepDto = BatchStepResponseDto.builder()

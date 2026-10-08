@@ -39,10 +39,16 @@ Run-Test "Gateway Health (/actuator/health)" {
     if ($res.status -ne "UP") { throw "Expected status UP, got $($res.status)" }
 }
 
-# 2. Route Discovery
-Run-Test "Gateway Route Discovery (/actuator/gateway/routes)" {
-    $res = Invoke-RestMethod -Uri "$GatewayUrl/actuator/gateway/routes" -Method Get
-    if ($res.Count -lt 5) { throw "Expected at least 5 routes, discovered $($res.Count)" }
+# 2. The routing table is not published on the public port
+Run-Test "Gateway Routes Not Exposed (/actuator/gateway/routes)" {
+    try {
+        Invoke-RestMethod -Uri "$GatewayUrl/actuator/gateway/routes" -Method Get | Out-Null
+    } catch {
+        $code = [int]$_.Exception.Response.StatusCode
+        if ($code -eq 404) { return }
+        throw "Expected 404, got $code"
+    }
+    throw "Expected 404, but the gateway listed its routes"
 }
 
 # 3. Customer Login

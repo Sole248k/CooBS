@@ -80,14 +80,36 @@ app/
 
 ---
 
-## 3. Running the App
+## 3. Running and Testing the App
 
-### Android Device / Emulator
+For a complete step-by-step setup walkthrough including troubleshooting, consult [TESTING_GUIDE.md](../TESTING_GUIDE.md).
+
+### Mode A: Physical Device via Wi-Fi LAN (Recommended)
+Ensure your phone/tablet and host PC are on the same Wi-Fi network:
 ```bash
-flutter run -d android
+flutter run --dart-define=GATEWAY_URL=http://<YOUR_PC_WIFI_IP>:8080
 ```
 
-### Run Tests
+### Mode B: Physical Device via USB (ADB Reverse)
+Due to port 8080 conflicts on certain Android devices, port 8088 is mapped to host port 8080:
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" reverse tcp:8088 tcp:8080
+flutter run --dart-define=GATEWAY_URL=http://localhost:8088
+```
+
+### Mode C: Android Emulator
+```bash
+flutter run
+```
+*(Automatically routes to `http://10.0.2.2:8080`).*
+
+### Mode D: Air-Gapped Fixture Mode (Offline / Zero Backend)
+```bash
+flutter run --dart-define=USE_FIXTURES=true
+```
+
+### Run Tests & Static Analysis
 ```bash
 flutter test
+flutter analyze
 ```

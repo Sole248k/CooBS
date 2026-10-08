@@ -121,7 +121,7 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 
 **Tests:** state machine transitions; compensation on failed capture; risk timeout fails closed.
 
-**Waits on:** H3 (Dev 3), H5 (Dev 4), H6 (Dev 2). Until they are live, runs against Dev 4's mocks.
+**Waits on:** H3 (Dev 3), H5 (Dev 4), H6 (Dev 2). Until they are live, runs against stubbed clients in tests.
 **Must tell:** Dev 3 and Dev 6 of any change to stage names (H7); everyone of any contract change.
 **Reviews:** every pull request that touches `contracts/` or crosses a service boundary.
 
@@ -213,17 +213,13 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 
 ---
 
-### Dev 4: Risk, core mock, reversals, inter-bank
+### Dev 4: Risk, reversals, inter-bank
 
 **`risk-engine` (new)**
 
 - **ADD** `controller/RiskController.java` (`POST /internal/v1/risk/evaluate`), `service/RiskEvaluator.java`, `service/LimitPolicy.java`, `service/VelocityCounter.java` (Redis), DTOs per H5.
 - No database. No call to another service on the request path.
 - **Tests:** each threshold boundary; the 0.60–0.85 band; a recorded p95 latency.
-
-**`core-mock` (new)**
-
-- **ADD** a small service or stub mappings returning the H3 contract examples for hold, capture, release, reverse. Switched on by configuration in the orchestrator.
 
 **Inside `ledger-service`, package `reversal/` only, after H4**
 
@@ -237,7 +233,7 @@ Pull requests 1 and 2 land on Day 2 before noon. Everyone rebases once after eac
 
 **Waits on:** H4 merged (Dev 3) before any reversal code; the settlement GL account (Dev 5, H16); the security rule in `transaction-service` (Dev 3).
 **Must tell:** Dev 1 of any change to the risk response (H5); Dev 3 when a pull request touches their services, since they review it.
-**Until H4 merges:** build `risk-engine` and `core-mock`, which touch nobody else's code.
+**Until H4 merges:** build `risk-engine`, which touches nobody else's code.
 
 ---
 

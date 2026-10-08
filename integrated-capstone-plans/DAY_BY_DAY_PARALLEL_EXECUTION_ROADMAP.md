@@ -37,7 +37,7 @@ graph TD
         D1["Dev 1 (Lead & Saga)"] -->|Exclusive Writes| S1["/backend/orchestration-service<br>/contracts<br>/postman/e2e<br>/docs"]
         D2["Dev 2 (Identity & Acct)"] -->|Exclusive Writes| S2["/backend/auth-service<br>/backend/customer-service<br>/backend/account-service"]
         D3["Dev 3 (Ledger & Txn Core)"] -->|Exclusive Writes| S3["/backend/transaction-service<br>/backend/ledger-service<br>/backend/notification-service"]
-        D4["Dev 4 (Risk & Interbank)"] -->|Exclusive Writes| S4["/backend/risk-engine<br>/backend/core-mock<br>package: */interbank/<br>package: */reversal/"]
+        D4["Dev 4 (Risk & Interbank)"] -->|Exclusive Writes| S4["/backend/risk-engine<br>package: */interbank/<br>package: */reversal/"]
         D5["Dev 5 (DB & Batch)"] -->|Exclusive Writes| S5["/database<br>/backend/batch-service<br>/backend/audit-service"]
         D6["Dev 6 (Flutter Foundation)"] -->|Exclusive Writes| S6["/app/lib/core<br>/app/pubspec.yaml<br>/app/lib/features/monitoring"]
         D7["Dev 7 (Flutter Features)"] -->|Exclusive Writes| S7["/app/lib/features/*<br>/app/assets/fixtures"]
@@ -108,7 +108,7 @@ graph TD
 | **Dev 1** | Wire `orchestration-service` to call live `risk-engine` (`POST /internal/v1/risk/evaluate`) and `ledger-service` (`POST /internal/v1/ledger/holds`). | Live Saga Wiring |
 | **Dev 2** | Wire `customer-service` 360 aggregator to call `account-service` on-premises for account list and `transaction-service` for recent activity. | Hybrid 360 Read |
 | **Dev 3** | Connect `transaction-service` to trigger `orchestration-service`; enable hold capture and outbox event append in `ledger-service`. | Core Transfer Flow |
-| **Dev 4** | Expose live risk endpoint on port 8092; provide mock interbank partner responses. | Handshake H5 |
+| **Dev 4** | Expose live risk endpoint on port 8092. | Handshake H5 |
 | **Dev 5** | Fix any schema/query performance issues; scaffold `batch-service` on port 8093 with on-prem Oracle and PostgresAudit connections. | Handshake H11 |
 | **Dev 6 & 7** | Toggle `USE_FIXTURES=false` for login and transfer initiation; verify live timeline updates via polling or SSE. | Live Client Sync |
 | **Dev 8** | Deploy shared dev environment; verify cross-container networking and correlation ID propagation (`X-Correlation-ID`) across gateway logs. | Environment Sync |

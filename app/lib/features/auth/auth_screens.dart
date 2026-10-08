@@ -27,8 +27,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final ApiClient _apiClient = ApiClient();
   final SecureStorageService _storage = SecureStorageService();
   bool _isLoading = false;
+  int _failedAttempts = 0;
+  DateTime? _lockoutUntil;
 
   Future<void> _handleLogin() async {
+    if (_lockoutUntil != null && DateTime.now().isBefore(_lockoutUntil!)) {
+      final remaining = _lockoutUntil!.difference(DateTime.now()).inSeconds;
+      snack(context, 'Security lock active: Please wait $remaining seconds before trying again.');
+      return;
+    }
+
     final username = u.text.trim();
     final password = p.text;
     if (username.isEmpty || password.isEmpty) {
@@ -46,6 +54,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (token.accessToken.isEmpty) {
         throw UnauthorizedException('Invalid login credentials received');
       }
+      _failedAttempts = 0;
+      _lockoutUntil = null;
       await _storage.saveTokens(
         accessToken: token.accessToken,
         refreshToken: token.refreshToken,
@@ -56,7 +66,14 @@ class _LoginScreenState extends State<LoginScreen> {
         toApp(context, 'Welcome back, $username');
       }
     } catch (e) {
-      if (mounted) {
+      _failedAttempts++;
+      if (_failedAttempts >= 5) {
+        _lockoutUntil = DateTime.now().add(const Duration(seconds: 30));
+        _failedAttempts = 0;
+        if (mounted) {
+          snack(context, 'Account security shield: 5 failed attempts. Please wait 30 seconds.');
+        }
+      } else if (mounted) {
         final message = e is ApiException ? e.message : 'Authentication failed. Please verify your credentials.';
         snack(context, message);
       }

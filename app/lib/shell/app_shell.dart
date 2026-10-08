@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../core/config/app_config.dart';
 import '../core/models/models.dart';
 import '../core/network/network.dart';
+import '../core/router/app_router.dart';
+import '../core/storage/secure_storage_service.dart';
 import '../core/theme/app_theme.dart';
+import '../features/remittance/remittance_screen.dart';
 import '../features/resilience/service_unavailable_view.dart';
 import '../features/tracking/tracking.dart';
 
@@ -28,6 +31,7 @@ class _AppShellState extends State<AppShell> {
   final ApiClient _apiClient = ApiClient();
   Future<Map<String, dynamic>>? _dashboardFuture;
   String? _selectedTrackingRef;
+  MobileDashboardResponse? _latestDashboard;
 
   @override
   void initState() {
@@ -77,6 +81,27 @@ class _AppShellState extends State<AppShell> {
                 ],
               ],
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Refresh Dashboard',
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: () => setState(() => _loadDashboard()),
+              ),
+              IconButton(
+                tooltip: 'Log out',
+                icon: const Icon(Icons.logout_rounded),
+                onPressed: () async {
+                  try {
+                    await ApiClient().post('/auth/token/revoke');
+                  } catch (_) {}
+                  await SecureStorageService().clearSession();
+                  if (context.mounted) {
+                    Navigator.pushNamedAndRemoveUntil(context, AppRouter.login, (_) => false);
+                  }
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
           body: isWideScreen
               ? Row(
@@ -148,7 +173,7 @@ class _AppShellState extends State<AppShell> {
       case 0:
         return _buildDashboardView();
       case 1:
-        return _buildRemittancePlaceholder();
+        return _buildRemittanceForm();
       case 2:
         return _buildTimelineView();
       default:
@@ -184,6 +209,7 @@ class _AppShellState extends State<AppShell> {
 
         final data = snapshot.data ?? {};
         final dashboard = MobileDashboardResponse.fromJson(data);
+        _latestDashboard = dashboard;
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -374,45 +400,25 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  /// Remittance View Placeholder
-  Widget _buildRemittancePlaceholder() {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.send_rounded, size: 48, color: AppTheme.navyPrimary),
-                const SizedBox(height: 16),
-                const Text(
-                  'Send Remittance',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Transfer initiation form is prepared for integration. You can monitor transaction progress and verify saga milestones in the Timeline tab.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.textSecondary),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => setState(() => _currentIndex = 2),
-                  child: const Text('View Sample Timeline'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  /// Remittance View backed by live M3 intake endpoint
+  Widget _buildRemittanceForm() {
+    return RemittanceForm(
+      defaultSourceAccount: _latestDashboard?.primaryAccount.accountNumber ?? 'ACC_10000001',
+      availableBalance: _latestDashboard?.primaryAccount.availableBalance,
+      onSuccess: (trackingRef) {
+        setState(() {
+          _selectedTrackingRef = trackingRef;
+          _currentIndex = 2;
+        });
+        _loadDashboard();
+      },
     );
   }
 
-  /// Interactive 4-Stage & 11-Stage Visual Stepper backed by fixture timelines
+  /// Interactive Visual Stepper backed by live M2 timeline adapter
   Widget _buildTimelineView() {
     return TrackingView(
+      key: ValueKey(_selectedTrackingRef ?? widget.trackingReference ?? 'default_timeline'),
       trackingReference: _selectedTrackingRef ?? widget.trackingReference,
       apiClient: _apiClient,
     );

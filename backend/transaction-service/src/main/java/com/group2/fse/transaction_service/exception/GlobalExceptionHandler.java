@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -107,6 +108,46 @@ public class GlobalExceptionHandler {
                 "INVALID_REQUEST_PARAMETERS"
         );
         problem.put("invalidParams", invalidParams);
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
+    @ExceptionHandler(TransferRejectedException.class)
+    public ResponseEntity<Map<String, Object>> handleTransferRejected(
+            TransferRejectedException ex, HttpServletRequest request) {
+        log.warn("Transfer rejected on {}: {} ({})", request.getRequestURI(), ex.getErrorCode(), ex.getMessage());
+
+        Map<String, Object> problem = createProblemDetails(
+                "https://api.coobs.local/errors/" + ex.getErrorCode(),
+                ex.getTitle(),
+                ex.getStatus().value(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                ex.getErrorCode()
+        );
+
+        return ResponseEntity
+                .status(ex.getStatus())
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingHeader(
+            MissingRequestHeaderException ex, HttpServletRequest request) {
+        log.warn("Missing header on {}: {}", request.getRequestURI(), ex.getHeaderName());
+
+        Map<String, Object> problem = createProblemDetails(
+                "https://api.coobs.local/errors/INVALID_REQUEST_PARAMETERS",
+                "Invalid Request Parameters",
+                HttpStatus.BAD_REQUEST.value(),
+                "Required header " + ex.getHeaderName() + " is missing.",
+                request.getRequestURI(),
+                "INVALID_REQUEST_PARAMETERS"
+        );
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)

@@ -61,4 +61,23 @@ public class KafkaProducerConfig {
     public KafkaTemplate<String, Object> notificationKafkaTemplate(ProducerFactory<String, Object> notificationProducerFactory) {
         return new KafkaTemplate<>(notificationProducerFactory);
     }
+
+    @Bean
+    public ProducerFactory<String, String> stringProducerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.ACKS_CONFIG, acks);
+        configProps.put(ProducerConfig.RETRIES_CONFIG, retries);
+        configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, enableIdempotence);
+        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, maxInFlightRequests);
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+
+        return new DefaultKafkaProducerFactory<>(configProps);
+    }
+
+    @Bean
+    public KafkaTemplate<String, String> stringKafkaTemplate(ProducerFactory<String, String> stringProducerFactory) {
+        return new KafkaTemplate<>(stringProducerFactory);
+    }
 }

@@ -22,6 +22,11 @@ spring:
               - "http://localhost:5173"
               - "http://127.0.0.1:3000"
               - "http://127.0.0.1:5173"
+              - "http://localhost:8000"
+              - "http://127.0.0.1:8000"
+            allowedOriginPatterns:
+              - "http://localhost:*"
+              - "http://127.0.0.1:*"
             allowedMethods:
               - GET
               - POST
@@ -210,12 +215,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway,metrics,prometheus
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
-    gateway:
-      enabled: true
     prometheus:
       enabled: true
   metrics:

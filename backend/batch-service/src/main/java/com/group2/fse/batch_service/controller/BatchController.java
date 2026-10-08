@@ -5,6 +5,7 @@ import com.group2.fse.batch_service.dto.EodTriggerRequestDto;
 import com.group2.fse.batch_service.dto.EodTriggerResponseDto;
 import com.group2.fse.batch_service.security.UserPrincipal;
 import com.group2.fse.batch_service.service.BatchService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,7 +34,7 @@ public class BatchController {
     @PostMapping("/eod/trigger")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<EodTriggerResponseDto> triggerEod(
-            @RequestBody(required = false) EodTriggerRequestDto request,
+            @Valid @RequestBody(required = false) EodTriggerRequestDto request,
             Authentication authentication) {
         Long triggeredBy = extractActorId(authentication);
         log.info("REST request to trigger EOD batch received from actorId={}", triggeredBy);

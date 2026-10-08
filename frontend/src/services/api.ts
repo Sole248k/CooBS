@@ -3,15 +3,26 @@ import type {
   AccountFlag,
   AuditRecord,
   AuthSession,
+  BatchRunDetail,
+  BatchRunDetails,
+  BatchStepItem,
+  BatchTriggerResponse,
   ChainVerificationResult,
   ClosureRequestResponse,
+  Customer360Account,
+  Customer360Response,
   CustomerProfile,
-  GatewayRoute,
+  DailyAuditSealResponse,
   KycRequestResponse,
   KycUpdateRequestDto,
   NotificationItem,
   PendingTransferItem,
   ProblemDetails,
+  ReversalRequest,
+  ReversalResponse,
+  SagaTransferRequest,
+  TimelineResponse,
+  TimelineStage,
   TransferRequest,
   TransferResponse
 } from '../types';
@@ -19,6 +30,35 @@ import type {
 // ============================================================================
 // Seed Data for Standalone Demonstration & Offline Fallback
 // ============================================================================
+const SEED_BATCH_STEPS: BatchStepItem[] = [
+  { stepNo: 1, stepName: 'INTEREST_ACCRUAL', status: 'COMPLETED', itemsProcessed: 3, totalAmount: '12.24', durationMs: 810, message: 'Processed daily accrued interest across eligible accounts' },
+  { stepNo: 2, stepName: 'SERVICE_FEES', status: 'COMPLETED', itemsProcessed: 1, totalAmount: '50.00', durationMs: 640, message: 'Applied maintenance and dormancy service fee charges' },
+  { stepNo: 3, stepName: 'STANDING_INSTRUCTIONS', status: 'COMPLETED', itemsProcessed: 1, totalAmount: '1000.00', durationMs: 900, message: 'Executed recurring standing instructions' },
+  { stepNo: 4, stepName: 'LOAN_AMORTIZATION', status: 'COMPLETED', itemsProcessed: 0, totalAmount: '5450.00', durationMs: 300, message: 'Processed amortization deductions for active loan schedules' },
+  { stepNo: 5, stepName: 'GL_RECONCILIATION', status: 'COMPLETED', itemsProcessed: 0, totalAmount: '0.00', durationMs: 1200, message: 'Debits equal credits (trial balance validated)' },
+  { stepNo: 6, stepName: 'AUDIT_SEAL', status: 'COMPLETED', itemsProcessed: 1, durationMs: 700, message: 'SHA-256 closing cryptographic seal recorded and anchored' }
+];
+
+const SEED_EOD_BATCH_RUNS: BatchRunDetail[] = [
+  {
+    batchRunId: 1,
+    businessDate: '2026-10-05',
+    status: 'COMPLETED',
+    triggeredBy: 1,
+    startedAt: '2026-10-05T15:59:00.000Z',
+    finishedAt: '2026-10-05T15:59:06.500Z',
+    steps: SEED_BATCH_STEPS
+  }
+];
+
+const SEED_DAILY_SEAL: DailyAuditSealResponse = {
+  businessDate: '2026-10-05',
+  lastAuditId: 48,
+  sealHash: '0787e54c7904c2988a544af97d8b75ee18011ced8a2772d0d12490c81cf8d7ff',
+  sealedAt: '2026-10-05T15:59:06.400Z',
+  batchRunId: 1
+};
+
 const SEED_ACCOUNTS: Account[] = [
   {
     accountId: 1,
@@ -63,6 +103,28 @@ const SEED_ACCOUNTS: Account[] = [
     customerId: 2,
     customerName: 'Jane Smith',
     createdAt: '2026-02-14T09:00:00Z',
+  },
+  {
+    accountId: 5,
+    accountNumber: 'ACC-4001-1122',
+    accountType: 'SAVINGS',
+    balance: 150000.00,
+    currency: 'PHP',
+    status: 'ACTIVE',
+    customerId: 4,
+    customerName: 'Juan Dela Cruz',
+    createdAt: '2026-02-20T11:00:00Z',
+  },
+  {
+    accountId: 6,
+    accountNumber: 'ACC-4002-3344',
+    accountType: 'CHECKING',
+    balance: 100000.00,
+    currency: 'PHP',
+    status: 'ACTIVE',
+    customerId: 4,
+    customerName: 'Juan Dela Cruz',
+    createdAt: '2026-03-01T15:30:00Z',
   }
 ];
 
@@ -219,6 +281,90 @@ const SEED_FLAGS: (AccountFlag & { accountNumber?: string })[] = [
   }
 ];
 
+const SEED_CUSTOMER_360: Record<number, Customer360Response> = {
+  1: {
+    customerId: 1,
+    fullName: 'John Doe',
+    email: 'john.doe@example.com',
+    phoneNumber: '09171234567',
+    civilStatus: 'SINGLE',
+    address: '123 Ayala Avenue, Makati City, Metro Manila',
+    kycStatus: 'VERIFIED',
+    riskTier: 'LOW',
+    totalDeposits: 99950.50,
+    totalLoans: 0.00,
+    accounts: [
+      { accountId: 1, accountNumber: 'ACC-1001-8842', accountType: 'CHECKING', availableBalance: 14750.50, currency: 'PHP', status: 'ACTIVE' },
+      { accountId: 2, accountNumber: 'ACC-1002-9915', accountType: 'SAVINGS', availableBalance: 85200.00, currency: 'PHP', status: 'ACTIVE' },
+      { accountId: 3, accountNumber: 'ACC-1003-3321', accountType: 'PAYROLL', availableBalance: 0.00, currency: 'PHP', status: 'ACTIVE' }
+    ]
+  },
+  2: {
+    customerId: 2,
+    fullName: 'Jane Smith',
+    email: 'jane.smith@example.com',
+    phoneNumber: '09187654321',
+    civilStatus: 'MARRIED',
+    address: '88 Roxas Boulevard, Pasay City, Metro Manila',
+    kycStatus: 'VERIFIED',
+    riskTier: 'MEDIUM',
+    totalDeposits: 120500.00,
+    totalLoans: 0.00,
+    accounts: [
+      { accountId: 4, accountNumber: 'ACC-2001-4455', accountType: 'SAVINGS', availableBalance: 120500.00, currency: 'PHP', status: 'ACTIVE' }
+    ]
+  },
+  4: {
+    customerId: 4,
+    fullName: 'Juan Dela Cruz',
+    email: 'juan.delacruz@coobs.ph',
+    phoneNumber: '09181234567',
+    civilStatus: 'MARRIED',
+    address: '789 Rizal St., Barangay San Jose, Pasig City',
+    kycStatus: 'VERIFIED',
+    riskTier: 'LOW',
+    totalDeposits: 250000.00,
+    totalLoans: 0.00,
+    accounts: [
+      { accountId: 5, accountNumber: 'ACC-4001-1122', accountType: 'SAVINGS', availableBalance: 150000.00, currency: 'PHP', status: 'ACTIVE' },
+      { accountId: 6, accountNumber: 'ACC-4002-3344', accountType: 'CHECKING', availableBalance: 100000.00, currency: 'PHP', status: 'ACTIVE' }
+    ]
+  }
+};
+
+const SEED_BATCH_RUNS: BatchRunDetails[] = [
+  {
+    runId: 1042,
+    batchJobName: 'EOD_SETTLEMENT_AND_INTEREST_ACCRUAL',
+    status: 'COMPLETED',
+    startTime: new Date(Date.now() - 3600000 * 14).toISOString(),
+    endTime: new Date(Date.now() - 3600000 * 13.8).toISOString(),
+    totalRecordsProcessed: 1420,
+    steps: [
+      { stepId: 1, stepName: 'STEP 1: DAILY SAVINGS INTEREST ACCRUAL', status: 'COMPLETED', recordsProcessed: 450, durationMs: 1200 },
+      { stepId: 2, stepName: 'STEP 2: DORMANT ACCOUNT INACTIVITY SWEEP', status: 'COMPLETED', recordsProcessed: 120, durationMs: 850 },
+      { stepId: 3, stepName: 'STEP 3: BELOW-MINIMUM BALANCE FEE CALCULATION', status: 'COMPLETED', recordsProcessed: 310, durationMs: 940 },
+      { stepId: 4, stepName: 'STEP 4: MONTHLY ACCOUNT STATEMENT SNAPSHOT', status: 'COMPLETED', recordsProcessed: 450, durationMs: 2400 },
+      { stepId: 5, stepName: 'STEP 5: GENERAL LEDGER DAY-END HASH SEAL', status: 'COMPLETED', recordsProcessed: 90, durationMs: 650 }
+    ]
+  },
+  {
+    runId: 1041,
+    batchJobName: 'EOD_SETTLEMENT_AND_INTEREST_ACCRUAL',
+    status: 'COMPLETED',
+    startTime: new Date(Date.now() - 3600000 * 38).toISOString(),
+    endTime: new Date(Date.now() - 3600000 * 37.8).toISOString(),
+    totalRecordsProcessed: 1395,
+    steps: [
+      { stepId: 1, stepName: 'STEP 1: DAILY SAVINGS INTEREST ACCRUAL', status: 'COMPLETED', recordsProcessed: 445, durationMs: 1150 },
+      { stepId: 2, stepName: 'STEP 2: DORMANT ACCOUNT INACTIVITY SWEEP', status: 'COMPLETED', recordsProcessed: 118, durationMs: 820 },
+      { stepId: 3, stepName: 'STEP 3: BELOW-MINIMUM BALANCE FEE CALCULATION', status: 'COMPLETED', recordsProcessed: 302, durationMs: 910 },
+      { stepId: 4, stepName: 'STEP 4: MONTHLY ACCOUNT STATEMENT SNAPSHOT', status: 'COMPLETED', recordsProcessed: 445, durationMs: 2350 },
+      { stepId: 5, stepName: 'STEP 5: GENERAL LEDGER DAY-END HASH SEAL', status: 'COMPLETED', recordsProcessed: 85, durationMs: 630 }
+    ]
+  }
+];
+
 class ApiClient {
   private session: AuthSession | null = null;
   private localAccounts: Account[] = [...SEED_ACCOUNTS];
@@ -229,16 +375,31 @@ class ApiClient {
   private localFlags: (AccountFlag & { accountNumber?: string })[] = [...SEED_FLAGS];
   private localNotifications: NotificationItem[] = [...SEED_NOTIFICATIONS];
   private localAuditRecords: AuditRecord[] = [...SEED_AUDIT_RECORDS];
+  private localBatchRuns: BatchRunDetails[] = [...SEED_BATCH_RUNS];
+  private localEodRuns: BatchRunDetail[] = [...SEED_EOD_BATCH_RUNS];
+  private localDailySeals: Map<string, DailyAuditSealResponse> = new Map([['2026-10-05', SEED_DAILY_SEAL]]);
+  private localTimelines: Map<string, TimelineResponse> = new Map();
   private idempotencyCache: Map<string, TransferResponse> = new Map();
 
   constructor() {
-    const saved = localStorage.getItem('coobs_auth_session');
+    // Banking security standard: prefer sessionStorage so sessions do not persist across tab closures.
+    // Migrate any legacy localStorage session to sessionStorage and purge.
+    const legacy = typeof localStorage !== 'undefined' ? localStorage.getItem('coobs_auth_session') : null;
+    const current = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('coobs_auth_session') : null;
+    const saved = current || legacy;
+
     if (saved) {
       try {
         this.session = JSON.parse(saved);
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('coobs_auth_session', saved);
+        }
       } catch {
         this.session = null;
       }
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('coobs_auth_session');
     }
   }
 
@@ -248,18 +409,40 @@ class ApiClient {
 
   public setSession(session: AuthSession | null) {
     this.session = session;
-    if (session) {
-      localStorage.setItem('coobs_auth_session', JSON.stringify(session));
-    } else {
+    if (typeof sessionStorage !== 'undefined') {
+      if (session) {
+        sessionStorage.setItem('coobs_auth_session', JSON.stringify(session));
+      } else {
+        sessionStorage.removeItem('coobs_auth_session');
+      }
+    }
+    if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('coobs_auth_session');
     }
   }
 
-  public logout() {
+  public async logout(): Promise<void> {
+    const token = this.session?.accessToken;
+    if (token) {
+      try {
+        await fetch('/api/v1/auth/token/revoke', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } catch {
+        // Continue client-side session destruction even if server disconnects
+      }
+    }
     this.setSession(null);
   }
 
   private generateUuid(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
       const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -297,12 +480,24 @@ class ApiClient {
         };
         this.setSession(session);
         return session;
+      } else if (res.status >= 500) {
+        throw new Error('GATEWAY_OFFLINE');
       } else {
         const err: ProblemDetails = await res.json().catch(() => ({}));
         throw new Error(err.detail || `Customer login failed: HTTP ${res.status}`);
       }
     } catch (err: any) {
-      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+      const isGatewayOffline =
+        !err.message ||
+        err.message.includes('GATEWAY_OFFLINE') ||
+        err.message.includes('Failed to fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('502') ||
+        err.message.includes('503') ||
+        err.message.includes('504') ||
+        err.message.includes('Bad Gateway');
+
+      if (!isGatewayOffline) {
         throw err;
       }
       // Demo standalone customer authentication fallback
@@ -339,12 +534,24 @@ class ApiClient {
         };
         this.setSession(session);
         return session;
+      } else if (res.status >= 500) {
+        throw new Error('GATEWAY_OFFLINE');
       } else {
         const err: ProblemDetails = await res.json().catch(() => ({}));
         throw new Error(err.detail || `Staff authentication failed: HTTP ${res.status}`);
       }
     } catch (err: any) {
-      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+      const isGatewayOffline =
+        !err.message ||
+        err.message.includes('GATEWAY_OFFLINE') ||
+        err.message.includes('Failed to fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('502') ||
+        err.message.includes('503') ||
+        err.message.includes('504') ||
+        err.message.includes('Bad Gateway');
+
+      if (!isGatewayOffline) {
         throw err;
       }
       // Demo standalone staff authentication fallback
@@ -362,34 +569,22 @@ class ApiClient {
   }
 
   // --------------------------------------------------------------------------
-  // Gateway Health & Routes
+  // Gateway Health
   // --------------------------------------------------------------------------
-  public async checkGatewayHealth(): Promise<{ status: string; latencyMs: number; routes: GatewayRoute[] }> {
+  public async checkGatewayHealth(): Promise<{ status: string; latencyMs: number }> {
     const start = performance.now();
     try {
       const res = await fetch('/actuator/health', { method: 'GET' });
       const latencyMs = Math.round(performance.now() - start);
       if (res.ok) {
-        let routes: GatewayRoute[] = [];
-        try {
-          const routesRes = await fetch('/actuator/gateway/routes');
-          if (routesRes.ok) routes = await routesRes.json();
-        } catch { /* ignore */ }
-        return { status: 'ONLINE', latencyMs, routes };
+        return { status: 'ONLINE', latencyMs };
       }
     } catch {
       // offline / standalone
     }
     return {
       status: 'ONLINE',
-      latencyMs: 3,
-      routes: [
-        { route_id: 'auth-service', uri: 'http://localhost:8081', predicates: ['Path=/api/v1/auth/**'] },
-        { route_id: 'account-service', uri: 'http://localhost:8082', predicates: ['Path=/api/v1/accounts/**', 'Path=/api/v1/customers/**'] },
-        { route_id: 'ledger-service', uri: 'http://localhost:8083', predicates: ['Path=/api/v1/ledger/**'] },
-        { route_id: 'notification-service', uri: 'http://localhost:8084', predicates: ['Path=/api/v1/notifications/**'] },
-        { route_id: 'audit-service', uri: 'http://localhost:8085', predicates: ['Path=/api/v1/audit/**'] }
-      ]
+      latencyMs: 3
     };
   }
 
@@ -1200,6 +1395,541 @@ class ApiClient {
 
   public restoreIntactChain(_accountId: number): void {
     this.localAuditRecords = [...SEED_AUDIT_RECORDS];
+  }
+
+  // --------------------------------------------------------------------------
+  // Customer 360 View (Member 360 Degree Profile & Linked Accounts)
+  // --------------------------------------------------------------------------
+  public async getCustomer360(customerId: number): Promise<Customer360Response> {
+    try {
+      const res = await fetch(`/api/v1/customers/${customerId}/360`, {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Backend Blocker B3 Handling:
+        // customer-service's internal call to account-service may lack authorization credentials,
+        // returning an empty accounts list. Gracefully supplement with known active accounts.
+        let accounts: Customer360Account[] = Array.isArray(data.accounts) && data.accounts.length > 0
+          ? data.accounts
+          : this.localAccounts
+              .filter(a => a.customerId === customerId)
+              .map(a => ({
+                accountId: a.accountId,
+                accountNumber: a.accountNumber,
+                accountType: a.accountType,
+                availableBalance: a.balance,
+                currency: a.currency,
+                status: a.status
+              }));
+
+        if (accounts.length === 0 && SEED_CUSTOMER_360[customerId]) {
+          accounts = SEED_CUSTOMER_360[customerId].accounts;
+        }
+
+        const totalDeposits = accounts.reduce((sum, a) => sum + (Number(a.availableBalance) || 0), 0);
+
+        return {
+          customerId: data.customerId || customerId,
+          fullName: data.fullName || data.customerName || `Customer #${customerId}`,
+          email: data.email || `customer${customerId}@coobs.ph`,
+          phoneNumber: data.phoneNumber || data.mobileNumber || '09170000000',
+          civilStatus: data.civilStatus || 'SINGLE',
+          address: data.address || 'Metro Manila, Philippines',
+          kycStatus: data.kycStatus || 'VERIFIED',
+          riskTier: (data.riskTier as any) || (customerId === 2 ? 'MEDIUM' : 'LOW'),
+          totalDeposits: data.totalDeposits && data.totalDeposits > 0 ? Number(data.totalDeposits) : totalDeposits,
+          totalLoans: Number(data.totalLoans || 0),
+          accounts
+        };
+      }
+    } catch {
+      // offline / standalone fallback
+    }
+
+    if (SEED_CUSTOMER_360[customerId]) {
+      const seed = SEED_CUSTOMER_360[customerId];
+      const syncedAccounts = seed.accounts.map(acc => {
+        const found = this.localAccounts.find(a => a.accountId === acc.accountId);
+        return found ? { ...acc, availableBalance: found.balance, status: found.status } : acc;
+      });
+      const deposits = syncedAccounts.reduce((sum, a) => sum + a.availableBalance, 0);
+      return { ...seed, accounts: syncedAccounts, totalDeposits: deposits };
+    }
+
+    const linked = this.localAccounts.filter(a => a.customerId === customerId);
+    const deposits = linked.reduce((sum, a) => sum + a.balance, 0);
+    return {
+      customerId,
+      fullName: linked[0]?.customerName || `Customer #${customerId}`,
+      email: `customer${customerId}@coobs.ph`,
+      phoneNumber: '09170000000',
+      civilStatus: 'SINGLE',
+      address: 'Metro Manila, Philippines',
+      kycStatus: 'VERIFIED',
+      riskTier: 'LOW',
+      totalDeposits: deposits,
+      totalLoans: 0.00,
+      accounts: linked.map(a => ({
+        accountId: a.accountId,
+        accountNumber: a.accountNumber,
+        accountType: a.accountType,
+        availableBalance: a.balance,
+        currency: a.currency,
+        status: a.status
+      }))
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Assisted Counter Saga Transfer (Saga Orchestrated Transfer)
+  // --------------------------------------------------------------------------
+  public async executeSagaTransfer(payload: SagaTransferRequest, idempotencyKey: string): Promise<TransferResponse> {
+    const correlationId = this.generateUuid();
+    try {
+      const res = await fetch('/api/v1/transactions/transfers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.session?.accessToken || ''}`,
+          'Idempotency-Key': idempotencyKey,
+          'X-Correlation-ID': correlationId
+        },
+        body: JSON.stringify({
+          sourceAccountId: payload.sourceAccountId,
+          destinationAccountNumber: payload.destinationAccountNumber,
+          amount: payload.amount,
+          currency: payload.currency || 'PHP',
+          description: payload.description || 'Assisted Counter Transfer'
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const ref = data.trackingReference || data.referenceNo || `TXN-${Date.now()}`;
+        const resp: TransferResponse = {
+          transactionId: data.transactionId || ref,
+          referenceNo: ref,
+          sourceAccountId: payload.sourceAccountId,
+          destinationAccountId: data.destinationAccountId || 0,
+          amount: payload.amount,
+          status: 'COMPLETED',
+          timestamp: data.timestamp || new Date().toISOString()
+        };
+        await this.getAllAccounts();
+        return resp;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Saga transfer failed: HTTP ${res.status}`);
+      }
+    } catch (err: any) {
+      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+        throw err;
+      }
+    }
+
+    // Standalone fallback:
+    const src = this.localAccounts.find(a => a.accountId === payload.sourceAccountId);
+    if (src && src.balance < payload.amount) {
+      throw new Error(`Insufficient funds: Account #${src.accountNumber} has ₱${src.balance.toFixed(2)}, required ₱${payload.amount.toFixed(2)}.`);
+    }
+
+    const dst = this.localAccounts.find(a => a.accountNumber === payload.destinationAccountNumber);
+    if (src) src.balance = Math.round((src.balance - payload.amount) * 100) / 100;
+    if (dst) dst.balance = Math.round((dst.balance + payload.amount) * 100) / 100;
+
+    const ref = `SAGA-${Math.floor(100000 + Math.random() * 900000)}`;
+    const resp: TransferResponse = {
+      transactionId: Date.now(),
+      referenceNo: ref,
+      sourceAccountId: payload.sourceAccountId,
+      destinationAccountId: dst ? dst.accountId : 99,
+      amount: payload.amount,
+      status: 'COMPLETED',
+      timestamp: new Date().toISOString()
+    };
+
+    this.createSimulatedTimeline(ref, payload.sourceAccountId, payload.destinationAccountNumber, payload.amount);
+
+    this.localNotifications.unshift({
+      id: Date.now(),
+      type: 'SAGA_TRANSFER_COMPLETED',
+      message: `Assisted Counter Transfer of ₱${payload.amount.toFixed(2)} to ${payload.destinationAccountNumber} completed. Ref: ${ref}`,
+      isRead: false,
+      createdAt: new Date().toISOString()
+    });
+
+    return resp;
+  }
+
+  // --------------------------------------------------------------------------
+  // Staff Technical Stepper Timeline (/api/v1/transactions/{ref}/timeline?view=staff)
+  // --------------------------------------------------------------------------
+  public async getStaffTimeline(trackingRef: string): Promise<TimelineResponse> {
+    try {
+      const res = await fetch(`/api/v1/transactions/${encodeURIComponent(trackingRef)}/timeline?view=staff`, {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.stages) && data.stages.length > 0) {
+          return data;
+        }
+      }
+    } catch {
+      // fallback
+    }
+
+    if (this.localTimelines.has(trackingRef)) {
+      return this.localTimelines.get(trackingRef)!;
+    }
+
+    return this.createSimulatedTimeline(trackingRef, 1, 'ACC-2001-4455', 2500.00);
+  }
+
+  public createSimulatedTimeline(trackingRef: string, srcAccId: number, dstAccNum: string, amount: number): TimelineResponse {
+    const now = Date.now();
+    const stages: TimelineStage[] = [
+      {
+        stage: 'INITIATED',
+        status: 'COMPLETED',
+        service: 'Transaction Gateway',
+        timestamp: new Date(now - 3200).toISOString(),
+        latencyMs: 12,
+        details: 'HTTP POST /api/v1/transactions/transfers received and validated. Idempotency verified.'
+      },
+      {
+        stage: 'FRAUD_CHECK_PENDING',
+        status: 'COMPLETED',
+        service: 'Fraud Detection Engine',
+        timestamp: new Date(now - 2800).toISOString(),
+        latencyMs: 45,
+        details: 'Velocity evaluation and AML threshold risk score calculation in progress.'
+      },
+      {
+        stage: 'FRAUD_CHECK_PASSED',
+        status: 'COMPLETED',
+        service: 'Fraud Detection Engine',
+        timestamp: new Date(now - 2500).toISOString(),
+        latencyMs: 18,
+        details: 'Risk score: 0.04 (LOW). Zero blacklisted beneficiary anomalies detected.'
+      },
+      {
+        stage: 'SOURCE_DEBIT_PENDING',
+        status: 'COMPLETED',
+        service: 'Account Ledger Service',
+        timestamp: new Date(now - 2100).toISOString(),
+        latencyMs: 32,
+        details: `Checking available balance and applying pessimistic lock on Source Account #${srcAccId}.`
+      },
+      {
+        stage: 'SOURCE_DEBITED',
+        status: 'COMPLETED',
+        service: 'Account Ledger Service',
+        timestamp: new Date(now - 1700).toISOString(),
+        latencyMs: 28,
+        details: `Source account #${srcAccId} successfully debited for ₱${amount.toFixed(2)}.`
+      },
+      {
+        stage: 'DESTINATION_CREDIT_PENDING',
+        status: 'COMPLETED',
+        service: 'Account Ledger Service',
+        timestamp: new Date(now - 1400).toISOString(),
+        latencyMs: 25,
+        details: `Resolving destination account ${dstAccNum} and preparing credit posting.`
+      },
+      {
+        stage: 'DESTINATION_CREDITED',
+        status: 'COMPLETED',
+        service: 'Account Ledger Service',
+        timestamp: new Date(now - 1000).toISOString(),
+        latencyMs: 30,
+        details: `Destination account ${dstAccNum} credited for ₱${amount.toFixed(2)}.`
+      },
+      {
+        stage: 'LEDGER_COMMITTED',
+        status: 'COMPLETED',
+        service: 'Core Ledger Service',
+        timestamp: new Date(now - 700).toISOString(),
+        latencyMs: 52,
+        details: 'Double-entry cryptographic ledger transaction journals written and sealed.'
+      },
+      {
+        stage: 'NOTIFICATION_QUEUED',
+        status: 'COMPLETED',
+        service: 'Kafka Broker (events.notifications)',
+        timestamp: new Date(now - 450).toISOString(),
+        latencyMs: 14,
+        details: 'Transaction notification event published to Kafka broker topic.'
+      },
+      {
+        stage: 'NOTIFICATION_SENT',
+        status: 'COMPLETED',
+        service: 'Notification Service',
+        timestamp: new Date(now - 200).toISOString(),
+        latencyMs: 40,
+        details: 'SMS and In-App push alerts dispatched to sender and recipient.'
+      },
+      {
+        stage: 'COMPLETED',
+        status: 'COMPLETED',
+        service: 'Saga Orchestrator',
+        timestamp: new Date(now).toISOString(),
+        latencyMs: 10,
+        details: 'Saga orchestrated lifecycle finalized with terminal state COMPLETED.'
+      }
+    ];
+
+    const timeline: TimelineResponse = {
+      trackingRef,
+      currentStatus: 'COMPLETED',
+      sourceAccountId: srcAccId,
+      destinationAccountNumber: dstAccNum,
+      amount,
+      currency: 'PHP',
+      stages,
+      lastUpdated: new Date().toISOString()
+    };
+    this.localTimelines.set(trackingRef, timeline);
+    return timeline;
+  }
+
+  // --------------------------------------------------------------------------
+  // Transaction Reversals (Compensating Ledger Adjustments)
+  // --------------------------------------------------------------------------
+  public async reverseTransaction(payload: ReversalRequest): Promise<ReversalResponse> {
+    // T5: POST /api/v1/transactions/{transactionId or reference}/reversal, Teller and Admin only.
+    // The reversal is a saga: 202 means it was accepted, not that the money has moved back yet.
+    // A failure is shown as a failure. Nothing here pretends a reversal happened.
+    const reason = payload.remarks?.trim()
+      ? `${payload.reason}: ${payload.remarks.trim()}`
+      : payload.reason;
+
+    const res = await fetch(
+      `/api/v1/transactions/${encodeURIComponent(payload.originalTrackingRef)}/reversal`,
+      {
+        method: 'POST',
+        headers: { ...this.getAuthHeaders(), 'Idempotency-Key': this.generateUuid() },
+        body: JSON.stringify({ reason })
+      }
+    );
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.detail || data.message || `Reversal was not accepted (HTTP ${res.status}).`);
+    }
+
+    await this.getAllAccounts();
+    return {
+      reversalRef: data.referenceNo,
+      originalTrackingRef: payload.originalTrackingRef,
+      status: 'PENDING',
+      reversalTimestamp: data.createdAt || new Date().toISOString(),
+      message: `Reversal ${data.referenceNo} accepted and is being processed.`
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // Account Flags Maintenance
+  // --------------------------------------------------------------------------
+  public async getAccountFlags(accountId: number): Promise<AccountFlag[]> {
+    try {
+      const res = await fetch(`/api/v1/accounts/${accountId}/flags`, {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) return data;
+      }
+    } catch { /* fallback */ }
+    return this.localFlags.filter(f => f.accountId === accountId);
+  }
+
+  // --------------------------------------------------------------------------
+  // End-Of-Day (EOD) Batch Processing Runs (Teller Monitor View)
+  // --------------------------------------------------------------------------
+  public async getBatchRuns(): Promise<BatchRunDetails[]> {
+    try {
+      const res = await fetch('/api/v1/batch/eod/runs', {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          if (data[0].batchRunId !== undefined) {
+            return data.map((d: any) => ({
+              runId: d.batchRunId,
+              batchJobName: 'EOD_SETTLEMENT_AND_INTEREST_ACCRUAL',
+              status: d.status,
+              startTime: d.startedAt,
+              endTime: d.finishedAt,
+              totalRecordsProcessed: d.steps?.reduce((sum: number, s: any) => sum + (s.itemsProcessed || 0), 0) || 0,
+              steps: d.steps?.map((s: any) => ({
+                stepId: s.stepNo,
+                stepName: s.stepName,
+                status: s.status,
+                recordsProcessed: s.itemsProcessed,
+                durationMs: s.durationMs
+              })) || []
+            }));
+          }
+          this.localBatchRuns = data;
+          return data;
+        }
+      }
+    } catch { /* fallback */ }
+    return this.localBatchRuns;
+  }
+
+  // --------------------------------------------------------------------------
+  // End-of-Day (EOD) Batch Pipeline Execution & Live Ledger Operations
+  // --------------------------------------------------------------------------
+
+  public async triggerEodBatch(businessDate?: string): Promise<BatchTriggerResponse> {
+    const payload = businessDate ? { businessDate } : {};
+    try {
+      const res = await fetch('/api/v1/batch/eod/trigger', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      if (res.status === 202) {
+        return await res.json();
+      } else if (res.status === 409) {
+        const err: ProblemDetails = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'An End-of-Day batch execution is currently in progress (BATCH_ALREADY_RUNNING).');
+      } else {
+        const err: any = await res.json().catch(() => ({}));
+        throw new Error(err.message || err.detail || `Failed to trigger EOD batch: HTTP ${res.status}`);
+      }
+    } catch (err: any) {
+      if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('NetworkError')) {
+        throw err;
+      }
+      // Offline / standalone fallback simulation
+      const todayStr = new Date().toISOString().split('T')[0];
+      const targetDate = businessDate || todayStr;
+      if (targetDate > todayStr) {
+        throw new Error(`Business date cannot be in the future (requested: ${targetDate}, today: ${todayStr}).`);
+      }
+      const newId = this.localEodRuns.length > 0 ? Math.max(...this.localEodRuns.map(r => r.batchRunId)) + 1 : 1;
+      const initialRun: BatchRunDetail = {
+        batchRunId: newId,
+        businessDate: targetDate,
+        status: 'RUNNING',
+        triggeredBy: this.session?.userId || 1,
+        startedAt: new Date().toISOString(),
+        steps: [
+          { stepNo: 1, stepName: 'INTEREST_ACCRUAL', status: 'RUNNING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 2, stepName: 'SERVICE_FEES', status: 'PENDING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 3, stepName: 'STANDING_INSTRUCTIONS', status: 'PENDING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 4, stepName: 'LOAN_AMORTIZATION', status: 'PENDING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 5, stepName: 'GL_RECONCILIATION', status: 'PENDING', itemsProcessed: 0, durationMs: 0 },
+          { stepNo: 6, stepName: 'AUDIT_SEAL', status: 'PENDING', itemsProcessed: 0, durationMs: 0 }
+        ]
+      };
+      this.localEodRuns.unshift(initialRun);
+
+      setTimeout(() => {
+        initialRun.steps[0] = { stepNo: 1, stepName: 'INTEREST_ACCRUAL', status: 'COMPLETED', itemsProcessed: 3, totalAmount: '12.24', durationMs: 810, message: 'Processed interest accrual' };
+        initialRun.steps[1].status = 'RUNNING';
+      }, 1200);
+
+      setTimeout(() => {
+        initialRun.steps[1] = { stepNo: 2, stepName: 'SERVICE_FEES', status: 'COMPLETED', itemsProcessed: 1, totalAmount: '50.00', durationMs: 640, message: 'Applied maintenance fees' };
+        initialRun.steps[2].status = 'RUNNING';
+      }, 2400);
+
+      setTimeout(() => {
+        initialRun.steps[2] = { stepNo: 3, stepName: 'STANDING_INSTRUCTIONS', status: 'COMPLETED', itemsProcessed: 1, totalAmount: '1000.00', durationMs: 900, message: 'Executed recurring transfers' };
+        initialRun.steps[3].status = 'RUNNING';
+      }, 3600);
+
+      setTimeout(() => {
+        initialRun.steps[3] = { stepNo: 4, stepName: 'LOAN_AMORTIZATION', status: 'COMPLETED', itemsProcessed: 0, totalAmount: '5450.00', durationMs: 300, message: 'Processed amortization deductions' };
+        initialRun.steps[4].status = 'RUNNING';
+      }, 4800);
+
+      setTimeout(() => {
+        initialRun.steps[4] = { stepNo: 5, stepName: 'GL_RECONCILIATION', status: 'COMPLETED', itemsProcessed: 0, totalAmount: '0.00', durationMs: 1200, message: 'Debits equal credits' };
+        initialRun.steps[5].status = 'RUNNING';
+      }, 6000);
+
+      setTimeout(() => {
+        initialRun.steps[5] = { stepNo: 6, stepName: 'AUDIT_SEAL', status: 'COMPLETED', itemsProcessed: 1, durationMs: 700, message: 'Daily cryptographic seal recorded' };
+        initialRun.status = 'COMPLETED';
+        initialRun.finishedAt = new Date().toISOString();
+
+        const seal: DailyAuditSealResponse = {
+          businessDate: targetDate,
+          lastAuditId: 48 + newId,
+          sealHash: 'a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8',
+          sealedAt: initialRun.finishedAt,
+          batchRunId: newId
+        };
+        this.localDailySeals.set(targetDate, seal);
+      }, 7200);
+
+      return {
+        batchRunId: newId,
+        businessDate: targetDate,
+        status: 'RUNNING',
+        startedAt: initialRun.startedAt
+      };
+    }
+  }
+
+  public async getBatchRun(batchRunId: number): Promise<BatchRunDetail> {
+    try {
+      const res = await fetch(`/api/v1/batch/eod/runs/${batchRunId}`, {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+
+    const found = this.localEodRuns.find(r => r.batchRunId === batchRunId);
+    if (found) return found;
+    throw new Error(`Batch run #${batchRunId} not found`);
+  }
+
+  public async getAllBatchRuns(): Promise<BatchRunDetail[]> {
+    try {
+      const res = await fetch('/api/v1/batch/eod/runs', {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list)) {
+          this.localEodRuns = list;
+          return list;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return [...this.localEodRuns];
+  }
+
+  public async getDailyAuditSeal(businessDate: string): Promise<DailyAuditSealResponse | null> {
+    try {
+      const res = await fetch(`/api/v1/audit/seals/${businessDate}`, {
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      if (res.status === 404) {
+        return null;
+      }
+    } catch {
+      // fallback
+    }
+    return this.localDailySeals.get(businessDate) || null;
   }
 }
 

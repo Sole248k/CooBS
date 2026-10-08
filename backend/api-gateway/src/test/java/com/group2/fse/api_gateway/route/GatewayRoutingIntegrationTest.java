@@ -4,12 +4,17 @@ import com.group2.fse.api_gateway.filter.CorrelationIdFilter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.cloud.gateway.route.RouteDefinition;
+import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,6 +23,9 @@ class GatewayRoutingIntegrationTest {
 
     @LocalServerPort
     private int port;
+
+    @Autowired
+    private RouteDefinitionLocator routeDefinitions;
 
     private WebTestClient client;
 
@@ -41,23 +49,33 @@ class GatewayRoutingIntegrationTest {
     }
 
     @Test
-    @DisplayName("Actuator gateway routes endpoint should be accessible and list configured routes")
-    void shouldListGatewayRoutes() {
+    @DisplayName("Actuator gateway routes endpoint should not be exposed on the public port")
+    void shouldNotExposeGatewayRoutes() {
         client.get()
                 .uri("/actuator/gateway/routes")
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
-                .expectStatus().isOk()
-                .expectBody()
-                .jsonPath("$[?(@.route_id == 'auth-service-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'account-service-accounts-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'customer-service-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'ledger-service-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'notification-service-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'audit-service-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'transaction-service-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'orchestration-service-route')]").exists()
-                .jsonPath("$[?(@.route_id == 'risk-engine-route')]").exists();
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    @DisplayName("Configured routes should be loaded")
+    void shouldLoadConfiguredRoutes() {
+        List<String> routeIds = routeDefinitions.getRouteDefinitions()
+                .map(RouteDefinition::getId)
+                .collectList()
+                .block();
+
+        assertThat(routeIds).contains(
+                "auth-service-route",
+                "account-service-accounts-route",
+                "customer-service-route",
+                "ledger-service-route",
+                "notification-service-route",
+                "audit-service-route",
+                "transaction-service-route",
+                "orchestration-service-route",
+                "risk-engine-route");
     }
 
     @Test

@@ -92,6 +92,9 @@ class LedgerPostingBothBalancesTest {
                 .filter(h -> h.getReferenceNo().equals(i.getArgument(0))).findFirst());
         when(holdRepository.findById(anyLong()))
                 .thenAnswer(i -> Optional.ofNullable(holds.get(i.<Long>getArgument(0))));
+        // Capture and release read the hold through the locking query.
+        when(holdRepository.findByIdForUpdate(anyLong()))
+                .thenAnswer(i -> Optional.ofNullable(holds.get(i.<Long>getArgument(0))));
         when(holdRepository.save(any(Hold.class))).thenAnswer(i -> {
             Hold h = i.getArgument(0);
             if (h.getHoldId() == null) {

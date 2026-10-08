@@ -246,6 +246,44 @@ class TransferSagaTest {
     }
 
     @Test
+    void transferForAnotherBank_isRefusedBeforeRiskOrTheLedgerIsAsked() {
+        StartTransferRequest t = transferTo("BPI");
+
+        saga.run(t, "corr");
+
+        assertFailed(t, "INTERBANK_REJECTED");
+        assertThat(row(t).getRiskDecision()).isNull();
+        assertThat(CALLS).isEmpty();
+        assertThat(stages()).containsExactly("4 FRAUD_CHECK FAILED FAILED");
+        JsonNode payload = events().get(0).path("payload");
+        assertThat(payload.path("failureCode").asString()).isEqualTo("INTERBANK_REJECTED");
+        assertThat(payload.path("customerMessage").asString()).contains("other banks");
+    }
+
+    @Test
+    void transferForAnotherBank_staysRefusedWhenTheSagaIsRunAgain() {
+        StartTransferRequest t = transferTo("BPI");
+        saga.run(t, "corr");
+
+        saga.run(t, "corr");
+
+        assertFailed(t, "INTERBANK_REJECTED");
+        assertThat(CALLS).isEmpty();
+        assertThat(stages()).containsExactly("4 FRAUD_CHECK FAILED FAILED");
+    }
+
+    @Test
+    void missingBankCodeOrOurOwnInAnyCase_isAnInternalTransfer() {
+        for (String bankCode : new String[] {null, " ", "coobs", " COOBS "}) {
+            StartTransferRequest t = transferTo(bankCode);
+
+            saga.run(t, "corr");
+
+            assertThat(row(t).getState()).as("bank code '%s'", bankCode).isEqualTo(SagaState.POSTED);
+        }
+    }
+
+    @Test
     void notEnoughMoney_holdIsRefusedAtStage6() {
         STUBS.put(HOLD, new Stub(422, example("common-error.json"), 0));
         StartTransferRequest t = transfer();
@@ -656,12 +694,83 @@ class TransferSagaTest {
     // --- helpers ---
 
     /** The O1 contract example with a fresh transaction ID. */
+    @Test
+    void reversalGetsNoAnswerFromTheLedger_staysInFlightAndTheNextRunRepeatsTheSameReversal() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-20261003-8F3A21C0");
+        original.setState(SagaState.POSTED);
+        sagas.saveAndFlush(original);
+        StartReversalRequest revReq = new StartReversalRequest(
+                UUID.randomUUID(), origId, "RV-20261003-11AA22BB", "Customer dispute approved", 3L);
+        STUBS.put(REVERSAL, new Stub(503, "{}", 0));
+
+        reversalSaga.run(revReq, "corr-rev-silent");
+
+        SagaInstance waiting = sagas.findByTransactionId(revReq.transactionId()).orElseThrow();
+        assertThat(waiting.getState()).isEqualTo(SagaState.STARTED);
+        assertThat(waiting.getFailureCode()).isNull();
+
+        STUBS.put(REVERSAL, ok("L7-reversal.response.json"));
+        reversalSaga.run(revReq, "corr-rev-silent");
+
+        assertThat(sagas.findByTransactionId(revReq.transactionId()).orElseThrow().getState())
+                .isEqualTo(SagaState.COMPLETED);
+        assertThat(ledgerCalls()).containsExactly(
+                new Call(REVERSAL, revReq.transactionId() + ":reversal", null, null),
+                new Call(REVERSAL, revReq.transactionId() + ":reversal", null, null));
+    }
+
+    @Test
+    void reversalRefusedByTheLedger_failsWithTheLedgersCode() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-20261003-8F3A21C0");
+        original.setState(SagaState.POSTED);
+        sagas.saveAndFlush(original);
+        StartReversalRequest revReq = new StartReversalRequest(
+                UUID.randomUUID(), origId, "RV-20261003-22BB33CC", "Second dispute", 3L);
+        STUBS.put(REVERSAL, new Stub(409, "{\"errorCode\":\"ALREADY_REVERSED\",\"status\":409}", 0));
+
+        reversalSaga.run(revReq, "corr-rev-refused");
+
+        SagaInstance failed = sagas.findByTransactionId(revReq.transactionId()).orElseThrow();
+        assertThat(failed.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(failed.getFailureCode()).isEqualTo("ALREADY_REVERSED");
+    }
+
+    @Test
+    void reversalOfHeldTransfer_releaseUnanswered_staysInFlightAndTheOriginalKeepsItsState() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-HELD-002");
+        original.setHoldId(9001L);
+        original.setState(SagaState.FUNDS_RESERVED);
+        sagas.saveAndFlush(original);
+        StartReversalRequest revReq = new StartReversalRequest(
+                UUID.randomUUID(), origId, "RV-CANCEL-002", "Cancelled at the counter", 3L);
+        STUBS.put(RELEASE, new Stub(503, "{}", 0));
+
+        reversalSaga.run(revReq, "corr-rev-release-silent");
+
+        assertThat(sagas.findByTransactionId(revReq.transactionId()).orElseThrow().getState())
+                .isEqualTo(SagaState.STARTED);
+        assertThat(sagas.findByTransactionId(origId).orElseThrow().getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+    }
+
     private StartTransferRequest transfer() {
         StartTransferRequest e = jsonMapper.readValue(example("O1-start-transfer-saga.request.json"),
                 StartTransferRequest.class);
         return new StartTransferRequest(UUID.randomUUID(), e.referenceNo(), e.channel(), e.customerId(),
                 e.sourceAccountId(), e.destinationAccountId(), e.destinationBankCode(), e.amount(), e.currency(),
                 e.actorId(), e.actorType());
+    }
+
+    private StartTransferRequest transferTo(String destinationBankCode) {
+        StartTransferRequest t = transfer();
+        return new StartTransferRequest(t.transactionId(), t.referenceNo(), t.channel(), t.customerId(),
+                t.sourceAccountId(), t.destinationAccountId(), destinationBankCode, t.amount(), t.currency(),
+                t.actorId(), t.actorType());
     }
 
     /** Recovery hands sagas to the executor, which is a mock; this makes it run them on the calling thread. */

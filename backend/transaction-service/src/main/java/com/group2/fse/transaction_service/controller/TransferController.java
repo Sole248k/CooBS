@@ -25,11 +25,12 @@ public class TransferController {
     @PostMapping("/transfers")
     public ResponseEntity<TransferInitiateResponseDto> initiateTransfer(
             @Valid @RequestBody TransferRequestDto request,
-            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
         log.info("Received transfer ingress request: srcAccount={}, dstAccount={}, amount={}, refKey={}",
                 request.getSourceAccountId(), request.getDestinationAccountNumber(), request.getAmount(), idempotencyKey);
 
         TransferInitiateResponseDto response = transferService.initiateTransfer(request, idempotencyKey);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+        // Contract T1: a repeat of the same Idempotency-Key returns the same body with 200.
+        return ResponseEntity.status(response.isReplayed() ? HttpStatus.OK : HttpStatus.ACCEPTED).body(response);
     }
 }
