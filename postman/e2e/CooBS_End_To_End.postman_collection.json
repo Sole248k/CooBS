@@ -1,7 +1,7 @@
 {
   "info": {
     "_postman_id": "coobs-e2e-master-suite-v1",
-    "name": "CooBS Platform \u2014 End-to-End Master Test Suite (11 Services)",
+    "name": "CooBS Platform — End-to-End Master Test Suite (11 Services)",
     "description": "Comprehensive End-to-End integration test suite for the CooBS 11-microservice platform.\nCovers Ingress Gateway, Authentication, Customer 360, Account Management, 11-Stage Distributed Transfer Saga, Reversal & Compensation Saga (FIN-104), Double-Entry Ledgering, In-App Notifications, and SHA-256 Cryptographic Audit Chain.\n\nDesigned to run using 'CooBS Local Environment' (postman/CooBS_Local.postman_environment.json) or in CI via Newman.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
@@ -64,6 +64,26 @@
     {
       "key": "poll_over_limit",
       "value": "0"
+    },
+    {
+      "key": "dynamic_kyc_request_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "revocable_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lock_test_idem",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lock_test_ref",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -97,8 +117,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/actuator/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["actuator", "health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
             }
           }
         },
@@ -127,8 +152,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/actuator/gateway/routes",
-              "host": ["{{baseUrl}}"],
-              "path": ["actuator", "gateway", "routes"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "gateway",
+                "routes"
+              ]
             }
           }
         }
@@ -175,8 +206,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/customers/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "customers", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "customers",
+                "login"
+              ]
             }
           }
         },
@@ -215,8 +254,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/customers/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "customers", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "customers",
+                "login"
+              ]
             }
           }
         },
@@ -256,8 +303,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/staff/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "staff", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "staff",
+                "login"
+              ]
             }
           }
         },
@@ -297,8 +352,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/staff/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "staff", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "staff",
+                "login"
+              ]
             }
           }
         },
@@ -333,8 +396,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/token/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "token", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "token",
+                "me"
+              ]
             }
           }
         }
@@ -374,8 +445,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/customers/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "customers", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "me"
+              ]
             }
           }
         },
@@ -416,8 +494,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/customers/me/beneficiaries",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "customers", "me", "beneficiaries"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "me",
+                "beneficiaries"
+              ]
             }
           }
         },
@@ -450,8 +536,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/customers/me/beneficiaries",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "customers", "me", "beneficiaries"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "me",
+                "beneficiaries"
+              ]
             }
           }
         },
@@ -485,8 +579,165 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/customers/1/360",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "customers", "1", "360"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "1",
+                "360"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.5 Customer Submits KYC Profile Update Request (C8)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"KYC update request status is PENDING\", function () {",
+                  "    pm.expect(data.status).to.eql(\"PENDING\");",
+                  "    pm.expect(data.kycRequestId).to.be.a(\"number\");",
+                  "});",
+                  "pm.collectionVariables.set(\"dynamic_kyc_request_id\", String(data.kycRequestId));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customer_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newAddress\": \"742 Evergreen Terrace, Makati City\",\n  \"newOccupation\": \"Senior Cloud Architect\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/kyc/update-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "kyc",
+                "update-request"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.6 Staff Lists Pending KYC Update Requests (C9)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "var reqId = parseInt(pm.collectionVariables.get(\"dynamic_kyc_request_id\"), 10);",
+                  "pm.test(\"Pending list contains the submitted KYC request\", function () {",
+                  "    var list = data.content || [];",
+                  "    var match = list.filter(function (r) { return r.kycRequestId === reqId; });",
+                  "    pm.expect(match.length).to.be.at.least(1);",
+                  "    pm.expect(match[0].status).to.eql(\"PENDING\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/kyc/update-requests?status=PENDING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "kyc",
+                "update-requests"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "3.7 Staff Approves KYC Update Request (C10)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"KYC request status transitions to APPROVED\", function () {",
+                  "    pm.expect(data.status).to.eql(\"APPROVED\");",
+                  "    pm.expect(data.approvedBy).to.be.a(\"number\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/kyc/update-requests/{{dynamic_kyc_request_id}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "kyc",
+                "update-requests",
+                "{{dynamic_kyc_request_id}}",
+                "approve"
+              ]
             }
           }
         }
@@ -528,8 +779,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/my-accounts",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "my-accounts"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "my-accounts"
+              ]
             }
           }
         },
@@ -563,8 +821,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/my-accounts",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "my-accounts"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "my-accounts"
+              ]
             }
           }
         }
@@ -633,8 +898,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/transfers",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "transfers"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "transfers"
+              ]
             }
           }
         },
@@ -683,8 +955,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/transfers",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "transfers"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "transfers"
+              ]
             }
           }
         },
@@ -740,8 +1019,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{dynamic_transfer_id}}"
+              ]
             }
           }
         },
@@ -805,8 +1091,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}/timeline",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}", "timeline"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{dynamic_transfer_id}}",
+                "timeline"
+              ]
             }
           }
         }
@@ -846,8 +1140,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/1",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "1"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "1"
+              ]
             }
           }
         },
@@ -882,8 +1183,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/2",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "2"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "2"
+              ]
             }
           }
         }
@@ -942,8 +1250,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/transfers",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "transfers"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "transfers"
+              ]
             }
           }
         },
@@ -993,8 +1308,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{reversal_target_tx_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{reversal_target_tx_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{reversal_target_tx_id}}"
+              ]
             }
           }
         },
@@ -1055,8 +1377,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{reversal_target_tx_id}}/reversal",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{reversal_target_tx_id}}", "reversal"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{reversal_target_tx_id}}",
+                "reversal"
+              ]
             }
           }
         },
@@ -1110,8 +1440,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{reversal_target_tx_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{reversal_target_tx_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{reversal_target_tx_id}}"
+              ]
             }
           }
         }
@@ -1154,8 +1491,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/notifications/my-notifications",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "notifications", "my-notifications"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "my-notifications"
+              ]
             }
           }
         },
@@ -1188,8 +1532,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/notifications/unread-count",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "notifications", "unread-count"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "unread-count"
+              ]
             }
           }
         }
@@ -1229,8 +1580,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/audit/verify-chain/{{source_account_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "audit", "verify-chain", "{{source_account_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "verify-chain",
+                "{{source_account_id}}"
+              ]
             }
           }
         },
@@ -1264,8 +1623,17 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/audit/accounts/{{source_account_id}}/statement",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "audit", "accounts", "{{source_account_id}}", "statement"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit",
+                "accounts",
+                "{{source_account_id}}",
+                "statement"
+              ]
             }
           }
         }
@@ -1304,8 +1672,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/auth/customers/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "auth", "customers", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "customers",
+                "login"
+              ]
             }
           }
         },
@@ -1337,8 +1713,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/9",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "9"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "9"
+              ]
             }
           }
         },
@@ -1395,8 +1778,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/transfers",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "transfers"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "transfers"
+              ]
             }
           }
         },
@@ -1447,8 +1837,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{insufficient_tx_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{insufficient_tx_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{insufficient_tx_id}}"
+              ]
             }
           }
         },
@@ -1484,8 +1881,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{insufficient_tx_id}}/timeline",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{insufficient_tx_id}}", "timeline"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{insufficient_tx_id}}",
+                "timeline"
+              ]
             }
           }
         },
@@ -1518,8 +1923,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/9",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "9"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "9"
+              ]
             }
           }
         },
@@ -1564,8 +1976,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/transfers",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "transfers"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "transfers"
+              ]
             }
           }
         },
@@ -1598,8 +2017,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/00000000-0000-0000-0000-000000000000",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "00000000-0000-0000-0000-000000000000"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "00000000-0000-0000-0000-000000000000"
+              ]
             }
           }
         },
@@ -1628,8 +2054,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/2",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "2"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "2"
+              ]
             }
           }
         },
@@ -1658,8 +2091,17 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/ledger/accounts/{{source_account_id}}/balance",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "ledger", "accounts", "{{source_account_id}}", "balance"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ledger",
+                "accounts",
+                "{{source_account_id}}",
+                "balance"
+              ]
             }
           }
         },
@@ -1688,8 +2130,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/internal/v1/sagas/00000000-0000-0000-0000-000000000000",
-              "host": ["{{baseUrl}}"],
-              "path": ["internal", "v1", "sagas", "00000000-0000-0000-0000-000000000000"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "internal",
+                "v1",
+                "sagas",
+                "00000000-0000-0000-0000-000000000000"
+              ]
             }
           }
         },
@@ -1719,8 +2168,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/2",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "2"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "2"
+              ]
             }
           }
         },
@@ -1777,8 +2233,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/transfers",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "transfers"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "transfers"
+              ]
             }
           }
         },
@@ -1829,8 +2292,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{over_limit_tx_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{over_limit_tx_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{over_limit_tx_id}}"
+              ]
             }
           }
         },
@@ -1876,8 +2346,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{over_limit_tx_id}}/timeline",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{over_limit_tx_id}}", "timeline"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{over_limit_tx_id}}",
+                "timeline"
+              ]
             }
           }
         },
@@ -1910,8 +2388,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/accounts/2",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "2"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "2"
+              ]
             }
           }
         },
@@ -1946,8 +2431,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{dynamic_transfer_id}}"
+              ]
             }
           }
         },
@@ -1982,8 +2474,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}/timeline",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}", "timeline"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{dynamic_transfer_id}}",
+                "timeline"
+              ]
             }
           }
         },
@@ -2015,13 +2515,210 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/api/v1/transactions/{{dynamic_transfer_id}}/timeline?view=STAFF",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "transactions", "{{dynamic_transfer_id}}", "timeline"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions",
+                "{{dynamic_transfer_id}}",
+                "timeline"
+              ],
               "query": [
                 {
                   "key": "view",
                   "value": "STAFF"
                 }
+              ]
+            }
+          }
+        },
+        {
+          "name": "10.9 Token Session Harvest for Revocation (A6)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var token = (pm.response.json().authData || {}).accessToken;",
+                  "pm.collectionVariables.set(\"revocable_token\", token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"liza_mercado\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/customers/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "customers",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10.9a Revoke Token Session via Redis Blacklist (A6)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204 No Content\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{revocable_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/token/revoke",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "token",
+                "revoke"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10.9b Revoked Token Rejected by Authentication Filter (A6)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Error code INVALID_TOKEN indicates session revocation\", function () {",
+                  "    pm.expect(data.errorCode).to.eql(\"INVALID_TOKEN\");",
+                  "    pm.expect(data.detail).to.include(\"revoked\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{revocable_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/token/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "token",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10.10 Pessimistic Lock Balance Overdraft Protection (L3)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set(\"lock_test_idem\", \"idem-pess-lock-\" + Date.now());",
+                  "pm.collectionVariables.set(\"lock_test_ref\", \"REF-PESS-\" + Date.now());"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422 Unprocessable Entity\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "pm.test(\"Ledger pessimistic lock enforces INSUFFICIENT_FUNDS\", function () {",
+                  "    pm.expect(data.errorCode).to.eql(\"INSUFFICIENT_FUNDS\");",
+                  "    pm.expect(data.detail).to.include(\"insufficient\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{teller_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{lock_test_idem}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccountId\": 9,\n  \"destinationAccountId\": 2,\n  \"amount\": 9999999,\n  \"referenceNo\": \"{{lock_test_ref}}\",\n  \"remarks\": \"Pessimistic balance overdraft check\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ledger/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "ledger",
+                "transfers"
               ]
             }
           }
