@@ -9,6 +9,10 @@
 #   5. Publish    push images to a registry                (only when publishImages = true)
 #   6. Deploy     placeholder for dev / prod environments  (only when deployEnabled = true)
 #
+# A pull request build runs only what its changes can affect: stage 2 when database/,
+# scripts/ or Compose change, and in stage 3 the tests of the services it touches.
+# scripts/ci_scope.py decides. A build of dev, main, release/* or a tag runs everything.
+#
 # Pull requests: Azure Repos ignores a `pr:` block in YAML. PR validation is
 # switched on by a Build Validation branch policy that points at this pipeline.
 # See integrated-capstone-plans/BRANCH_POLICY_PLAN.md.
@@ -34,8 +38,9 @@ trigger:
 
 parameters:
   # needsInfra records which test suites talk to Oracle / PostgreSQL / Redis / Kafka.
-  # Today every suite runs in one job with the infrastructure up; the flag is there
-  # so the fast suites can be moved to their own job later.
+  # A pull request build starts the infrastructure only when a suite it runs needs it
+  # (scripts/ci_scope.py). If a suite fails on a refused connection in a pull request
+  # build, its flag here is wrong: set it to true.
   - name: services
     type: object
     default:
@@ -45,7 +50,7 @@ parameters:
       - { name: ledger-service,        needsInfra: true  }
       - { name: notification-service,  needsInfra: true  }
       - { name: audit-service,         needsInfra: true  }
-      - { name: customer-service,      needsInfra: false }
+      - { name: customer-service,      needsInfra: true  }
       - { name: transaction-service,   needsInfra: false }
       - { name: orchestration-service, needsInfra: false }
       - { name: risk-engine,           needsInfra: false }
@@ -98,8 +103,16 @@ stages:
       - job: config
         displayName: Compose, scripts and service layout
         steps:
+          # Depth 2: the scope step reads the two parents of a pull request's merge commit.
           - checkout: self
-            fetchDepth: 1
+            fetchDepth: 2
+
+          # Stage 2 reads RUN_INFRA_CHECKS from this step.
+          - script: python3 scripts/ci_scope.py --stage-output
+            name: scope
+            displayName: Work out what this build has to run
+            env:
+              SERVICES_JSON: ${{ convertToJson(parameters.services) }}
 
           - script: |
               set -e
@@ -174,6 +187,8 @@ stages:
   - stage: Infra
     displayName: 2. Infrastructure checks
     dependsOn: Validate
+    # Skipped for a pull request that changes nothing these checks look at.
+    condition: and(succeeded(), eq(dependencies.Validate.outputs['config.scope.RUN_INFRA_CHECKS'], 'true'))
     jobs:
       - job: audit_store
         displayName: PostgreSQL audit store and hash chain
@@ -288,14 +303,24 @@ stages:
   # ============================================================================
   - stage: Test
     displayName: 3. Build and test services
-    dependsOn: Infra
+    dependsOn:
+      - Validate
+      - Infra
+    # Runs when stage 2 passed or was skipped; a skipped stage would otherwise skip this one too.
+    condition: and(not(canceled()), in(dependencies.Validate.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.Infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))
     jobs:
       - job: backend
         displayName: Backend services (Java 21)
         timeoutInMinutes: 60
         steps:
           - checkout: self
-            fetchDepth: 1
+            fetchDepth: 2
+
+          # Sets NEED_INFRA and one TEST_<service> variable per service for the steps below.
+          - script: python3 scripts/ci_scope.py
+            displayName: Work out which services to test
+            env:
+              SERVICES_JSON: ${{ convertToJson(parameters.services) }}
 
           - task: JavaToolInstaller@0
             displayName: Use Java 21
@@ -327,6 +352,7 @@ stages:
               timeout 120s bash -c 'until docker exec postgres-cloud-db pg_isready -h 127.0.0.1 -U postgres -d identity_db; do sleep 2; done'
               timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; do sleep 3; done'
             displayName: Start Oracle, both PostgreSQL servers, Redis and Kafka
+            condition: and(succeeded(), eq(variables['NEED_INFRA'], 'true'))
 
           - script: |
               set -euo pipefail
@@ -343,6 +369,7 @@ stages:
               '
               echo "Oracle is ready."
             displayName: Wait for Oracle application user
+            condition: and(succeeded(), eq(variables['NEED_INFRA'], 'true'))
 
           - ${{ each svc in parameters.services }}:
               - script: |
@@ -352,6 +379,7 @@ stages:
                   chmod +x mvnw
                   ./mvnw clean test $(MAVEN_ARGS)
                 displayName: Test ${{ svc.name }}
+                condition: and(succeeded(), eq(variables['TEST_${{ replace(svc.name, '-', '_') }}'], 'true'))
 
           - task: PublishTestResults@2
             displayName: Publish test results
