@@ -51,6 +51,7 @@ parameters:
       - { name: risk-engine,           needsInfra: false }
       - { name: batch-service,         needsInfra: false }
       - { name: mobile-bff,            needsInfra: false }
+      - { name: staff-bff,             needsInfra: false }
 
   # Turn on once a container registry and its service connection exist.
   - name: publishImages
@@ -152,6 +153,20 @@ stages:
                 echo "  [FOUND] $tbl"
               done
             displayName: Validate Oracle and PostgreSQL DDL files
+
+      - job: bicep
+        displayName: Bicep IaC validation (Indonesia Central)
+        steps:
+          - checkout: self
+            fetchDepth: 1
+          - script: |
+              set -e
+              if ! command -v bicep &> /dev/null; then
+                az bicep install || true
+              fi
+              az bicep build --file infra/bicep/main.bicep
+              echo "PASS: Bicep IaC compiled and validated for Indonesia Central."
+            displayName: Compile and validate Bicep templates
 
   # ============================================================================
   # 2. INFRASTRUCTURE CHECKS
