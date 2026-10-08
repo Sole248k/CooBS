@@ -4,3 +4,4 @@ export 'account_models.dart';
 export 'remittance_models.dart';
 export 'dashboard_models.dart';
 export 'notification_models.dart';
+export 'customer_models.dart';

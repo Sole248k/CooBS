@@ -16,14 +16,17 @@ Widget tf(TextEditingController c, String l, {TextInputType? k, ValueChanged<Str
     padding: const EdgeInsets.only(bottom: 12),
     child: TextField(key: ValueKey(l), controller: c, keyboardType: k, onChanged: ch, obscureText: obscure, decoration: InputDecoration(labelText: l)));
 
-Widget dd(String l, List<String> o, String? v, ValueChanged<String?> f) => Padding(
+Widget dd(String l, List<String> o, String? v, ValueChanged<String?> f) {
+  final effectiveValue = (v != null && o.contains(v)) ? v : (o.isNotEmpty ? o.first : null);
+  return Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: DropdownButtonFormField<String>(
-        key: ValueKey(l),
-        initialValue: v,
+        key: ValueKey('$l-$effectiveValue'),
+        initialValue: effectiveValue,
         items: [for (final x in o) DropdownMenuItem(value: x, child: Text(x))],
         onChanged: f,
         decoration: InputDecoration(labelText: l)));
+}
 
 Widget bigBtn(String t, VoidCallback? f) => Padding(
     padding: const EdgeInsets.only(top: 12),

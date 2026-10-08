@@ -320,24 +320,135 @@ class KycDetailsPage extends StatefulWidget {
 }
 
 class _KycDetailsPageState extends State<KycDetailsPage> {
-  final c = {
-    'First name': TextEditingController(text: 'John'),
-    'M.I.': TextEditingController(text: 'D'),
-    'Last name': TextEditingController(text: 'Doe'),
-    'Address': TextEditingController(text: 'Quezon City, Metro Manila'),
-    'Occupation': TextEditingController(text: 'Software engineer'),
-    'Mobile number': TextEditingController(text: '+63 917 000 0000'),
-  };
+  final _apiClient = ApiClient();
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  String _kycStatus = 'UNVERIFIED';
+
+  final _firstCtrl = TextEditingController();
+  final _midCtrl = TextEditingController();
+  final _lastCtrl = TextEditingController();
+  final _addrCtrl = TextEditingController();
+  final _occCtrl = TextEditingController();
+  final _mobCtrl = TextEditingController();
   String? civil = 'Single';
 
   @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _firstCtrl.dispose();
+    _midCtrl.dispose();
+    _lastCtrl.dispose();
+    _addrCtrl.dispose();
+    _occCtrl.dispose();
+    _mobCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final json = await _apiClient.get('/customers/me');
+      final profile = CustomerProfileData.fromJson(json);
+      if (mounted) {
+        setState(() {
+          _kycStatus = profile.kycStatus;
+          if (profile.kyc != null) {
+            _firstCtrl.text = profile.kyc!.firstName;
+            _midCtrl.text = profile.kyc!.middleInitial;
+            _lastCtrl.text = profile.kyc!.lastName;
+            _addrCtrl.text = profile.kyc!.address;
+            _occCtrl.text = profile.kyc!.occupation;
+            _mobCtrl.text = profile.kyc!.mobileNumber;
+            final rawCivil = profile.kyc!.civilStatus.toUpperCase();
+            if (rawCivil == 'SINGLE') {
+              civil = 'Single';
+            } else if (rawCivil == 'MARRIED') {
+              civil = 'Married';
+            } else if (rawCivil == 'WIDOWED') {
+              civil = 'Widowed';
+            } else if (rawCivil == 'DIVORCED') {
+              civil = 'Divorced';
+            } else {
+              civil = 'Single';
+            }
+          } else {
+            final parts = profile.displayName.split(' ');
+            if (parts.isNotEmpty) _firstCtrl.text = parts.first;
+            if (parts.length > 1) _lastCtrl.text = parts.last;
+            civil = 'Single';
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _submitUpdateRequest() async {
+    setState(() => _isSubmitting = true);
+    try {
+      final payload = {
+        'newFirstName': _firstCtrl.text.trim(),
+        'newMiddleInitial': _midCtrl.text.trim(),
+        'newLastName': _lastCtrl.text.trim(),
+        'newAddress': _addrCtrl.text.trim(),
+        'newOccupation': _occCtrl.text.trim(),
+        'newMobileNumber': _mobCtrl.text.trim(),
+        'newCivilStatus': civil ?? 'Single',
+      };
+
+      await _apiClient.post(
+        '/customers/kyc/update-request',
+        body: payload,
+      );
+
+      if (mounted) {
+        snack(context, 'KYC update request submitted for teller approval');
+        setState(() => _isSubmitting = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        snack(context, 'Failed to submit update: ${e.toString().replaceAll("Exception: ", "")}');
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) => Pg('KYC details', [
-        Row(children: [miniTag('Verified'), const SizedBox(width: 8), const Flexible(child: Text('Changes need teller approval.', style: TextStyle(color: kMut, fontSize: 12)))]),
-        const SizedBox(height: 14),
-        for (final e in c.entries.take(4)) tf(e.value, e.key),
-        dd('Civil status', const ['Single', 'Married'], civil, (x) => civil = x),
-        for (final e in c.entries.skip(4)) tf(e.value, e.key),
-        bigBtn('Request update', () => snack(context, 'Update request sent for approval.')),
+        if (_isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator(color: kNavy)),
+          )
+        else ...[
+          Row(children: [
+            miniTag(_kycStatus),
+            const SizedBox(width: 8),
+            const Flexible(child: Text('Changes need teller approval.', style: TextStyle(color: kMut, fontSize: 12))),
+          ]),
+          const SizedBox(height: 14),
+          tf(_firstCtrl, 'First name'),
+          tf(_midCtrl, 'M.I.'),
+          tf(_lastCtrl, 'Last name'),
+          tf(_addrCtrl, 'Address'),
+          dd('Civil status', const ['Single', 'Married', 'Widowed', 'Divorced'], civil, (x) => civil = x),
+          tf(_occCtrl, 'Occupation'),
+          tf(_mobCtrl, 'Mobile number', k: TextInputType.phone),
+          _isSubmitting
+              ? const Padding(
+                  padding: EdgeInsets.only(top: 20),
+                  child: Center(child: CircularProgressIndicator(color: kNavy)),
+                )
+              : bigBtn('Request update', _submitUpdateRequest),
+        ],
       ]);
 }
 
