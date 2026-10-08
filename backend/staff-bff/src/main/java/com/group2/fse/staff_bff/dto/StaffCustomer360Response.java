@@ -27,7 +27,7 @@ public class StaffCustomer360Response {
     private List<StaffAccountSummary> accounts;
     private StaffTotals totals;
     private List<Map<String, Object>> recentTransactions;
-    private Map<String, String> spendingBreakdown;
+    private Map<String, Object> spendingBreakdown;
     private List<Map<String, Object>> savedBeneficiaries;
     private String asOf;
     private List<String> partialFailures;
