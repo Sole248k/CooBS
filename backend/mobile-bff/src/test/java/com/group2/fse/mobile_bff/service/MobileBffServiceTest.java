@@ -259,4 +259,61 @@ class MobileBffServiceTest {
                 mobileBffService.submitRemittance(request, "idemp-1", 1L, "corr-1", "mock-token"));
         assertEquals(org.springframework.http.HttpStatus.FORBIDDEN, ex.getStatus());
     }
+
+    @Test
+    void testSubmitRemittance_SelfTransferSameAccount_ThrowsBadRequest() {
+        MobileRemittanceRequest request = MobileRemittanceRequest.builder()
+                .sourceAccountNumber("ACC_10000001")
+                .destinationAccountNumber("ACC_10000001")
+                .amount(new BigDecimal("500.00"))
+                .build();
+
+        ApiException ex = assertThrows(ApiException.class, () ->
+                mobileBffService.submitRemittance(request, "idemp-1", 1L, "corr-1", "mock-token"));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertTrue(ex.getMessage().contains("cannot be the same"));
+    }
+
+    @Test
+    void testSubmitRemittance_AmountExceedsCeiling_ThrowsBadRequest() {
+        MobileRemittanceRequest request = MobileRemittanceRequest.builder()
+                .sourceAccountNumber("ACC_10000001")
+                .destinationAccountNumber("ACC_10000002")
+                .amount(new BigDecimal("600000.00"))
+                .build();
+
+        ApiException ex = assertThrows(ApiException.class, () ->
+                mobileBffService.submitRemittance(request, "idemp-1", 1L, "corr-1", "mock-token"));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertTrue(ex.getMessage().contains("ceiling"));
+    }
+
+    @Test
+    void testSubmitRemittance_RemarksSanitization_StripsHtmlAndControlChars() {
+        MobileRemittanceRequest request = MobileRemittanceRequest.builder()
+                .sourceAccountNumber("ACC_10000001")
+                .destinationAccountNumber("ACC_10000002")
+                .amount(new BigDecimal("100.00"))
+                .remarks("<script>alert('xss')</script>\r\nPayment")
+                .build();
+
+        when(accountServiceClient.fetchAccountByNumber(eq("ACC_10000001"), any()))
+                .thenReturn(Map.of("accountId", 1L, "customerId", 1L, "status", "ACTIVE"));
+
+        when(transactionServiceClient.initiateTransfer(any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    Map<String, Object> payload = invocation.getArgument(0);
+                    assertEquals("scriptalert('xss')/script  Payment", payload.get("remarks"));
+                    return Map.of(
+                            "transactionId", "txn-1",
+                            "referenceNo", "TX-1",
+                            "status", "INITIATED",
+                            "amount", "100.00",
+                            "currency", "PHP"
+                    );
+                });
+
+        MobileRemittanceResponse res = mobileBffService.submitRemittance(request, "idemp-1", 1L, "corr-1", "mock-token");
+        assertNotNull(res);
+    }
 }

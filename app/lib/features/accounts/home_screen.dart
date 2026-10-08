@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/storage/secure_storage_service.dart';
+import '../../shell/app_shell.dart';
 import '../beneficiaries/beneficiary_screens.dart';
 import '../loans/loan_screens.dart';
 import '../profile/tab_screens.dart';
@@ -312,6 +313,24 @@ class _MoneySheetState extends State<MoneySheet> {
             style: const TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
         if (widget.transfer) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.hub_outlined, size: 18),
+              label: const Text('Live Distributed Saga Transfer'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(42),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AppShell(initialIndex: 1)),
+                );
+              },
+            ),
+          ),
           dd('Destination bank', const ['BDO', 'BPI', 'UnionBank', 'Metrobank', 'Landbank'], bank, (v) => bank = v ?? bank),
           tf(acct, 'Recipient account number', k: TextInputType.number),
         ] else

@@ -36,6 +36,7 @@ public class JwtTokenProvider {
             keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         }
         if (keyBytes.length < 32) {
+            log.warn("JWT Secret key length ({} bytes) is less than 256 bits (32 bytes).", keyBytes.length);
             byte[] padded = new byte[32];
             System.arraycopy(keyBytes, 0, padded, 0, Math.min(keyBytes.length, 32));
             keyBytes = padded;
@@ -44,11 +45,17 @@ public class JwtTokenProvider {
     }
 
     public boolean validateToken(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
         try {
-            Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
+            Jwts.parser().verifyWith(key).build().parseSignedClaims(token.trim());
             return true;
-        } catch (Exception ex) {
-            log.warn("Invalid JWT token: {}", ex.getMessage());
+        } catch (ExpiredJwtException ex) {
+            log.debug("Expired JWT token presented: {}", ex.getMessage());
+            return false;
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.warn("Invalid JWT token presented: {}", ex.getMessage());
             return false;
         }
     }

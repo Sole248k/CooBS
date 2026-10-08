@@ -38,7 +38,13 @@ public class TransactionServiceClient {
     public List<MobileRecentTransaction> fetchRecentTransactions(Long customerId, String bearerToken, String correlationId) {
         List<MobileRecentTransaction> list = new ArrayList<>();
         try {
-            String url = transactionServiceBaseUrl + "/internal/v1/transactions?customerId=" + customerId + "&limit=5";
+            String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(transactionServiceBaseUrl)
+                    .pathSegment("internal", "v1", "transactions")
+                    .queryParam("customerId", customerId)
+                    .queryParam("limit", 5)
+                    .build()
+                    .encode()
+                    .toUriString();
             log.debug("Fetching recent transactions from: {}", url);
 
             HttpHeaders headers = new HttpHeaders();
@@ -69,7 +75,12 @@ public class TransactionServiceClient {
 
     public MobileTimelineResponse fetchTimeline(String identifier, String bearerToken, String correlationId) {
         try {
-            String url = transactionServiceBaseUrl + "/api/v1/transactions/" + identifier + "/timeline?view=CUSTOMER";
+            String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(transactionServiceBaseUrl)
+                    .pathSegment("api", "v1", "transactions", identifier, "timeline")
+                    .queryParam("view", "CUSTOMER")
+                    .build()
+                    .encode()
+                    .toUriString();
             log.debug("Fetching timeline from: {}", url);
 
             HttpHeaders headers = new HttpHeaders();
@@ -109,7 +120,11 @@ public class TransactionServiceClient {
 
     public Map<String, Object> fetchTransactionDetail(String identifier, String bearerToken, String correlationId) {
         try {
-            String url = transactionServiceBaseUrl + "/api/v1/transactions/" + identifier;
+            String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(transactionServiceBaseUrl)
+                    .pathSegment("api", "v1", "transactions", identifier)
+                    .build()
+                    .encode()
+                    .toUriString();
             log.debug("Fetching transaction detail from: {}", url);
 
             HttpHeaders headers = new HttpHeaders();
@@ -138,7 +153,11 @@ public class TransactionServiceClient {
 
     public Map<String, Object> initiateTransfer(Map<String, Object> transferRequest, String idempotencyKey, String bearerToken, String correlationId) {
         try {
-            String url = transactionServiceBaseUrl + "/api/v1/transactions/transfers";
+            String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(transactionServiceBaseUrl)
+                    .pathSegment("api", "v1", "transactions", "transfers")
+                    .build()
+                    .encode()
+                    .toUriString();
             log.debug("Initiating transfer at: {}", url);
 
             HttpHeaders headers = new HttpHeaders();
