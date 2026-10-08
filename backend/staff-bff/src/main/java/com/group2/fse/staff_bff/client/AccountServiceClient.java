@@ -35,13 +35,7 @@ public class AccountServiceClient {
 
             ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
-            List<Map<String, Object>> list = response.getBody() != null ? response.getBody() : Collections.emptyList();
-            return list.stream()
-                    .filter(acc -> {
-                        Object cid = acc.get("customerId");
-                        return cid != null && customerId.toString().equals(cid.toString());
-                    })
-                    .toList();
+            return response.getBody() != null ? response.getBody() : Collections.emptyList();
         } catch (Exception e) {
             log.warn("Failed to fetch accounts for customer ID {}: {}", customerId, e.getMessage());
             return Collections.emptyList();

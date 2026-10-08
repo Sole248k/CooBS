@@ -90,9 +90,6 @@ public class StaffBffServiceImpl implements StaffBffService {
         Map<String, Object> profile = profileFuture.join();
         Map<String, Object> c360 = c360Future.join();
         List<Map<String, Object>> rawAccounts = accountsFuture.join();
-        if (rawAccounts.isEmpty() && c360.get("accounts") instanceof List) {
-            rawAccounts = (List<Map<String, Object>>) c360.get("accounts");
-        }
 
         // 2. Fetch Ledger Balances and Flags for each account in parallel
         List<CompletableFuture<StaffAccountSummary>> summaryFutures = rawAccounts.stream().map(acc ->
@@ -166,14 +163,10 @@ public class StaffBffServiceImpl implements StaffBffService {
 
         List<Map<String, Object>> recentTx = c360.get("recentTransactions") instanceof List ?
                 (List<Map<String, Object>>) c360.get("recentTransactions") : Collections.emptyList();
-        Map<String, Object> spending = c360.get("spendingBreakdown") instanceof Map ?
-                (Map<String, Object>) c360.get("spendingBreakdown") : Collections.emptyMap();
-        List<Map<String, Object>> beneficiaries = c360.get("beneficiaries") instanceof List ?
-                (List<Map<String, Object>>) c360.get("beneficiaries") :
-                (c360.get("savedBeneficiaries") instanceof List ? (List<Map<String, Object>>) c360.get("savedBeneficiaries") : Collections.emptyList());
-
-        String membershipNumber = profile.get("membershipNumber") != null ? profile.get("membershipNumber").toString() :
-                (c360.get("membershipNumber") != null ? c360.get("membershipNumber").toString() : "CUS-" + String.format("%08d", customerId));
+        Map<String, String> spending = c360.get("spendingBreakdown") instanceof Map ?
+                (Map<String, String>) c360.get("spendingBreakdown") : Collections.emptyMap();
+        List<Map<String, Object>> beneficiaries = c360.get("savedBeneficiaries") instanceof List ?
+                (List<Map<String, Object>>) c360.get("savedBeneficiaries") : Collections.emptyList();
 
         return StaffCustomer360Response.builder()
                 .customerId(customerId)
@@ -181,7 +174,7 @@ public class StaffBffServiceImpl implements StaffBffService {
                 .username(username)
                 .email(email)
                 .phone(phone)
-                .membershipNumber(membershipNumber)
+                .membershipNumber("MEM-" + customerId)
                 .kycStatus(kycStatus)
                 .kycTier(kycTier)
                 .creditScore(creditScore)
