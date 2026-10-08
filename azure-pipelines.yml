@@ -21,6 +21,9 @@
 # ==============================================================================
 
 trigger:
+  # While a run is in progress on a branch, later pushes to it wait and are built together
+  # in one run. Several merges in a row therefore cost one run, not one each.
+  batch: true
   branches:
     include:
       - main
