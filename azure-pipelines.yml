@@ -250,7 +250,10 @@ stages:
               set -e
               docker compose up -d redis-cache kafka-broker kafka-init-topics
               timeout 60s bash -c 'until docker exec redis-cache redis-cli ping | grep -q PONG; do sleep 2; done'
-              timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list | grep -q "ledger.mutation.completed.v1"; do sleep 3; done'
+              # kafka-init-topics creates the topics one at a time and then exits. Waiting only for the
+              # first topic let the checks below run while the later ones did not exist yet.
+              INIT_EXIT=$(timeout 240s docker wait kafka-init-topics) || INIT_EXIT="timed out"
+              [ "$INIT_EXIT" = "0" ] || { echo "FAIL: kafka-init-topics exited with '$INIT_EXIT'"; docker logs kafka-init-topics --tail 40; exit 1; }
             displayName: Start Redis and Kafka
           - script: |
               set -e
