@@ -149,7 +149,7 @@ Every service returns the existing problem shape. `errorCode` is the field clien
 | `ALREADY_REVERSED` (new) | 409 | ledger |
 | `LEDGER_UNAVAILABLE` (new) | 503 | orchestration, batch |
 | `BATCH_ALREADY_RUNNING` (new) | 409 | batch |
-| `INTERBANK_REJECTED`, `INTERBANK_TIMEOUT` (new) | 422, 504 | transaction |
+| `INTERBANK_REJECTED`, `INTERBANK_TIMEOUT` (new) | 422, 504 | transaction, orchestration |
 | `INTERNAL_SERVER_ERROR` | 500 | Any |
 
 HTTP codes for the existing error codes were checked against the ledger's exception handler. Codes marked new are proposals.

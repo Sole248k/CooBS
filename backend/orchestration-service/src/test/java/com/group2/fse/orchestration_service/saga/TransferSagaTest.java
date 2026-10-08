@@ -246,6 +246,44 @@ class TransferSagaTest {
     }
 
     @Test
+    void transferForAnotherBank_isRefusedBeforeRiskOrTheLedgerIsAsked() {
+        StartTransferRequest t = transferTo("BPI");
+
+        saga.run(t, "corr");
+
+        assertFailed(t, "INTERBANK_REJECTED");
+        assertThat(row(t).getRiskDecision()).isNull();
+        assertThat(CALLS).isEmpty();
+        assertThat(stages()).containsExactly("4 FRAUD_CHECK FAILED FAILED");
+        JsonNode payload = events().get(0).path("payload");
+        assertThat(payload.path("failureCode").asString()).isEqualTo("INTERBANK_REJECTED");
+        assertThat(payload.path("customerMessage").asString()).contains("other banks");
+    }
+
+    @Test
+    void transferForAnotherBank_staysRefusedWhenTheSagaIsRunAgain() {
+        StartTransferRequest t = transferTo("BPI");
+        saga.run(t, "corr");
+
+        saga.run(t, "corr");
+
+        assertFailed(t, "INTERBANK_REJECTED");
+        assertThat(CALLS).isEmpty();
+        assertThat(stages()).containsExactly("4 FRAUD_CHECK FAILED FAILED");
+    }
+
+    @Test
+    void missingBankCodeOrOurOwnInAnyCase_isAnInternalTransfer() {
+        for (String bankCode : new String[] {null, " ", "coobs", " COOBS "}) {
+            StartTransferRequest t = transferTo(bankCode);
+
+            saga.run(t, "corr");
+
+            assertThat(row(t).getState()).as("bank code '%s'", bankCode).isEqualTo(SagaState.POSTED);
+        }
+    }
+
+    @Test
     void notEnoughMoney_holdIsRefusedAtStage6() {
         STUBS.put(HOLD, new Stub(422, example("common-error.json"), 0));
         StartTransferRequest t = transfer();
@@ -726,6 +764,13 @@ class TransferSagaTest {
         return new StartTransferRequest(UUID.randomUUID(), e.referenceNo(), e.channel(), e.customerId(),
                 e.sourceAccountId(), e.destinationAccountId(), e.destinationBankCode(), e.amount(), e.currency(),
                 e.actorId(), e.actorType());
+    }
+
+    private StartTransferRequest transferTo(String destinationBankCode) {
+        StartTransferRequest t = transfer();
+        return new StartTransferRequest(t.transactionId(), t.referenceNo(), t.channel(), t.customerId(),
+                t.sourceAccountId(), t.destinationAccountId(), destinationBankCode, t.amount(), t.currency(),
+                t.actorId(), t.actorType());
     }
 
     /** Recovery hands sagas to the executor, which is a mock; this makes it run them on the calling thread. */
