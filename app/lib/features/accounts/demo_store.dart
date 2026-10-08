@@ -93,7 +93,7 @@ class Demo extends ChangeNotifier {
     try {
       final json = await api.get('/mobile/dashboard');
       final dash = MobileDashboardResponse.fromJson(json);
-      if (accts.isNotEmpty && dash.primaryAccount.availableBalance > 0) {
+      if (dash.primaryAccount.accountNumber.isNotEmpty) {
         final mappedTx = dash.recentTransactions.isNotEmpty
             ? dash.recentTransactions.map((t) {
                 final isOut = t.direction.toUpperCase() == 'OUT';
@@ -108,51 +108,53 @@ class Demo extends ChangeNotifier {
                   signAmt,
                 );
               }).toList()
-            : accts[0].tx;
+            : <Tx>[];
 
-        accts[0] = Acct(
-          dash.primaryAccount.accountType.isNotEmpty ? dash.primaryAccount.accountType : accts[0].type,
-          dash.primaryAccount.accountNumber.isNotEmpty ? dash.primaryAccount.accountNumber : accts[0].no,
+        accts.clear();
+        accts.add(Acct(
+          dash.primaryAccount.accountType.isNotEmpty ? dash.primaryAccount.accountType : 'Savings',
+          dash.primaryAccount.accountNumber,
           dash.primaryAccount.availableBalance,
           mappedTx,
-        );
+        ));
       }
       isInitializedFromApi = true;
       notifyListeners();
     } catch (_) {
-      // Gracefully retain default demo values
+      // Gracefully retain initial values if offline
     }
   }
 
   final accts = <Acct>[
-    Acct('Checking', 'ACC-1001-8842', 14750.50, [
-      Tx('Transfer to ACC-1002-9915', 'TXN-9021', today, -150),
-      Tx('Payroll deposit', 'CORP-PAYROLL · TXN-9018', today, 3250),
-    ]),
-    Acct('Savings', 'ACC-1002-9915', 85200, [
-      Tx('Transfer from ACC-1001-8842', 'TXN-9020', today, 150),
-      Tx('Cash deposit', 'TXN-9004', DateTime(2026, 10, 2), 5000),
-      Tx('Interest credit', 'INT-0930', DateTime(2026, 9, 30), 42.60),
-    ]),
+    Acct('Savings', 'ACC_10000001', 31700.00, []),
   ];
   Loan? loan;
   bool hide = false;
   int cur = 0;
   final bens = <Ben>[const Ben('Juan Dela Cruz', 'Brother', '+63 917 000 1111')];
   final alerts = <List<String>>[
-    ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
-    ['₱150.00 transferred to ACC-1002-9915', 'Ref TXN-9021 · Today'],
-    ['KYC update approved', 'Yesterday'],
+    ['KYC status verified', 'Account active'],
   ];
   void _alert(String m) => alerts.insert(0, [m, 'Just now']);
 
   void toggleHide() { hide = !hide; notifyListeners(); }
   void setCur(int v) { cur = v; notifyListeners(); }
-  List<Tx> get curTx => cur == 2 ? (loan?.tx ?? []) : accts[cur].tx;
+  List<Tx> get curTx => cur >= accts.length ? (loan?.tx ?? []) : (cur >= 0 && cur < accts.length ? accts[cur].tx : []);
 
   String? _check(int from, double a) {
     if (a <= 0) return 'Enter an amount above ₱0.00';
     if (a > accts[from].bal) return 'Insufficient funds in ${accts[from].no}';
+    return null;
+  }
+
+  String? directDeposit(int acctIndex, double a) {
+    if (a <= 0) return 'Enter an amount above ₱0.00';
+    if (acctIndex < 0 || acctIndex >= accts.length) return 'Account not found';
+    final target = accts[acctIndex];
+    target.bal = r2(target.bal + a);
+    target.tx.insert(0, Tx('Direct deposit', 'DEP-${DateTime.now().millisecondsSinceEpoch % 100000}', today, a));
+    _alert('${peso(a)} deposited into ${target.no}');
+    notifyListeners();
     return null;
   }
 
@@ -213,21 +215,11 @@ class Demo extends ChangeNotifier {
     cur = 0;
     accts.clear();
     accts.addAll([
-      Acct('Checking', 'ACC-1001-8842', 14750.50, [
-        Tx('Transfer to ACC-1002-9915', 'TXN-9021', today, -150),
-        Tx('Payroll deposit', 'CORP-PAYROLL · TXN-9018', today, 3250),
-      ]),
-      Acct('Savings', 'ACC-1002-9915', 85200, [
-        Tx('Transfer from ACC-1001-8842', 'TXN-9020', today, 150),
-        Tx('Cash deposit', 'TXN-9004', DateTime(2026, 10, 2), 5000),
-        Tx('Interest credit', 'INT-0930', DateTime(2026, 9, 30), 42.60),
-      ]),
+      Acct('Savings', 'ACC_10000001', 31700.00, []),
     ]);
     alerts.clear();
     alerts.addAll([
-      ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
-      ['₱150.00 transferred to ACC-1002-9915', 'Ref TXN-9021 · Today'],
-      ['KYC update approved', 'Yesterday'],
+      ['KYC status verified', 'Account active'],
     ]);
     notifyListeners();
   }

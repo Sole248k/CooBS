@@ -118,8 +118,8 @@ void main() {
 
       store.reset();
       expect(store.loan, isNull);
-      expect(store.accts.first.type, 'Checking');
-      expect(store.accts.first.bal, 14750.50);
+      expect(store.accts.first.type, 'Savings');
+      expect(store.accts.first.bal, 31700.00);
     });
 
     test('ApiClient triggers onSessionExpired callback when session cleared', () async {

@@ -230,10 +230,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView(padding: const EdgeInsets.only(top: 4, bottom: 16), children: [
               SizedBox(
                 height: 262,
-                child: PageView(controller: pc, onPageChanged: d.setCur, children: [acctCard(0), acctCard(1), loanCard()]),
+                child: PageView(
+                  controller: pc,
+                  onPageChanged: d.setCur,
+                  children: [
+                    for (int i = 0; i < d.accts.length; i++) acctCard(i),
+                    loanCard(),
+                  ],
+                ),
               ),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                for (var i = 0; i < 3; i++)
+                for (var i = 0; i < d.accts.length + 1; i++)
                   Container(
                       margin: const EdgeInsets.fromLTRB(3, 12, 3, 0), width: d.cur == i ? 18 : 7, height: 7,
                       decoration: BoxDecoration(color: d.cur == i ? kInk : const Color(0xFFC3CCC7), borderRadius: BorderRadius.circular(4))),
@@ -241,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  if (d.cur == 2 && l != null)
+                  if (d.cur == d.accts.length && l != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: nb == null
@@ -274,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
                           child: Column(children: [
                             const Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF9AA5AD))),
-                            Text(d.cur == 2 ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
+                            Text(d.cur == d.accts.length ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
                           ]))
                       : txCard(tx.take(5).toList()),
                   const SizedBox(height: 22),
@@ -283,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
                     circ(Icons.credit_card, 'Manage\nCards', () => snack(context, 'Card management coming soon in Phase 2')),
                   ]),
-                  if (d.cur == 2 && l != null)
+                  if (d.cur == d.accts.length && l != null)
                     Center(child: TextButton(onPressed: d.resetLoan, child: const Text('Reset loan (tester only)'))),
                 ]),
               ),
@@ -307,12 +314,13 @@ class _MoneySheetState extends State<MoneySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final d = Demo.i, a = d.accts[widget.from], to = d.accts[1 - widget.from];
+    final d = Demo.i, a = d.accts[widget.from];
+    final otherAccts = [for (int i = 0; i < d.accts.length; i++) if (i != widget.from) d.accts[i]];
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 22, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(widget.transfer ? 'Transfer' : 'Deposit', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        Text(widget.transfer ? 'From ${a.no} (${peso(a.bal)}) to another bank.' : 'Move money from ${a.no} to your other account.',
+        Text(widget.transfer ? 'From ${a.no} (${peso(a.bal)}) to another bank.' : (otherAccts.isEmpty ? 'Deposit funds into ${a.no}.' : 'Move money from ${a.no} to your other account.'),
             style: const TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
         if (widget.transfer) ...[
@@ -336,15 +344,30 @@ class _MoneySheetState extends State<MoneySheet> {
           ),
           dd('Destination bank', const ['BDO', 'BPI', 'UnionBank', 'Metrobank', 'Landbank'], bank, (v) => bank = v ?? bank),
           tf(acct, 'Recipient account number', k: TextInputType.number),
-        ] else
-          dd('Deposit to', ['${to.type} · ${to.no}'], '${to.type} · ${to.no}', (_) {}),
+        ] else if (otherAccts.isNotEmpty) ...[
+          dd('Deposit to', [for (final o in otherAccts) '${o.type} · ${o.no}'], '${otherAccts.first.type} · ${otherAccts.first.no}', (_) {}),
+        ],
         tf(amt, 'Amount (₱)', k: const TextInputType.numberWithOptions(decimal: true)),
         bigBtn(widget.transfer ? 'Transfer' : 'Deposit', () {
           final v = double.tryParse(amt.text) ?? 0;
-          final err = widget.transfer ? d.send(widget.from, bank, acct.text.trim(), v) : d.deposit(widget.from, 1 - widget.from, v);
-          if (err != null) { snack(context, err); return; }
-          Navigator.pop(context);
-          snack(context, widget.transfer ? 'Sent ${peso(v)} to $bank' : 'Deposited ${peso(v)} to ${to.type}');
+          if (widget.transfer) {
+            final err = d.send(widget.from, bank, acct.text.trim(), v);
+            if (err != null) { snack(context, err); return; }
+            Navigator.pop(context);
+            snack(context, 'Sent ${peso(v)} to $bank');
+          } else {
+            if (otherAccts.isEmpty) {
+              final err = d.directDeposit(widget.from, v);
+              if (err != null) { snack(context, err); return; }
+              Navigator.pop(context);
+              snack(context, 'Deposited ${peso(v)} into ${a.no}');
+            } else {
+              final err = d.deposit(widget.from, d.accts.indexOf(otherAccts.first), v);
+              if (err != null) { snack(context, err); return; }
+              Navigator.pop(context);
+              snack(context, 'Deposited ${peso(v)} to ${otherAccts.first.type}');
+            }
+          }
         }),
       ]),
     );
@@ -359,12 +382,14 @@ class SeeAllPage extends StatelessWidget {
     final d = Demo.i;
     final g = <DateTime, List<Tx>>{};
     for (final x in d.curTx) { g.putIfAbsent(x.date, () => []).add(x); }
+    final title = d.cur < d.accts.length ? d.accts[d.cur].type.toUpperCase() : 'LOAN';
+    final gradIndex = (d.cur < grads.length) ? d.cur : (grads.length - 1);
     return Pg('Recent transactions', [
       for (final e in g.entries) ...[
         Padding(padding: const EdgeInsets.only(top: 14, bottom: 8), child: Center(child: Text(fmt(e.key), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)))),
         txCard(e.value),
       ],
-    ], chip: tag(const ['CURRENT', 'SAVINGS', 'LOAN'][d.cur], d.cur));
+    ], chip: tag(title, gradIndex));
   }
 }
 
