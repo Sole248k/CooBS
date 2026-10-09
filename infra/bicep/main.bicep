@@ -1,3 +1,11 @@
+// CooBS demo deployment: the in-depth architecture cut to what an Azure free trial allows.
+// Drawn in docs/architecture-diagrams/demo-deployment.eraserdiagram; explained in infra/README.md.
+//
+//   Cloud VNet        one AKS node (eight services and Kafka), Azure SQL, Azure Managed Redis
+//   On-premises VNet  one VM running Docker Compose (ledger, account, audit, batch, Oracle, audit store)
+//   Link              VNet peering, with an NSG on the on-premises subnet as the firewall
+//
+// The container registry already exists in this resource group and is not created here.
 targetScope = 'resourceGroup'
 
 @description('Environment identifier (dev, demo, prod)')
@@ -8,32 +16,35 @@ targetScope = 'resourceGroup'
 ])
 param environmentName string = 'dev'
 
-@description('Azure primary deployment region')
+@description('Azure region. Indonesia Central: Southeast Asia offers the trial subscription no usable VM size')
 param location string = resourceGroup().location
 
 @description('Base application prefix for naming resources')
 param baseName string = 'coobs'
 
-@description('PostgreSQL database administrator login username')
-param postgresAdminUser string = 'postgresadmin'
+@description('Name of the container registry that already exists in this resource group')
+param acrName string = 'CooBS'
 
-@description('PostgreSQL database administrator login password')
+@description('Azure SQL administrator login')
+param sqlAdminLogin string = 'coobsadmin'
+
+@description('Azure SQL administrator password. Given at deploy time; never written to a file in this repository')
 @secure()
-param postgresAdminPassword string
+param sqlAdminPassword string
 
-@description('Global JWT shared secret for HMAC-SHA256 bearer tokens')
-@secure()
-param jwtSecret string = ''
+@description('SSH public key for the on-premises VM administrator')
+param onPremAdminSshPublicKey string
 
-@description('Internal service-to-service shared secret for risk-engine M2M calls')
-@secure()
-param internalServiceSecret string = ''
+@description('Object ID of the person who seeds and reads Key Vault secrets (az ad signed-in-user show --query id)')
+param keyVaultAdminObjectId string
 
-@description('Oracle Master System of Record database admin password')
-@secure()
-param oraclePassword string = ''
+@description('Create Azure Managed Redis. Set false to run Redis in the cluster instead (infra/k8s/optional/redis-in-cluster.yaml)')
+param deployManagedRedis bool = true
 
-@description('Unique suffix for globally unique resources (Storage, ACR, KV, Redis)')
+@description('Send container logs to Log Analytics')
+param enableContainerInsights bool = true
+
+@description('Unique suffix for globally unique resources (SQL, Key Vault, Redis)')
 param uniqueSuffix string = uniqueString(resourceGroup().id)
 
 var cleanUniqueSuffix = take(uniqueSuffix, 6)
@@ -45,20 +56,25 @@ var tags = {
   ManagedBy: 'Bicep'
 }
 
+// Fixed private addresses that infra/k8s/config.yaml also carries. Change both together.
+var onPremVmPrivateIp = '10.250.0.4'
+var kafkaInternalLoadBalancerIp = '10.240.15.200'
+
 // =============================================================================
-// 1. Networking Module (VNet, Subnets, NSGs, Private DNS)
+// 1. Networking: cloud VNet, on-premises VNet, peering, firewall NSG, NAT gateway
 // =============================================================================
 module network './modules/network.bicep' = {
   name: 'deploy-network'
   params: {
     location: location
-    vnetName: 'vnet-${baseName}-${environmentName}'
+    cloudVnetName: 'vnet-${baseName}-cloud-${environmentName}'
+    onPremVnetName: 'vnet-${baseName}-onprem-${environmentName}'
     tags: tags
   }
 }
 
 // =============================================================================
-// 2. Monitoring & FinOps Governance Module
+// 2. Monitoring
 // =============================================================================
 module monitoring './modules/monitoring.bicep' = {
   name: 'deploy-monitoring'
@@ -73,83 +89,54 @@ module monitoring './modules/monitoring.bicep' = {
 }
 
 // =============================================================================
-// 3. Azure Container Registry (Basic SKU)
-// =============================================================================
-module acr './modules/acr.bicep' = {
-  name: 'deploy-acr'
-  params: {
-    location: location
-    acrName: '${baseName}acr${cleanUniqueSuffix}'
-    sku: 'Basic'
-    adminUserEnabled: true
-    tags: tags
-  }
-}
-
-// =============================================================================
-// 4. Azure Event Hubs (Kafka Surface Backbone)
-// =============================================================================
-module eventhubs './modules/eventhubs.bicep' = {
-  name: 'deploy-eventhubs'
-  params: {
-    location: location
-    namespaceName: 'eh-${baseName}-events-${cleanUniqueSuffix}'
-    capacity: 1
-    maxThroughputUnits: 2
-    tags: tags
-  }
-}
-
-// =============================================================================
-// 5. Azure Cache for Redis (Basic C1, 1GB RAM)
-// =============================================================================
-module redis './modules/redis.bicep' = {
-  name: 'deploy-redis'
-  params: {
-    location: location
-    redisName: 'redis-${baseName}-${cleanUniqueSuffix}'
-    tags: tags
-  }
-}
-
-// =============================================================================
-// 6. Azure Key Vault (Production Secrets Management & Hardening)
+// 3. Key Vault
 // =============================================================================
 module keyvault './modules/keyvault.bicep' = {
   name: 'deploy-keyvault'
   params: {
     location: location
     keyVaultName: 'kv-${baseName}-${cleanUniqueSuffix}'
-    jwtSecret: jwtSecret
-    postgresPassword: postgresAdminPassword
-    internalServiceSecret: internalServiceSecret
-    oraclePassword: oraclePassword
-    eventHubsConnectionString: eventhubs.outputs.primaryConnectionString
-    redisKey: redis.outputs.redisPrimaryKey
+    keyVaultAdminObjectId: keyVaultAdminObjectId
+    cloudDbPassword: sqlAdminPassword
     tags: tags
   }
 }
 
 // =============================================================================
-// 7. Azure Database for PostgreSQL Flexible Server
+// 4. Azure SQL: identity_db, customer_db, transaction_db, notification_db
 // =============================================================================
-module postgres './modules/postgres.bicep' = {
-  name: 'deploy-postgres'
+module sql './modules/sql.bicep' = {
+  name: 'deploy-sql'
   params: {
     location: location
-    serverName: 'psql-${baseName}-${cleanUniqueSuffix}'
-    administratorLogin: postgresAdminUser
-    administratorLoginPassword: postgresAdminPassword
-    delegatedSubnetId: network.outputs.postgresSubnetId
-    privateDnsZoneId: network.outputs.postgresPrivateDnsZoneId
-    skuName: 'Standard_B2s'
-    storageSizeGb: 64
+    serverName: 'sql-${baseName}-${cleanUniqueSuffix}'
+    administratorLogin: sqlAdminLogin
+    administratorLoginPassword: sqlAdminPassword
+    allowedSubnetId: network.outputs.aksSubnetId
     tags: tags
   }
 }
 
 // =============================================================================
-// 8. Azure Kubernetes Service (AKS Cluster)
+// 5. Azure Managed Redis (Balanced B0), reached by both networks through a private endpoint
+// =============================================================================
+module redis './modules/redis.bicep' = if (deployManagedRedis) {
+  name: 'deploy-redis'
+  params: {
+    location: location
+    redisName: 'redis-${baseName}-${cleanUniqueSuffix}'
+    privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
+    linkedVnetIds: [
+      network.outputs.cloudVnetId
+      network.outputs.onPremVnetId
+    ]
+    keyVaultName: keyvault.outputs.keyVaultName
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 6. AKS: one node, Free tier
 // =============================================================================
 module aks './modules/aks.bicep' = {
   name: 'deploy-aks'
@@ -157,25 +144,42 @@ module aks './modules/aks.bicep' = {
     location: location
     clusterName: 'aks-${baseName}-${environmentName}'
     subnetId: network.outputs.aksSubnetId
-    acrId: acr.outputs.acrId
+    acrName: acrName
     logAnalyticsWorkspaceId: monitoring.outputs.workspaceId
-    vmSize: 'Standard_D4s_v5'
-    nodeCount: 2
-    minNodeCount: 2
-    maxNodeCount: 3
+    enableContainerInsights: enableContainerInsights
     tags: tags
   }
 }
 
 // =============================================================================
-// Root Outputs (for CI/CD pipeline and microservice configuration)
+// 7. On-premises VM (the simulated datacenter)
 // =============================================================================
-output vnetName string = network.outputs.vnetName
-output acrLoginServer string = acr.outputs.loginServer
+module onPremVm './modules/onprem-vm.bicep' = {
+  name: 'deploy-onprem-vm'
+  params: {
+    location: location
+    vmName: 'vm-${baseName}-onprem'
+    subnetId: network.outputs.onPremSubnetId
+    privateIpAddress: onPremVmPrivateIp
+    adminSshPublicKey: onPremAdminSshPublicKey
+    acrName: acrName
+    keyVaultName: keyvault.outputs.keyVaultName
+    tags: tags
+  }
+}
+
+// =============================================================================
+// Outputs: the values infra/k8s/config.yaml and the on-premises Compose file need
+// =============================================================================
 output aksClusterName string = aks.outputs.clusterName
-output postgresFqdn string = postgres.outputs.serverFqdn
-output redisHostName string = redis.outputs.redisHostName
-output redisSslPort int = redis.outputs.redisSslPort
-output kafkaBootstrapServer string = eventhubs.outputs.kafkaBootstrapServer
-output keyVaultUri string = keyvault.outputs.keyVaultUri
+output keyVaultName string = keyvault.outputs.keyVaultName
+output sqlServerFqdn string = sql.outputs.serverFqdn
+output sqlAdminLogin string = sqlAdminLogin
+#disable-next-line BCP318
+output redisHostName string = deployManagedRedis ? redis.outputs.redisHostName : ''
+output redisPort int = 10000
+output onPremVmName string = onPremVm.outputs.vmName
+output onPremVmPrivateIp string = onPremVmPrivateIp
+output kafkaInternalLoadBalancerIp string = kafkaInternalLoadBalancerIp
+output onPremOutboundPublicIp string = network.outputs.natPublicIpAddress
 output logAnalyticsWorkspaceId string = monitoring.outputs.workspaceId

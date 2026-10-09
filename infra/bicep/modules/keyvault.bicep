@@ -1,35 +1,24 @@
+// Key Vault holds every secret of the deployment. Two are written here because Azure produces
+// them (the SQL administrator password given at deploy time, and the Redis key, written by
+// redis.bicep). The application secrets (JWT, internal service, inter-bank, on-premises
+// database passwords) are generated and stored after the deployment and never pass through a
+// template or a file in this repository.
+
 @description('Azure region for Key Vault')
 param location string
 
 @description('Key Vault globally unique name (3-24 alphanumerics and dashes)')
 param keyVaultName string
 
+@description('Object ID of the person who seeds and reads the secrets. Owner of the subscription is not enough: with RBAC authorisation the data plane needs its own role')
+param keyVaultAdminObjectId string
+
+@description('Azure SQL administrator password, stored as cloud-db-password')
+@secure()
+param cloudDbPassword string
+
 @description('Resource tags')
 param tags object = {}
-
-@description('Optional initial JWT Secret value')
-@secure()
-param jwtSecret string = ''
-
-@description('Optional PostgreSQL master password')
-@secure()
-param postgresPassword string = ''
-
-@description('Optional Internal Service Secret (coobs-risk-internal-secret-2026)')
-@secure()
-param internalServiceSecret string = ''
-
-@description('Optional Oracle Master DB admin password')
-@secure()
-param oraclePassword string = ''
-
-@description('Optional Event Hubs primary connection string')
-@secure()
-param eventHubsConnectionString string = ''
-
-@description('Optional Redis access key')
-@secure()
-param redisKey string = ''
 
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
@@ -42,7 +31,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     }
     tenantId: subscription().tenantId
     enableRbacAuthorization: true
-    enabledForDeployment: true
+    enabledForDeployment: false
     enabledForTemplateDeployment: true
     enabledForDiskEncryption: false
     enableSoftDelete: true
@@ -50,55 +39,24 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   }
 }
 
-// -----------------------------------------------------------------------------
-// Production Secrets Seeding
-// -----------------------------------------------------------------------------
+// Key Vault Secrets Officer: b86a8fe4-44ce-4948-aee5-eccb2c155cd7
+var secretsOfficerRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
 
-resource secretJwt 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(jwtSecret)) {
-  parent: keyVault
-  name: 'jwt-secret'
+resource secretsOfficerRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: keyVault
+  name: guid(keyVault.id, keyVaultAdminObjectId, secretsOfficerRoleDefinitionId)
   properties: {
-    value: jwtSecret
+    roleDefinitionId: secretsOfficerRoleDefinitionId
+    principalId: keyVaultAdminObjectId
+    principalType: 'User'
   }
 }
 
-resource secretPostgres 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(postgresPassword)) {
+resource secretCloudDb 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
-  name: 'postgres-password'
+  name: 'cloud-db-password'
   properties: {
-    value: postgresPassword
-  }
-}
-
-resource secretInternal 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(internalServiceSecret)) {
-  parent: keyVault
-  name: 'internal-service-secret'
-  properties: {
-    value: internalServiceSecret
-  }
-}
-
-resource secretOracle 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(oraclePassword)) {
-  parent: keyVault
-  name: 'oracle-password'
-  properties: {
-    value: oraclePassword
-  }
-}
-
-resource secretEventHubs 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(eventHubsConnectionString)) {
-  parent: keyVault
-  name: 'eventhubs-connection-string'
-  properties: {
-    value: eventHubsConnectionString
-  }
-}
-
-resource secretRedis 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(redisKey)) {
-  parent: keyVault
-  name: 'redis-key'
-  properties: {
-    value: redisKey
+    value: cloudDbPassword
   }
 }
 

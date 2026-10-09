@@ -1,167 +1,141 @@
-# Infrastructure as Code (IaC) - Azure Bicep
+# Infrastructure: the demo deployment in Azure
 
-**Repository Area:** `/infra`  
-**Primary Owner:** Dev 8 (DevOps Lead - Jared)  
-**Supporting Contributor:** Dev 1 (Technical Lead / DevOps Support - Carl)  
-**Governing Cost Model:** `docs/CLOUD_DECISIONS_AND_AZURE_COST_MODEL.md`  
+**Area:** `/infra`. Dev 8 (Jared) leads; Dev 1 (Carl) supports.
 
----
+**Status: compiles with Bicep 0.48.1 and passes Azure's what-if against the real subscription (9 October 2026: 33 resources to create, the registry untouched); never deployed.** Nothing in `infra/bicep` has created a resource yet. `infra/k8s` has its own README and status.
 
-## 1. Overview & Context
+This is the in-depth architecture cut to what an Azure free trial allows. It is drawn in `docs/architecture-diagrams/demo-deployment.eraserdiagram`.
 
-This directory contains the production-aligned **Azure Bicep** Infrastructure as Code (IaC) templates for the **CooBS (Cooperative Banking System)** microservices platform. 
+## What the free trial allows
 
-It implements the approved **Option A: Containerized Microservices on Azure Kubernetes Service (AKS)** while strictly honoring our FinOps budget constraints:
-- **Monthly Budget Ceiling:** `< $450.00 / month`
-- **1-Week Live Evaluation Target:** **`~$95.43 total`** (for evaluation & defense week)
+Read from the subscription on 8 and 9 October 2026:
 
-All resources are architected for deployment in the **Southeast Asia** region (`southeastasia`) under a single consolidated resource group (`rg-coobs-dev`).
+| Limit | Value | What it forces |
+| --- | --- | --- |
+| vCPUs in the region | 4 in total | One 2 vCPU AKS node and one 2 vCPU VM, with nothing to spare. No autoscaling, no node upgrade |
+| Public IP addresses | 3 | Exactly three are used: AKS outbound, the public gateway, the on-premises NAT gateway |
+| VM sizes | `Standard_E2as_v5` and `Standard_B2as_v2` only in zone 3 | Indonesia Central, zone 3. Southeast Asia offers no usable size |
+| Kubernetes | 1.34 to 1.36 on the Free tier (1.31 to 1.33 are long-term-support only) | 1.35 |
 
----
+## What is created
 
-## 2. Directory Structure
+Everything goes into the resource group `CooBS-rsg` in Indonesia Central. The container registry `CooBS` already exists there and is referenced, not created.
 
-```text
-infra/
-├── README.md                     # This file (handover notes & deployment guide)
-└── bicep/
-    ├── main.bicep                 # Root orchestrator (wires up modules, outputs)
-    ├── main.bicepparam            # Environment parameter file (dev/southeastasia)
-    └── modules/
-        ├── network.bicep          # VNet (10.240.0.0/16), 3 Subnets, NSGs, Private DNS
-        ├── monitoring.bicep       # Log Analytics Workspace (capped at 1GB/day) + App Insights
-        ├── acr.bicep              # Azure Container Registry (Basic SKU)
-        ├── keyvault.bicep         # Azure Key Vault (Standard, RBAC-enabled)
-        ├── eventhubs.bicep        # Event Hubs (Standard, 1 TU, Kafka 9093, 13 topics + DLTs)
-        ├── redis.bicep            # Azure Cache for Redis (Basic C1, 1GB, TLS 1.2)
-        ├── postgres.bicep         # PostgreSQL Flexible (Standard_B2s, 6 service DBs)
-        └── aks.bicep              # AKS Cluster (Standard_D4s_v5, Azure CNI, AcrPull role)
+| Module | Creates |
+| --- | --- |
+| `network.bicep` | Cloud VNet `10.240.0.0/16` (`snet-aks` `10.240.0.0/20`, `snet-private-endpoints` `10.240.16.0/24`). On-premises VNet `10.250.0.0/16` (`snet-core` `10.250.0.0/24`). Peering in both directions. The NSG on `snet-core`. A NAT gateway for the on-premises subnet |
+| `monitoring.bicep` | Log Analytics workspace capped at 1 GB a day, and Application Insights |
+| `keyvault.bicep` | Key Vault with RBAC authorisation, the Secrets Officer role for one person, and the secret `cloud-db-password` |
+| `sql.bicep` | Azure SQL logical server and `identity_db`, `customer_db`, `transaction_db`, `notification_db` at S0, collation `Latin1_General_100_CI_AS_SC_UTF8`. Reachable only from `snet-aks` |
+| `redis.bicep` | Azure Managed Redis `Balanced_B0`, one node, TLS on port 10000, access keys on. A private endpoint and a private DNS zone linked to both VNets. The secret `redis-key` |
+| `aks.bicep` | AKS, Free tier, one `Standard_E2as_v5` node in zone 3. AcrPull on the registry, Network Contributor on the cloud VNet |
+| `onprem-vm.bicep` | One `Standard_B2as_v2` VM in zone 3 at `10.250.0.4`, no public address, Ubuntu 24.04, Docker installed on first boot. AcrPull on the registry and Key Vault Secrets User on the vault |
+
+Not created: Event Hubs (Kafka runs in the cluster), a VPN gateway (peering stands in for it), Front Door (added by hand once E2E passes), an ingress controller.
+
+## Choices worth knowing
+
+- **The NSG is the firewall.** The cluster subnet may reach ports 8082, 8083, 8085 and 8093 on the on-premises subnet and nothing else. Without the deny rule, peering would open every port, Oracle included. For the link-down check, add a Deny rule above priority 100.
+- **`snet-aks` has no NSG of its own.** AKS keeps one on the node interfaces and opens it for each LoadBalancer Service. A second one would block the public gateway.
+- **The VM reaches the internet through a NAT gateway.** It has no public address, and a new subnet has no outbound route by default. It needs one to pull images.
+- **Azure SQL uses a service endpoint, not a private endpoint.** Only `snet-aks` can connect. The schemas are therefore loaded from inside the cluster, not from a laptop.
+- **Redis is reached privately by both sides.** ledger-service and account-service on the VM read the token blacklist and idempotency keys, so the private DNS zone is linked to the on-premises VNet as well.
+- **Two addresses are fixed and repeated in `infra/k8s/config.yaml`:** the VM (`10.250.0.4`) and Kafka's internal load balancer (`10.240.15.200`). Change both places together.
+- **Logging in to the VM.** There is no public address and SSH from the cluster is blocked by the NSG. Use `az vm run-command invoke`, or add a temporary NSG rule.
+
+## Secrets
+
+No secret is in this folder, and `main.bicepparam` holds none.
+
+- The deployment takes one secret, the Azure SQL administrator password, from the environment of the shell that runs it. It stores it in Key Vault as `cloud-db-password`.
+- The Redis key is written to Key Vault by the template as `redis-key`.
+- The application secrets are generated and stored in Key Vault after the deployment. They do not pass through a template. The VM reads five of them by these names: `jwt-secret`, `oracle-password`, `app-user-password`, `audit-db-password`, `redis-key`. The cluster also needs `internal-service-secret` and the two inter-bank secrets.
+- The values that were in `main.bicepparam` before 9 October 2026 are in the git history. They must never be used for anything deployed.
+
+## Cost
+
+List prices read from the Azure Retail Prices API on 8 October 2026 for Indonesia Central. They are not a quote, and the NAT gateway price was not read.
+
+| Item | Price | Six days |
+| --- | --- | --- |
+| AKS node, `Standard_E2as_v5` | 0.122 an hour | 17.57 |
+| VM, `Standard_B2as_v2` | 0.0855 an hour | 12.31 |
+| Azure SQL S0, four databases | 0.4839 a day each | 11.61 |
+| Azure Managed Redis B0 | 0.018 an hour | 2.59 |
+| Container registry, Standard | 0.667 a day | 4.00 |
+| Public IPs, disks, NAT gateway, logs | not all read | about 10 |
+| **Total** | | **about USD 60** |
+
+The trial has USD 200 of credit. Delete the resource group contents when the presentation is over.
+
+## Checking it without creating anything
+
+Compile (the pipeline's Validate stage runs the same command):
+
 ```
-
----
-
-## 3. Module Inventory & Architecture Breakdown
-
-| Module | File | Azure Resource | Configuration & FinOps Specs |
-|---|---|---|---|
-| **Networking** | `network.bicep` | Virtual Network (`vnet-coobs-dev`) | Address space `10.240.0.0/16`.<br>• `snet-aks`: `10.240.0.0/22` (1024 IPs for pods/nodes)<br>• `snet-postgres`: `10.240.4.0/28` (Delegated to Flexible Server)<br>• `snet-appgw`: `10.240.5.0/24` (Reserved for Ingress Controller)<br>• Private DNS Zone: `coobs.postgres.database.azure.com` linked to VNet. |
-| **Monitoring** | `monitoring.bicep` | Log Analytics & App Insights | • `law-coobs-dev`: PerGB2018 SKU, 30-day retention.<br>• **FinOps Guardrail:** `dailyQuotaGb: 1` (caps data ingestion at 1GB/day to stop log-spam charges).<br>• `appi-coobs-dev`: Application Insights linked to Workspace. |
-| **Container Registry** | `acr.bicep` | Azure Container Registry | `coobsacr<unique>` (Basic SKU). Admin user enabled for quick cluster bootstrap/testing. |
-| **Secret Management** | `keyvault.bicep` | Azure Key Vault | `kv-coobs-<unique>` (Standard SKU). Soft-delete 7 days, RBAC authorization enabled. Central vault for JWT secrets, database credentials, and Kafka connection strings. |
-| **Event Streaming** | `eventhubs.bicep` | Event Hubs Namespace | `evh-coobs-dev` (Standard SKU, Kafka 9093 compatible).<br>• **FinOps Guardrail:** 1 Capacity Throughput Unit (TU), Auto-inflate max 2 TUs.<br>• Pre-configures all **13 microservice topics** and **Dead Letter Topics (DLTs)** (`auth-events`, `account-events`, `transaction-events`, `ledger-postings`, `risk-evaluations`, `notification-dispatch`, `audit-log`, etc.) with standard consumer groups (`cg-transaction`, `cg-ledger`, `cg-notification`, `cg-audit`). |
-| **Distributed Cache** | `redis.bicep` | Azure Cache for Redis | `redis-coobs-dev` (Basic C1 SKU - 1 GB RAM). Port 6379 disabled; TLS 1.2 enforced on port 6380. Used for idempotency cache, token revocation blacklist, and session state. |
-| **Database** | `postgres.bicep` | PostgreSQL Flexible Server | `psql-coobs-dev` (`Standard_B2s`, 2 vCore, 4GB RAM, 64GB storage).<br>• Fully isolated inside `snet-postgres` via Private DNS.<br>• Pre-provisions all **6 service databases**: `identity_db`, `customer_db`, `transaction_db`, `notification_db`, `audit_db`, `batch_db`. |
-| **Kubernetes** | `aks.bicep` | Azure Kubernetes Service | `aks-coobs-dev` (`Standard_D4s_v5` - 4 vCore / 16GB RAM, 1 node pool).<br>• Azure CNI networking.<br>• OMS agent integrated with Log Analytics (Container Insights).<br>• System-Assigned Managed Identity automatically granted `AcrPull` on ACR. |
-
----
-
-## 4. Cost Projection Comparison (FinOps)
-
-This architecture reflects the calculated figures in `docs/CLOUD_DECISIONS_AND_AZURE_COST_MODEL.md`:
-
-```
-+------------------------------------+------------------+------------------+
-| Resource Component                 | Monthly Estimate | 1-Week Eval Cost |
-+------------------------------------+------------------+------------------+
-| AKS Node Pool (1x Standard_D4s_v5) | $182.50          | $42.00           |
-| PostgreSQL Flexible (Standard_B2s) | $ 37.10          | $  8.54          |
-| Azure Cache for Redis (Basic C1)   | $ 30.50          | $  7.00          |
-| Event Hubs Standard (1 TU Kafka)   | $ 19.50          | $  4.50          |
-| Application Gateway / Ingress      | $113.15          | $ 26.00          |
-| Azure Container Registry (Basic)   | $  5.08          | $  1.17          |
-| Log Analytics + App Insights       | $ 27.00          | $  6.22          |
-+------------------------------------+------------------+------------------+
-| TOTAL                              | $414.83 / mo     | $ 95.43 / week   |
-+------------------------------------+------------------+------------------+
-```
-
-### FinOps Safety Guardrails Applied:
-1. **Log Analytics Cap:** Restricted to 1GB/day (`dailyQuotaGb: 1`).
-2. **Event Hubs TU Cap:** Auto-inflate ceiling set to maximum 2 TUs (`maximumThroughputUnits: 2`).
-3. **No Premium/Multi-AZ Over-provisioning:** Standard networking, single-zone, bursted compute appropriate for the Capstone evaluation.
-4. **Fast Teardown:** Entire environment scoped under `rg-coobs-dev` for single-command teardown after evaluation.
-
----
-
-## 5. Local Validation & Dry Run (Zero Cost)
-
-No Azure charges are incurred by testing and compiling the Bicep code locally.
-
-### 5.1 Local Syntax Validation (Transpilation)
-Verify that all 8 modules link properly into `main.bicep`:
-```powershell
 az bicep build --file infra/bicep/main.bicep
 ```
-*If this returns with exit code 0, the templates are syntactically valid and ready for Azure Resource Manager.*
 
-### 5.2 Dry-Run What-If Analysis (Requires Azure Login)
-Preview the planned Azure resource creations without provisioning them:
-```powershell
-az deployment group what-if `
-  --resource-group rg-coobs-dev `
-  --template-file infra/bicep/main.bicep `
-  --parameters infra/bicep/main.bicepparam
+Ask Azure what a deployment would do. This checks quota, sizes and API versions against the real subscription and creates nothing:
+
+```
+az deployment group what-if --resource-group CooBS-rsg --parameters infra/bicep/main.bicepparam
 ```
 
----
+## Deploying
 
-## 6. Live Deployment & Teardown Runbook
+Each command below creates or changes resources and costs money. Run them yourself, one at a time.
 
-### 6.1 Provisioning (When Authorized)
-```powershell
-# 1. Login to Azure
-az login
+1. Set the three values in the shell (PowerShell shown). The password needs upper case, lower case, a digit and a symbol.
 
-# 2. Set the designated subscription
-az account set --subscription "<YOUR_SUBSCRIPTION_ID>"
+   ```
+   $env:COOBS_SQL_ADMIN_PASSWORD = "<a new password, never committed>"
+   $env:COOBS_VM_SSH_PUBLIC_KEY = Get-Content $HOME\.ssh\id_ed25519.pub
+   $env:COOBS_KEYVAULT_ADMIN_OBJECT_ID = az ad signed-in-user show --query id -o tsv
+   ```
 
-# 3. Create the resource group
-az group create --name rg-coobs-dev --location southeastasia
+2. Deploy. It takes roughly 15 to 25 minutes; Redis and AKS are the slow parts.
 
-# 4. Deploy the infrastructure
-az deployment group create `
-  --name coobs-infra-deployment `
-  --resource-group rg-coobs-dev `
-  --template-file infra/bicep/main.bicep `
-  --parameters infra/bicep/main.bicepparam
+   ```
+   az deployment group create --resource-group CooBS-rsg --name coobs-demo --parameters infra/bicep/main.bicepparam
+   ```
+
+3. Read the values `infra/k8s/config.yaml` needs.
+
+   ```
+   az deployment group show --resource-group CooBS-rsg --name coobs-demo --query properties.outputs
+   ```
+
+4. Start the on-premises zone, once the images are in the registry and the secrets are in Key Vault (next section).
+
+If Azure refuses to create Azure Managed Redis on the trial, deploy with `deployManagedRedis=false` and use `infra/k8s/optional/redis-in-cluster.yaml`.
+
+## The on-premises VM
+
+`infra/onprem/docker-compose.yml` runs ledger, account, audit, batch, Oracle and the audit PostgreSQL on the VM. It reaches Kafka at the cluster's internal load balancer (`10.240.15.200:9094`) and Redis through the private endpoint.
+
+The VM has no public address, so nothing is copied to it over SSH. `infra/scripts/deploy-onprem.ps1` packs the Compose file, `start.sh` and the Oracle and audit-store init scripts (about 30 KB), carries them inside an `az vm run-command` script, and runs `start.sh` on the VM. `start.sh` reads the secrets from Key Vault with the VM's own identity and writes them to `/opt/coobs/.env`; no secret passes through the laptop or the command line.
+
+```
+.\infra\scripts\deploy-onprem.ps1 -KeyVaultName <vault> -ImageTag <tag the pipeline pushed> -RedisHost <redis host name>
+.\infra\scripts\deploy-onprem.ps1 -StatusOnly
 ```
 
-### 6.2 Obtaining Deployment Outputs
-After deployment, retrieve cluster credentials and connection strings:
-```powershell
-# Get AKS credentials for kubectl
-az aks get-credentials --resource-group rg-coobs-dev --name aks-coobs-dev
+Add `-SaveScriptTo <file>` to see exactly what would run on the VM without calling Azure.
 
-# View outputs (ACR login server, Redis host, Event Hub namespace)
-az deployment group show `
-  --resource-group rg-coobs-dev `
-  --name coobs-infra-deployment `
-  --query properties.outputs
-```
+Two things differ from the local stack on purpose. Each service gets `JAVA_OPTS=-Xmx384m`, because the images default to three quarters of the machine's memory per JVM. And batch-service is given the Oracle settings; locally it is given none and falls back to a password written in its code, which would not match a generated one.
 
-### 6.3 Post-Evaluation Teardown (FinOps Protection)
-Immediately after the final evaluation and defense, delete the resource group to halt all billing:
-```powershell
-az group delete --name rg-coobs-dev --yes --no-wait
-```
+## Removing it
 
----
+Delete what the deployment created but keep the registry, or delete the whole resource group and lose the pushed images too. Key Vault keeps a deleted vault for 7 days under the same name; purge it before deploying again with `az keyvault purge`.
 
-## 7. Handover Notes & Accomplishments (Dev 8 - Jared)
+## Not verified
 
-**Infrastructure Delivered (FIN-807 Production Hardening):**
-- [x] Complete modular Bicep architecture under `infra/bicep/modules/`.
-- [x] VNet subnetting, Private DNS zone, and NSGs for PostgreSQL and AKS.
-- [x] Pre-configured Event Hubs with all 13 microservice topics and consumer groups.
-- [x] Pre-configured 6 PostgreSQL databases on the Flexible Server.
-- [x] AKS cluster with Azure CNI, managed identity, Container Insights, and ACR pull permission.
-- [x] FinOps budget guardrails (1GB/day log quota, 1 TU Event Hubs cap).
-- [x] **Azure Key Vault Secrets Provisioning (`keyvault.bicep`):** Full catalog seeded: `jwt-secret`, `postgres-password`, `internal-service-secret`, `oracle-password`, `eventhubs-connection-string`, `redis-key`.
-- [x] **Ingress & TLS Hardening (`infra/k8s/ingress-tls.yaml`):** Production Ingress manifest with TLS termination, Azure Key Vault CSI SecretProviderClass integration, and strict TLS 1.2/1.3 ciphers.
-- [x] **TLS Keystore Generation (`scripts/generate_tls_certs.ps1` / `.sh`):** Automated PKCS12 keystore & X.509 certificate provisioning for Spring Boot edge gateway and Kubernetes secrets.
+The what-if checks the templates, names, API versions and the Kubernetes version. It does not prove the points below.
 
-**Next Target-State Actions:**
-1. **Azure Pipelines CI Integration (`azure-pipelines.yml`):**
-   - Run `az bicep build --file infra/bicep/main.bicep` on pull requests modifying `/infra/*`.
-2. **Kubernetes Configuration Manifests:**
-   - Map backend Spring Boot and Flutter environment variables (`SPRING_PROFILES_ACTIVE=prod`, `SPRING_KAFKA_BOOTSTRAP_SERVERS`, `SPRING_DATASOURCE_URL`) to Kubernetes ConfigMaps referencing the outputs defined in `main.bicep`.
+- That a free trial may create Azure Managed Redis, and that `highAvailability: 'Disabled'` is accepted at B0.
+- That the services connect to Azure SQL and Azure Managed Redis in Azure. Locally the five database services pass E2E on SQL Server 2022.
+- That first boot installs Docker on the VM through the NAT gateway.
+- `deploy-onprem.ps1` and `start.sh` on a real VM. Checked here: the generated script and archive are well formed, the shell syntax is valid, and the Compose file passes `docker compose config`.
+- That 8 GB is enough for Oracle, PostgreSQL and four JVMs.
+- The NAT gateway price.
