@@ -41,7 +41,7 @@ public class TransactionServiceClient {
             String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(transactionServiceBaseUrl)
                     .pathSegment("internal", "v1", "transactions")
                     .queryParam("customerId", customerId)
-                    .queryParam("limit", 5)
+                    .queryParam("limit", 20)
                     .build()
                     .encode()
                     .toUriString();
@@ -202,6 +202,12 @@ public class TransactionServiceClient {
         String curr = map.get("currency") != null ? map.get("currency").toString() : "PHP";
         String stat = map.get("status") != null ? map.get("status").toString() : "POSTED";
         String remarks = map.get("remarks") != null ? map.get("remarks").toString() : "";
+        if (remarks.isBlank() && map.get("counterpartyName") != null) {
+            remarks = map.get("counterpartyName").toString();
+        }
+        if (remarks.isBlank() && map.get("category") != null) {
+            remarks = map.get("category").toString();
+        }
         String date = map.get("createdAt") != null ? map.get("createdAt").toString() : "";
         if (date.isBlank() && map.get("submittedAt") != null) {
             date = map.get("submittedAt").toString();
