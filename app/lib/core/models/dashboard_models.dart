@@ -15,7 +15,7 @@ class MobileMemberSummary {
   bool get isVerified => kycStatus.toUpperCase() == 'VERIFIED';
 
   factory MobileMemberSummary.fromJson(Map<String, dynamic> json) => MobileMemberSummary(
-    customerId: json['customerId'] as int? ?? 0,
+    customerId: (json['customerId'] as num?)?.toInt() ?? int.tryParse(json['customerId']?.toString() ?? '') ?? 0,
     displayName: json['displayName'] as String? ?? '',
     email: json['email'] as String? ?? '',
     kycStatus: json['kycStatus'] as String? ?? 'UNVERIFIED',
@@ -51,7 +51,7 @@ class MobileAccountSummary {
   bool get isActive => status.toUpperCase() == 'ACTIVE';
 
   factory MobileAccountSummary.fromJson(Map<String, dynamic> json) => MobileAccountSummary(
-    accountId: json['accountId'] as int? ?? 0,
+    accountId: (json['accountId'] as num?)?.toInt() ?? int.tryParse(json['accountId']?.toString() ?? '') ?? 0,
     accountNumber: json['accountNumber'] as String? ?? '',
     accountType: json['accountType'] as String? ?? 'SAVINGS',
     currency: json['currency'] as String? ?? 'PHP',
@@ -140,7 +140,7 @@ class MobileDashboardResponse {
     return MobileDashboardResponse(
       member: MobileMemberSummary.fromJson(json['member'] as Map<String, dynamic>? ?? {}),
       primaryAccount: MobileAccountSummary.fromJson(json['primaryAccount'] as Map<String, dynamic>? ?? {}),
-      unreadNotifications: json['unreadNotifications'] as int? ?? 0,
+      unreadNotifications: (json['unreadNotifications'] as num?)?.toInt() ?? int.tryParse(json['unreadNotifications']?.toString() ?? '') ?? 0,
       recentTransactions: (json['recentTransactions'] as List<dynamic>?)
           ?.map((e) => MobileRecentTransaction.fromJson(e as Map<String, dynamic>))
           .toList() ?? [],

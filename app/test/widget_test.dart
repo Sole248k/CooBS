@@ -12,7 +12,7 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Log in to see your accounts.'), findsOneWidget);
     expect(find.text('Log in'), findsOneWidget);
-    expect(find.text('Create account'), findsOneWidget);
+    expect(find.text('Create account'), findsNothing);
   });
 
   testWidgets('CooBSApp renders teller shell when requested', (WidgetTester tester) async {

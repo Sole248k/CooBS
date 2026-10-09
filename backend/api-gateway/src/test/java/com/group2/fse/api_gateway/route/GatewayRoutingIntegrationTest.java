@@ -167,5 +167,14 @@ class GatewayRoutingIntegrationTest {
                 .exchange()
                 .expectStatus().isForbidden();
     }
+
+    @Test
+    @DisplayName("A case-manipulated internal path is rejected across the perimeter")
+    void shouldRejectCaseManipulatedInternalPath() {
+        client.get()
+                .uri("/Internal/v1/risk/evaluate")
+                .exchange()
+                .expectStatus().isForbidden();
+    }
 }
 

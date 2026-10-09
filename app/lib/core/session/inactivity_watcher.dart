@@ -23,23 +23,39 @@ class InactivityWatcher extends StatefulWidget {
   State<InactivityWatcher> createState() => _InactivityWatcherState();
 }
 
-class _InactivityWatcherState extends State<InactivityWatcher> {
+class _InactivityWatcherState extends State<InactivityWatcher> with WidgetsBindingObserver {
   Timer? _timer;
   final SecureStorageService _storage = SecureStorageService();
+  DateTime _lastActiveTime = DateTime.now();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _resetTimer();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final elapsed = DateTime.now().difference(_lastActiveTime);
+      if (elapsed >= widget.timeoutDuration) {
+        _handleInactivityTimeout();
+      } else {
+        _resetTimer();
+      }
+    }
+  }
+
   void _resetTimer() {
+    _lastActiveTime = DateTime.now();
     _timer?.cancel();
     _timer = Timer(widget.timeoutDuration, _handleInactivityTimeout);
   }

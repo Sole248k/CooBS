@@ -116,7 +116,7 @@ class _MobileShellState extends State<MobileShell> {
       );
 }
 
-/// Round, icon-only nav button. Selected = darker shade + small dot below.
+/// Round, icon-only nav button. Selected = subtle tint + active accent color + small dot below.
 class _NavCircle extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -137,8 +137,8 @@ class _NavCircle extends StatelessWidget {
             child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
               Material(
                 color: selected
-                    ? (kDark ? const Color(0xFF33415A) : const Color(0xFFDADDE1))
-                    : (kDark ? const Color(0xFF222C3D) : const Color(0xFFF4F4F5)),
+                    ? (kDark ? const Color(0xFF22324D) : const Color(0xFFE2E8F0))
+                    : Colors.transparent,
                 shape: const CircleBorder(),
                 child: InkWell(
                   customBorder: const CircleBorder(),
@@ -146,18 +146,24 @@ class _NavCircle extends StatelessWidget {
                   child: SizedBox(
                     width: 44,
                     height: 44,
-                    child: Icon(icon, size: 20, color: kDark ? const Color(0xFFE6EAF0) : Colors.black),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: selected
+                          ? (kDark ? const Color(0xFF6E9BFF) : const Color(0xFF14305F))
+                          : (kDark ? const Color(0xFF8C98A8) : const Color(0xFF64748B)),
+                    ),
                   ),
                 ),
               ),
               if (selected)
                 Positioned(
-                  bottom: -8,
+                  bottom: -6,
                   child: Container(
                     width: 4,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: kDark ? const Color(0xFFE6EAF0) : Colors.black,
+                      color: kDark ? const Color(0xFF6E9BFF) : const Color(0xFF14305F),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -183,22 +189,41 @@ class _AlertsNavButton extends StatelessWidget {
           selected: selected,
           label: unread > 0 ? 'Alerts, $unread unread' : 'Alerts',
           child: SizedBox(
-            width: 60,
-            height: 60,
-            child: Stack(clipBehavior: Clip.none, children: [
+            width: 52,
+            height: 52,
+            child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
               Material(
-                color: kDark ? const Color(0xFF2B5BD0) : const Color(0xFF14305F),
+                color: selected
+                    ? (kDark ? const Color(0xFF386EE0) : const Color(0xFF0F264A))
+                    : (kDark ? const Color(0xFF2B5BD0) : const Color(0xFF14305F)),
                 shape: const CircleBorder(),
+                elevation: selected ? 3 : 0,
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: onTap,
-                  child: const SizedBox(width: 60, height: 60, child: Icon(Icons.notifications_none, size: 26, color: Colors.white)),
+                  child: const SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: Icon(Icons.notifications_none, size: 24, color: Colors.white),
+                  ),
                 ),
               ),
+              if (selected)
+                Positioned(
+                  bottom: -6,
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: kDark ? const Color(0xFF6E9BFF) : const Color(0xFF14305F),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
               if (unread > 0)
                 Positioned(
-                  top: 2,
-                  right: 2,
+                  top: 0,
+                  right: 0,
                   child: IgnorePointer(
                     child: Container(
                       constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
@@ -300,7 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
       balance(a.bal),
       const SizedBox(height: 12),
       Row(children: [
-        btn('Deposit', () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => MoneySheet(i, false))),
         btn('Transfer', () => go(RemittanceScreen(from: i))),
       ]),
     ]);
@@ -348,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: d,
+        animation: Listenable.merge([d, ThemeController.i]),
         builder: (context, _) {
           if (d.state == LoadState.loading) return const _Skeleton();
           if (d.state == LoadState.offline) return _Offline(d.load);
@@ -376,7 +400,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         balance(0.0),
                         const SizedBox(height: 12),
                         Row(children: [
-                          btn('Deposit', () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const MoneySheet(0, false))),
                           btn('Transfer', () => go(const RemittanceScreen(from: 0))),
                         ]),
                       ])
@@ -398,25 +421,59 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2),
+                      color: kDark
+                          ? (d.kyc == 'PENDING_REVIEW' ? const Color(0xFF2E2413) : const Color(0xFF331A1A))
+                          : (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2)),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFF59E0B) : const Color(0xFFEF4444), width: 0.8),
+                      border: Border.all(
+                        color: kDark
+                            ? (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFB45309) : const Color(0xFFDC2626))
+                            : (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+                        width: 0.8,
+                      ),
                     ),
                     child: Row(children: [
-                      Icon(d.kyc == 'PENDING_REVIEW' ? Icons.hourglass_top : Icons.verified_user_outlined,
-                          color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFB45309) : const Color(0xFFB91C1C)),
+                      Icon(
+                        d.kyc == 'PENDING_REVIEW' ? Icons.hourglass_top : Icons.verified_user_outlined,
+                        color: kDark
+                            ? (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFBBF24) : const Color(0xFFF87171))
+                            : (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFB45309) : const Color(0xFFB91C1C)),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(d.kyc == 'PENDING_REVIEW' ? 'KYC Under Review' : 'Identity Verification Required',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87)),
-                          Text(d.kyc == 'PENDING_REVIEW' ? 'Your verification is being reviewed by a branch teller.' : 'Complete your KYC intake to activate higher transfer limits.',
-                              style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                          Text(
+                            d.kyc == 'PENDING_REVIEW' ? 'KYC Under Review' : 'Identity Verification Required',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              color: kDark
+                                  ? (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFDE68A) : const Color(0xFFFECACA))
+                                  : Colors.black87,
+                            ),
+                          ),
+                          Text(
+                            d.kyc == 'PENDING_REVIEW' ? 'Your verification is being reviewed by a branch teller.' : 'Complete your KYC intake to activate higher transfer limits.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: kDark
+                                  ? (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFCD34D) : const Color(0xFFFCA5A5))
+                                  : Colors.black54,
+                            ),
+                          ),
                         ]),
                       ),
                       TextButton(
                         onPressed: () => go(const KycIntakeScreen()),
-                        child: Text(d.kyc == 'PENDING_REVIEW' ? 'Check' : 'Verify', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        child: Text(
+                          d.kyc == 'PENDING_REVIEW' ? 'Check' : 'Verify',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: kDark
+                                ? (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFBBF24) : const Color(0xFFF87171))
+                                : (d.kyc == 'PENDING_REVIEW' ? const Color(0xFFB45309) : const Color(0xFFB91C1C)),
+                          ),
+                        ),
                       ),
                     ]),
                   ),
@@ -428,11 +485,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: nb == null
-                          ? const Text('All bills are fully paid.')
+                          ? Text('All bills are fully paid.', style: TextStyle(color: kInk))
                           : Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                 Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
-                                Text(peso(r2(nb.amt - nb.paid)), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                                Text(peso(r2(nb.amt - nb.paid)), style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: kInk)),
                                 Text('Due Date on ${fmt(nb.due)}', style: TextStyle(fontSize: 12, color: kMut)),
                               ]),
                               SizedBox(
@@ -446,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Padding(
                     padding: const EdgeInsets.only(top: 20, bottom: 6),
                     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      const Text('Recent transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      Text('Recent transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kInk)),
                       if (tx.isNotEmpty)
                         TextButton(onPressed: () => go(const SeeAllPage()), child: Text('See all', style: TextStyle(color: kBlue))),
                     ]),
@@ -478,71 +535,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
-class MoneySheet extends StatefulWidget {
-  final int from;
-  final bool transfer;
-  const MoneySheet(this.from, this.transfer, {super.key});
-  @override
-  State<MoneySheet> createState() => _MoneySheetState();
-}
-
-class _MoneySheetState extends State<MoneySheet> {
-  final amt = TextEditingController(), acct = TextEditingController();
-  String bank = 'BDO';
-
-  @override
-  Widget build(BuildContext context) {
-    final d = Demo.i;
-    final a = widget.from < d.accts.length ? d.accts[widget.from] : (d.accts.isNotEmpty ? d.accts[0] : Acct('Checking', 'ACC-0000', 0, []));
-    final otherIndex = d.accts.length > 1 ? (widget.from == 0 ? 1 : 0) : null;
-    final to = otherIndex != null ? d.accts[otherIndex] : null;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 22, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(widget.transfer ? 'Transfer' : 'Deposit', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        Text(widget.transfer ? 'From ${a.no} (${peso(a.bal)}) to another bank.' : (to != null ? 'Move money from ${a.no} to your other account.' : 'Cash deposit to ${a.no}.'),
-            style: TextStyle(color: kMut, fontSize: 13)),
-        const SizedBox(height: 14),
-        if (widget.transfer) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.hub_outlined, size: 18),
-              label: const Text('Live Distributed Saga Transfer'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(42),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AppShell(initialIndex: 1)),
-                );
-              },
-            ),
-          ),
-          dd('Destination bank', const ['BDO', 'BPI', 'UnionBank', 'Metrobank', 'Landbank'], bank, (v) => bank = v ?? bank),
-          tf(acct, 'Recipient account number', k: TextInputType.number),
-        ] else if (to != null) ...[
-          dd('Deposit to', ['${to.type} · ${to.no}'], '${to.type} · ${to.no}', (_) {}),
-        ] else ...[
-          dd('Deposit channel', const ['Cash Deposit (Branch / ATM)', 'Check Deposit', 'Online Bank Transfer'], 'Cash Deposit (Branch / ATM)', (_) {}),
-        ],
-        tf(amt, 'Amount (₱)', k: const TextInputType.numberWithOptions(decimal: true)),
-        bigBtn(widget.transfer ? 'Transfer' : 'Deposit', () {
-          final v = double.tryParse(amt.text) ?? 0;
-          final err = widget.transfer ? d.send(widget.from, bank, acct.text.trim(), v) : d.deposit(widget.from, otherIndex, v);
-          if (err != null) { snack(context, err); return; }
-          Navigator.pop(context);
-          snack(context, widget.transfer ? 'Sent ${peso(v)} to $bank' : (to != null ? 'Deposited ${peso(v)} to ${to.type}' : 'Deposited ${peso(v)} to ${a.type}'));
-        }),
-      ]),
-    );
-  }
-}
-
-/// Full recent-transactions list for whichever card is on screen.
 class SeeAllPage extends StatelessWidget {
   const SeeAllPage({super.key});
   @override
@@ -567,14 +559,15 @@ class _Skeleton extends StatelessWidget {
   const _Skeleton();
   Widget bar(double h, [double? w]) => Container(height: h, width: w, decoration: BoxDecoration(color: kSkel, borderRadius: BorderRadius.circular(14)));
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          bar(250),
-          const SizedBox(height: 22),
+          bar(230),
+          const SizedBox(height: 18),
           bar(18, 160),
           const SizedBox(height: 10),
-          bar(160),
+          bar(140),
         ]),
       );
 }
@@ -595,10 +588,22 @@ class _Warn extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: const Color(0xFFFDF0D5), borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: kDark ? const Color(0xFF2E2413) : const Color(0xFFFDF0D5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: kDark ? const Color(0xFFB45309) : const Color(0xFFF59E0B),
+            width: 0.8,
+          ),
+        ),
         child: Row(children: [
-          const Expanded(child: Text('Recent transactions could not be loaded.', style: TextStyle(color: Color(0xFF6B4700)))),
-          TextButton(onPressed: retry, child: const Text('Retry')),
+          Expanded(
+            child: Text(
+              'Recent transactions could not be loaded.',
+              style: TextStyle(color: kDark ? const Color(0xFFFDE68A) : const Color(0xFF6B4700)),
+            ),
+          ),
+          TextButton(onPressed: retry, child: Text('Retry', style: TextStyle(color: kBlue, fontWeight: FontWeight.bold))),
         ]),
       );
 }
