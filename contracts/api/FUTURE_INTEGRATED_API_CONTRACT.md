@@ -1073,6 +1073,16 @@ Every `POST` needs `Idempotency-Key`. A repeat returns the first result.
 
 `batchRunId` and `stepName` are required for batch calls. For an inbound inter-bank credit they are omitted and `transactionId` is sent instead, with one posting: debit the partner's settlement GL account, credit the beneficiary.
 
+`actorId` is optional: the person who caused the postings, when there is one. `referenceNo` is at most 33 characters here, because the ledger stores each leg with a two-character suffix.
+
+Each posting is one debit and one credit in its own transaction, and has its own outcome:
+
+- A posting the ledger refuses is `FAILED` with an `errorCode` from section 2.5 (`INSUFFICIENT_FUNDS`, `ACCOUNT_NOT_FOUND`, `ACCOUNT_NOT_ACTIVE`, `INVALID_TRANSACTION`), and the others still post. The answer is 200 with `failed` above zero, so read `failed` and not the status code.
+- A `referenceNo` that is already in the journal with the same accounts and amount is answered `POSTED` and is not posted again. That makes the whole request safe to repeat. With different accounts or a different amount it is `FAILED` with `DUPLICATE_IDEMPOTENCY_KEY`.
+- When the ledger itself fails the answer is 5xx and no posting is reported as refused. Repeat the request.
+
+`totalAmount` is the sum of the `POSTED` postings. An inter-bank call gets `transactionId` back in place of `batchRunId` and `stepName`.
+
 **L8 request**
 
 <!-- example: L8-postings.request.json -->

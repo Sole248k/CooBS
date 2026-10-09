@@ -26,6 +26,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     List<Transaction> findByReferenceNoInOrderByTransactionIdAsc(Collection<String> referenceNos);
 
+    /** One journal row without its account loaded: what a repeated posting is compared with. */
+    interface Leg {
+        String getReferenceNo();
+
+        Long getAccountId();
+
+        java.math.BigDecimal getAmount();
+    }
+
+    @Query("select t.referenceNo as referenceNo, t.account.accountId as accountId, t.amount as amount "
+            + "from Transaction t where t.referenceNo in :referenceNos")
+    List<Leg> findLegsByReferenceNoIn(@Param("referenceNos") Collection<String> referenceNos);
+
     /**
      * The journal rows of one posting: the reference itself, or its debit and credit legs.
      * Exact matches only. A LIKE on the caller's string would let % and _ match other postings
