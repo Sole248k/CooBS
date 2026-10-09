@@ -192,7 +192,9 @@ try {
 
     Write-Host "   Waiting for the eight services (they start together on two vCPUs, so this is slow)"
     kubectl wait --namespace $namespace --for=condition=available --timeout=900s deployment --all | Out-Null
+    $rolledOut = ($LASTEXITCODE -eq 0)
     kubectl get pods --namespace $namespace
+    if (-not $rolledOut) { throw "Not every deployment became available. The pod list above shows which one; read its log with kubectl logs." }
     $address = kubectl get service api-gateway-public --namespace $namespace --output "jsonpath={.status.loadBalancer.ingress[0].ip}"
 
     Write-Host ""
