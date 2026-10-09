@@ -46,15 +46,34 @@ class _ScoresPageState extends State<ScoresPage> {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 28),
           child: Column(children: [
-            Text('832', style: TextStyle(fontSize: 84, fontWeight: FontWeight.w800, color: kNavyFg, height: 1.1)),
-            const SizedBox(height: 8),
-            Text('Your Credit Score', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kNavyFg)),
+            Text(
+              '832',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 64,
+                fontWeight: FontWeight.w500,
+                color: kNavyFg,
+                letterSpacing: -1.0,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Your Credit Score',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: kNavyFg,
+                letterSpacing: 0.1,
+              ),
+            ),
           ]),
         ),
       );
 
   Widget bar(int i, double h) => Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 14, height: sav[i] / 60 * h, color: kRed),
+        Container(width: 14, height: sav[i] / 60 * h, color: const Color(0xFF0284C7)),
         Container(width: 14, height: chk[i] / 60 * h, color: kBlue),
       ]);
 
@@ -71,7 +90,7 @@ class _ScoresPageState extends State<ScoresPage> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Spending habits (₱ thousands per month)', style: TextStyle(fontWeight: FontWeight.w700, color: kInk)),
+          Text('Spending habits (₱ thousands per month)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 14, color: kInk)),
           const SizedBox(height: 14),
           SizedBox(
             height: h + 22,
@@ -103,7 +122,7 @@ class _ScoresPageState extends State<ScoresPage> {
             ]),
           ),
           const SizedBox(height: 8),
-          Row(children: [dot(kBlue, 'Checking'), dot(kRed, 'Savings')]),
+          Row(children: [dot(kBlue, 'Checking'), dot(const Color(0xFF0284C7), 'Savings')]),
         ]),
       ),
     );
@@ -113,10 +132,13 @@ class _ScoresPageState extends State<ScoresPage> {
     final typeName = (d.acct < Demo.i.accts.length) ? Demo.i.accts[d.acct].type : 'Account';
     return ListTile(
         isThreeLine: true,
-        leading: CircleAvatar(backgroundColor: kOutBg, child: Icon(Icons.north_east, size: 18, color: kRed)),
+        leading: CircleAvatar(
+          backgroundColor: kOutBg,
+          child: Icon(Icons.north_east, size: 18, color: kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
+        ),
         title: Text(d.activity, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: kInk)),
         subtitle: Text('To ${d.receiver}\n${d.ref} · $typeName', style: TextStyle(color: kMut, fontSize: 12)),
-        trailing: Text('-${peso(d.amt)}', style: TextStyle(fontWeight: FontWeight.w600, color: kRed)),
+        trailing: Text('-${peso(d.amt)}', style: TextStyle(fontWeight: FontWeight.w600, color: kInk)),
       );
   }
 
@@ -151,7 +173,7 @@ class _ScoresPageState extends State<ScoresPage> {
           Padding(
             padding: const EdgeInsets.only(top: 20, bottom: 4),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('Debit transaction history', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kNavyFg)),
+              Text('Debit transaction history', style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w500, color: kInk)),
               PopupMenuButton<int>(
                 onSelected: (v) => setState(() { acct = v; page = 0; }),
                 itemBuilder: (_) => <PopupMenuEntry<int>>[
@@ -160,7 +182,7 @@ class _ScoresPageState extends State<ScoresPage> {
                 ],
                 child: Container(
                   padding: const EdgeInsets.only(left: 14, right: 6, top: 6, bottom: 6),
-                  decoration: BoxDecoration(color: safeAcct == 0 ? kBlue : kRed, borderRadius: BorderRadius.circular(16)),
+                  decoration: BoxDecoration(color: safeAcct == 0 ? kBlue : const Color(0xFF0284C7), borderRadius: BorderRadius.circular(16)),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Text(
                       safeAcct < Demo.i.accts.length ? Demo.i.accts[safeAcct].type.toUpperCase() : 'ACCOUNT',
@@ -183,7 +205,7 @@ class _ScoresPageState extends State<ScoresPage> {
             )
           else
             for (final e in g.entries) ...[
-              Padding(padding: const EdgeInsets.only(top: 12, bottom: 8), child: Center(child: Text(fmt(e.key), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kInk)))),
+              Padding(padding: const EdgeInsets.only(top: 12, bottom: 8), child: Center(child: Text(fmt(e.key), style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 12, color: kMut)))),
               Card(child: Column(children: [for (final d in e.value) row(d)])),
             ],
           if (all.isNotEmpty)

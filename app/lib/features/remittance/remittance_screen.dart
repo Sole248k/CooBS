@@ -28,7 +28,16 @@ bool isOutcomeUnknown(Object e) => e is NetworkTimeoutException || e is Connecti
 /// P2P remittance form (contract M3 request) running on mock data / fixtures.
 class RemittanceScreen extends StatefulWidget {
   final int from;
-  const RemittanceScreen({super.key, this.from = 0});
+  final String? initialDest;
+  final String? initialBank;
+  final String? initialRemarks;
+  const RemittanceScreen({
+    super.key,
+    this.from = 0,
+    this.initialDest,
+    this.initialBank,
+    this.initialRemarks,
+  });
   @override
   State<RemittanceScreen> createState() => _RemittanceScreenState();
 }
@@ -42,6 +51,28 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
   Map<String, String> err = {};
   Map<String, dynamic>? problem;
   bool busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialDest != null && widget.initialDest!.isNotEmpty) {
+      dest.text = widget.initialDest!;
+    }
+    if (widget.initialBank != null && widget.initialBank!.isNotEmpty) {
+      bank = widget.initialBank!;
+    }
+    if (widget.initialRemarks != null && widget.initialRemarks!.isNotEmpty) {
+      rem.text = widget.initialRemarks!;
+    }
+  }
+
+  @override
+  void dispose() {
+    dest.dispose();
+    amt.dispose();
+    rem.dispose();
+    super.dispose();
+  }
 
   Future<Map<String, dynamic>> _init() async {
     if (Demo.i.state == LoadState.loading) await Demo.i.load();

@@ -17,7 +17,7 @@ Color get kRed => kDark ? const Color(0xFFFF7A6B) : const Color(0xFFDC2626);
 Color get kSurface => kDark ? const Color(0xFF0C141F) : Colors.white;
 Color get kLine => kDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
 Color get kInBg => kDark ? const Color(0xFF082F3B) : const Color(0xFFE0F4F8);
-Color get kOutBg => kDark ? const Color(0xFF3A1C20) : const Color(0xFFFEE2E2);
+Color get kOutBg => kDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
 Color get kFaint => kDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
 Color get kSkel => kDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
 Color get kDot => kDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
@@ -178,9 +178,20 @@ Widget txRow(Tx x) {
                       backgroundColor: kBg,
                       appBar: AppBar(
                         backgroundColor: kBg,
+                        surfaceTintColor: Colors.transparent,
                         foregroundColor: kInk,
+                        centerTitle: false,
+                        automaticallyImplyLeading: false,
                         elevation: 0,
-                        title: Text('Track ${x.ref}', style: TextStyle(fontFamily: 'Poppins', color: kInk, fontSize: 16, fontWeight: FontWeight.w500)),
+                        scrolledUnderElevation: 0,
+                        toolbarHeight: 58,
+                        leadingWidth: 64,
+                        leading: const Padding(
+                          padding: EdgeInsets.only(left: 16),
+                          child: ModernBackButton(),
+                        ),
+                        titleSpacing: 12,
+                        title: Text('Track ${x.ref}', style: TextStyle(fontFamily: 'Poppins', color: kInk, fontSize: 18, fontWeight: FontWeight.w500, letterSpacing: -0.3)),
                       ),
                       body: TrackingView(trackingReference: x.ref),
                     ),
@@ -191,9 +202,9 @@ Widget txRow(Tx x) {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           decoration: BoxDecoration(
-            color: kSurface,
+            color: kDark ? const Color(0xFF0C141F).withAlpha(220) : Colors.white.withAlpha(225),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: kLine, width: 0.8),
+            border: Border.all(color: kDark ? const Color(0xFF1E293B) : Colors.white.withAlpha(220), width: 0.9),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withAlpha(kDark ? 16 : 6),
@@ -214,7 +225,7 @@ Widget txRow(Tx x) {
                 child: Icon(
                   icon,
                   size: 20,
-                  color: out ? kRed : kNavyFg,
+                  color: out ? (kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)) : kNavyFg,
                 ),
               ),
               const SizedBox(width: 14),
@@ -260,7 +271,7 @@ Widget txRow(Tx x) {
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
-                      color: out ? kRed : (kDark ? const Color(0xFF00B4D8) : const Color(0xFF059669)),
+                      color: out ? kInk : (kDark ? const Color(0xFF00B4D8) : const Color(0xFF059669)),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -293,7 +304,51 @@ Widget txCard(List<Tx> l) => Column(
       ],
     );
 
-/// Standard sub-page: back arrow, title, optional chip.
+/// Modern tactile squircle back button for sub-pages and modal navigation.
+class ModernBackButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  const ModernBackButton({super.key, this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed ?? () => Navigator.maybePop(context),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: kDark ? const Color(0xFF16202E) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: kLine.withAlpha(kDark ? 50 : 160),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(kDark ? 30 : 8),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.arrow_back_rounded,
+              size: 20,
+              color: kInk,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Standard sub-page: modern tactile back button, Poppins title, optional chip and actions.
 /// With [tab] true it is hosted as a bottom-nav tab: no back arrow.
 class Pg extends StatelessWidget {
   final String title;
@@ -301,21 +356,67 @@ class Pg extends StatelessWidget {
   final List<Widget> kids;
   final VoidCallback? onBack;
   final bool tab;
-  const Pg(this.title, this.kids, {super.key, this.chip, this.onBack, this.tab = false});
+  final List<Widget>? actions;
+
+  const Pg(
+    this.title,
+    this.kids, {
+    super.key,
+    this.chip,
+    this.onBack,
+    this.tab = false,
+    this.actions,
+  });
+
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: kBg,
         appBar: AppBar(
           backgroundColor: kBg,
-          foregroundColor: kInk,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          toolbarHeight: 58,
           centerTitle: false,
           automaticallyImplyLeading: false,
-          leading: tab ? null : BackButton(onPressed: onBack ?? () => Navigator.pop(context)),
-          title: Row(children: [
-            Text(title, style: TextStyle(color: kInk, fontSize: 18, fontWeight: FontWeight.w700)),
-            if (chip != null) ...[const SizedBox(width: 10), chip!],
-          ]),
+          leadingWidth: tab ? 0 : 64,
+          leading: tab
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: ModernBackButton(
+                    onPressed: onBack ?? () => Navigator.pop(context),
+                  ),
+                ),
+          titleSpacing: tab ? 20 : 12,
+          title: Row(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  color: kInk,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              if (chip != null) ...[
+                const SizedBox(width: 10),
+                chip!,
+              ],
+            ],
+          ),
+          actions: actions != null
+              ? [
+                  ...actions!,
+                  const SizedBox(width: 8),
+                ]
+              : null,
         ),
-        body: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 32), children: kids),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: kids,
+        ),
       );
 }
