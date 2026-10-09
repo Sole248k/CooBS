@@ -25,6 +25,42 @@ INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (11, 'VERIFIED
 INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (12, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(159840, 'MINUTE'));
 INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (13, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(41760, 'MINUTE'));
 INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (14, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(145440, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (15, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(246240, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (16, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(240480, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (17, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(234720, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (18, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(228960, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (19, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(223200, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (20, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(217440, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (21, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(211680, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (22, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(205920, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (23, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(200160, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (24, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(194400, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (25, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(188640, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (26, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(182880, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (27, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(177120, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (28, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(171360, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (29, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(165600, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (30, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(159840, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (31, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(154080, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (32, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(148320, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (33, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(142560, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (34, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(136800, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (35, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(131040, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (36, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(125280, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (37, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(119520, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (38, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(113760, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (39, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(108000, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (40, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(102240, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (41, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(96480, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (42, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(90720, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (43, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(84960, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (44, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(79200, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (45, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(73440, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (46, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(67680, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (47, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(61920, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (48, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(56160, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (49, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(50400, 'MINUTE'));
+INSERT INTO CUSTOMER (customer_id, kyc_status, created_at) VALUES (50, 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(44640, 'MINUTE'));
 
 -- 3. APP_USERS (Staff + Members)
 INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
@@ -61,6 +97,78 @@ INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, passwo
 VALUES (1013, 3, 'CUSTOMER', 13, 'ricardo_magbanua', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'ricardo.magbanua@example.com', 'ACTIVE');
 INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
 VALUES (1014, 3, 'CUSTOMER', 14, 'lourdes_salazar', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'lourdes.salazar@example.com', 'INACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1015, 3, 'CUSTOMER', 15, 'carl_lontac', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'carl.lontac@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1016, 3, 'CUSTOMER', 16, 'raphael_devera', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'raphael.devera@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1017, 3, 'CUSTOMER', 17, 'april_ternal', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'april.ternal@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1018, 3, 'CUSTOMER', 18, 'alyssa_sanchez', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'alyssa.sanchez@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1019, 3, 'CUSTOMER', 19, 'gabriel_florendo', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'gabriel.florendo@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1020, 3, 'CUSTOMER', 20, 'jared_carranza', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'jared.carranza@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1021, 3, 'CUSTOMER', 21, 'hans_coo', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'hans.coo@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1022, 3, 'CUSTOMER', 22, 'marveen_bernabe', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'marveen.bernabe@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1023, 3, 'CUSTOMER', 23, 'christian_javier', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'christian.javier@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1024, 3, 'CUSTOMER', 24, 'barani_sundaram', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'barani.sundaram@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1025, 3, 'CUSTOMER', 25, 'rod_vekez', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'rod.vekez@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1026, 3, 'CUSTOMER', 26, 'assissi_raval', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'assissi.raval@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1027, 3, 'CUSTOMER', 27, 'jet_almazan', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'jet.almazan@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1028, 3, 'CUSTOMER', 28, 'gerard_martinez', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'gerard.martinez@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1029, 3, 'CUSTOMER', 29, 'emy_quilala', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'emy.quilala@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1030, 3, 'CUSTOMER', 30, 'hannah_manuel', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'hannah.manuel@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1031, 3, 'CUSTOMER', 31, 'marie_castro', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'marie.castro@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1032, 3, 'CUSTOMER', 32, 'ryan_delacruz', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'ryan.delacruz@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1033, 3, 'CUSTOMER', 33, 'hector_gutierrez', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'hector.gutierrez@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1034, 3, 'CUSTOMER', 34, 'john_manay', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'john.manay@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1035, 3, 'CUSTOMER', 35, 'emmanuel_lorbis', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'emmanuel.lorbis@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1036, 3, 'CUSTOMER', 36, 'jan_claudio', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'jan.claudio@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1037, 3, 'CUSTOMER', 37, 'dennis_medina', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'dennis.medina@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1038, 3, 'CUSTOMER', 38, 'ina_quizon', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'ina.quizon@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1039, 3, 'CUSTOMER', 39, 'cj_ramos', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'cj.ramos@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1040, 3, 'CUSTOMER', 40, 'tasha_venturina', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'tasha.venturina@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1041, 3, 'CUSTOMER', 41, 'kristian_kabigting', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'kristian.kabigting@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1042, 3, 'CUSTOMER', 42, 'donna_demu', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'donna.demu@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1043, 3, 'CUSTOMER', 43, 'jp_tanedo', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'jp.tanedo@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1044, 3, 'CUSTOMER', 44, 'amiel_deguia', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'amiel.deguia@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1045, 3, 'CUSTOMER', 45, 'mark_ramirez', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'mark.ramirez@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1046, 3, 'CUSTOMER', 46, 'noemi_canedo', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'noemi.canedo@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1047, 3, 'CUSTOMER', 47, 'marie_reyes', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'marie.reyes@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1048, 3, 'CUSTOMER', 48, 'mike_manuel', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'mike.manuel@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1049, 3, 'CUSTOMER', 49, 'clayton_sy', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'clayton.sy@example.com', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (1050, 3, 'CUSTOMER', 50, 'allan_binauhan', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'allan.binauhan@example.com', 'ACTIVE');
 
 -- 4. KYC RECORDS (Legal Master)
 INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
@@ -91,6 +199,78 @@ INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, add
 VALUES (13, 13, 'Ricardo', 'N', 'Magbanua', '7 Rizal Street, Puerto Princesa City, Palawan', 'MARRIED', 'Fisherman', '+639505550113', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(41760, 'MINUTE'));
 INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
 VALUES (14, 14, 'Lourdes', 'V', 'Salazar', '22 Zamora Street, Tacloban City, Leyte', 'MARRIED', 'Market Vendor', '+639355550114', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(145440, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (15, 15, 'Carl Lawrence', NULL, 'Lontac', '115 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550015', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(246240, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (16, 16, 'Raphael Wayne', NULL, 'De Vera', '116 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550016', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(240480, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (17, 17, 'April Joy', NULL, 'Ternal', '117 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550017', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(234720, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (18, 18, 'Alyssa', NULL, 'Sanchez', '118 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550018', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(228960, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (19, 19, 'Gabriel Enrico', NULL, 'Florendo', '119 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550019', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(223200, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (20, 20, 'Jared Lev', NULL, 'Carranza', '120 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550020', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(217440, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (21, 21, 'Hans Dean Timothy', NULL, 'Coo', '121 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550021', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(211680, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (22, 22, 'Marveen Antonio', NULL, 'Bernabe', '122 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550022', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(205920, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (23, 23, 'Christian Rei', NULL, 'Javier', '123 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550023', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(200160, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (24, 24, 'Barani', NULL, 'Sundaram', '124 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550024', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(194400, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (25, 25, 'Rod', NULL, 'Vekez', '125 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550025', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(188640, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (26, 26, 'Assissi', NULL, 'Raval', '126 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550026', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(182880, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (27, 27, 'Jet', NULL, 'Almazan', '127 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550027', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(177120, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (28, 28, 'Gerard', NULL, 'Martinez', '128 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550028', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(171360, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (29, 29, 'Emy', NULL, 'Quilala', '129 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550029', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(165600, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (30, 30, 'Hannah', NULL, 'Manuel', '130 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550030', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(159840, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (31, 31, 'Marie Therese', NULL, 'Castro', '131 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550031', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(154080, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (32, 32, 'Ryan', NULL, 'Dela Cruz', '132 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550032', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(148320, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (33, 33, 'Hector', NULL, 'Gutierrez', '133 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550033', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(142560, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (34, 34, 'John Reymark', NULL, 'Manay', '134 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550034', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(136800, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (35, 35, 'Emmanuel', NULL, 'Lorbis', '135 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550035', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(131040, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (36, 36, 'Jan Marion', NULL, 'Claudio', '136 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550036', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(125280, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (37, 37, 'Dennis', NULL, 'Medina', '137 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550037', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(119520, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (38, 38, 'Ina Camille', NULL, 'Quizon', '138 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550038', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(113760, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (39, 39, 'CJ', NULL, 'Ramos', '139 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550039', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(108000, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (40, 40, 'Tasha', NULL, 'Venturina', '140 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550040', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(102240, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (41, 41, 'Kristian', NULL, 'Kabigting', '141 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550041', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(96480, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (42, 42, 'Donna', NULL, 'Demu', '142 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550042', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(90720, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (43, 43, 'JP', NULL, 'Tanedo', '143 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550043', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(84960, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (44, 44, 'Amiel', NULL, 'De Guia', '144 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550044', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(79200, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (45, 45, 'Mark Paul', NULL, 'Ramirez', '145 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550045', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(73440, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (46, 46, 'Noemi', NULL, 'Canedo', '146 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550046', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(67680, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (47, 47, 'Marie Kris', NULL, 'Reyes', '147 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550047', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(61920, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (48, 48, 'Mike', NULL, 'Manuel', '148 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550048', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(56160, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (49, 49, 'Clayton', NULL, 'Sy', '149 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550049', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(50400, 'MINUTE'));
+INSERT INTO KYC (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (50, 50, 'Allan', NULL, 'Binauhan', '150 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550050', 'VERIFIED', SYSTIMESTAMP - NUMTODSINTERVAL(44640, 'MINUTE'));
 
 -- 5. CHANNEL PROFILES
 INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
@@ -121,6 +301,78 @@ INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_n
 VALUES (13, 'MBR-000013', 'ricardo_magbanua', 'Ricardo M.', 'ricardo.magbanua@example.com', 'fil', 'TIER_2_STANDARD', 'VERIFIED', 0.19, 660, 25000.0000);
 INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
 VALUES (14, 'MBR-000014', 'lourdes_salazar', 'Lourdes S.', 'lourdes.salazar@example.com', 'fil', 'TIER_3_FULL', 'VERIFIED', 0.17, 690, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (15, 'MBR-000015', 'carl_lontac', 'Carl Lawrence L.', 'carl.lontac@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 690, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (16, 'MBR-000016', 'raphael_devera', 'Raphael Wayne D.', 'raphael.devera@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 703, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (17, 'MBR-000017', 'april_ternal', 'April Joy T.', 'april.ternal@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.14, 716, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (18, 'MBR-000018', 'alyssa_sanchez', 'Alyssa S.', 'alyssa.sanchez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.16, 729, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (19, 'MBR-000019', 'gabriel_florendo', 'Gabriel Enrico F.', 'gabriel.florendo@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.91, 545, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (20, 'MBR-000020', 'jared_carranza', 'Jared Lev C.', 'jared.carranza@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.20, 755, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (21, 'MBR-000021', 'hans_coo', 'Hans Dean Timothy C.', 'hans.coo@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.22, 768, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (22, 'MBR-000022', 'marveen_bernabe', 'Marveen Antonio B.', 'marveen.bernabe@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.74, 635, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (23, 'MBR-000023', 'christian_javier', 'Christian Rei J.', 'christian.javier@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.17, 704, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (24, 'MBR-000024', 'barani_sundaram', 'Barani S.', 'barani.sundaram@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.11, 717, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (25, 'MBR-000025', 'rod_vekez', 'Rod V.', 'rod.vekez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 730, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (26, 'MBR-000026', 'assissi_raval', 'Assissi R.', 'assissi.raval@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 743, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (27, 'MBR-000027', 'jet_almazan', 'Jet A.', 'jet.almazan@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.14, 756, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (28, 'MBR-000028', 'gerard_martinez', 'Gerard M.', 'gerard.martinez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.16, 769, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (29, 'MBR-000029', 'emy_quilala', 'Emy Q.', 'emy.quilala@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.18, 692, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (30, 'MBR-000030', 'hannah_manuel', 'Hannah M.', 'hannah.manuel@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.20, 705, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (31, 'MBR-000031', 'marie_castro', 'Marie Therese C.', 'marie.castro@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.22, 718, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (32, 'MBR-000032', 'ryan_delacruz', 'Ryan D.', 'ryan.delacruz@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.13, 731, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (33, 'MBR-000033', 'hector_gutierrez', 'Hector G.', 'hector.gutierrez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.17, 744, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (34, 'MBR-000034', 'john_manay', 'John Reymark M.', 'john.manay@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.11, 757, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (35, 'MBR-000035', 'emmanuel_lorbis', 'Emmanuel L.', 'emmanuel.lorbis@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 770, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (36, 'MBR-000036', 'jan_claudio', 'Jan Marion C.', 'jan.claudio@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 693, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (37, 'MBR-000037', 'dennis_medina', 'Dennis M.', 'dennis.medina@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.14, 706, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (38, 'MBR-000038', 'ina_quizon', 'Ina Camille Q.', 'ina.quizon@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.16, 719, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (39, 'MBR-000039', 'cj_ramos', 'CJ R.', 'cj.ramos@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.18, 732, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (40, 'MBR-000040', 'tasha_venturina', 'Tasha V.', 'tasha.venturina@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.20, 745, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (41, 'MBR-000041', 'kristian_kabigting', 'Kristian K.', 'kristian.kabigting@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.22, 758, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (42, 'MBR-000042', 'donna_demu', 'Donna D.', 'donna.demu@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.13, 771, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (43, 'MBR-000043', 'jp_tanedo', 'JP T.', 'jp.tanedo@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.17, 694, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (44, 'MBR-000044', 'amiel_deguia', 'Amiel D.', 'amiel.deguia@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.11, 707, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (45, 'MBR-000045', 'mark_ramirez', 'Mark Paul R.', 'mark.ramirez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 720, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (46, 'MBR-000046', 'noemi_canedo', 'Noemi C.', 'noemi.canedo@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 733, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (47, 'MBR-000047', 'marie_reyes', 'Marie Kris R.', 'marie.reyes@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.14, 746, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (48, 'MBR-000048', 'mike_manuel', 'Mike M.', 'mike.manuel@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.16, 759, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (49, 'MBR-000049', 'clayton_sy', 'Clayton S.', 'clayton.sy@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.18, 772, 100000.0000);
+INSERT INTO CHANNEL_PROFILE (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (50, 'MBR-000050', 'allan_binauhan', 'Allan B.', 'allan.binauhan@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.20, 695, 100000.0000);
 
 -- 6. BENEFICIARIES
 INSERT INTO BENEFICIARY (beneficiary_id, customer_id, account_number, nickname, active)
@@ -182,6 +434,78 @@ VALUES (17, 13, 'ACC_10000017', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTO
 INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
 VALUES (18, 14, 'ACC_10000018', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
 INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (19, 15, 'ACC_10000019', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(244800, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (20, 16, 'ACC_10000020', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(239040, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (21, 17, 'ACC_10000021', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(233280, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (22, 18, 'ACC_10000022', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(227520, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (23, 19, 'ACC_10000023', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(221760, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (24, 20, 'ACC_10000024', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (25, 21, 'ACC_10000025', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(210240, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (26, 22, 'ACC_10000026', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(204480, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (27, 23, 'ACC_10000027', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(198720, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (28, 24, 'ACC_10000028', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(192960, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (29, 25, 'ACC_10000029', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(187200, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (30, 26, 'ACC_10000030', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(181440, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (31, 27, 'ACC_10000031', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(175680, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (32, 28, 'ACC_10000032', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(169920, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (33, 29, 'ACC_10000033', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(164160, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (34, 30, 'ACC_10000034', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (35, 31, 'ACC_10000035', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(152640, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (36, 32, 'ACC_10000036', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(146880, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (37, 33, 'ACC_10000037', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(141120, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (38, 34, 'ACC_10000038', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(135360, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (39, 35, 'ACC_10000039', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (40, 36, 'ACC_10000040', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(123840, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (41, 37, 'ACC_10000041', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(118080, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (42, 38, 'ACC_10000042', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(112320, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (43, 39, 'ACC_10000043', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(106560, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (44, 40, 'ACC_10000044', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (45, 41, 'ACC_10000045', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(95040, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (46, 42, 'ACC_10000046', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(89280, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (47, 43, 'ACC_10000047', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(83520, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (48, 44, 'ACC_10000048', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(77760, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (49, 45, 'ACC_10000049', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(72000, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (50, 46, 'ACC_10000050', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(66240, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (51, 47, 'ACC_10000051', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(60480, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (52, 48, 'ACC_10000052', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(54720, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (53, 49, 'ACC_10000053', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(48960, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
+VALUES (54, 50, 'ACC_10000054', 'SAVINGS', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
 VALUES (9001, 900, 'GL_CASH_VAULT', 'GL', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(1051200, 'MINUTE'));
 INSERT INTO ACCOUNT (account_id, customer_id, account_number, account_type, currency, status, created_at)
 VALUES (9002, 900, 'GL_INTEREST_EXPENSE', 'GL', 'PHP', 'ACTIVE', SYSTIMESTAMP - NUMTODSINTERVAL(1051200, 'MINUTE'));
@@ -230,7 +554,79 @@ VALUES (17, 17, 13700.0000, 13700.0000);
 INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
 VALUES (18, 18, 5000.0000, 5000.0000);
 INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
-VALUES (9001, 9001, 999487300.0000, 999487300.0000);
+VALUES (19, 19, 20000.0000, 20000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (20, 20, 55000.0000, 55000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (21, 21, 30000.0000, 30000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (22, 22, 65000.0000, 65000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (23, 23, 40000.0000, 40000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (24, 24, 75000.0000, 75000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (25, 25, 50000.0000, 50000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (26, 26, 25000.0000, 25000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (27, 27, 60000.0000, 60000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (28, 28, 35000.0000, 35000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (29, 29, 70000.0000, 70000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (30, 30, 45000.0000, 45000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (31, 31, 20000.0000, 20000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (32, 32, 55000.0000, 55000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (33, 33, 30000.0000, 30000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (34, 34, 65000.0000, 65000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (35, 35, 40000.0000, 40000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (36, 36, 75000.0000, 75000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (37, 37, 50000.0000, 50000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (38, 38, 25000.0000, 25000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (39, 39, 60000.0000, 60000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (40, 40, 35000.0000, 35000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (41, 41, 70000.0000, 70000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (42, 42, 45000.0000, 45000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (43, 43, 20000.0000, 20000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (44, 44, 55000.0000, 55000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (45, 45, 30000.0000, 30000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (46, 46, 65000.0000, 65000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (47, 47, 40000.0000, 40000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (48, 48, 75000.0000, 75000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (49, 49, 50000.0000, 50000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (50, 50, 25000.0000, 25000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (51, 51, 60000.0000, 60000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (52, 52, 35000.0000, 35000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (53, 53, 70000.0000, 70000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (54, 54, 45000.0000, 45000.0000);
+INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
+VALUES (9001, 9001, 997777300.0000, 997777300.0000);
 INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
 VALUES (9002, 9002, 999999988.3600, 999999988.3600);
 INSERT INTO BALANCE (balance_id, account_id, available_balance, ledger_balance)
@@ -314,101 +710,245 @@ VALUES (9, 9001, 'REF-INIT-003-D', 'DEBIT', 100000.0000, 999896950.0000, 9997969
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
 VALUES (10, 3, 'REF-INIT-003', 'INITIAL_DEPOSIT', 100000.0000, 0.0000, 100000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(259200, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (11, 9001, 'REF-INIT-004-D', 'DEBIT', 85000.0000, 999796950.0000, 999711950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+VALUES (11, 9001, 'REF-INIT-019-D', 'DEBIT', 20000.0000, 999796950.0000, 999776950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(244800, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (12, 4, 'REF-INIT-004', 'INITIAL_DEPOSIT', 85000.0000, 0.0000, 85000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+VALUES (12, 19, 'REF-INIT-019', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(244800, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (13, 9001, 'REF-INIT-005-D', 'DEBIT', 40000.0000, 999711950.0000, 999671950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+VALUES (13, 9001, 'REF-INIT-020-D', 'DEBIT', 55000.0000, 999776950.0000, 999721950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(239040, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (14, 5, 'REF-INIT-005', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+VALUES (14, 20, 'REF-INIT-020', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(239040, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (15, 9001, 'REF-INIT-007-D', 'DEBIT', 60000.0000, 999671950.0000, 999611950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
+VALUES (15, 9001, 'REF-INIT-021-D', 'DEBIT', 30000.0000, 999721950.0000, 999691950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(233280, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (16, 7, 'REF-INIT-007', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
+VALUES (16, 21, 'REF-INIT-021', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(233280, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (17, 9001, 'REF-INIT-008-D', 'DEBIT', 45000.0000, 999611950.0000, 999566950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
+VALUES (17, 9001, 'REF-INIT-022-D', 'DEBIT', 65000.0000, 999691950.0000, 999626950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(227520, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (18, 8, 'REF-INIT-008', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
+VALUES (18, 22, 'REF-INIT-022', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(227520, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (19, 9001, 'REF-INIT-016-D', 'DEBIT', 35000.0000, 999566950.0000, 999531950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
+VALUES (19, 9001, 'REF-INIT-023-D', 'DEBIT', 40000.0000, 999626950.0000, 999586950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(221760, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (20, 16, 'REF-INIT-016', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
+VALUES (20, 23, 'REF-INIT-023', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(221760, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (21, 9001, 'REF-INIT-018-D', 'DEBIT', 5000.0000, 999531950.0000, 999526950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
+VALUES (21, 9001, 'REF-INIT-004-D', 'DEBIT', 85000.0000, 999586950.0000, 999501950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (22, 18, 'REF-INIT-018', 'INITIAL_DEPOSIT', 5000.0000, 0.0000, 5000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
+VALUES (22, 4, 'REF-INIT-004', 'INITIAL_DEPOSIT', 85000.0000, 0.0000, 85000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (23, 9001, 'REF-INIT-009-D', 'DEBIT', 150.0000, 999526950.0000, 999526800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+VALUES (23, 9001, 'REF-INIT-005-D', 'DEBIT', 40000.0000, 999501950.0000, 999461950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (24, 9, 'REF-INIT-009', 'INITIAL_DEPOSIT', 150.0000, 0.0000, 150.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+VALUES (24, 5, 'REF-INIT-005', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (25, 9004, 'REF-LOAN-006-D', 'DEBIT', 125000.0000, 1000000000.0000, 999875000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+VALUES (25, 9001, 'REF-INIT-024-D', 'DEBIT', 75000.0000, 999461950.0000, 999386950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (26, 6, 'REF-LOAN-006', 'CREDIT', 125000.0000, 0.0000, 125000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+VALUES (26, 24, 'REF-INIT-024', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (27, 9001, 'REF-INIT-012-D', 'DEBIT', 30000.0000, 999526800.0000, 999496800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(86400, 'MINUTE'));
+VALUES (27, 9001, 'REF-INIT-025-D', 'DEBIT', 50000.0000, 999386950.0000, 999336950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(210240, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (28, 12, 'REF-INIT-012', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(86400, 'MINUTE'));
+VALUES (28, 25, 'REF-INIT-025', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(210240, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (29, 9004, 'REF-LOAN-010-D', 'DEBIT', 30000.0000, 999875000.0000, 999845000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+VALUES (29, 9001, 'REF-INIT-026-D', 'DEBIT', 25000.0000, 999336950.0000, 999311950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(204480, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (30, 10, 'REF-LOAN-010', 'CREDIT', 30000.0000, 0.0000, 30000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+VALUES (30, 26, 'REF-INIT-026', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(204480, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (31, 9001, 'REF-INIT-017-D', 'DEBIT', 12500.0000, 999496800.0000, 999484300.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(40320, 'MINUTE'));
+VALUES (31, 9001, 'REF-INIT-027-D', 'DEBIT', 60000.0000, 999311950.0000, 999251950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(198720, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (32, 17, 'REF-INIT-017', 'INITIAL_DEPOSIT', 12500.0000, 0.0000, 12500.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(40320, 'MINUTE'));
+VALUES (32, 27, 'REF-INIT-027', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(198720, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (33, 4, 'TX-SEED-0001-D', 'DEBIT', 2500.0000, 85000.0000, 82500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+VALUES (33, 9001, 'REF-INIT-028-D', 'DEBIT', 35000.0000, 999251950.0000, 999216950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(192960, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (34, 7, 'TX-SEED-0001-C', 'CREDIT', 2500.0000, 60000.0000, 62500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+VALUES (34, 28, 'REF-INIT-028', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(192960, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (35, 4, 'TX-SEED-0002-D', 'DEBIT', 1200.0000, 82500.0000, 81300.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+VALUES (35, 9001, 'REF-INIT-029-D', 'DEBIT', 70000.0000, 999216950.0000, 999146950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(187200, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (36, 17, 'TX-SEED-0002-C', 'CREDIT', 1200.0000, 12500.0000, 13700.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+VALUES (36, 29, 'REF-INIT-029', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(187200, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (37, 5, 'TX-SEED-0003-D', 'DEBIT', 3800.0000, 40000.0000, 36200.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+VALUES (37, 9001, 'REF-INIT-030-D', 'DEBIT', 45000.0000, 999146950.0000, 999101950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(181440, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (38, 8, 'TX-SEED-0003-C', 'CREDIT', 3800.0000, 45000.0000, 48800.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+VALUES (38, 30, 'REF-INIT-030', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(181440, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (39, 4, 'EOD-SEED-LOAN-0001-D', 'DEBIT', 5450.0000, 81300.0000, 75850.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+VALUES (39, 9001, 'REF-INIT-031-D', 'DEBIT', 20000.0000, 999101950.0000, 999081950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(175680, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (40, 9004, 'EOD-SEED-LOAN-0001-C', 'CREDIT', 5450.0000, 999845000.0000, 999850450.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+VALUES (40, 31, 'REF-INIT-031', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(175680, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (41, 6, 'EOD-SEED-LOANP-0001-D', 'DEBIT', 5000.0000, 125000.0000, 120000.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+VALUES (41, 9001, 'REF-INIT-007-D', 'DEBIT', 60000.0000, 999081950.0000, 999021950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (42, 9004, 'EOD-SEED-LOANP-0001-C', 'CREDIT', 5000.0000, 999850450.0000, 999855450.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+VALUES (42, 7, 'REF-INIT-007', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (43, 4, 'TX-SEED-0004-D', 'DEBIT', 10000.0000, 75850.0000, 65850.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+VALUES (43, 9001, 'REF-INIT-008-D', 'DEBIT', 45000.0000, 999021950.0000, 998976950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (44, 5, 'TX-SEED-0004-C', 'CREDIT', 10000.0000, 36200.0000, 46200.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+VALUES (44, 8, 'REF-INIT-008', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (45, 9002, 'EOD-SEED-INT-0001-D', 'DEBIT', 11.6400, 1000000000.0000, 999999988.3600, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+VALUES (45, 9001, 'REF-INIT-032-D', 'DEBIT', 55000.0000, 998976950.0000, 998921950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(169920, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (46, 4, 'EOD-SEED-INT-0001-C', 'CREDIT', 11.6400, 65850.0000, 65861.6400, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+VALUES (46, 32, 'REF-INIT-032', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(169920, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (47, 13, 'EOD-SEED-FEE-0001-D', 'DEBIT', 50.0000, 8050.0000, 8000.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+VALUES (47, 9001, 'REF-INIT-033-D', 'DEBIT', 30000.0000, 998921950.0000, 998891950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(164160, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (48, 9003, 'EOD-SEED-FEE-0001-C', 'CREDIT', 50.0000, 1000000000.0000, 1000000050.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+VALUES (48, 33, 'REF-INIT-033', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(164160, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (49, 16, 'TX-SEED-0005-D', 'DEBIT', 1500.0000, 35000.0000, 33500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+VALUES (49, 9001, 'REF-INIT-016-D', 'DEBIT', 35000.0000, 998891950.0000, 998856950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (50, 5, 'TX-SEED-0005-C', 'CREDIT', 1500.0000, 46200.0000, 47700.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+VALUES (50, 16, 'REF-INIT-016', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (51, 16, 'RV-SEED-0001-C', 'REVERSAL_CREDIT', 1500.0000, 33500.0000, 35000.0000, 'COMPLETED', 49, 2, SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'));
+VALUES (51, 9001, 'REF-INIT-034-D', 'DEBIT', 65000.0000, 998856950.0000, 998791950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (52, 5, 'RV-SEED-0001-D', 'REVERSAL_DEBIT', 1500.0000, 47700.0000, 46200.0000, 'COMPLETED', 50, 2, SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'));
+VALUES (52, 34, 'REF-INIT-034', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (53, 9005, 'IB-SEED-IN-0001-D', 'DEBIT', 7500.0000, 1000000000.0000, 999992500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'));
+VALUES (53, 9001, 'REF-INIT-035-D', 'DEBIT', 40000.0000, 998791950.0000, 998751950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(152640, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (54, 4, 'IB-SEED-IN-0001-C', 'CREDIT', 7500.0000, 65861.6400, 73361.6400, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'));
+VALUES (54, 35, 'REF-INIT-035', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(152640, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (55, 5, 'TX-SEED-0011-D', 'DEBIT', 2000.0000, 46200.0000, 44200.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+VALUES (55, 9001, 'REF-INIT-036-D', 'DEBIT', 75000.0000, 998751950.0000, 998676950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(146880, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (56, 9005, 'TX-SEED-0011-C', 'CREDIT', 2000.0000, 999992500.0000, 999994500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+VALUES (56, 36, 'REF-INIT-036', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(146880, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (57, 5, 'TX-SEED-0012-D', 'DEBIT', 3000.0000, 44200.0000, 41200.0000, 'COMPLETED', NULL, 2, SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
+VALUES (57, 9001, 'REF-INIT-018-D', 'DEBIT', 5000.0000, 998676950.0000, 998671950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
 INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
-VALUES (58, 9001, 'TX-SEED-0012-C', 'CREDIT', 3000.0000, 999484300.0000, 999487300.0000, 'COMPLETED', NULL, 2, SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
+VALUES (58, 18, 'REF-INIT-018', 'INITIAL_DEPOSIT', 5000.0000, 0.0000, 5000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (59, 9001, 'REF-INIT-037-D', 'DEBIT', 50000.0000, 998671950.0000, 998621950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(141120, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (60, 37, 'REF-INIT-037', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(141120, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (61, 9001, 'REF-INIT-038-D', 'DEBIT', 25000.0000, 998621950.0000, 998596950.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(135360, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (62, 38, 'REF-INIT-038', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(135360, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (63, 9001, 'REF-INIT-009-D', 'DEBIT', 150.0000, 998596950.0000, 998596800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (64, 9, 'REF-INIT-009', 'INITIAL_DEPOSIT', 150.0000, 0.0000, 150.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (65, 9001, 'REF-INIT-039-D', 'DEBIT', 60000.0000, 998596800.0000, 998536800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (66, 39, 'REF-INIT-039', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (67, 9001, 'REF-INIT-040-D', 'DEBIT', 35000.0000, 998536800.0000, 998501800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(123840, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (68, 40, 'REF-INIT-040', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(123840, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (69, 9001, 'REF-INIT-041-D', 'DEBIT', 70000.0000, 998501800.0000, 998431800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(118080, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (70, 41, 'REF-INIT-041', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(118080, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (71, 9001, 'REF-INIT-042-D', 'DEBIT', 45000.0000, 998431800.0000, 998386800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(112320, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (72, 42, 'REF-INIT-042', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(112320, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (73, 9001, 'REF-INIT-043-D', 'DEBIT', 20000.0000, 998386800.0000, 998366800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(106560, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (74, 43, 'REF-INIT-043', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(106560, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (75, 9004, 'REF-LOAN-006-D', 'DEBIT', 125000.0000, 1000000000.0000, 999875000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (76, 6, 'REF-LOAN-006', 'CREDIT', 125000.0000, 0.0000, 125000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (77, 9001, 'REF-INIT-044-D', 'DEBIT', 55000.0000, 998366800.0000, 998311800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (78, 44, 'REF-INIT-044', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (79, 9001, 'REF-INIT-045-D', 'DEBIT', 30000.0000, 998311800.0000, 998281800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(95040, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (80, 45, 'REF-INIT-045', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(95040, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (81, 9001, 'REF-INIT-046-D', 'DEBIT', 65000.0000, 998281800.0000, 998216800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(89280, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (82, 46, 'REF-INIT-046', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(89280, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (83, 9001, 'REF-INIT-012-D', 'DEBIT', 30000.0000, 998216800.0000, 998186800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(86400, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (84, 12, 'REF-INIT-012', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(86400, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (85, 9001, 'REF-INIT-047-D', 'DEBIT', 40000.0000, 998186800.0000, 998146800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(83520, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (86, 47, 'REF-INIT-047', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(83520, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (87, 9001, 'REF-INIT-048-D', 'DEBIT', 75000.0000, 998146800.0000, 998071800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(77760, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (88, 48, 'REF-INIT-048', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(77760, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (89, 9001, 'REF-INIT-049-D', 'DEBIT', 50000.0000, 998071800.0000, 998021800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(72000, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (90, 49, 'REF-INIT-049', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(72000, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (91, 9001, 'REF-INIT-050-D', 'DEBIT', 25000.0000, 998021800.0000, 997996800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(66240, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (92, 50, 'REF-INIT-050', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(66240, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (93, 9001, 'REF-INIT-051-D', 'DEBIT', 60000.0000, 997996800.0000, 997936800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(60480, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (94, 51, 'REF-INIT-051', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(60480, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (95, 9001, 'REF-INIT-052-D', 'DEBIT', 35000.0000, 997936800.0000, 997901800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(54720, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (96, 52, 'REF-INIT-052', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(54720, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (97, 9001, 'REF-INIT-053-D', 'DEBIT', 70000.0000, 997901800.0000, 997831800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(48960, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (98, 53, 'REF-INIT-053', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(48960, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (99, 9004, 'REF-LOAN-010-D', 'DEBIT', 30000.0000, 999875000.0000, 999845000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (100, 10, 'REF-LOAN-010', 'CREDIT', 30000.0000, 0.0000, 30000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (101, 9001, 'REF-INIT-054-D', 'DEBIT', 45000.0000, 997831800.0000, 997786800.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (102, 54, 'REF-INIT-054', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (103, 9001, 'REF-INIT-017-D', 'DEBIT', 12500.0000, 997786800.0000, 997774300.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(40320, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (104, 17, 'REF-INIT-017', 'INITIAL_DEPOSIT', 12500.0000, 0.0000, 12500.0000, 'COMPLETED', NULL, 1, SYSTIMESTAMP - NUMTODSINTERVAL(40320, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (105, 4, 'TX-SEED-0001-D', 'DEBIT', 2500.0000, 85000.0000, 82500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (106, 7, 'TX-SEED-0001-C', 'CREDIT', 2500.0000, 60000.0000, 62500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (107, 4, 'TX-SEED-0002-D', 'DEBIT', 1200.0000, 82500.0000, 81300.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (108, 17, 'TX-SEED-0002-C', 'CREDIT', 1200.0000, 12500.0000, 13700.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (109, 5, 'TX-SEED-0003-D', 'DEBIT', 3800.0000, 40000.0000, 36200.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (110, 8, 'TX-SEED-0003-C', 'CREDIT', 3800.0000, 45000.0000, 48800.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (111, 4, 'EOD-SEED-LOAN-0001-D', 'DEBIT', 5450.0000, 81300.0000, 75850.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (112, 9004, 'EOD-SEED-LOAN-0001-C', 'CREDIT', 5450.0000, 999845000.0000, 999850450.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (113, 6, 'EOD-SEED-LOANP-0001-D', 'DEBIT', 5000.0000, 125000.0000, 120000.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (114, 9004, 'EOD-SEED-LOANP-0001-C', 'CREDIT', 5000.0000, 999850450.0000, 999855450.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (115, 4, 'TX-SEED-0004-D', 'DEBIT', 10000.0000, 75850.0000, 65850.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (116, 5, 'TX-SEED-0004-C', 'CREDIT', 10000.0000, 36200.0000, 46200.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (117, 9002, 'EOD-SEED-INT-0001-D', 'DEBIT', 11.6400, 1000000000.0000, 999999988.3600, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (118, 4, 'EOD-SEED-INT-0001-C', 'CREDIT', 11.6400, 65850.0000, 65861.6400, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (119, 13, 'EOD-SEED-FEE-0001-D', 'DEBIT', 50.0000, 8050.0000, 8000.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (120, 9003, 'EOD-SEED-FEE-0001-C', 'CREDIT', 50.0000, 1000000000.0000, 1000000050.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (121, 16, 'TX-SEED-0005-D', 'DEBIT', 1500.0000, 35000.0000, 33500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (122, 5, 'TX-SEED-0005-C', 'CREDIT', 1500.0000, 46200.0000, 47700.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (123, 16, 'RV-SEED-0001-C', 'REVERSAL_CREDIT', 1500.0000, 33500.0000, 35000.0000, 'COMPLETED', 121, 2, SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (124, 5, 'RV-SEED-0001-D', 'REVERSAL_DEBIT', 1500.0000, 47700.0000, 46200.0000, 'COMPLETED', 122, 2, SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (125, 9005, 'IB-SEED-IN-0001-D', 'DEBIT', 7500.0000, 1000000000.0000, 999992500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (126, 4, 'IB-SEED-IN-0001-C', 'CREDIT', 7500.0000, 65861.6400, 73361.6400, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (127, 5, 'TX-SEED-0011-D', 'DEBIT', 2000.0000, 46200.0000, 44200.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (128, 9005, 'TX-SEED-0011-C', 'CREDIT', 2000.0000, 999992500.0000, 999994500.0000, 'COMPLETED', NULL, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (129, 5, 'TX-SEED-0012-D', 'DEBIT', 3000.0000, 44200.0000, 41200.0000, 'COMPLETED', NULL, 2, SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
+INSERT INTO "TRANSACTION" (transaction_id, account_id, reference_no, transaction_type, amount, previous_balance, new_balance, status, reverses_transaction_id, approved_by, created_at)
+VALUES (130, 9001, 'TX-SEED-0012-C', 'CREDIT', 3000.0000, 997774300.0000, 997777300.0000, 'COMPLETED', NULL, 2, SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
 
 -- 12. OUTBOX
 INSERT INTO OUTBOX (outbox_id, topic, event_key, payload, created_at, published_at)
@@ -456,105 +996,249 @@ VALUES (9, 9, 9001, 'REF-INIT-003-D', 'DEBIT', 100000.0000, 999896950.0000, 9997
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
 VALUES (10, 10, 3, 'REF-INIT-003', 'INITIAL_DEPOSIT', 100000.0000, 0.0000, 100000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '25ca30c8a42c88e3c5c3dc23c1919faa763d94aea3c1e66065f01a23634707ce', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(259200, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (11, 11, 9001, 'REF-INIT-004-D', 'DEBIT', 85000.0000, 999796950.0000, 999711950.0000, 'fad5c813d7a67206df46a52d0f85d1170ab66e8c10d2c9da917fc59863c4d7a0', 'a558d957405deb84a89fd6c2e20328788b1657a43ff11d07340fa561e0ad176e', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+VALUES (11, 11, 9001, 'REF-INIT-019-D', 'DEBIT', 20000.0000, 999796950.0000, 999776950.0000, 'fad5c813d7a67206df46a52d0f85d1170ab66e8c10d2c9da917fc59863c4d7a0', '44731d4be57c304622ab76653d9ee43ee6dec7dcd7aa3e0f9cca494f8b8b9c0b', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(244800, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (12, 12, 4, 'REF-INIT-004', 'INITIAL_DEPOSIT', 85000.0000, 0.0000, 85000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '77fd1a0ced38548fa1a56d232f8b2ee44a3fae8e3fbd86ad61d6e4f76c5587ad', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+VALUES (12, 12, 19, 'REF-INIT-019', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '29357ea6edf3d162b4dd04562fe18c45fc56cf19a87a71a1a25a5e439a350f63', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(244800, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (13, 13, 9001, 'REF-INIT-005-D', 'DEBIT', 40000.0000, 999711950.0000, 999671950.0000, 'a558d957405deb84a89fd6c2e20328788b1657a43ff11d07340fa561e0ad176e', '18e0919fe0305dcf7a406932a206d50dccb7d13e410e41c41b1c7273b99f3211', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+VALUES (13, 13, 9001, 'REF-INIT-020-D', 'DEBIT', 55000.0000, 999776950.0000, 999721950.0000, '44731d4be57c304622ab76653d9ee43ee6dec7dcd7aa3e0f9cca494f8b8b9c0b', 'e40b64c0005152ccf720cfac17e6533e6a59024f16a0aaebc00dacc51f64dc2b', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(239040, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (14, 14, 5, 'REF-INIT-005', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '4d3a1c4775c26939b05f9fb22a739f2838f09f9aab9aac9de3f00d4ecfcedf8b', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
+VALUES (14, 14, 20, 'REF-INIT-020', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'e36686c8c35c125ab89814f2f9cd1114e5461a5b59b0256ea3e20606368cb3b6', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(239040, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (15, 15, 9001, 'REF-INIT-007-D', 'DEBIT', 60000.0000, 999671950.0000, 999611950.0000, '18e0919fe0305dcf7a406932a206d50dccb7d13e410e41c41b1c7273b99f3211', '22ffcf405ba6bfce9529755ba0e01affcf18baa99829a51984af76d0304df0f5', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
+VALUES (15, 15, 9001, 'REF-INIT-021-D', 'DEBIT', 30000.0000, 999721950.0000, 999691950.0000, 'e40b64c0005152ccf720cfac17e6533e6a59024f16a0aaebc00dacc51f64dc2b', 'fd86c98fb6425051d05a9b01aab9c652c1308c5657702e7086bd935caeb4fb4e', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(233280, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (16, 16, 7, 'REF-INIT-007', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'bdd1daaa98bcab452ee93508e78beff1c7c7747187aaaffaca2b4ea41811d560', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
+VALUES (16, 16, 21, 'REF-INIT-021', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '9093b838473f392bd69fcab810a5cba8a10090c49d162a0f9c852e0020887ff2', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(233280, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (17, 17, 9001, 'REF-INIT-008-D', 'DEBIT', 45000.0000, 999611950.0000, 999566950.0000, '22ffcf405ba6bfce9529755ba0e01affcf18baa99829a51984af76d0304df0f5', '6a0c7673a9a0186c25268fc611fb33f7f79182f2954fe254b93dc3cd984bfe42', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
+VALUES (17, 17, 9001, 'REF-INIT-022-D', 'DEBIT', 65000.0000, 999691950.0000, 999626950.0000, 'fd86c98fb6425051d05a9b01aab9c652c1308c5657702e7086bd935caeb4fb4e', '26dc0f5ab626da1b0794bdc144a48bb5c174d440fee5695814aeded0ccae26b0', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(227520, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (18, 18, 8, 'REF-INIT-008', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '929a32418a0daf0feaeaeb5e738d47d3514792a86a43b36bf530ef8fc88fb4c2', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
+VALUES (18, 18, 22, 'REF-INIT-022', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '232ab31b3badd9b78a6575f24ce063b030ef831636dbb7a6e1fd344cea9a1c71', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(227520, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (19, 19, 9001, 'REF-INIT-016-D', 'DEBIT', 35000.0000, 999566950.0000, 999531950.0000, '6a0c7673a9a0186c25268fc611fb33f7f79182f2954fe254b93dc3cd984bfe42', '9973f7efe0a686c449d89d72ebb1113e8c54556d5a305fefcd22f574bff0c05f', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
+VALUES (19, 19, 9001, 'REF-INIT-023-D', 'DEBIT', 40000.0000, 999626950.0000, 999586950.0000, '26dc0f5ab626da1b0794bdc144a48bb5c174d440fee5695814aeded0ccae26b0', 'a49e02db86d51d3de3b395872153255902165355371e36e632c9c5ebe3417580', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(221760, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (20, 20, 16, 'REF-INIT-016', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'df3f99f74361417d47e8430f74c30c8836ca4d3c13cdaf2e9cfec4a3178acdd3', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
+VALUES (20, 20, 23, 'REF-INIT-023', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '27a8f1bf7f6c2f155ac4ebcc9d2dc8aec1a5bd5e583222482e4341ed89514bc2', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(221760, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (21, 21, 9001, 'REF-INIT-018-D', 'DEBIT', 5000.0000, 999531950.0000, 999526950.0000, '9973f7efe0a686c449d89d72ebb1113e8c54556d5a305fefcd22f574bff0c05f', 'a6826caff0e0216d660c16436797ae3f6800db070e09ee3d6a1a6e7c6f9225b0', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
+VALUES (21, 21, 9001, 'REF-INIT-004-D', 'DEBIT', 85000.0000, 999586950.0000, 999501950.0000, 'a49e02db86d51d3de3b395872153255902165355371e36e632c9c5ebe3417580', 'c8fdc498143feae49cf1f92d6fdaa8a5adcb63a42d81e7e27ab7a2dab5e45b98', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (22, 22, 18, 'REF-INIT-018', 'INITIAL_DEPOSIT', 5000.0000, 0.0000, 5000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '3cb73ad0181c7d6dd5c31a178f765b25b8d2429670fb09996fba125516be26c1', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
+VALUES (22, 22, 4, 'REF-INIT-004', 'INITIAL_DEPOSIT', 85000.0000, 0.0000, 85000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '633270760f288dc097427c771336afc033cfe410f962af4d6305cb6c4ab51698', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (23, 23, 9001, 'REF-INIT-009-D', 'DEBIT', 150.0000, 999526950.0000, 999526800.0000, 'a6826caff0e0216d660c16436797ae3f6800db070e09ee3d6a1a6e7c6f9225b0', '9cca972e752e0185db93accdecda4d17fa5ecb653fef9c14fb91a7045fb58b3a', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+VALUES (23, 23, 9001, 'REF-INIT-005-D', 'DEBIT', 40000.0000, 999501950.0000, 999461950.0000, 'c8fdc498143feae49cf1f92d6fdaa8a5adcb63a42d81e7e27ab7a2dab5e45b98', '491c09ccaaf86d72c592bbef0f17f30d5c7184d4b7ef4f265000442558422f76', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (24, 24, 9, 'REF-INIT-009', 'INITIAL_DEPOSIT', 150.0000, 0.0000, 150.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'ffe30ca553f49755784b9711d09f46475b49d5f01422e7c8b10b59622bb9d2a5', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+VALUES (24, 24, 5, 'REF-INIT-005', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '42d0b59af3a5d6a0e1644ecc9d03fb02883fa883d087678396fc9535c126866b', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (25, 25, 9004, 'REF-LOAN-006-D', 'DEBIT', 125000.0000, 1000000000.0000, 999875000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'b4ffadfcd2ab061105603c9bddf5c34bcba71647ef245d7114b177b452c6406d', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+VALUES (25, 25, 9001, 'REF-INIT-024-D', 'DEBIT', 75000.0000, 999461950.0000, 999386950.0000, '491c09ccaaf86d72c592bbef0f17f30d5c7184d4b7ef4f265000442558422f76', '542283c9c355a26a36d54cb568a3392c2fae901dd2709c9932cc7911b85184a5', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (26, 26, 6, 'REF-LOAN-006', 'CREDIT', 125000.0000, 0.0000, 125000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'c856726d05405655a4ac17b43b9a100b9ca738c42dd27ed9f850076615b302bc', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+VALUES (26, 26, 24, 'REF-INIT-024', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '8af92d04c22cd6958b357f1bf8221f126f7882a97b25dd36040da52f59e75e4c', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(216000, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (27, 27, 9001, 'REF-INIT-012-D', 'DEBIT', 30000.0000, 999526800.0000, 999496800.0000, '9cca972e752e0185db93accdecda4d17fa5ecb653fef9c14fb91a7045fb58b3a', '3edc09f52dbd990577a74283186a13ff110f432a8bb85487eec42e9a3ae40700', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(86400, 'MINUTE'));
+VALUES (27, 27, 9001, 'REF-INIT-025-D', 'DEBIT', 50000.0000, 999386950.0000, 999336950.0000, '542283c9c355a26a36d54cb568a3392c2fae901dd2709c9932cc7911b85184a5', 'ae35313741e1dec4c03a1837aeb7afccf81c5a358e4282b4361c5dd21d002c32', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(210240, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (28, 28, 12, 'REF-INIT-012', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '8ad17fc13681a77ee87b30c339ab5c4fde4a8ee4ab9a46902774c4418d080236', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(86400, 'MINUTE'));
+VALUES (28, 28, 25, 'REF-INIT-025', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '242a30ef068d16bb438b9be248ded7f3d96146265ca97cd7a7a15fe415649d92', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(210240, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (29, 29, 9004, 'REF-LOAN-010-D', 'DEBIT', 30000.0000, 999875000.0000, 999845000.0000, 'b4ffadfcd2ab061105603c9bddf5c34bcba71647ef245d7114b177b452c6406d', 'b4a997e9670bc3decb9e8461bc5e3b833b4c0d93dd039dcb09c38a24146fab89', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+VALUES (29, 29, 9001, 'REF-INIT-026-D', 'DEBIT', 25000.0000, 999336950.0000, 999311950.0000, 'ae35313741e1dec4c03a1837aeb7afccf81c5a358e4282b4361c5dd21d002c32', '9197e4cee67bb9791e1b5465108ed66767364cd568c330fabbfebe8ef992fea0', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(204480, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (30, 30, 10, 'REF-LOAN-010', 'CREDIT', 30000.0000, 0.0000, 30000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'b0394486bb4db22f41629fbc0d912e2cf331e4dba96fa9f54d57393aff73f778', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+VALUES (30, 30, 26, 'REF-INIT-026', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '16c2749c95faf72dd96ff5780683b70e1554a53c6419a0e9e93db0c6b5cae070', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(204480, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (31, 31, 9001, 'REF-INIT-017-D', 'DEBIT', 12500.0000, 999496800.0000, 999484300.0000, '3edc09f52dbd990577a74283186a13ff110f432a8bb85487eec42e9a3ae40700', '632b274c9dbfbb5a5df6d3ebce36375abde9d0bf56edd810265450fda5b0d627', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(40320, 'MINUTE'));
+VALUES (31, 31, 9001, 'REF-INIT-027-D', 'DEBIT', 60000.0000, 999311950.0000, 999251950.0000, '9197e4cee67bb9791e1b5465108ed66767364cd568c330fabbfebe8ef992fea0', '2bc7118a9c77363ce8d8641765c8eccc68b12f37f703ed00be287aae0855e8e3', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(198720, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (32, 32, 17, 'REF-INIT-017', 'INITIAL_DEPOSIT', 12500.0000, 0.0000, 12500.0000, '0000000000000000000000000000000000000000000000000000000000000000', '3a4c4ac3cb6c882dc1bd86c42178af42c58cfefa32abc0082cf7bcec5d53de06', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(40320, 'MINUTE'));
+VALUES (32, 32, 27, 'REF-INIT-027', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '5daec36bb54fba90cecf7c3bc91d477830b0156a5da6540f63f0e976fc405c19', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(198720, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (33, 33, 4, 'TX-SEED-0001-D', 'DEBIT', 2500.0000, 85000.0000, 82500.0000, '77fd1a0ced38548fa1a56d232f8b2ee44a3fae8e3fbd86ad61d6e4f76c5587ad', 'c1b94c98bed73ed9642b303adf8e14fcbec697efa1fb2bc949729d07d9cae2f2', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+VALUES (33, 33, 9001, 'REF-INIT-028-D', 'DEBIT', 35000.0000, 999251950.0000, 999216950.0000, '2bc7118a9c77363ce8d8641765c8eccc68b12f37f703ed00be287aae0855e8e3', '496fa5bb0d488d84c0ccde06c3374c8f5024926a8604070a35d5a9f4361aea04', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(192960, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (34, 34, 7, 'TX-SEED-0001-C', 'CREDIT', 2500.0000, 60000.0000, 62500.0000, 'bdd1daaa98bcab452ee93508e78beff1c7c7747187aaaffaca2b4ea41811d560', '8fe7feaab73eb0255edeb202dfe608295696cd1d11dc03224a1deea1b0a34c44', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+VALUES (34, 34, 28, 'REF-INIT-028', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '1c73cd211655912dbbf698a6e9a42b1d4dbf90aae4b169753f86be3ec5d87af1', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(192960, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (35, 35, 4, 'TX-SEED-0002-D', 'DEBIT', 1200.0000, 82500.0000, 81300.0000, 'c1b94c98bed73ed9642b303adf8e14fcbec697efa1fb2bc949729d07d9cae2f2', '3a12f3113728ddebfa5b167523230f1750247dd393f50b0256696e69d91036e2', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+VALUES (35, 35, 9001, 'REF-INIT-029-D', 'DEBIT', 70000.0000, 999216950.0000, 999146950.0000, '496fa5bb0d488d84c0ccde06c3374c8f5024926a8604070a35d5a9f4361aea04', '41c7c27e4b535c7ac017c9bbec59621481c1cb728c5e1f932f479f4c87c26060', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(187200, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (36, 36, 17, 'TX-SEED-0002-C', 'CREDIT', 1200.0000, 12500.0000, 13700.0000, '3a4c4ac3cb6c882dc1bd86c42178af42c58cfefa32abc0082cf7bcec5d53de06', '67dffeae59229fb45c75d40fe090fd94328a05b97d2c71d593cd59bced7e11da', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+VALUES (36, 36, 29, 'REF-INIT-029', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '5847e23f8382e03f6ca0d01884c7aafe73cfaf2692bcd43ec372828b3d93443c', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(187200, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (37, 37, 5, 'TX-SEED-0003-D', 'DEBIT', 3800.0000, 40000.0000, 36200.0000, '4d3a1c4775c26939b05f9fb22a739f2838f09f9aab9aac9de3f00d4ecfcedf8b', '323af20df187736935580e3837d1977771291ae234f9cd6c2eeecf97b4b52e16', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+VALUES (37, 37, 9001, 'REF-INIT-030-D', 'DEBIT', 45000.0000, 999146950.0000, 999101950.0000, '41c7c27e4b535c7ac017c9bbec59621481c1cb728c5e1f932f479f4c87c26060', '44940aa49c2737469001aa4383c5d4092f4ba536c8f880f5c3411e331e4a7af4', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(181440, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (38, 38, 8, 'TX-SEED-0003-C', 'CREDIT', 3800.0000, 45000.0000, 48800.0000, '929a32418a0daf0feaeaeb5e738d47d3514792a86a43b36bf530ef8fc88fb4c2', '25430f0806cd3bd6c4584b6612e2d23f878980c51b03851e0790651c1e53afc0', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+VALUES (38, 38, 30, 'REF-INIT-030', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'a0fb3a2aef51da3697d77f08ab4fd2db2162bdd387e43911ff0eb1f7c82be175', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(181440, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (39, 39, 4, 'EOD-SEED-LOAN-0001-D', 'DEBIT', 5450.0000, 81300.0000, 75850.0000, '3a12f3113728ddebfa5b167523230f1750247dd393f50b0256696e69d91036e2', 'b409b1c71a747708ed84231daa3389c5f84f19cddb532b02affbe957b7343bdc', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+VALUES (39, 39, 9001, 'REF-INIT-031-D', 'DEBIT', 20000.0000, 999101950.0000, 999081950.0000, '44940aa49c2737469001aa4383c5d4092f4ba536c8f880f5c3411e331e4a7af4', 'cff4952de3e3275fecc4492e6cb43750dd4fee7e3773db39284ca40af46e9494', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(175680, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (40, 40, 9004, 'EOD-SEED-LOAN-0001-C', 'CREDIT', 5450.0000, 999845000.0000, 999850450.0000, 'b4a997e9670bc3decb9e8461bc5e3b833b4c0d93dd039dcb09c38a24146fab89', 'd577921a9349ce846357fc90325aeb0358eecaa9ebf6bbc66e518535c2c6adbb', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+VALUES (40, 40, 31, 'REF-INIT-031', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '60e39601753e0e0b3bca2e35e929a4619b5dd066deb2b98e98a57b3398f3309a', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(175680, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (41, 41, 6, 'EOD-SEED-LOANP-0001-D', 'DEBIT', 5000.0000, 125000.0000, 120000.0000, 'c856726d05405655a4ac17b43b9a100b9ca738c42dd27ed9f850076615b302bc', '090bc44ea0bd8caa749cc2557adc1af2926b543f8253cc0e84a615181ffbdbf0', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+VALUES (41, 41, 9001, 'REF-INIT-007-D', 'DEBIT', 60000.0000, 999081950.0000, 999021950.0000, 'cff4952de3e3275fecc4492e6cb43750dd4fee7e3773db39284ca40af46e9494', 'd05e88eb6785f6d600c21fc3da784969aaf3932653ec923da0e665c361f0f5fb', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (42, 42, 9004, 'EOD-SEED-LOANP-0001-C', 'CREDIT', 5000.0000, 999850450.0000, 999855450.0000, 'd577921a9349ce846357fc90325aeb0358eecaa9ebf6bbc66e518535c2c6adbb', '21cf208813345c0bb7041b27d1751799512324ce97a0e93987b832fcc187f94c', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+VALUES (42, 42, 7, 'REF-INIT-007', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '2d56fc48bafd867f65a7f7758a8b6e5c11863a8c714826b19a97be8c59091d84', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (43, 43, 4, 'TX-SEED-0004-D', 'DEBIT', 10000.0000, 75850.0000, 65850.0000, 'b409b1c71a747708ed84231daa3389c5f84f19cddb532b02affbe957b7343bdc', '7d27b7a41aac10ba2c5c2598147e3b1c5b5b4ad67cddffbb66d83e96e6842074', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+VALUES (43, 43, 9001, 'REF-INIT-008-D', 'DEBIT', 45000.0000, 999021950.0000, 998976950.0000, 'd05e88eb6785f6d600c21fc3da784969aaf3932653ec923da0e665c361f0f5fb', '66b6bf23199c1ae75b7e0c2396019a62376d705ce4006aac8290e8c755af96e7', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (44, 44, 5, 'TX-SEED-0004-C', 'CREDIT', 10000.0000, 36200.0000, 46200.0000, '323af20df187736935580e3837d1977771291ae234f9cd6c2eeecf97b4b52e16', 'a917ba69e506670bfc4ddf867b3dc328d06f8766f327fc4a054c191e425a7131', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+VALUES (44, 44, 8, 'REF-INIT-008', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'bd2efcbdeed09578d20d6dc066b6ce9e0cc626ebf03a919531465a9d3cc26bcc', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(172800, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (45, 45, 9002, 'EOD-SEED-INT-0001-D', 'DEBIT', 11.6400, 1000000000.0000, 999999988.3600, '0000000000000000000000000000000000000000000000000000000000000000', '90ed4f2d54412187a39d9fbceff6cafd89922c62c116733eaf54b42c17b43fce', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+VALUES (45, 45, 9001, 'REF-INIT-032-D', 'DEBIT', 55000.0000, 998976950.0000, 998921950.0000, '66b6bf23199c1ae75b7e0c2396019a62376d705ce4006aac8290e8c755af96e7', 'b692a2bccbfb132821d7fcf4734529a51e4dd71e12e300461691e9ae5f225289', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(169920, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (46, 46, 4, 'EOD-SEED-INT-0001-C', 'CREDIT', 11.6400, 65850.0000, 65861.6400, '7d27b7a41aac10ba2c5c2598147e3b1c5b5b4ad67cddffbb66d83e96e6842074', 'c5566656c54c1f3f7fecfb5c05f7799e69de6702f713c87331f9504d96e1e62b', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+VALUES (46, 46, 32, 'REF-INIT-032', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '3df2aac3216e6d6ece618d344182a368476acef751cf2ec662068640537460a1', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(169920, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (47, 47, 13, 'EOD-SEED-FEE-0001-D', 'DEBIT', 50.0000, 8050.0000, 8000.0000, '5fa0eca552749a37547fdedd99933d6836ee883c6331f4ce8b42b3a560e295f0', 'aa2f8eb5cca00a68521153a80f4d84ba86e89a2a2a2fb9f8de563c9f05b61b91', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+VALUES (47, 47, 9001, 'REF-INIT-033-D', 'DEBIT', 30000.0000, 998921950.0000, 998891950.0000, 'b692a2bccbfb132821d7fcf4734529a51e4dd71e12e300461691e9ae5f225289', 'fc51d24b4317e97194a140253abb17b0686dad9f6e53542d4b7725234169566f', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(164160, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (48, 48, 9003, 'EOD-SEED-FEE-0001-C', 'CREDIT', 50.0000, 1000000000.0000, 1000000050.0000, '0000000000000000000000000000000000000000000000000000000000000000', '72bc3199cd6c7c17a0f8a1afc71714da2aff048a7ba82bc0447f1603446ed7e2', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+VALUES (48, 48, 33, 'REF-INIT-033', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '78bef798f76b905181c666d0ac5c0f93307aca538e34caf06a859876121075c9', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(164160, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (49, 49, 16, 'TX-SEED-0005-D', 'DEBIT', 1500.0000, 35000.0000, 33500.0000, 'df3f99f74361417d47e8430f74c30c8836ca4d3c13cdaf2e9cfec4a3178acdd3', '1c0a8eb9a173b7126e3bf6542b1d336a74e770442681e9479d6df893440c3171', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+VALUES (49, 49, 9001, 'REF-INIT-016-D', 'DEBIT', 35000.0000, 998891950.0000, 998856950.0000, 'fc51d24b4317e97194a140253abb17b0686dad9f6e53542d4b7725234169566f', 'fef85d24169ded97f32e83c020b02d57ce1a1c4dce8b06d5bf2ce9e3593f07d6', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (50, 50, 5, 'TX-SEED-0005-C', 'CREDIT', 1500.0000, 46200.0000, 47700.0000, 'a917ba69e506670bfc4ddf867b3dc328d06f8766f327fc4a054c191e425a7131', '926b3df4b2e311ac580b301f254385cbe4ad629ec96726fd8728fc04bf63a424', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+VALUES (50, 50, 16, 'REF-INIT-016', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '013c3d79e226cf0705a47d4545bdec4aa0775bba70ce3652bb73b899b1a023c6', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (51, 51, 16, 'RV-SEED-0001-C', 'REVERSAL_CREDIT', 1500.0000, 33500.0000, 35000.0000, '1c0a8eb9a173b7126e3bf6542b1d336a74e770442681e9479d6df893440c3171', 'd981ff6114426105927b00357ddd0ba91dc9051a95238183db10a1b7f88802c3', 2, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'));
+VALUES (51, 51, 9001, 'REF-INIT-034-D', 'DEBIT', 65000.0000, 998856950.0000, 998791950.0000, 'fef85d24169ded97f32e83c020b02d57ce1a1c4dce8b06d5bf2ce9e3593f07d6', 'd4858647aa7c10b41b1c350f9c92f6ad09343ecf909eb635c0a61b7ede0d3560', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (52, 52, 5, 'RV-SEED-0001-D', 'REVERSAL_DEBIT', 1500.0000, 47700.0000, 46200.0000, '926b3df4b2e311ac580b301f254385cbe4ad629ec96726fd8728fc04bf63a424', '02540895676e7587f2cb075e340ac271cfd06c3693129a8212012ce6a69a82a0', 2, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'));
+VALUES (52, 52, 34, 'REF-INIT-034', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '7693fee482fa6504ccec9e3e58c575aee865f1aadace51f3eda562c63bba644a', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(158400, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (53, 53, 9005, 'IB-SEED-IN-0001-D', 'DEBIT', 7500.0000, 1000000000.0000, 999992500.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'cb257315173ffcfcc6c9187e640fb6aac4b3bb5dfe07d56a13ed45b9bb758c61', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'));
+VALUES (53, 53, 9001, 'REF-INIT-035-D', 'DEBIT', 40000.0000, 998791950.0000, 998751950.0000, 'd4858647aa7c10b41b1c350f9c92f6ad09343ecf909eb635c0a61b7ede0d3560', '4544b6327f8377ea54a21eb2fa2b3c16238a819ef9720f6cdf8d6e7b0564b7cb', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(152640, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (54, 54, 4, 'IB-SEED-IN-0001-C', 'CREDIT', 7500.0000, 65861.6400, 73361.6400, 'c5566656c54c1f3f7fecfb5c05f7799e69de6702f713c87331f9504d96e1e62b', 'e7b52643174e714ea4e817e13435e823cfefba6e59131023391100bc9c813b9d', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'));
+VALUES (54, 54, 35, 'REF-INIT-035', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '4af6d5da49b2ece3ae566a4b741c2381daa9711a2690ebf52d83f7a13fd4124f', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(152640, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (55, 55, 5, 'TX-SEED-0011-D', 'DEBIT', 2000.0000, 46200.0000, 44200.0000, '02540895676e7587f2cb075e340ac271cfd06c3693129a8212012ce6a69a82a0', 'd83bebb2e7e4971751c9b86892704be2b41e214c16a03579dde0dc970c63fcdc', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+VALUES (55, 55, 9001, 'REF-INIT-036-D', 'DEBIT', 75000.0000, 998751950.0000, 998676950.0000, '4544b6327f8377ea54a21eb2fa2b3c16238a819ef9720f6cdf8d6e7b0564b7cb', '2ad920a256daad77c82c84f369da52a7cc59a0b890f1af88c560d29205e2bcf1', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(146880, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (56, 56, 9005, 'TX-SEED-0011-C', 'CREDIT', 2000.0000, 999992500.0000, 999994500.0000, 'cb257315173ffcfcc6c9187e640fb6aac4b3bb5dfe07d56a13ed45b9bb758c61', '597b89ea53e9fb0b75f2922c83015a38aa2db28e3f408890bd7a5155f8f198ae', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+VALUES (56, 56, 36, 'REF-INIT-036', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '124a80978ad75eaef0461559ee6edbdc7a50001136b24cca6da19fb5b1e6566d', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(146880, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (57, 57, 5, 'TX-SEED-0012-D', 'DEBIT', 3000.0000, 44200.0000, 41200.0000, 'd83bebb2e7e4971751c9b86892704be2b41e214c16a03579dde0dc970c63fcdc', '9409c5b99e4da6d1d7155fd911d32ee44dfadfda2942e95b60e334f059584f48', 2, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
+VALUES (57, 57, 9001, 'REF-INIT-018-D', 'DEBIT', 5000.0000, 998676950.0000, 998671950.0000, '2ad920a256daad77c82c84f369da52a7cc59a0b890f1af88c560d29205e2bcf1', '36134ac200d2e252a69c508e5bbb59defc4046f1b63549b4ade655a910185d69', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
 INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
-VALUES (58, 58, 9001, 'TX-SEED-0012-C', 'CREDIT', 3000.0000, 999484300.0000, 999487300.0000, '632b274c9dbfbb5a5df6d3ebce36375abde9d0bf56edd810265450fda5b0d627', 'd2d135355c0b4efe7bc4ceec3e367a877bb8ff3f5aeb4aa3e4f00ff68b872586', 2, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
+VALUES (58, 58, 18, 'REF-INIT-018', 'INITIAL_DEPOSIT', 5000.0000, 0.0000, 5000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '5a046c24416beac43c7b25dc1f7ec26fafe6cafa2937d54d5f4178a5ff85f909', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(144000, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (59, 59, 9001, 'REF-INIT-037-D', 'DEBIT', 50000.0000, 998671950.0000, 998621950.0000, '36134ac200d2e252a69c508e5bbb59defc4046f1b63549b4ade655a910185d69', 'c27f5fdd3cf7107d55cfb64d65ce8908783d4500bdc02c0d9d0cd403c348ba9e', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(141120, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (60, 60, 37, 'REF-INIT-037', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'dd9d1d68be70800339e5f6969a14c46fe497331e0ac446683a90ba565daadc95', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(141120, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (61, 61, 9001, 'REF-INIT-038-D', 'DEBIT', 25000.0000, 998621950.0000, 998596950.0000, 'c27f5fdd3cf7107d55cfb64d65ce8908783d4500bdc02c0d9d0cd403c348ba9e', '3f8571be3de43b1503423dc6f85268a681308d8a4a49f68c89d9593138b38fe2', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(135360, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (62, 62, 38, 'REF-INIT-038', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '644de2576b05469c7adc66ac707c86352b8955a92ac2148256c2de3f013f5015', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(135360, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (63, 63, 9001, 'REF-INIT-009-D', 'DEBIT', 150.0000, 998596950.0000, 998596800.0000, '3f8571be3de43b1503423dc6f85268a681308d8a4a49f68c89d9593138b38fe2', '661c1f77bf976ba9b5f80dd89e74d8016d53c9b7cf0d737cdde67a277c016476', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (64, 64, 9, 'REF-INIT-009', 'INITIAL_DEPOSIT', 150.0000, 0.0000, 150.0000, '0000000000000000000000000000000000000000000000000000000000000000', '07317e8d6318f595900f76b06e8a31a5429bbe7eb0095738ed1294df9b9e5c78', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (65, 65, 9001, 'REF-INIT-039-D', 'DEBIT', 60000.0000, 998596800.0000, 998536800.0000, '661c1f77bf976ba9b5f80dd89e74d8016d53c9b7cf0d737cdde67a277c016476', 'd328a8a3c1456500860a38fe4c24ec5c2d0007d8cac73ae6a51920555460a371', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (66, 66, 39, 'REF-INIT-039', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'dd9e81f253dbf22c6cd90ce438add2032217156094acda6cb59dac0a098ceb2a', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(129600, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (67, 67, 9001, 'REF-INIT-040-D', 'DEBIT', 35000.0000, 998536800.0000, 998501800.0000, 'd328a8a3c1456500860a38fe4c24ec5c2d0007d8cac73ae6a51920555460a371', '9687eae1c90e66588ac57859ff00476d0ad29ad48b8a2649adb4d183114ce99f', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(123840, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (68, 68, 40, 'REF-INIT-040', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '00348e977774cbe14a5a3a28d984744580d879a674fa0f6d5cce58bebb08a77c', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(123840, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (69, 69, 9001, 'REF-INIT-041-D', 'DEBIT', 70000.0000, 998501800.0000, 998431800.0000, '9687eae1c90e66588ac57859ff00476d0ad29ad48b8a2649adb4d183114ce99f', '26193f9c662ef49378f482a0a1cff682cb8d9f320a27c901628e2a1effe5a9b4', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(118080, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (70, 70, 41, 'REF-INIT-041', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '4f7085171b19ecdf8deb8f4d5a224bbd203af8e577a81ab91912b9cae400fbae', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(118080, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (71, 71, 9001, 'REF-INIT-042-D', 'DEBIT', 45000.0000, 998431800.0000, 998386800.0000, '26193f9c662ef49378f482a0a1cff682cb8d9f320a27c901628e2a1effe5a9b4', 'dfe2396665c049434d4c5a996d7c9169feb69d472b5a5914038a71f50ad8fec6', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(112320, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (72, 72, 42, 'REF-INIT-042', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '44b3c86f8acb9f3db50079e8521682bc9be4a7fba2fe32043e0d0fbd88eafb7b', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(112320, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (73, 73, 9001, 'REF-INIT-043-D', 'DEBIT', 20000.0000, 998386800.0000, 998366800.0000, 'dfe2396665c049434d4c5a996d7c9169feb69d472b5a5914038a71f50ad8fec6', 'ad1645cae01bb9d6e2c05df2ab65797e4511537539a9e170ebd8be266e6cbc15', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(106560, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (74, 74, 43, 'REF-INIT-043', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'c2d90af5bdd244ba26c8aa24122fca2dbe767c0450283447a3a27654d25b517c', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(106560, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (75, 75, 9004, 'REF-LOAN-006-D', 'DEBIT', 125000.0000, 1000000000.0000, 999875000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'd5c740a9268009d1697765ba3b9c28edae89341c8fa5addaea110c9135606ae0', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (76, 76, 6, 'REF-LOAN-006', 'CREDIT', 125000.0000, 0.0000, 125000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '9a2fdea6955dca9a2dbb224894b480ad855cd149da74327f1ff0121b717fb82c', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (77, 77, 9001, 'REF-INIT-044-D', 'DEBIT', 55000.0000, 998366800.0000, 998311800.0000, 'ad1645cae01bb9d6e2c05df2ab65797e4511537539a9e170ebd8be266e6cbc15', 'be57b3d74fa01d29510a4a91acd67cf97295ee7eef754e5f89544dce33ecfbcf', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (78, 78, 44, 'REF-INIT-044', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'b9fba010577f3c0460b8b904a983039daa3ae105e1cb31eb70de5f8c4b79974b', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(100800, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (79, 79, 9001, 'REF-INIT-045-D', 'DEBIT', 30000.0000, 998311800.0000, 998281800.0000, 'be57b3d74fa01d29510a4a91acd67cf97295ee7eef754e5f89544dce33ecfbcf', '5fd7feec98e63d06ec016e284491744b75d4e9601cdeb3d1a4cc47bfac39a13a', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(95040, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (80, 80, 45, 'REF-INIT-045', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'ed4b4b05c7c162e7af73abac854a9f223e59b50c51393fd143d0273c9b2607ed', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(95040, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (81, 81, 9001, 'REF-INIT-046-D', 'DEBIT', 65000.0000, 998281800.0000, 998216800.0000, '5fd7feec98e63d06ec016e284491744b75d4e9601cdeb3d1a4cc47bfac39a13a', '0492f0f0416eb3b1a04ef1a90faadaff9e7725367efeae7c170aba5233f28145', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(89280, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (82, 82, 46, 'REF-INIT-046', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '92d7eb4e4e0d6be70c6be9f4b9c3e1748fd8514b27344f7ccbd3ecd9ee95af41', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(89280, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (83, 83, 9001, 'REF-INIT-012-D', 'DEBIT', 30000.0000, 998216800.0000, 998186800.0000, '0492f0f0416eb3b1a04ef1a90faadaff9e7725367efeae7c170aba5233f28145', '7d5d505954677f714e71b6289a44f89c37f41aa70a4f3e403ba447d6d533ef49', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(86400, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (84, 84, 12, 'REF-INIT-012', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '1d925cc398ebe94a89fdef831c59277a95d761cc6528894ff171b65d94535f2d', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(86400, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (85, 85, 9001, 'REF-INIT-047-D', 'DEBIT', 40000.0000, 998186800.0000, 998146800.0000, '7d5d505954677f714e71b6289a44f89c37f41aa70a4f3e403ba447d6d533ef49', '3a1483bb681d40bcbd8da2eb151b4eebc0e07cec0eec8d3b0240ba2439b5030f', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(83520, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (86, 86, 47, 'REF-INIT-047', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '2cb316e870d9f2e9a9843817f245cda9d4c5bb4b5a1fcb02805e779f930d19b9', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(83520, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (87, 87, 9001, 'REF-INIT-048-D', 'DEBIT', 75000.0000, 998146800.0000, 998071800.0000, '3a1483bb681d40bcbd8da2eb151b4eebc0e07cec0eec8d3b0240ba2439b5030f', '65afed8c462e9e9d79872bbb5dc391bcfab0d593890d233b0faee4a80a88b37a', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(77760, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (88, 88, 48, 'REF-INIT-048', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'f315ab25370e3940e497b94db28ac510c2bbe42d9447f2b1a4885326a89554ce', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(77760, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (89, 89, 9001, 'REF-INIT-049-D', 'DEBIT', 50000.0000, 998071800.0000, 998021800.0000, '65afed8c462e9e9d79872bbb5dc391bcfab0d593890d233b0faee4a80a88b37a', '2a89e6c84ad41cc278f3f804a447de45d3ab5bea7d1b14bd90d12e343e6526c7', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(72000, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (90, 90, 49, 'REF-INIT-049', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'f4a0653f95b1a34c704891beaaaf95ac4443abc0cd51c850f53a0a4860bee682', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(72000, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (91, 91, 9001, 'REF-INIT-050-D', 'DEBIT', 25000.0000, 998021800.0000, 997996800.0000, '2a89e6c84ad41cc278f3f804a447de45d3ab5bea7d1b14bd90d12e343e6526c7', 'e17298d2820ccf1676aa11b91c834aa89d92ff54957d9f620b0d6758e8d256d5', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(66240, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (92, 92, 50, 'REF-INIT-050', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '65de7f8c9fbf40f205175d73e35a205b42b889919cb036d6b5bc43fe6b9d3447', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(66240, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (93, 93, 9001, 'REF-INIT-051-D', 'DEBIT', 60000.0000, 997996800.0000, 997936800.0000, 'e17298d2820ccf1676aa11b91c834aa89d92ff54957d9f620b0d6758e8d256d5', 'f8e95418eabb7e64690a17da2f95dec22dda23af2d41b5da3a97572fd0100efa', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(60480, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (94, 94, 51, 'REF-INIT-051', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'd8fd022fa0f4a513c3bfa0493aa0194af99dbd4407a5262bc45b5af4d668c341', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(60480, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (95, 95, 9001, 'REF-INIT-052-D', 'DEBIT', 35000.0000, 997936800.0000, 997901800.0000, 'f8e95418eabb7e64690a17da2f95dec22dda23af2d41b5da3a97572fd0100efa', '194cca298389e92678065ec33917678d0d6f14fd68fbe8cf61ba5c322cadf0b5', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(54720, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (96, 96, 52, 'REF-INIT-052', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'a9f363a078b87b69d93662d2f5a46cddc8836ae9d5b55df500020059fd7d7cc0', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(54720, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (97, 97, 9001, 'REF-INIT-053-D', 'DEBIT', 70000.0000, 997901800.0000, 997831800.0000, '194cca298389e92678065ec33917678d0d6f14fd68fbe8cf61ba5c322cadf0b5', 'd27dda3ab0bb736b3887be4568e131f2bcfb29b13f947126d7d1829585fd02a3', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(48960, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (98, 98, 53, 'REF-INIT-053', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'c9d290ac5bacf6f716279d5e4b767cff123474110645ffe16dcace9d29b0deec', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(48960, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (99, 99, 9004, 'REF-LOAN-010-D', 'DEBIT', 30000.0000, 999875000.0000, 999845000.0000, 'd5c740a9268009d1697765ba3b9c28edae89341c8fa5addaea110c9135606ae0', 'b14748f2036e781d19f78ede849ca5086d0cf56b5969d12900b8d7bd4661e883', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (100, 100, 10, 'REF-LOAN-010', 'CREDIT', 30000.0000, 0.0000, 30000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '120703199fa29c86275db518a7677557715106e48a1be9d07fcd32bf266280e0', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (101, 101, 9001, 'REF-INIT-054-D', 'DEBIT', 45000.0000, 997831800.0000, 997786800.0000, 'd27dda3ab0bb736b3887be4568e131f2bcfb29b13f947126d7d1829585fd02a3', 'aa6eb9a624b6b715b69479af888fa090f9e936fe0073dd31ea987adaf43cfa1f', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (102, 102, 54, 'REF-INIT-054', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, '0000000000000000000000000000000000000000000000000000000000000000', '0224d9bbab5b5f53263ba91c1885d895db92b97ae08855ca492d9d02e05220d5', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(43200, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (103, 103, 9001, 'REF-INIT-017-D', 'DEBIT', 12500.0000, 997786800.0000, 997774300.0000, 'aa6eb9a624b6b715b69479af888fa090f9e936fe0073dd31ea987adaf43cfa1f', '57217e43e3e396ba859859d31bd2e6e266a685c1270ba53d22dececf4a31fd0e', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(40320, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (104, 104, 17, 'REF-INIT-017', 'INITIAL_DEPOSIT', 12500.0000, 0.0000, 12500.0000, '0000000000000000000000000000000000000000000000000000000000000000', '15d1c4196e1191ec53f60c6d2df41f9eaeb63f5ed41e4ef3476a70acbb45614d', 1, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(40320, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (105, 105, 4, 'TX-SEED-0001-D', 'DEBIT', 2500.0000, 85000.0000, 82500.0000, '633270760f288dc097427c771336afc033cfe410f962af4d6305cb6c4ab51698', 'a0e7f292e4bb7186c80f6c65b357c0007c6360387cfe2ad08b675880d93bf368', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (106, 106, 7, 'TX-SEED-0001-C', 'CREDIT', 2500.0000, 60000.0000, 62500.0000, '2d56fc48bafd867f65a7f7758a8b6e5c11863a8c714826b19a97be8c59091d84', 'f0dc73be003c15750ebb52ad7a07848f3c1bc58c0021af3137a3a5c0f1f8a00d', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(36600, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (107, 107, 4, 'TX-SEED-0002-D', 'DEBIT', 1200.0000, 82500.0000, 81300.0000, 'a0e7f292e4bb7186c80f6c65b357c0007c6360387cfe2ad08b675880d93bf368', '85d1971ff6db7a19f0c4637f8b0b37f2233dbf90ac61f7510c970835f9873b61', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (108, 108, 17, 'TX-SEED-0002-C', 'CREDIT', 1200.0000, 12500.0000, 13700.0000, '15d1c4196e1191ec53f60c6d2df41f9eaeb63f5ed41e4ef3476a70acbb45614d', 'bef7f29df90c9792dc04f098876d71664c329a8f4ccbb55f16d11844f271e1c4', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(29340, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (109, 109, 5, 'TX-SEED-0003-D', 'DEBIT', 3800.0000, 40000.0000, 36200.0000, '42d0b59af3a5d6a0e1644ecc9d03fb02883fa883d087678396fc9535c126866b', 'f8cfb6138f883d4bdf5eede6ccf40a17e9b380d26f6fc00b14436edcdcf49a30', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (110, 110, 8, 'TX-SEED-0003-C', 'CREDIT', 3800.0000, 45000.0000, 48800.0000, 'bd2efcbdeed09578d20d6dc066b6ce9e0cc626ebf03a919531465a9d3cc26bcc', 'f1c1c1d76ea6b83688536ba9ce7892057f00f3481ebf79453616b89e83151938', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(22080, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (111, 111, 4, 'EOD-SEED-LOAN-0001-D', 'DEBIT', 5450.0000, 81300.0000, 75850.0000, '85d1971ff6db7a19f0c4637f8b0b37f2233dbf90ac61f7510c970835f9873b61', '4a172cdf7b530d1d05de83f7f3173299b57fb34d72849f494ba8a512f24b7045', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (112, 112, 9004, 'EOD-SEED-LOAN-0001-C', 'CREDIT', 5450.0000, 999845000.0000, 999850450.0000, 'b14748f2036e781d19f78ede849ca5086d0cf56b5969d12900b8d7bd4661e883', '207e1e1f6c22aa182e1244475a9ccf3e438557e7d28dc859aae6585c7397bafc', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (113, 113, 6, 'EOD-SEED-LOANP-0001-D', 'DEBIT', 5000.0000, 125000.0000, 120000.0000, '9a2fdea6955dca9a2dbb224894b480ad855cd149da74327f1ff0121b717fb82c', 'a7f3283ff9878a2ea18be7ced5a10143aa03a157c72ab003b2b0f22f1a3e5f2a', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (114, 114, 9004, 'EOD-SEED-LOANP-0001-C', 'CREDIT', 5000.0000, 999850450.0000, 999855450.0000, '207e1e1f6c22aa182e1244475a9ccf3e438557e7d28dc859aae6585c7397bafc', 'b70e3c440487f8061e4762418f2f7b1e91448c76d21147e1339bf32fcbd80cb3', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(14460, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (115, 115, 4, 'TX-SEED-0004-D', 'DEBIT', 10000.0000, 75850.0000, 65850.0000, '4a172cdf7b530d1d05de83f7f3173299b57fb34d72849f494ba8a512f24b7045', '1e194d39b49281cde441dd143ab53acd4a20d178dc1e1b0fb988e607d3546ac2', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (116, 116, 5, 'TX-SEED-0004-C', 'CREDIT', 10000.0000, 36200.0000, 46200.0000, 'f8cfb6138f883d4bdf5eede6ccf40a17e9b380d26f6fc00b14436edcdcf49a30', 'd287ac1adc2b99f1f3f90becf6a7f3f21b78852fcb03526673226e3a96cafb06', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(10500, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (117, 117, 9002, 'EOD-SEED-INT-0001-D', 'DEBIT', 11.6400, 1000000000.0000, 999999988.3600, '0000000000000000000000000000000000000000000000000000000000000000', '76a78d452a951a0ffb245cd346735a4cdb74a11efbcc3a7b58d0089d8f5a369d', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (118, 118, 4, 'EOD-SEED-INT-0001-C', 'CREDIT', 11.6400, 65850.0000, 65861.6400, '1e194d39b49281cde441dd143ab53acd4a20d178dc1e1b0fb988e607d3546ac2', '7ceee21db8e43598aca3bacf5a922e687bd3b131f54f7ca5766cf32822e5be84', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(8690, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (119, 119, 13, 'EOD-SEED-FEE-0001-D', 'DEBIT', 50.0000, 8050.0000, 8000.0000, '5fa0eca552749a37547fdedd99933d6836ee883c6331f4ce8b42b3a560e295f0', '00940db2550c2817cb8645e5103d2a380f3a3f5ddb185e22ff030cac9fd3fd71', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (120, 120, 9003, 'EOD-SEED-FEE-0001-C', 'CREDIT', 50.0000, 1000000000.0000, 1000000050.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'e87a3ba9b5616ef381b63374b2a2d2a3456f0df3b2c270c35fe93713b81f329d', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(8689, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (121, 121, 16, 'TX-SEED-0005-D', 'DEBIT', 1500.0000, 35000.0000, 33500.0000, '013c3d79e226cf0705a47d4545bdec4aa0775bba70ce3652bb73b899b1a023c6', '79c7f0eee890f29e657390c14f000cfc273cbe76f47dc078920b35be755ef063', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (122, 122, 5, 'TX-SEED-0005-C', 'CREDIT', 1500.0000, 46200.0000, 47700.0000, 'd287ac1adc2b99f1f3f90becf6a7f3f21b78852fcb03526673226e3a96cafb06', '264d06e7c1969bcc46cbd612634a695ffe65c5cdb2358d6a145a9d7d5a57f09a', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(7500, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (123, 123, 16, 'RV-SEED-0001-C', 'REVERSAL_CREDIT', 1500.0000, 33500.0000, 35000.0000, '79c7f0eee890f29e657390c14f000cfc273cbe76f47dc078920b35be755ef063', '831558f8b36d49b3a9f6929e774f97d02a430ea4e3954e1706610ebb520a52ef', 2, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (124, 124, 5, 'RV-SEED-0001-D', 'REVERSAL_DEBIT', 1500.0000, 47700.0000, 46200.0000, '264d06e7c1969bcc46cbd612634a695ffe65c5cdb2358d6a145a9d7d5a57f09a', 'c05786ea64b31a67a62300ff00b68d05a00e92c852b957ebd797d28d7481f899', 2, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(5960, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (125, 125, 9005, 'IB-SEED-IN-0001-D', 'DEBIT', 7500.0000, 1000000000.0000, 999992500.0000, '0000000000000000000000000000000000000000000000000000000000000000', 'd88e4af5f0a8bacb0cb752d4565916e980a8df351fbb140b47180658e5eb84e0', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (126, 126, 4, 'IB-SEED-IN-0001-C', 'CREDIT', 7500.0000, 65861.6400, 73361.6400, '7ceee21db8e43598aca3bacf5a922e687bd3b131f54f7ca5766cf32822e5be84', '59c2bac2e5cf332ac9e31f21cb155fa2c8a5ebdad55642d60d750a9b247f75d4', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1940, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (127, 127, 5, 'TX-SEED-0011-D', 'DEBIT', 2000.0000, 46200.0000, 44200.0000, 'c05786ea64b31a67a62300ff00b68d05a00e92c852b957ebd797d28d7481f899', '52baea73dc63b06b9b5b562b6a0c62371fd3b2acc892ceb866b035e1144836dd', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (128, 128, 9005, 'TX-SEED-0011-C', 'CREDIT', 2000.0000, 999992500.0000, 999994500.0000, 'd88e4af5f0a8bacb0cb752d4565916e980a8df351fbb140b47180658e5eb84e0', 'cddf7f1e020e8467f876821a0494d62a46e08ff5214ae26ec8f1812d9f62811e', NULL, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1840, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (129, 129, 5, 'TX-SEED-0012-D', 'DEBIT', 3000.0000, 44200.0000, 41200.0000, '52baea73dc63b06b9b5b562b6a0c62371fd3b2acc892ceb866b035e1144836dd', '3728417cd2bf36f370c48966dcb922575777302a9db657c0aa68effccbcceab3', 2, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
+INSERT INTO LEDGER_MUTATION_AUDIT (audit_id, transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, previous_hash, current_hash, actor_id, client_ip, event_timestamp)
+VALUES (130, 130, 9001, 'TX-SEED-0012-C', 'CREDIT', 3000.0000, 997774300.0000, 997777300.0000, '57217e43e3e396ba859859d31bd2e6e266a685c1270ba53d22dececf4a31fd0e', 'b7730cd463882659db26a4a49fff800efce6e77563da0bb4a2d23ae0a0d8ea7b', 2, '127.0.0.1', SYSTIMESTAMP - NUMTODSINTERVAL(1530, 'MINUTE'));
 
 -- 14. DAILY_AUDIT_SEAL
 INSERT INTO DAILY_AUDIT_SEAL (seal_id, business_date, last_audit_id, seal_hash, sealed_at)
-VALUES (1, TRUNC(CURRENT_DATE) - 6, 48, 'e5e7dcc665981b3f3223ae3961a67647c64467e76e4936c8d2facedaf5e53e9a', SYSTIMESTAMP - NUMTODSINTERVAL(8640, 'MINUTE'));
+VALUES (1, TRUNC(CURRENT_DATE) - 6, 120, 'e4c3d26fb275930a6fe28da025e5b46cede891d7b9978b0244296d2dbcf53e79', SYSTIMESTAMP - NUMTODSINTERVAL(8640, 'MINUTE'));
 
 -- 15. TXN_TRANSACTION
 INSERT INTO TXN_TRANSACTION (transaction_id, reference_no, idempotency_key, channel, customer_id, source_account_id, destination_account_id, destination_account_number, amount, currency, category, remarks, status, failure_code, reverses_transaction_id, created_at, completed_at)
@@ -1066,7 +1750,7 @@ VALUES (1, 11, 'Reported lost passbook; frozen pending identity re-verification'
 INSERT INTO ACCOUNT_FLAG (flag_id, account_id, reason, status, flagged_by, removed_by, flagged_at, removed_at)
 VALUES (2, 8, 'Unusual number of small incoming transfers; reviewed and cleared', 'REMOVED', 3, 1, SYSTIMESTAMP - NUMTODSINTERVAL(57600, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(54720, 'MINUTE'));
 INSERT INTO TRANSACTION_FLAG (flag_id, transaction_id, reason, status, flagged_by, flagged_at)
-VALUES (1, 37, 'Amount unusual for this account; kept for review', 'FLAGGED', 2, SYSTIMESTAMP - NUMTODSINTERVAL(22050, 'MINUTE'));
+VALUES (1, 109, 'Amount unusual for this account; kept for review', 'FLAGGED', 2, SYSTIMESTAMP - NUMTODSINTERVAL(22050, 'MINUTE'));
 INSERT INTO ACCOUNT_CLOSURE_REQUEST (closure_request_id, account_id, reason, status, approved_by, rejection_reason, requested_at, reviewed_at)
 VALUES (1, 14, 'Consolidating into one account', 'APPROVED', 1, NULL, SYSTIMESTAMP - NUMTODSINTERVAL(17280, 'MINUTE'), SYSTIMESTAMP - NUMTODSINTERVAL(15840, 'MINUTE'));
 INSERT INTO ACCOUNT_CLOSURE_REQUEST (closure_request_id, account_id, reason, status, approved_by, rejection_reason, requested_at, reviewed_at)

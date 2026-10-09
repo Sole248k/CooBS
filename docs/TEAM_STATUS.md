@@ -17,7 +17,7 @@ The foundations are in: all eleven services build, every database has its schema
 | API contract | Frozen at tag `contracts-v1`. Every endpoint, payload, event, enumeration and error code | [`contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md`](../contracts/api/FUTURE_INTEGRATED_API_CONTRACT.md) |
 | Contract examples | 61 JSON files, one per example, named by endpoint ID. Use them as fixtures, Postman bodies and test data | [`contracts/examples/`](../contracts/examples/) |
 | Runtime settings | Ports, service URL variables, database names and connection variables, with the `application.properties` lines to copy | [`contracts/runtime/RUNTIME_SETTINGS.md`](../contracts/runtime/RUNTIME_SETTINGS.md) |
-| Seed data | 14 members, 3 staff, 18 accounts, 5 GL accounts, the same IDs in every store. Password for every login is in the reference | [`database/seed/SEED_REFERENCE.md`](../database/seed/SEED_REFERENCE.md) |
+| Seed data | 50 members, 3 staff, 54 accounts, 5 GL accounts, the same IDs in every store. Password for every login is in the reference | [`database/seed/SEED_REFERENCE.md`](../database/seed/SEED_REFERENCE.md) |
 | Cloud databases | `identity_db`, `customer_db`, `transaction_db` (schemas `txn`, `saga`), `notification_db`, with tables and seed | `database/postgres-cloud/` |
 | Rebuilt on-premises schema | Oracle without `USER` and `ROLE`, with `HOLD` and `OUTBOX`; audit store plus the `batch` schema | `database/next/`, switched on with `docker-compose.target.yml` |
 | Service skeletons | `customer-service`, `transaction-service`, `orchestration-service`, `risk-engine`, `batch-service`: security classes, health check, Dockerfile. No endpoints yet | `backend/<service>/` |

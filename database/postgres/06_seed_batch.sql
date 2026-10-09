@@ -69,7 +69,7 @@ VALUES (6, 10, CURRENT_DATE + (30), 2500.0000, 250.0000, 'PENDING');
 -- Daily seal written by run 2: the hash of the business date and the last audit hash of that day
 INSERT INTO audit_store.daily_audit_seal (seal_id, business_date, last_audit_id, seal_hash, sealed_at)
 SELECT 1, CURRENT_DATE - 6, a.audit_id, encode(digest((CURRENT_DATE - 6)::text || '|' || a.current_hash, 'sha256'), 'hex'), now() - interval '8689 minutes'
-FROM audit_store.ledger_mutation_audit a WHERE a.transaction_id = 48;
+FROM audit_store.ledger_mutation_audit a WHERE a.transaction_id = 120;
 
 -- Runtime IDs start above the seeded range
 SELECT setval(pg_get_serial_sequence('batch.batch_run', 'batch_run_id'), 100, false);
