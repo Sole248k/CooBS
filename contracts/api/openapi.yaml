@@ -1,0 +1,1787 @@
+openapi: 3.0.3
+info:
+  title: CooBS Retail Banking Platform API
+  description: |
+    # Cooperative Core Banking System (CooBS) API Testing Console
+    Comprehensive interactive OpenAPI 3.0 specification for all 12 microservices and domain modules.
+    
+    ### How to Test with JWT Authentication:
+    1. Navigate to **1. Auth & Security** -> `POST /api/v1/auth/customers/login` (or `POST /api/v1/auth/staff/login`).
+    2. Click **Try it out**, enter username `john_doe` and password `Password123!` (or staff credentials), and click **Execute**.
+    3. Copy the `accessToken` from the response body.
+    4. Scroll to the top of this page, click the green **Authorize** button, paste the token, and click **Authorize**.
+    5. All subsequent requests in any microservice section will automatically include the `Authorization: Bearer <token>` header!
+  version: 1.0.0
+  contact:
+    name: Group 2 Platform Engineering
+servers:
+  - url: http://localhost:8080
+    description: API Gateway (Edge Ingress & Token-Bucket Rate Limiter - Port 8080)
+  - url: http://localhost:8081
+    description: Auth Service (Port 8081)
+  - url: http://localhost:8082
+    description: Account Service (Port 8082)
+  - url: http://localhost:8083
+    description: Ledger Service (Port 8083)
+  - url: http://localhost:8084
+    description: Notification Service (Port 8084)
+  - url: http://localhost:8085
+    description: Audit Service (Port 8085)
+  - url: http://localhost:8089
+    description: Customer Service (Port 8089)
+  - url: http://localhost:8090
+    description: Transaction Service (Port 8090)
+  - url: http://localhost:8091
+    description: Orchestration Service (Port 8091)
+  - url: http://localhost:8092
+    description: Risk Engine (Port 8092)
+  - url: http://localhost:8093
+    description: Batch Service (Port 8093)
+  - url: http://localhost:8094
+    description: Mobile BFF (Port 8094)
+  - url: http://localhost:8095
+    description: Staff BFF (Port 8095)
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ============================================================================
+  # 1. AUTH SERVICE (:8081)
+  # ============================================================================
+  /api/v1/auth/customers/login:
+    post:
+      tags:
+        - "1. Auth & Security"
+      summary: Customer Login
+      description: Authenticates cooperative members and issues JWT access and refresh tokens.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: "john_doe"
+              password: "Password123!"
+              preferredChannel: "SMS"
+      responses:
+        '200':
+          description: Successfully authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+        '401':
+          description: Invalid username or password.
+
+  /api/v1/auth/staff/login:
+    post:
+      tags:
+        - "1. Auth & Security"
+      summary: Staff Login
+      description: Authenticates internal employees (Tellers, Compliance Officers, Admins).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: "teller_1"
+              password: "Password123!"
+      responses:
+        '200':
+          description: Staff login successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+        '401':
+          description: Unauthorized.
+
+  /api/v1/auth/customers/mfa/verify:
+    post:
+      tags:
+        - "1. Auth & Security"
+      summary: Customer MFA Verification
+      description: Verifies 6-digit TOTP/OTP token when 2FA is required.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+      responses:
+        '200':
+          description: MFA successfully verified; tokens issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthData'
+
+  /api/v1/auth/token/refresh:
+    post:
+      tags:
+        - "1. Auth & Security"
+      summary: Refresh Access Token
+      description: Exchanges an unexpired refresh token for a fresh 15-minute JWT access token.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthData'
+
+  /api/v1/auth/token/revoke:
+    post:
+      tags:
+        - "1. Auth & Security"
+      summary: Logout / Revoke Token
+      description: Blacklists the calling JWT in Redis until its natural expiration.
+      responses:
+        '204':
+          description: Successfully logged out and blacklisted.
+
+  /api/v1/auth/token/me:
+    get:
+      tags:
+        - "1. Auth & Security"
+      summary: Current Session Profile
+      description: Returns identity, permissions, and session claims parsed from the Bearer token.
+      responses:
+        '200':
+          description: User session details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  # ============================================================================
+  # 2. CUSTOMER SERVICE (:8089)
+  # ============================================================================
+  /api/v1/customers/me:
+    get:
+      tags:
+        - "2. Customers & KYC"
+      summary: Get Logged-In Customer Profile & KYC
+      description: Fetches member profile, KYC status, and personal details.
+      responses:
+        '200':
+          description: Customer profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+
+  /api/v1/customers/{customerId}:
+    get:
+      tags:
+        - "2. Customers & KYC"
+      summary: Get Customer by ID (Staff Only)
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Customer details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerProfile'
+
+  /api/v1/customers/kyc/submit:
+    post:
+      tags:
+        - "2. Customers & KYC"
+      summary: Submit Member KYC Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KycSubmitRequest'
+      responses:
+        '201':
+          description: KYC submitted and pending review.
+
+  /api/v1/customers/kyc/update-request:
+    post:
+      tags:
+        - "2. Customers & KYC"
+      summary: Request Legal Information Update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KycUpdateRequest'
+      responses:
+        '202':
+          description: Update request queued.
+
+  /api/v1/customers/kyc/update-requests:
+    get:
+      tags:
+        - "2. Customers & KYC"
+      summary: List Pending KYC Update Requests (Staff Queue)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            default: PENDING
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated queue of KYC requests.
+
+  /api/v1/customers/kyc/update-requests/{id}/approve:
+    post:
+      tags:
+        - "2. Customers & KYC"
+      summary: Approve KYC Update Request (Staff Only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: KYC request approved and applied.
+
+  /api/v1/customers/kyc/update-requests/{id}/reject:
+    post:
+      tags:
+        - "2. Customers & KYC"
+      summary: Reject KYC Update Request (Staff Only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rejectionReason:
+                  type: string
+                  example: "ID document expired or unreadable"
+      responses:
+        '200':
+          description: KYC request rejected.
+
+  /api/v1/customers/{customerId}/beneficiaries:
+    get:
+      tags:
+        - "2. Customers & KYC"
+      summary: List Saved Beneficiaries
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: List of verified transfer recipients.
+    post:
+      tags:
+        - "2. Customers & KYC"
+      summary: Add Saved Beneficiary
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nickname
+                - accountNumber
+              properties:
+                nickname:
+                  type: string
+                  example: "Maria Savings"
+                accountNumber:
+                  type: string
+                  example: "ACC_1002"
+                bankCode:
+                  type: string
+                  example: "COOBS_PH"
+      responses:
+        '201':
+          description: Beneficiary saved.
+
+  # ============================================================================
+  # 3. ACCOUNT SERVICE (:8082)
+  # ============================================================================
+  /api/v1/accounts:
+    post:
+      tags:
+        - "3. Accounts & Holds"
+      summary: Open New Bank Account (Staff Only)
+      description: Creates a new retail banking account (SAVINGS, CHECKING, LOAN).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Account created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+    get:
+      tags:
+        - "3. Accounts & Holds"
+      summary: List All Accounts (Staff Overview)
+      responses:
+        '200':
+          description: List of institutional accounts.
+
+  /api/v1/accounts/my-accounts:
+    get:
+      tags:
+        - "3. Accounts & Holds"
+      summary: List Accounts Owned by Current Member
+      description: Primary account overview endpoint for web and mobile dashboards.
+      responses:
+        '200':
+          description: List of user accounts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AccountResponse'
+
+  /api/v1/accounts/{accountId}:
+    get:
+      tags:
+        - "3. Accounts & Holds"
+      summary: Get Account Details
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Account details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+
+  /api/v1/accounts/{accountId}/status:
+    patch:
+      tags:
+        - "3. Accounts & Holds"
+      summary: Update Account Status (Staff Only)
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, FROZEN, DORMANT, CLOSED]
+                  example: "FROZEN"
+      responses:
+        '200':
+          description: Account status updated.
+
+  /api/v1/accounts/{accountId}/closure-request:
+    post:
+      tags:
+        - "3. Accounts & Holds"
+      summary: Submit Account Closure Request
+      description: Initiates closure workflow. Account balance must be zero.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  example: "Relocating abroad"
+      responses:
+        '202':
+          description: Closure request accepted and pending approval.
+
+  /api/v1/accounts/{accountId}/flags:
+    get:
+      tags:
+        - "3. Accounts & Holds"
+      summary: List Account Compliance Flags & Holds
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: List of active flags.
+    post:
+      tags:
+        - "3. Accounts & Holds"
+      summary: Impose Administrative Hold / Flag (Staff Only)
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  example: "High velocity suspicious transfer"
+      responses:
+        '201':
+          description: Flag placed on account.
+
+  /api/v1/accounts/{accountId}/flags/{flagId}:
+    delete:
+      tags:
+        - "3. Accounts & Holds"
+      summary: Lift Administrative Hold / Flag (Admin Only)
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: flagId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 12
+      responses:
+        '200':
+          description: Flag successfully lifted.
+
+  # ============================================================================
+  # 4. LEDGER SERVICE (:8083)
+  # ============================================================================
+  /api/v1/ledger/accounts/{accountId}/balance:
+    get:
+      tags:
+        - "4. Ledger & Accounting"
+      summary: Real-Time Available Balance (Redis Cached)
+      description: Sub-millisecond balance query backed by 10s Redis TTL cache.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Account balance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+
+  /api/v1/ledger/debits:
+    post:
+      tags:
+        - "4. Ledger & Accounting"
+      summary: Execute Single-Account Cash Debit
+      description: Pessimistic row-locking withdrawal or fee deduction with PostgreSQL audit dual-write.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebitCreditRequest'
+      responses:
+        '201':
+          description: Debit successfully executed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebitCreditResponse'
+        '422':
+          description: Insufficient funds.
+
+  /api/v1/ledger/credits:
+    post:
+      tags:
+        - "4. Ledger & Accounting"
+      summary: Execute Single-Account Cash Credit
+      description: Atomically increments balance with PostgreSQL forensic audit dual-write.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "e91d4fae-7dec-11d0-a765-00a0c91e6bf7"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebitCreditRequest'
+      responses:
+        '201':
+          description: Credit successfully executed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebitCreditResponse'
+
+  /api/v1/ledger/transfers:
+    post:
+      tags:
+        - "4. Ledger & Accounting"
+      summary: Atomic Double-Entry Internal Transfer
+      description: Deterministically ordered row-locking transfer between two accounts with Kafka event broadcast.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "d12d4fae-7dec-11d0-a765-00a0c91e6bf8"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LedgerTransferRequest'
+      responses:
+        '201':
+          description: Transfer complete.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerTransferResponse'
+
+  # ============================================================================
+  # 5. TRANSACTION SERVICE (:8090)
+  # ============================================================================
+  /api/v1/transactions/transfers:
+    post:
+      tags:
+        - "5. Transactions & Transfers"
+      summary: High-Level Transfer Intake (P2P & Remittance)
+      description: Public transfer ingress initiating validation, fraud evaluation, and saga execution.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "a81d4fae-7dec-11d0-a765-00a0c91e6bf0"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionTransferRequest'
+      responses:
+        '202':
+          description: Transfer initiated and queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionTransferResponse'
+
+  /api/v1/transactions/{transactionId}/timeline:
+    get:
+      tags:
+        - "5. Transactions & Transfers"
+      summary: Transaction Milestone Lifecycle Timeline
+      description: Returns chronological progression through saga stages (INITIATED -> FRAUD_CHECK -> POSTED).
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "TX-20261003-8821"
+      responses:
+        '200':
+          description: Chronological stage events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionTimelineResponse'
+
+  /api/v1/transactions/{transactionId}/reverse:
+    post:
+      tags:
+        - "5. Transactions & Transfers"
+      summary: Initiate Transaction Reversal
+      description: Triggers compensating transaction saga to undo a previously posted transfer.
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "TX-20261003-8821"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  example: "Duplicate payment dispute resolved"
+      responses:
+        '202':
+          description: Reversal initiated.
+
+  /api/v1/transactions/dlq/messages:
+    get:
+      tags:
+        - "5. Transactions & Transfers"
+      summary: Inspect Dead-Letter Queue (DLQ) Messages
+      description: Administrative monitoring of poisoned or unprocessable messages across all topics.
+      responses:
+        '200':
+          description: List of dead-lettered messages.
+
+  /api/v1/transactions/dlq/replay:
+    post:
+      tags:
+        - "5. Transactions & Transfers"
+      summary: Replay Dead-Letter Queue (DLQ) Message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - messageId
+              properties:
+                messageId:
+                  type: string
+                  example: "dlq-msg-881"
+      responses:
+        '200':
+          description: Message re-queued to primary topic.
+
+  /api/v1/interbank/transfers:
+    post:
+      tags:
+        - "5. Transactions & Transfers"
+      summary: Inter-Bank Inbound Transfer Webhook
+      description: Cryptographically signed webhook receiving funds from partner financial institutions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sendingBankCode
+                - externalReference
+                - destinationAccountNumber
+                - amount
+                - currency
+              properties:
+                sendingBankCode:
+                  type: string
+                  example: "BDO_PH"
+                externalReference:
+                  type: string
+                  example: "EXT-TX-99882"
+                destinationAccountNumber:
+                  type: string
+                  example: "ACC_1001"
+                amount:
+                  type: string
+                  example: "5000.00"
+                currency:
+                  type: string
+                  example: "PHP"
+                remarks:
+                  type: string
+                  example: "Interbank Settlement"
+      responses:
+        '201':
+          description: Inter-bank transfer received and credited.
+
+  # ============================================================================
+  # 6. ORCHESTRATION SERVICE (:8091)
+  # ============================================================================
+  /api/v1/orchestration/transfers:
+    post:
+      tags:
+        - "6. Saga Orchestration"
+      summary: Coordinate Distributed Transfer Saga
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - transactionId
+                - sourceAccountId
+                - destinationAccountId
+                - amount
+              properties:
+                transactionId:
+                  type: string
+                  example: "TX-20261003-8821"
+                sourceAccountId:
+                  type: integer
+                  example: 1
+                destinationAccountId:
+                  type: integer
+                  example: 2
+                amount:
+                  type: string
+                  example: "2500.00"
+      responses:
+        '200':
+          description: Saga step outcome.
+
+  # ============================================================================
+  # 7. RISK & FRAUD ENGINE (:8092)
+  # ============================================================================
+  /api/v1/risk/evaluate:
+    post:
+      tags:
+        - "7. Fraud & Risk Scoring"
+      summary: Real-Time Fraud & Anomaly Scoring (P95 < 40ms)
+      description: Evaluates transaction velocity, historical baseline, and IP geofencing to return APPROVE or DECLINE.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RiskEvaluationRequest'
+      responses:
+        '200':
+          description: Risk decision and score.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskEvaluationResponse'
+
+  # ============================================================================
+  # 8. NOTIFICATION SERVICE (:8084)
+  # ============================================================================
+  /api/v1/notifications/my-notifications:
+    get:
+      tags:
+        - "8. In-App Notifications"
+      summary: Customer In-App Notification Feed
+      parameters:
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated notifications.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPageResponse'
+
+  /api/v1/notifications/{id}/read:
+    patch:
+      tags:
+        - "8. In-App Notifications"
+      summary: Mark Notification as Read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 881
+      responses:
+        '200':
+          description: Notification marked read.
+
+  /api/v1/notifications/unread-count:
+    get:
+      tags:
+        - "8. In-App Notifications"
+      summary: Get Unread Alerts Badge Count
+      responses:
+        '200':
+          description: Unread count.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId:
+                    type: integer
+                    example: 1
+                  unreadCount:
+                    type: integer
+                    example: 3
+
+  # ============================================================================
+  # 9. AUDIT SERVICE (:8085)
+  # ============================================================================
+  /api/v1/audit/accounts/{accountId}/statement:
+    get:
+      tags:
+        - "9. Forensic Audit & Compliance"
+      summary: Cryptographic Account Audit Statement
+      description: Historical balance mutation entries with SHA-256 digital fingerprint signatures.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Cryptographic audit trail statement.
+
+  /api/v1/audit/transactions/{transactionId}:
+    get:
+      tags:
+        - "9. Forensic Audit & Compliance"
+      summary: Forensic Single Transaction Audit
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "TX-20261003-8821"
+      responses:
+        '200':
+          description: Detailed actor and IP audit record.
+
+  /api/v1/audit/verify-chain/{accountId}:
+    get:
+      tags:
+        - "9. Forensic Audit & Compliance"
+      summary: Verify Tamper-Proof Audit Chain Integrity
+      description: Iterates through all cryptographic hashes in PostgreSQL audit_store to mathematically verify no rows were tampered with.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Verification outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChainVerificationResponse'
+
+  # ============================================================================
+  # 10. BATCH SERVICE (:8093)
+  # ============================================================================
+  /api/v1/batch/eod/run:
+    post:
+      tags:
+        - "10. End-of-Day Batch Operations"
+      summary: Trigger End-of-Day (EOD) Batch Pipeline
+      description: Executes Interest Accrual, Standing Instructions, Fee Assessment, and Loan Amortization.
+      responses:
+        '200':
+          description: Batch execution report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchRunResponse'
+
+  /api/v1/batch/eod/runs/{runId}:
+    get:
+      tags:
+        - "10. End-of-Day Batch Operations"
+      summary: Get Batch Run Status & Step Details
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Step execution progress.
+
+  # ============================================================================
+  # 11. MOBILE BFF (:8094)
+  # ============================================================================
+  /api/v1/mobile/dashboard:
+    get:
+      tags:
+        - "11. Mobile BFF"
+      summary: Mobile Composite Dashboard (< 150ms)
+      description: Concurrently aggregates member profile, primary account, available balance, unread alerts, and recent transactions.
+      responses:
+        '200':
+          description: Composite dashboard response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileDashboardResponse'
+
+  /api/v1/mobile/transactions/{trackingReference}/timeline:
+    get:
+      tags:
+        - "11. Mobile BFF"
+      summary: 3-Stage Milestone Stepper Timeline
+      description: Maps microservice states into friendly member milestones (SUBMITTED, IN_REVIEW, COMPLETED).
+      parameters:
+        - name: trackingReference
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "TX-20261003-8821"
+      responses:
+        '200':
+          description: Member milestone timeline.
+
+  /api/v1/mobile/transactions/remittance:
+    post:
+      tags:
+        - "11. Mobile BFF"
+      summary: Mobile Remittance Submission Intake
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sourceAccountId
+                - destinationAccountNumber
+                - amount
+              properties:
+                sourceAccountId:
+                  type: integer
+                  example: 1
+                destinationAccountNumber:
+                  type: string
+                  example: "ACC_1002"
+                amount:
+                  type: string
+                  example: "1500.00"
+                remarks:
+                  type: string
+                  example: "Mobile Remittance"
+      responses:
+        '202':
+          description: Remittance queued.
+
+  # ============================================================================
+  # 12. STAFF BFF (:8095)
+  # ============================================================================
+  /api/v1/staff/customers/{customerId}/360:
+    get:
+      tags:
+        - "12. Staff BFF"
+      summary: Customer 360 Aggregation (Teller / Admin)
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Unified Customer 360 profile with accounts and activity.
+
+  /api/v1/staff/counter/deposit:
+    post:
+      tags:
+        - "12. Staff BFF"
+      summary: Teller Counter Cash Deposit
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - amount
+              properties:
+                accountId:
+                  type: integer
+                  example: 1
+                amount:
+                  type: number
+                  example: 1000.00
+                remarks:
+                  type: string
+                  example: "Over-the-counter deposit"
+      responses:
+        '201':
+          description: Deposit credited.
+
+  /api/v1/staff/counter/withdraw:
+    post:
+      tags:
+        - "12. Staff BFF"
+      summary: Teller Counter Cash Withdrawal
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accountId
+                - amount
+              properties:
+                accountId:
+                  type: integer
+                  example: 1
+                amount:
+                  type: number
+                  example: 500.00
+                remarks:
+                  type: string
+                  example: "Over-the-counter cash withdrawal"
+      responses:
+        '201':
+          description: Cash dispensed.
+
+  /api/v1/staff/queues/summary:
+    get:
+      tags:
+        - "12. Staff BFF"
+      summary: Teller & Admin Work Queues Summary
+      responses:
+        '200':
+          description: Pending KYC, closure, and flag counts.
+
+  /api/v1/staff/admin/overview:
+    get:
+      tags:
+        - "12. Staff BFF"
+      summary: Admin Institution Metrics & Volume
+      responses:
+        '200':
+          description: Total balance, member count, active accounts, and volume.
+
+  # ============================================================================
+  # 13. SYSTEM OBSERVABILITY & ACTUATORS
+  # ============================================================================
+  /actuator/health:
+    get:
+      tags:
+        - "13. System Health & Observability"
+      summary: API Gateway System Health
+      security: []
+      responses:
+        '200':
+          description: Health indicators (UP/DOWN).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "UP"
+
+  /actuator/info:
+    get:
+      tags:
+        - "13. System Health & Observability"
+      summary: Application Metadata & Build Info
+      security: []
+      responses:
+        '200':
+          description: Application information.
+
+  /actuator/prometheus:
+    get:
+      tags:
+        - "13. System Health & Observability"
+      summary: Prometheus Scrape Target
+      security: []
+      responses:
+        '200':
+          description: Standard Prometheus text format metrics.
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT access token received from /api/v1/auth/customers/login or /api/v1/auth/staff/login."
+    IdempotencyKey:
+      type: apiKey
+      name: Idempotency-Key
+      in: header
+      description: "Mandatory UUIDv4 header for financial mutations."
+    CorrelationId:
+      type: apiKey
+      name: X-Correlation-ID
+      in: header
+      description: "Distributed tracing correlation ID."
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "john_doe"
+        password:
+          type: string
+          example: "Password123!"
+        preferredChannel:
+          type: string
+          example: "SMS"
+
+    LoginResult:
+      type: object
+      properties:
+        mfaRequired:
+          type: boolean
+          example: false
+        mfaToken:
+          type: string
+          nullable: true
+          example: null
+        deliveryChannel:
+          type: string
+          nullable: true
+          example: null
+        maskedDestination:
+          type: string
+          nullable: true
+          example: null
+        authData:
+          $ref: '#/components/schemas/AuthData'
+
+    AuthData:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        tokenType:
+          type: string
+          example: "Bearer"
+        expiresIn:
+          type: integer
+          example: 900
+        userId:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "john_doe"
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["ROLE_CUSTOMER"]
+        userType:
+          type: string
+          example: "CUSTOMER"
+
+    MfaVerifyRequest:
+      type: object
+      required:
+        - mfaToken
+        - code
+      properties:
+        mfaToken:
+          type: string
+          example: "mfa-session-uuid-1234"
+        code:
+          type: string
+          example: "482910"
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+
+    UserProfile:
+      type: object
+      properties:
+        userId:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "john_doe"
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["ROLE_CUSTOMER"]
+        userType:
+          type: string
+          example: "CUSTOMER"
+
+    CustomerProfile:
+      type: object
+      properties:
+        customerId:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "john_doe"
+        email:
+          type: string
+          example: "john.doe@example.com"
+        kycStatus:
+          type: string
+          example: "VERIFIED"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-15T08:00:00Z"
+        kyc:
+          type: object
+          properties:
+            firstName:
+              type: string
+              example: "John"
+            lastName:
+              type: string
+              example: "Doe"
+            mobileNumber:
+              type: string
+              example: "09171234567"
+            address:
+              type: string
+              example: "123 Ayala Avenue, Makati City"
+
+    KycSubmitRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - mobileNumber
+        - address
+      properties:
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        middleInitial:
+          type: string
+          example: "A"
+        mobileNumber:
+          type: string
+          example: "09171234567"
+        address:
+          type: string
+          example: "123 Ayala Avenue, Makati City"
+        civilStatus:
+          type: string
+          example: "SINGLE"
+        occupation:
+          type: string
+          example: "Senior Software Engineer"
+
+    KycUpdateRequest:
+      type: object
+      required:
+        - changeReason
+      properties:
+        changeReason:
+          type: string
+          example: "Updated permanent residential address"
+        address:
+          type: string
+          example: "456 BGC High Street, Taguig City"
+        mobileNumber:
+          type: string
+          example: "09181234567"
+
+    CreateAccountRequest:
+      type: object
+      required:
+        - customerId
+        - accountType
+      properties:
+        customerId:
+          type: integer
+          example: 1
+        accountType:
+          type: string
+          enum: [SAVINGS, CHECKING, LOAN]
+          example: "SAVINGS"
+        currency:
+          type: string
+          default: "PHP"
+          example: "PHP"
+
+    AccountResponse:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          example: 1
+        accountNumber:
+          type: string
+          example: "ACC_1001"
+        accountType:
+          type: string
+          example: "SAVINGS"
+        availableBalance:
+          type: number
+          example: 14750.50
+        currency:
+          type: string
+          example: "PHP"
+        status:
+          type: string
+          example: "ACTIVE"
+        customerId:
+          type: integer
+          example: 1
+        customerName:
+          type: string
+          example: "John Doe"
+
+    BalanceResponse:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          example: 1
+        currency:
+          type: string
+          example: "PHP"
+        availableBalance:
+          type: number
+          example: 14750.50
+        asOfTimestamp:
+          type: string
+          format: date-time
+          example: "2026-10-09T09:00:00Z"
+        isCached:
+          type: boolean
+          example: true
+
+    DebitCreditRequest:
+      type: object
+      required:
+        - accountId
+        - amount
+        - referenceNo
+      properties:
+        accountId:
+          type: integer
+          example: 1
+        amount:
+          type: number
+          example: 500.00
+        referenceNo:
+          type: string
+          example: "TX-20261009-001"
+        remarks:
+          type: string
+          example: "Counter Cash Transaction"
+
+    DebitCreditResponse:
+      type: object
+      properties:
+        transactionId:
+          type: integer
+          example: 5001
+        accountId:
+          type: integer
+          example: 1
+        transactionType:
+          type: string
+          example: "DEBIT"
+        amount:
+          type: number
+          example: 500.00
+        previousBalance:
+          type: number
+          example: 14750.50
+        newBalance:
+          type: number
+          example: 14250.50
+        referenceNo:
+          type: string
+          example: "TX-20261009-001"
+        status:
+          type: string
+          example: "COMPLETED"
+
+    LedgerTransferRequest:
+      type: object
+      required:
+        - sourceAccountId
+        - destinationAccountId
+        - amount
+        - referenceNo
+      properties:
+        sourceAccountId:
+          type: integer
+          example: 1
+        destinationAccountId:
+          type: integer
+          example: 2
+        amount:
+          type: number
+          example: 2500.00
+        referenceNo:
+          type: string
+          example: "TX-20261009-8821"
+        remarks:
+          type: string
+          example: "Internal Coop Member Transfer"
+
+    LedgerTransferResponse:
+      type: object
+      properties:
+        transferReference:
+          type: string
+          example: "TX-20261009-8821"
+        status:
+          type: string
+          example: "SUCCESS"
+        sourceAccountId:
+          type: integer
+          example: 1
+        destinationAccountId:
+          type: integer
+          example: 2
+        amount:
+          type: number
+          example: 2500.00
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-10-09T09:00:00Z"
+
+    TransactionTransferRequest:
+      type: object
+      required:
+        - sourceAccountId
+        - destinationAccountNumber
+        - amount
+      properties:
+        sourceAccountId:
+          type: integer
+          example: 1
+        destinationAccountNumber:
+          type: string
+          example: "ACC_1002"
+        amount:
+          type: string
+          example: "2500.00"
+        currency:
+          type: string
+          example: "PHP"
+        remarks:
+          type: string
+          example: "P2P Coop Remittance"
+
+    TransactionTransferResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          example: "TX-20261009-8821"
+        status:
+          type: string
+          example: "PROCESSING"
+        referenceNo:
+          type: string
+          example: "REF-99210-COOP"
+        message:
+          type: string
+          example: "Transfer submitted and currently undergoing risk evaluation"
+
+    TransactionTimelineResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          example: "TX-20261009-8821"
+        status:
+          type: string
+          example: "POSTED"
+        stages:
+          type: array
+          items:
+            type: object
+            properties:
+              stageNo:
+                type: integer
+                example: 1
+              stageName:
+                type: string
+                example: "INITIATED"
+              service:
+                type: string
+                example: "transaction-service"
+              outcome:
+                type: string
+                example: "PASSED"
+              occurredAt:
+                type: string
+                format: date-time
+                example: "2026-10-09T09:00:00Z"
+
+    RiskEvaluationRequest:
+      type: object
+      required:
+        - transactionId
+        - customerId
+        - amount
+      properties:
+        transactionId:
+          type: string
+          example: "TX-20261009-8821"
+        customerId:
+          type: integer
+          example: 1
+        amount:
+          type: string
+          example: "2500.00"
+        channel:
+          type: string
+          example: "APP"
+
+    RiskEvaluationResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          example: "TX-20261009-8821"
+        decision:
+          type: string
+          enum: [APPROVE, DECLINE]
+          example: "APPROVE"
+        score:
+          type: integer
+          example: 12
+        evaluationLatencyMs:
+          type: number
+          example: 8.5
+
+    NotificationPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+            properties:
+              notificationId:
+                type: integer
+                example: 881
+              title:
+                type: string
+                example: "Transfer Sent"
+              message:
+                type: string
+                example: "PHP 2,500.00 sent to ACC_1002"
+              isRead:
+                type: boolean
+                example: false
+        totalElements:
+          type: integer
+          example: 1
+
+    ChainVerificationResponse:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          example: 1
+        totalRecordsVerified:
+          type: integer
+          example: 42
+        isChainIntact:
+          type: boolean
+          example: true
+        latestHash:
+          type: string
+          example: "a3f5b8e9c1d0e5f2a1b4c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8"
+
+    BatchRunResponse:
+      type: object
+      properties:
+        runId:
+          type: integer
+          example: 1
+        status:
+          type: string
+          example: "COMPLETED"
+        stepsCompleted:
+          type: integer
+          example: 6
+        totalSteps:
+          type: integer
+          example: 6
+
+    MobileDashboardResponse:
+      type: object
+      properties:
+        customerId:
+          type: integer
+          example: 1
+        customerName:
+          type: string
+          example: "John Doe"
+        primaryAccount:
+          $ref: '#/components/schemas/AccountResponse'
+        unreadNotificationsCount:
+          type: integer
+          example: 2
+        recentTransactions:
+          type: array
+          items:
+            type: object
