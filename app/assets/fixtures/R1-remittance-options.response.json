@@ -16,8 +16,8 @@
       "code": "COOBS",
       "name": "CooBS (same bank)",
       "fee": 0.0,
-      "accountPattern": "^ACC_\\d{8}$",
-      "accountHint": "ACC_ followed by 8 digits"
+      "accountPattern": "^(?i)ACC[-_]?\\d{4,8}$",
+      "accountHint": "ACC followed by account digits"
     },
     {
       "code": "BDO",

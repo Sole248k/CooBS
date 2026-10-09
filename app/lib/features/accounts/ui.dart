@@ -16,14 +16,17 @@ Widget tf(TextEditingController c, String l, {TextInputType? k, ValueChanged<Str
     padding: const EdgeInsets.only(bottom: 12),
     child: TextField(key: ValueKey(l), controller: c, keyboardType: k, onChanged: ch, obscureText: obscure, decoration: InputDecoration(labelText: l)));
 
-Widget dd(String l, List<String> o, String? v, ValueChanged<String?> f) => Padding(
+Widget dd(String l, List<String> o, String? v, ValueChanged<String?> f) {
+  final effectiveValue = (v != null && o.contains(v)) ? v : (o.isNotEmpty ? o.first : null);
+  return Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: DropdownButtonFormField<String>(
-        key: ValueKey(l),
-        initialValue: v,
+        key: ValueKey('$l-$effectiveValue'),
+        initialValue: effectiveValue,
         items: [for (final x in o) DropdownMenuItem(value: x, child: Text(x))],
         onChanged: f,
         decoration: InputDecoration(labelText: l)));
+}
 
 Widget bigBtn(String t, VoidCallback? f) => Padding(
     padding: const EdgeInsets.only(top: 12),
@@ -36,7 +39,7 @@ Widget tag(String t, int g) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
     decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        gradient: LinearGradient(colors: grads[g])),
+        gradient: LinearGradient(colors: grads[g % grads.length])),
     child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)));
 
 Widget statRow(String k, String v) => Padding(
@@ -66,12 +69,14 @@ Widget miniTag(String t) => Container(
 
 Widget txRow(Tx x) {
   final out = x.amt < 0;
+  final now = DateTime.now();
+  final isToday = x.date.year == now.year && x.date.month == now.month && x.date.day == now.day;
   return ListTile(
     leading: CircleAvatar(
         backgroundColor: out ? const Color(0xFFFBE9E7) : const Color(0xFFE4EDFF),
         child: Icon(out ? Icons.north_east : Icons.south_west, size: 18, color: out ? kRed : kNavy)),
     title: Text(x.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-    subtitle: Text('${x.ref} · ${x.date == today ? 'Today' : fmt(x.date)}'),
+    subtitle: Text('${x.ref} · ${isToday ? 'Today' : fmt(x.date)}'),
     trailing: Text('${out ? '-' : '+'}${peso(x.amt.abs())}',
         style: TextStyle(fontWeight: FontWeight.w600, color: out ? kRed : kNavy)),
   );

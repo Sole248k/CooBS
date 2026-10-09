@@ -29,16 +29,23 @@ export async function getAccounts(): Promise<Account[]> {
       headers: coreClient.getAuthHeaders()
     });
     if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data)) {
+      let data = await res.json();
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        if (Array.isArray(data.data)) data = data.data;
+        else if (Array.isArray(data.items)) data = data.items;
+        else if (Array.isArray(data.content)) data = data.content;
+        else if (data.accountId || data.accountNumber) data = [data];
+      }
+      if (Array.isArray(data) && data.length > 0) {
+        const session = coreClient.getSession();
         localAccounts = data.map((acc: any) => ({
-          accountId: acc.accountId,
-          accountNumber: acc.accountNumber,
+          accountId: Number(acc.accountId) || 1,
+          accountNumber: acc.accountNumber || '',
           accountType: acc.accountType || 'SAVINGS',
           balance: acc.balance !== undefined ? Number(acc.balance) : Number(acc.availableBalance || 0),
           currency: acc.currency || 'PHP',
           status: acc.status || 'ACTIVE',
-          customerId: acc.customerId,
+          customerId: acc.customerId || session?.userId || 1,
           customerName: acc.customerName,
           createdAt: acc.createdAt
         }));
@@ -51,7 +58,9 @@ export async function getAccounts(): Promise<Account[]> {
 
   const session = coreClient.getSession();
   if (session?.userType === 'CUSTOMER') {
-    return localAccounts.filter(a => a.customerId === 1);
+    const targetCid = session.userId || 1;
+    const filtered = localAccounts.filter(a => a.customerId === targetCid);
+    if (filtered.length > 0) return filtered;
   }
   return [...localAccounts];
 }

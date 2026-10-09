@@ -22,6 +22,7 @@ Inside Compose a service is reached by its container name. From the host, and wh
 | risk-engine | `risk-engine` | 8092 | Cloud | `expansion` |
 | batch-service | `batch-service` | 8093 | On-premises | `expansion` |
 | mobile-bff | `mobile-bff` | 8094 | Cloud | `expansion` |
+| staff-bff | `staff-bff` | 8095 | Cloud | `expansion` |
 
 | Data store | Container name | Port inside Compose | Host port | Compose profile |
 | --- | --- | --- | --- | --- |
@@ -48,18 +49,20 @@ One variable per target service, holding the base URL with no trailing slash and
 | `RISK_ENGINE_URL` | `http://risk-engine:8092` |
 | `BATCH_SERVICE_URL` | `http://batch-service:8093` |
 | `MOBILE_BFF_URL` | `http://mobile-bff:8094` |
+| `STAFF_BFF_URL` | `http://staff-bff:8095` |
 
 Which service receives which URL follows section 3.2 of the API contract, the list of allowed internal calls:
 
 | Service | Receives |
 | --- | --- |
-| api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch, mobile-bff |
+| api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch, mobile-bff, staff-bff |
 | customer-service | `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL` |
 | transaction-service | `ACCOUNT_SERVICE_URL`, `ORCHESTRATION_SERVICE_URL` |
 | orchestration-service | `CUSTOMER_SERVICE_URL`, `RISK_ENGINE_URL`, `LEDGER_SERVICE_URL` |
 | account-service | `LEDGER_SERVICE_URL` |
 | batch-service | `LEDGER_SERVICE_URL` |
 | mobile-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
+| staff-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `LEDGER_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `AUDIT_SERVICE_URL`, `BATCH_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
 
 In `application.properties`, give the local default so the service also runs from an IDE:
 
@@ -103,6 +106,22 @@ spring.jpa.hibernate.ddl-auto=validate
 ```
 
 `customer-service`, `transaction-service` and `orchestration-service` receive these today. `auth-service` and `notification-service` receive them when their owners move them onto `identity_db` and `notification_db`; until then they keep their current variables.
+
+### Cloud databases on SQL Server (opt-in)
+
+In Azure the four cloud databases are Azure SQL. `docker-compose.azure-sql.yml` runs the same thing locally: a SQL Server 2022 container (`sqlserver-cloud-db`) and a loader for `database/azure-sql/`. The databases, schemas and owning services are the ones in the table above. The override changes no `application.properties`; it supplies Spring's own variables, which take precedence over the PostgreSQL lines there. The five services carry the SQL Server JDBC driver beside the PostgreSQL one, so the same image runs on either.
+
+| Variable | Value in the override | Note |
+| --- | --- | --- |
+| `CLOUD_DB_PASSWORD` | From `.env` | The `sa` password. No default: Compose stops if it is missing. The Kubernetes Secret uses the same name |
+| `SQLSERVER_CLOUD_PORT` | `1433` | Host port, published on `127.0.0.1` only |
+| `SPRING_DATASOURCE_URL` | `jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=<database>;encrypt=true;trustServerCertificate=true;loginTimeout=30` | `trustServerCertificate=true` is for the local container only; Azure SQL uses `false` |
+| `SPRING_DATASOURCE_DRIVER_CLASS_NAME` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` | |
+| `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` | `sa`, `CLOUD_DB_PASSWORD` | |
+| `SPRING_JPA_DATABASE_PLATFORM`, `SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT` | `org.hibernate.dialect.SQLServerDialect` | |
+| `POSTGRES_CLOUD_SCHEMA` | Unchanged: `txn` or `saga` | SQL Server has the same schemas |
+
+`notification-service` takes the same values through its own names: `DATABASE_URL`, `DATABASE_DRIVER`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`.
 
 ### On-premises
 

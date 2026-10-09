@@ -1,0 +1,30 @@
+#cloud-config
+# First boot of the on-premises VM: Docker with the Compose plugin, and a helper that signs
+# Docker in to the container registry with the VM's managed identity. Nothing here starts a
+# service; the Compose file for ledger, account, audit, batch and the two databases is copied
+# to /opt/coobs and started afterwards.
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - curl
+  - jq
+
+write_files:
+  - path: /usr/local/bin/acr-login
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      # Usage: acr-login <registry login server>
+      # Exchanges the VM identity's token for a registry token (the identity holds AcrPull),
+      # so no registry password is stored on the VM.
+      set -eu
+      REGISTRY="$1"
+      TOKEN=$(curl -fsS -H Metadata:true "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F" | jq -r .access_token)
+      REFRESH=$(curl -fsS -X POST --data-urlencode "grant_type=access_token" --data-urlencode "service=$REGISTRY" --data-urlencode "access_token=$TOKEN" "https://$REGISTRY/oauth2/exchange" | jq -r .refresh_token)
+      echo "$REFRESH" | docker login "$REGISTRY" --username 00000000-0000-0000-0000-000000000000 --password-stdin
+
+runcmd:
+  - systemctl enable --now docker
+  - usermod -aG docker __ADMIN_USER__
+  - install -d -m 0750 -o __ADMIN_USER__ -g docker /opt/coobs

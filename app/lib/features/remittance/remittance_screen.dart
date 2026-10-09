@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../data/mobile_repo.dart';
+import '../resilience/service_unavailable_view.dart';
 
 /// Parses "1234.5" into centavos (123450) without floating-point math. Null if invalid.
 int? centavos(String t) {
@@ -30,7 +31,7 @@ class RemittanceScreen extends StatefulWidget {
 class _RemittanceScreenState extends State<RemittanceScreen> {
   late final Future<Map<String, dynamic>> opts = _init();
   late int src = widget.from;
-  final idemKey = const Uuid().v4(), corrId = const Uuid().v4();
+  String idemKey = const Uuid().v4(), corrId = const Uuid().v4();
   final dest = TextEditingController(), amt = TextEditingController(), rem = TextEditingController();
   String bank = 'COOBS', cat = 'TRANSFER';
   Map<String, String> err = {};
@@ -43,7 +44,9 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
   }
 
   Future<void> submit(Map o) async {
-    final a = Demo.i.accts[src];
+    if (Demo.i.accts.isEmpty) return;
+    final safeSrc = src < Demo.i.accts.length ? src : 0;
+    final a = Demo.i.accts[safeSrc];
     final b = (o['banks'] as List).firstWhere((x) => x['code'] == bank) as Map;
     final lim = o['limits'] as Map;
     final e = <String, String>{};
@@ -67,6 +70,12 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     } else if (cents! + fee > bal) {
       problem = await MobileRepo.problem(true);
     } else {
+      final activeIdemKey = idemKey;
+      final activeCorrId = corrId;
+      // Refresh idempotency and correlation identifiers so subsequent transfers never reuse keys
+      idemKey = const Uuid().v4();
+      corrId = const Uuid().v4();
+
       final body = {
         'sourceAccountNumber': a.no,
         'destinationAccountNumber': d,
@@ -76,12 +85,65 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
         'category': cat,
         'remarks': rem.text.trim(),
       };
-      final resp = await MobileRepo.submitRemittance(body);
-      final tl = await MobileRepo.timeline();
-      Demo.i.applyRemittance(src, cents / 100, fee / 100, b['name'] as String, d, resp['referenceNo'] as String);
+
+      final Map<String, dynamic> resp;
+      final Map<String, dynamic> tl;
+      try {
+        resp = await MobileRepo.submitRemittance(body, idempotencyKey: activeIdemKey);
+        final ref = resp['referenceNo'] ?? resp['trackingReference'] ?? '';
+        tl = await MobileRepo.timeline(ref.toString());
+      } on CircuitBreakerOpenException catch (cbe) {
+        if (!mounted) return;
+        setState(() => busy = false);
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => ServiceUnavailableView(cooldown: cbe.remainingCooldown),
+        ));
+        return;
+      } on ProblemDetailsException catch (pde) {
+        if (!mounted) return;
+        if (pde.statusCode == 503) {
+          setState(() => busy = false);
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const ServiceUnavailableView(),
+          ));
+          return;
+        }
+        setState(() {
+          busy = false;
+          problem = {
+            'title': pde.error.title,
+            'errorCode': pde.error.errorCode,
+            'detail': pde.error.detail,
+            'invalidParams': pde.error.invalidParams,
+          };
+        });
+        return;
+      } catch (ex) {
+        if (!mounted) return;
+        if (ex is ConnectionException || (ex is ApiException && ex.statusCode == 503)) {
+          setState(() => busy = false);
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const ServiceUnavailableView(),
+          ));
+          return;
+        }
+        setState(() {
+          busy = false;
+          problem = {
+            'title': 'Submission Failed',
+            'errorCode': 'NETWORK_ERROR',
+            'detail': ex.toString(),
+            'invalidParams': [],
+          };
+        });
+        return;
+      }
+
+      final ref = resp['referenceNo'] ?? resp['trackingReference'] ?? 'TXN-PENDING';
+      Demo.i.applyRemittance(safeSrc, cents / 100, fee / 100, b['name'] as String, d, ref.toString());
       if (!mounted) return;
       setState(() => busy = false);
-      await Navigator.push(context, MaterialPageRoute(builder: (_) => RemittanceResultPage(resp, tl, cents, fee, b['name'] as String, d, idemKey, corrId)));
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => RemittanceResultPage(resp, tl, cents, fee, b['name'] as String, d, activeIdemKey, activeCorrId)));
       return;
     }
     if (mounted) setState(() => busy = false);
@@ -115,16 +177,54 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
           if (snap.hasError) return const Pg('Transfer', [Padding(padding: EdgeInsets.all(30), child: Text('Could not load transfer options.'))]);
           final o = snap.data!, banks = o['banks'] as List;
           final accts = Demo.i.accts;
+          if (accts.isEmpty) {
+            return const Pg('Transfer', [Padding(padding: EdgeInsets.all(30), child: Text('No accounts available for transfer.'))]);
+          }
+          final safeSrc = src < accts.length ? src : 0;
           final labels = [for (final a in accts) '${a.type} · ${a.no} (${peso(a.bal)})'];
           final b = banks.firstWhere((x) => x['code'] == bank) as Map;
           final cents = centavos(amt.text), fee = ((b['fee'] as num) * 100).round();
-          final bal = (accts[src].bal * 100).round();
+          final bal = (accts[safeSrc].bal * 100).round();
           return Pg('Transfer', [
             if (problem != null) banner(problem!),
             const SizedBox(height: 4),
-            dd('From account', labels, labels[src], (x) => setState(() => src = labels.indexOf(x ?? labels[src]))),
+            dd('From account', labels, labels[safeSrc], (x) => setState(() => src = x != null && labels.contains(x) ? labels.indexOf(x) : 0)),
             dd('Destination bank', [for (final x in banks) x['name'] as String], b['name'] as String,
                 (x) => setState(() { bank = banks.firstWhere((y) => y['name'] == x)['code'] as String; err = {}; })),
+            if (Demo.i.bens.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4, top: 4),
+                child: Text('Saved Beneficiaries', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kMut)),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  for (final ben in Demo.i.bens)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8, bottom: 8),
+                      child: ActionChip(
+                        avatar: const CircleAvatar(
+                          backgroundColor: Color(0xFFE4EDFF),
+                          radius: 12,
+                          child: Icon(Icons.person, size: 14, color: kNavy),
+                        ),
+                        label: Text(ben.name),
+                        onPressed: () {
+                          setState(() {
+                            final acctNum = ben.accountNumber ?? (ben.rel.contains('·') ? ben.rel.split('·').last.trim() : '');
+                            if (acctNum.isNotEmpty) dest.text = acctNum;
+                            final bCode = ben.bankCode ?? (ben.rel.contains('·') ? ben.rel.split('·').first.trim() : 'COOBS');
+                            if (banks.any((bk) => bk['code'] == bCode)) {
+                              bank = bCode;
+                            }
+                            err = {};
+                          });
+                        },
+                      ),
+                    ),
+                ]),
+              ),
+            ],
             field(dest, 'Recipient account number', error: err['dest'], hint: b['accountHint'] as String),
             field(amt, 'Amount (₱)', error: err['amt'], k: const TextInputType.numberWithOptions(decimal: true), f: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
             dd('Category', [for (final x in o['categories'] as List) '$x'], cat, (x) => cat = x ?? cat),
@@ -202,27 +302,33 @@ class _RemittanceFormState extends State<RemittanceForm> {
   final ApiClient _apiClient = ApiClient();
 
   late final TextEditingController _sourceController;
-  final TextEditingController _destinationController = TextEditingController(text: 'ACC_10000002');
+  late final TextEditingController _destinationController;
   final TextEditingController _amountController = TextEditingController(text: '100.00');
   final TextEditingController _remarksController = TextEditingController(text: 'Mobile Transfer');
 
   String _destinationBank = 'COOBS';
   bool _isSubmitting = false;
 
-  final List<Map<String, String>> _quickRecipients = [
-    {'name': 'Jane Smith', 'account': 'ACC_10000002'},
-    {'name': 'Juan Dela Cruz', 'account': 'ACC_10000004'},
-    {'name': 'Jose Bautista', 'account': 'ACC_10000008'},
-  ];
+  List<Map<String, String>> get _quickRecipients {
+    final src = _sourceController.text.trim();
+    return [
+      if (src != 'ACC_10000001') {'name': 'John Doe', 'account': 'ACC_10000001'},
+      if (src != 'ACC_10000002') {'name': 'Jane Smith', 'account': 'ACC_10000002'},
+      if (src != 'ACC_10000004') {'name': 'Juan Dela Cruz', 'account': 'ACC_10000004'},
+      if (src != 'ACC_10000008') {'name': 'Jose Bautista', 'account': 'ACC_10000008'},
+    ];
+  }
 
   final List<double> _quickAmounts = [50.0, 100.0, 500.0, 1000.0, 2500.0];
 
   @override
   void initState() {
     super.initState();
-    _sourceController = TextEditingController(
-      text: widget.defaultSourceAccount ?? 'ACC_10000001',
-    );
+    final defaultSource = widget.defaultSourceAccount ??
+        (Demo.i.primaryNo.isNotEmpty ? Demo.i.primaryNo : (Demo.i.accts.isNotEmpty ? Demo.i.accts.first.no : 'ACC_10000001'));
+    _sourceController = TextEditingController(text: defaultSource);
+    final defaultDest = (defaultSource == 'ACC_10000002') ? 'ACC_10000004' : 'ACC_10000002';
+    _destinationController = TextEditingController(text: defaultDest);
   }
 
   @override
@@ -298,6 +404,17 @@ class _RemittanceFormState extends State<RemittanceForm> {
       }
     } catch (e) {
       if (mounted) {
+        if (e is CircuitBreakerOpenException) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => ServiceUnavailableView(cooldown: e.remainingCooldown),
+          ));
+          return;
+        } else if ((e is ApiException && e.statusCode == 503) || e is ConnectionException) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const ServiceUnavailableView(),
+          ));
+          return;
+        }
         final message = e is ApiException
             ? e.message
             : 'Transfer failed. Please check network connection or account status.';

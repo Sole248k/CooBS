@@ -174,8 +174,16 @@ export async function getCustomer360(customerId: number): Promise<Customer360Res
       const data = await res.json();
       // Backend Blocker B3 Handling: customer-service's internal call to account-service may lack
       // authorization credentials, returning an empty accounts list. Gracefully supplement.
+      // Support both StaffCustomer360Response (from staff-bff) and Customer360Response (from customer-service)
       let accounts: Customer360Account[] = Array.isArray(data.accounts) && data.accounts.length > 0
-        ? data.accounts
+        ? data.accounts.map((a: any) => ({
+            accountId: a.accountId,
+            accountNumber: a.accountNumber,
+            accountType: a.accountType,
+            availableBalance: typeof a.availableBalance === 'string' ? parseFloat(a.availableBalance.replace(/[^0-9.-]/g, '')) || 0 : Number(a.availableBalance) || 0,
+            currency: a.currency || 'PHP',
+            status: a.status || 'ACTIVE'
+          }))
         : localAccounts
             .filter(a => a.customerId === customerId)
             .map(a => ({
@@ -191,19 +199,26 @@ export async function getCustomer360(customerId: number): Promise<Customer360Res
         accounts = SEED_CUSTOMER_360[customerId].accounts;
       }
 
-      const totalDeposits = accounts.reduce((sum, a) => sum + (Number(a.availableBalance) || 0), 0);
+      const computedDeposits = accounts.reduce((sum, a) => sum + (Number(a.availableBalance) || 0), 0);
+      const totalDeposits = data.totals?.totalDeposits
+        ? parseFloat(data.totals.totalDeposits.replace(/[^0-9.-]/g, '')) || 0
+        : (data.totalDeposits && data.totalDeposits > 0 ? Number(data.totalDeposits) : computedDeposits);
+
+      const totalLoans = data.totals?.totalLoans
+        ? parseFloat(data.totals.totalLoans.replace(/[^0-9.-]/g, '')) || 0
+        : Number(data.totalLoans || 0);
 
       return {
         customerId: data.customerId || customerId,
-        fullName: data.fullName || data.customerName || `Customer #${customerId}`,
+        fullName: data.displayName || data.fullName || data.customerName || `Customer #${customerId}`,
         email: data.email || `customer${customerId}@coobs.ph`,
-        phoneNumber: data.phoneNumber || data.mobileNumber || '09170000000',
+        phoneNumber: data.phone || data.phoneNumber || data.mobileNumber || '09170000000',
         civilStatus: data.civilStatus || 'SINGLE',
         address: data.address || 'Metro Manila, Philippines',
         kycStatus: data.kycStatus || 'VERIFIED',
-        riskTier: (data.riskTier as any) || (customerId === 2 ? 'MEDIUM' : 'LOW'),
-        totalDeposits: data.totalDeposits && data.totalDeposits > 0 ? Number(data.totalDeposits) : totalDeposits,
-        totalLoans: Number(data.totalLoans || 0),
+        riskTier: (data.riskTier as any) || (data.riskScore && parseFloat(data.riskScore) > 0.5 ? 'HIGH' : customerId === 2 ? 'MEDIUM' : 'LOW'),
+        totalDeposits,
+        totalLoans,
         accounts
       };
     }

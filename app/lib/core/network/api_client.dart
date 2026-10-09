@@ -92,6 +92,57 @@ class ApiClient {
     });
   }
 
+  /// Executes an HTTP PATCH request with fixture interceptor.
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    dynamic body,
+    bool? useFixtures,
+  }) async {
+    final effectiveUseFixtures = useFixtures ?? AppConfig.useFixtures;
+
+    if (effectiveUseFixtures) {
+      return _interceptWithFixture('PATCH', path, body: body);
+    }
+
+    return circuitBreaker.execute(() async {
+      final encodedBody = body != null ? jsonEncode(body) : null;
+      return _executeWithAuthRefresh(
+        path: path,
+        send: (headers) => _httpClient
+            .patch(
+              _buildUri(path),
+              headers: headers,
+              body: encodedBody,
+            )
+            .timeout(AppConfig.requestTimeout),
+      );
+    });
+  }
+
+  /// Executes an HTTP DELETE request with fixture interceptor.
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    bool? useFixtures,
+  }) async {
+    final effectiveUseFixtures = useFixtures ?? AppConfig.useFixtures;
+
+    if (effectiveUseFixtures) {
+      return _interceptWithFixture('DELETE', path);
+    }
+
+    return circuitBreaker.execute(() async {
+      return _executeWithAuthRefresh(
+        path: path,
+        send: (headers) => _httpClient
+            .delete(
+              _buildUri(path),
+              headers: headers,
+            )
+            .timeout(AppConfig.requestTimeout),
+      );
+    });
+  }
+
   /// Evaluates whether a route is an authentication lifecycle endpoint to prevent refresh recursion.
   bool _isAuthPath(String path) {
     final lower = path.toLowerCase();
@@ -254,6 +305,17 @@ class ApiClient {
     }
 
     if (response.statusCode == 401) {
+      try {
+        final errorJson = jsonDecode(response.body);
+        if (errorJson is Map<String, dynamic>) {
+          final detail = errorJson['detail'] ?? errorJson['message'] ?? errorJson['title'];
+          if (detail != null && '$detail'.isNotEmpty) {
+            throw UnauthorizedException('$detail');
+          }
+        }
+      } catch (e) {
+        if (e is UnauthorizedException) rethrow;
+      }
       throw UnauthorizedException();
     }
 
@@ -309,21 +371,42 @@ class ApiClient {
     if (lower.contains('login') || lower.contains('/auth/token')) {
       return 'A2-A4-login.response.json';
     }
-    if (lower.contains('/accounts') || lower.contains('/my-accounts')) {
+    if (lower.contains('my-accounts')) {
+      return 'K5-my-accounts.response.json';
+    }
+    if (lower.contains('/accounts')) {
       return 'K3-K4-account.response.json';
+    }
+    if (lower.contains('remittance/options') || lower.contains('remittance-options')) {
+      return 'R1-remittance-options.response.json';
+    }
+    if (lower.contains('kyc/options') || lower.contains('kyc-intake-options')) {
+      return 'K1-kyc-intake-options.response.json';
+    }
+    if (lower.contains('/kyc')) {
+      return 'K2-kyc-intake.response.json';
     }
     if (lower.contains('/mobile/dashboard')) {
       return 'M1-mobile-dashboard.response.json';
+    }
+    if (lower.contains('/mobile/transactions/remittance') || lower.contains('mobile-remittance')) {
+      return 'M3-mobile-remittance.response.json';
     }
     if (lower.contains('/transfers') || lower.contains('/remittance')) {
       return 'T1-transfer.response.json';
     }
     if (lower.contains('/timeline')) {
+      if (lower.contains('dlq') || queryParams?['dlq'] == 'true') {
+        return 'T3-timeline-dlq.response.json';
+      }
       final view = queryParams?['view']?.toLowerCase();
       if (view == 'staff') {
         return 'T3-timeline-staff.response.json';
       }
       return 'T3-timeline-customer.response.json';
+    }
+    if (lower.contains('/dlq') || lower.contains('replay')) {
+      return 'T7-dlq-replay.response.json';
     }
     if (lower.contains('/transactions/')) {
       return 'T2-transaction.response.json';
@@ -344,7 +427,10 @@ class ApiClient {
     }
     try {
       final jsonString = await rootBundle.loadString('assets/fixtures/$filename');
-      return jsonDecode(jsonString) as Map<String, dynamic>;
+      final decoded = jsonDecode(jsonString);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is List) return {'items': decoded, 'data': decoded};
+      return <String, dynamic>{};
     } catch (_) {
       // In headless unit tests where rootBundle asset manifests may not be initialized,
       // return a verified fallback representation matching the contract fixture.
@@ -445,6 +531,50 @@ class ApiClient {
           {'stageNo': 10, 'stageNumber': 10, 'stageKey': 'NOTIFICATIONS_DISPATCHED', 'title': 'Member Notifications Sent', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:01.100Z'},
           {'stageNo': 11, 'stageNumber': 11, 'stageKey': 'COMPLETED', 'title': 'Saga Fully Reconciled', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:01.400Z'}
         ]
+      };
+    }
+    if (filename.contains('timeline-dlq')) {
+      return {
+        'transactionId': '6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11',
+        'trackingReference': 'TX-20261003-8F3A21C0',
+        'status': 'FAILED',
+        'overallStatus': 'FAILED',
+        'view': 'STAFF',
+        'currentStage': 10,
+        'totalStages': 11,
+        'failureMessage': 'Notification dispatch poison pill routed to dead-letter queue (DLQ)',
+        'stages': [
+          {'stageNo': 1, 'stageNumber': 1, 'stageKey': 'INGRESS_ACCEPTED', 'title': 'Ingress Accepted', 'service': 'transaction-service', 'status': 'COMPLETED'},
+          {'stageNo': 2, 'stageNumber': 2, 'stageKey': 'PREFLIGHT_VALIDATED', 'title': 'Pre-flight Solvency Checked', 'service': 'transaction-service', 'status': 'COMPLETED'},
+          {'stageNo': 3, 'stageNumber': 3, 'stageKey': 'DISPATCHED_TO_ORCHESTRATOR', 'title': 'Dispatched to Orchestrator', 'service': 'transaction-service', 'status': 'COMPLETED'},
+          {'stageNo': 4, 'stageNumber': 4, 'stageKey': 'SAGA_INITIALIZED', 'title': 'Saga State Machine Initialized', 'service': 'orchestration-service', 'status': 'COMPLETED'},
+          {'stageNo': 5, 'stageNumber': 5, 'stageKey': 'RISK_EVALUATION_REQUESTED', 'title': 'Risk Evaluation Requested', 'service': 'orchestration-service', 'status': 'COMPLETED'},
+          {'stageNo': 6, 'stageNumber': 6, 'stageKey': 'RISK_EVALUATION_COMPLETED', 'title': 'Risk Screening Passed', 'service': 'orchestration-service', 'status': 'COMPLETED'},
+          {'stageNo': 7, 'stageNumber': 7, 'stageKey': 'LEDGER_HOLD_RESERVED', 'title': 'Ledger Balance Hold Reserved', 'service': 'ledger-service', 'status': 'COMPLETED'},
+          {'stageNo': 8, 'stageNumber': 8, 'stageKey': 'LEDGER_POSTED', 'title': 'Double-Entry SoR Committed', 'service': 'ledger-service', 'status': 'COMPLETED'},
+          {'stageNo': 9, 'stageNumber': 9, 'stageKey': 'EVENT_EMITTED', 'title': 'Domain Event Emitted', 'service': 'notification-service', 'status': 'COMPLETED'},
+          {
+            'stageNo': 10,
+            'stageNumber': 10,
+            'stageKey': 'NOTIFICATIONS_DISPATCHED',
+            'title': 'Member Notifications Sent',
+            'service': 'notification-service',
+            'status': 'FAILED',
+            'detail': 'Poison pill routed to notification.events.DLT after 3 backoff retries exhausted',
+            'isDlq': true,
+            'retryAttempts': 3,
+            'dlqTopic': 'notification.events.DLT'
+          },
+          {'stageNo': 11, 'stageNumber': 11, 'stageKey': 'COMPLETED', 'title': 'Saga Fully Reconciled', 'service': 'orchestration-service', 'status': 'PENDING'}
+        ]
+      };
+    }
+    if (filename.contains('replay') || filename.contains('dlq-replay')) {
+      return {
+        'status': 'REPLAYED',
+        'topic': 'notification.events.DLT',
+        'replayedCount': 1,
+        'message': 'Successfully replayed DLQ record to original Kafka topic',
       };
     }
     if (filename.contains('transfer') || filename.contains('remittance')) {

@@ -1,0 +1,88 @@
+# Loads the four cloud databases in Azure SQL from database/azure-sql/. Not in kustomization.yaml:
+# infra/scripts/deploy-cloud.ps1 creates the two ConfigMaps it reads, applies it, and waits.
+#
+# It runs in the cluster because Azure SQL accepts connections from the AKS subnet only.
+# The image is the SQL Server one, used only for its sqlcmd; no database engine is started.
+#
+#   coobs-sql-scripts   the four script files, from database/azure-sql/
+#   coobs-sql-target    SQL_SERVER_FQDN and CLOUD_DB_USER
+#   coobs-app-secrets   CLOUD_DB_PASSWORD
+#
+# The scripts cannot run twice, so a database is loaded only when it has no tables, and a
+# finished load is marked with the extended property coobs_seed. Tables without the mark mean
+# a load stopped half way: the job fails and says so. Recreate that database and run it again.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: coobs-load-schemas
+  namespace: coobs
+  labels:
+    app.kubernetes.io/part-of: coobs
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: coobs
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: sqlcmd
+          image: mcr.microsoft.com/mssql/server:2022-latest
+          env:
+            - name: SQL_SERVER_FQDN
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-sql-target
+                  key: SQL_SERVER_FQDN
+            - name: CLOUD_DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-sql-target
+                  key: CLOUD_DB_USER
+            - name: SQLCMDPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: CLOUD_DB_PASSWORD
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              run() { /opt/mssql-tools18/bin/sqlcmd -S "$SQL_SERVER_FQDN" -U "$CLOUD_DB_USER" -I -b -x -f 65001 -l 60 "$@"; }
+              count() { run -d "$1" -h -1 -W -Q "SET NOCOUNT ON; $2" | tr -d '[:space:]'; }
+              load() {
+                db="$1"; file="$2"
+                marked=$(count "$db" "SELECT COUNT(*) FROM sys.extended_properties WHERE class = 0 AND name = N'coobs_seed'")
+                tables=$(count "$db" "SELECT COUNT(*) FROM sys.tables")
+                if [ "$marked" != "0" ]; then
+                  echo "$db: already loaded, skipped"
+                elif [ "$tables" != "0" ]; then
+                  echo "$db: has $tables table(s) but no finished load. Recreate the database, then run this again." >&2
+                  exit 1
+                else
+                  echo "$db: loading $file"
+                  run -d "$db" -i "/scripts/$file"
+                  run -d "$db" -Q "EXEC sys.sp_addextendedproperty @name = N'coobs_seed', @value = N'done'"
+                  echo "$db: loaded"
+                fi
+              }
+              load identity_db     02_identity_db.sql
+              load customer_db     03_customer_db.sql
+              load transaction_db  04_transaction_db.sql
+              load notification_db 05_notification_db.sql
+              echo "Cloud databases are loaded."
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+          resources:
+            requests:
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: coobs-sql-scripts

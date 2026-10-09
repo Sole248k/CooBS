@@ -230,6 +230,12 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@ipKeyResolver}"
 
+        # 12. Swagger UI & OpenAPI Specification Routes (Testing Portal)
+        - id: swagger-ui-route
+          uri: ${SWAGGER_UI_URL:http://localhost:8086}
+          predicates:
+            - Path=/swagger-ui, /swagger-ui/**, /v3/api-docs/**, /openapi.yaml
+
 management:
   endpoints:
     web:
