@@ -75,8 +75,18 @@ class GatewayRoutingIntegrationTest {
                 "ledger-service-route",
                 "notification-service-route",
                 "audit-service-route",
-                "transaction-service-route",
-                "orchestration-service-route");
+                "transaction-service-route");
+    }
+
+    @Test
+    @DisplayName("The orchestrator has no public route: it has no public endpoint")
+    void shouldHaveNoRouteToTheOrchestrator() {
+        List<RouteDefinition> routes = routeDefinitions.getRouteDefinitions().collectList().block();
+
+        assertThat(routes).extracting(RouteDefinition::getId).doesNotContain("orchestration-service-route");
+        assertThat(routes).allSatisfy(route -> assertThat(route.getUri().toString())
+                .as("target of %s", route.getId())
+                .doesNotContain(":8091"));
     }
 
     @Test

@@ -62,11 +62,6 @@ spec:
                 configMapKeyRef:
                   name: coobs-config
                   key: NOTIFICATION_SERVICE_URL
-            - name: ORCHESTRATION_SERVICE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: coobs-config
-                  key: ORCHESTRATION_SERVICE_URL
             - name: MOBILE_BFF_URL
               valueFrom:
                 configMapKeyRef:
@@ -172,6 +167,9 @@ metadata:
     app.kubernetes.io/part-of: coobs
 spec:
   type: LoadBalancer
+  # Keeps the caller's address. With the default (Cluster) every request arrives from the
+  # node's address, and the gateway's per-IP rate limits would put all callers in one bucket.
+  externalTrafficPolicy: Local
   selector:
     app.kubernetes.io/name: api-gateway
   ports:
