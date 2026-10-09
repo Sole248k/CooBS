@@ -208,19 +208,8 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
-        # 10. Orchestration Service Routes (Transfer and Reversal Saga Coordinator)
-        # Saga and compensation query limits: 20 req/s, burst 40
-        - id: orchestration-service-route
-          uri: ${ORCHESTRATION_SERVICE_URL:http://localhost:8091}
-          predicates:
-            - Path=/api/v1/orchestration/**
-          filters:
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: 20
-                redis-rate-limiter.burstCapacity: 40
-                redis-rate-limiter.requestedTokens: 1
-                key-resolver: "#{@userOrIpKeyResolver}"
+        # The orchestrator has no route: it has no public endpoint. transaction-service starts a
+        # saga and reads its state over /internal/v1/sagas, inside the network.
 
         # No route exists for any /internal/** path. The risk engine is called by the orchestrator
         # inside the network, never through this gateway.
