@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/models/models.dart';
 import '../../core/network/api_client.dart';
+import '../../core/session/biometric_authenticator.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../shell/app_shell.dart';
@@ -280,19 +281,54 @@ class _AlertsScreenState extends State<AlertsScreen> {
 }
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  /// Injected in tests; the screen builds its own otherwise.
+  final SecureStorageService? storage;
+  final BiometricAuthenticator? biometrics;
+  const ProfileScreen({super.key, this.storage, this.biometrics});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  late final SecureStorageService _storage = widget.storage ?? SecureStorageService();
+  late final BiometricAuthenticator _biometrics = widget.biometrics ?? LocalBiometricAuthenticator();
   late final Future<String?> _usernameFuture;
+  bool _bioAvailable = false, _bioOn = false;
 
   @override
   void initState() {
     super.initState();
-    _usernameFuture = SecureStorageService().getUsername();
+    _usernameFuture = _storage.getUsername();
+    _loadBiometric();
+  }
+
+  Future<void> _loadBiometric() async {
+    final available = await _biometrics.isAvailable();
+    final bioUser = await _storage.getBiometricUsername();
+    final username = await _storage.getUsername();
+    if (!mounted) return;
+    setState(() {
+      _bioAvailable = available;
+      _bioOn = bioUser != null && bioUser == username;
+    });
+  }
+
+  Future<void> _setBiometric(bool on) async {
+    if (!on) {
+      await _storage.disableBiometricLogin();
+      if (mounted) setState(() => _bioOn = false);
+      return;
+    }
+    final username = await _storage.getUsername();
+    final refreshToken = await _storage.getRefreshToken();
+    if (username == null || refreshToken == null || refreshToken.isEmpty) {
+      if (mounted) snack(context, 'Log in again with your password to turn on fingerprint login.');
+      return;
+    }
+    if (!await _biometrics.authenticate('Confirm your fingerprint to turn on fingerprint login')) return;
+    await _storage.enableBiometricLogin(username: username, refreshToken: refreshToken);
+    if (mounted) setState(() => _bioOn = true);
   }
 
   void go(BuildContext c, Widget w) => Navigator.push(c, MaterialPageRoute(builder: (_) => w));
@@ -343,6 +379,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
                   onChanged: ThemeController.i.setDark,
                 ),
+                if (_bioAvailable)
+                  SwitchListTile(
+                    secondary: const Icon(Icons.fingerprint),
+                    title: Text('Fingerprint login', style: TextStyle(color: kInk)),
+                    subtitle: Text(_bioOn ? 'On' : 'Off', style: TextStyle(color: kMut)),
+                    value: _bioOn,
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: kBlue,
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: const Color(0xFFC7CDD3),
+                    trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+                    onChanged: _setBiometric,
+                  ),
                 ListTile(
                     title: Text('Log out', style: TextStyle(color: kRed)),
                     onTap: () => _handleLogout(context)),

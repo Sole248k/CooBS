@@ -4,6 +4,7 @@ import '../../core/config/app_config.dart';
 import '../../core/models/auth_models.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exceptions.dart';
+import '../../core/session/biometric_authenticator.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/home_screen.dart';
@@ -17,20 +18,111 @@ void toApp(BuildContext c, [String? msg]) {
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  /// Injected in tests; the screen builds its own otherwise.
+  final ApiClient? apiClient;
+  final SecureStorageService? storage;
+  final BiometricAuthenticator? biometrics;
+  const LoginScreen({super.key, this.apiClient, this.storage, this.biometrics});
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final u = TextEditingController(), p = TextEditingController();
-  final ApiClient _apiClient = ApiClient();
-  final SecureStorageService _storage = SecureStorageService();
+  late final ApiClient _apiClient = widget.apiClient ?? ApiClient();
+  late final SecureStorageService _storage = widget.storage ?? SecureStorageService();
+  late final BiometricAuthenticator _biometrics = widget.biometrics ?? LocalBiometricAuthenticator();
   bool _isLoading = false;
   int _failedAttempts = 0;
   DateTime? _lockoutUntil;
 
+  /// Member with fingerprint login turned on for this phone, when the sensor is usable.
+  String? _bioUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricLogin();
+  }
+
+  Future<void> _loadBiometricLogin() async {
+    final bioUser = await _storage.getBiometricUsername();
+    if (bioUser == null || !await _biometrics.isAvailable() || !mounted) return;
+    setState(() {
+      _bioUser = bioUser;
+      u.text = bioUser;
+    });
+    // Prompt straight away; the password form stays on screen as the fallback.
+    await _handleBiometricLogin();
+  }
+
+  /// Fingerprint, then exchange the stored refresh token for a fresh session.
+  Future<void> _handleBiometricLogin() async {
+    final bioUser = _bioUser;
+    if (_isLoading || bioUser == null) return;
+    setState(() => _isLoading = true);
+    try {
+      if (!await _biometrics.authenticate('Log in to CooBS as $bioUser')) return;
+      final refreshToken = await _storage.getBiometricRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) return await _expireBiometricLogin();
+
+      final response = await _apiClient.post('/auth/token/refresh', body: {'refreshToken': refreshToken});
+      final token = TokenResponse.fromJson(response);
+      if (token.accessToken.isEmpty) throw UnauthorizedException('Invalid refresh response');
+      await _storage.saveTokens(
+        accessToken: token.accessToken,
+        refreshToken: token.refreshToken,
+        userId: token.userId > 0 ? token.userId : 1,
+        username: bioUser,
+      );
+      await Demo.i.load();
+      if (mounted) toApp(context, 'Welcome back, $bioUser');
+    } on ApiException catch (e) {
+      final unreachable = e is NetworkTimeoutException || e is ConnectionException || (e.statusCode ?? 0) >= 500;
+      if (unreachable) {
+        if (mounted) snack(context, 'Could not reach CooBS. Check your connection and try again.');
+      } else {
+        // Refresh token expired (7 days) or revoked: only the password can start a new session.
+        await _expireBiometricLogin();
+      }
+    } catch (_) {
+      if (mounted) snack(context, 'Fingerprint login failed. Please log in with your password.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _expireBiometricLogin() async {
+    await _storage.disableBiometricLogin();
+    if (!mounted) return;
+    setState(() => _bioUser = null);
+    snack(context, 'Fingerprint login has expired. Please log in with your password.');
+  }
+
+  /// Asked once per member after a password login; "Not now" is remembered.
+  Future<void> _offerBiometricLogin(String username, String refreshToken) async {
+    if (refreshToken.isEmpty || _bioUser == username) return;
+    if (await _storage.wasBiometricOffered(username) || !await _biometrics.isAvailable() || !mounted) return;
+    await _storage.markBiometricOffered(username);
+    if (!mounted) return;
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.fingerprint, size: 36),
+        title: const Text('Enable fingerprint login?'),
+        content: const Text('Next time, log in with your fingerprint instead of your password. You can turn this off in Profile.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not now')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Enable')),
+        ],
+      ),
+    );
+    if (enable == true) await _storage.enableBiometricLogin(username: username, refreshToken: refreshToken);
+  }
+
   Future<void> _handleLogin() async {
+    // Re-tap guard: a second tap can arrive before the rebuild swaps in the spinner.
+    if (_isLoading) return;
     if (_lockoutUntil != null && DateTime.now().isBefore(_lockoutUntil!)) {
       final remaining = _lockoutUntil!.difference(DateTime.now()).inSeconds;
       snack(context, 'Security lock active: Please wait $remaining seconds before trying again.');
@@ -62,6 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
         userId: token.userId > 0 ? token.userId : 1,
         username: username,
       );
+      await _offerBiometricLogin(username, token.refreshToken);
       // Immediately load live Customer 360 data from Docker for this newly authenticated user
       await Demo.i.load();
       if (mounted) {
@@ -154,14 +247,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 30),
-                const Text('Welcome back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                Padding(padding: EdgeInsets.only(top: 4, bottom: 20), child: Text('Log in to see your accounts.', style: TextStyle(color: kMut))),
+                Text(_bioUser == null ? 'Welcome back' : 'Welcome back, $_bioUser', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                Padding(
+                    padding: EdgeInsets.only(top: 4, bottom: 20),
+                    child: Text(_bioUser == null ? 'Log in to see your accounts.' : 'Use your fingerprint or password to log in.', style: TextStyle(color: kMut))),
                 tf(u, 'Username'),
                 tf(p, 'Password', obscure: true),
                 const SizedBox(height: 12),
                 _isLoading
                     ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
                     : bigBtn('Log in', _handleLogin),
+                if (_bioUser != null && !_isLoading)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: OutlinedButton.icon(
+                      onPressed: _handleBiometricLogin,
+                      icon: const Icon(Icons.fingerprint),
+                      label: const Text('Log in with fingerprint'),
+                    ),
+                  ),
               ]),
             ),
           ),

@@ -10,6 +10,10 @@ class SecureStorageService {
   static const String _keyUserId = 'coobs_user_id';
   static const String _keyUsername = 'coobs_username';
   static const String _keyGatewayUrl = 'coobs_gateway_url';
+  // Fingerprint login lives outside the session keys so it survives logout and app restarts.
+  static const String _keyBioUsername = 'coobs_bio_username';
+  static const String _keyBioRefreshToken = 'coobs_bio_refresh_token';
+  static const String _keyBioOffered = 'coobs_bio_offered';
 
   final FlutterSecureStorage _storage;
   final Map<String, String> _memoryFallback = {};
@@ -33,6 +37,7 @@ class SecureStorageService {
     if (refreshToken != null) await write(_keyRefreshToken, refreshToken);
     if (userId != null) await write(_keyUserId, userId.toString());
     if (username != null) await write(_keyUsername, username);
+    await _syncBiometricToken(refreshToken, username: username);
   }
 
   Future<void> updateTokens({
@@ -43,7 +48,36 @@ class SecureStorageService {
     if (refreshToken != null && refreshToken.isNotEmpty) {
       await write(_keyRefreshToken, refreshToken);
     }
+    await _syncBiometricToken(refreshToken);
   }
+
+  /// Keeps the fingerprint-login copy on the newest refresh token, since the server
+  /// rotates it on every refresh and the previous one stops working.
+  Future<void> _syncBiometricToken(String? refreshToken, {String? username}) async {
+    final bioUser = await getBiometricUsername();
+    if (bioUser == null) return;
+    // Another member signed in with a password on this phone: drop the previous member's fingerprint login.
+    if (username != null && username != bioUser) return disableBiometricLogin();
+    if (refreshToken != null && refreshToken.isNotEmpty) await write(_keyBioRefreshToken, refreshToken);
+  }
+
+  Future<void> enableBiometricLogin({required String username, required String refreshToken}) async {
+    await write(_keyBioUsername, username);
+    await write(_keyBioRefreshToken, refreshToken);
+  }
+
+  Future<void> disableBiometricLogin() async {
+    await _delete(_keyBioUsername);
+    await _delete(_keyBioRefreshToken);
+  }
+
+  /// The member fingerprint login is enabled for, or null when it is off.
+  Future<String?> getBiometricUsername() => read(_keyBioUsername);
+  Future<String?> getBiometricRefreshToken() => read(_keyBioRefreshToken);
+
+  /// The enable prompt is shown once per member; a "Not now" is remembered.
+  Future<bool> wasBiometricOffered(String username) async => await read(_keyBioOffered) == username;
+  Future<void> markBiometricOffered(String username) => write(_keyBioOffered, username);
 
   Future<String?> getAccessToken() => read(_keyAccessToken);
   Future<String?> getRefreshToken() => read(_keyRefreshToken);
@@ -81,6 +115,15 @@ class SecureStorageService {
       _memoryFallback.remove(_keyUserId);
       _memoryFallback.remove(_keyUsername);
     }
+  }
+
+  Future<void> _delete(String key) async {
+    _memoryFallback.remove(key);
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (kIsWeb || isTest) return;
+    try {
+      await _storage.delete(key: key);
+    } catch (_) {}
   }
 
   @visibleForTesting
