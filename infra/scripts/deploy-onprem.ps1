@@ -70,6 +70,7 @@ rm bundle.tgz
 sed -i 's/\r`$//' start.sh docker-compose.yml
 chmod +x start.sh
 ./start.sh '$KeyVaultName' '$Registry' '$ImageTag' '$RedisHost' '$KafkaBootstrap'
+echo COOBS_STARTED
 "@ -replace "`r", ""
     [System.IO.File]::WriteAllText($remote, $script + "`n", $noBom)
 }
@@ -81,8 +82,14 @@ if ($SaveScriptTo) {
 }
 
 Write-Host "Running on $VmName. The first start pulls Oracle and can take 10 minutes or more." -ForegroundColor Cyan
-az vm run-command invoke --resource-group $ResourceGroup --name $VmName --command-id RunShellScript `
+$output = az vm run-command invoke --resource-group $ResourceGroup --name $VmName --command-id RunShellScript `
     --scripts "@$remote" --query "value[0].message" --output tsv
 $code = $LASTEXITCODE
+$output
+# run-command exits 0 even when the script on the VM failed, so the script's own last line is the proof.
+if ($code -eq 0 -and -not $StatusOnly -and (($output -join "`n") -notmatch "COOBS_STARTED")) {
+    Write-Host "start.sh did not finish on the VM. Its output is above." -ForegroundColor Red
+    $code = 1
+}
 Get-ChildItem $work -Recurse -File | ForEach-Object { [System.IO.File]::Delete($_.FullName) }
 exit $code
