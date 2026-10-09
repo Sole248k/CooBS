@@ -70,6 +70,7 @@ class TransferSagaTest {
 
     private static final Path EXAMPLES = Path.of("..", "..", "contracts", "examples");
     private static final String RISK = "/internal/v1/risk/evaluate";
+    private static final String OUTCOMES = "/internal/v1/risk/outcomes";
     private static final String HOLD = "/internal/v1/ledger/holds";
     private static final String CAPTURE = "/internal/v1/ledger/holds/9001/capture";
     private static final String RELEASE = "/internal/v1/ledger/holds/9001/release";
@@ -141,6 +142,7 @@ class TransferSagaTest {
         BODIES.clear();
         STUBS.put("/internal/v1/customers/1/risk-profile", ok("C7-risk-profile.response.json"));
         STUBS.put(RISK, ok("R1-risk-evaluate.response.json"));
+        STUBS.put(OUTCOMES, ok("R2-risk-outcome.response.json"));
         STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 0));
         STUBS.put(CAPTURE, ok("L4-capture-hold.response.json"));
         STUBS.put(RELEASE, ok("L5-release-hold.response.json"));
@@ -237,6 +239,108 @@ class TransferSagaTest {
 
         assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
         assertThat(riskRequest(t).path("isNewBeneficiary").asBoolean()).isTrue();
+    }
+
+    // --- the daily limit is a reservation: an approved transfer that does not post gives it back ---
+
+    @Test
+    void notEnoughMoney_givesTheDailyLimitReservationBack() {
+        STUBS.put(HOLD, new Stub(422, example("common-error.json"), 0));
+        StartTransferRequest t = transfer();
+
+        saga.run(t, "corr");
+
+        assertFailed(t, "INSUFFICIENT_FUNDS");
+        assertThat(limitReleases(t.transactionId())).isEqualTo(1);
+    }
+
+    @Test
+    void captureRefused_releasesTheHoldAndThenTheLimit() {
+        STUBS.put(CAPTURE, new Stub(422, example("common-error.json"), 0));
+        StartTransferRequest t = transfer();
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.COMPENSATED);
+        assertThat(limitReleases(t.transactionId())).isEqualTo(1);
+        // The money is made whole first; the limit follows.
+        List<String> paths = CALLS.stream().map(Call::path).toList();
+        assertThat(paths.indexOf(RELEASE)).isLessThan(paths.indexOf(OUTCOMES));
+    }
+
+    @Test
+    void postedTransferAndDeclinedTransfer_reportNoOutcome() {
+        StartTransferRequest posted = transfer();
+        saga.run(posted, "corr");
+        assertThat(row(posted).getState()).isEqualTo(SagaState.POSTED);
+
+        // Declined by risk: nothing was reserved, so there is nothing to give back.
+        STUBS.put(RISK, new Stub(200, """
+                {"decision":"DECLINE","score":"0.91",
+                 "fraudCheck":{"outcome":"FAILED","reasons":["HIGH_RISK"]},
+                 "limitCheck":{"outcome":"PASSED"}}""", 0));
+        StartTransferRequest declined = transfer();
+        saga.run(declined, "corr");
+
+        assertThat(CALLS).extracting(Call::path).doesNotContain(OUTCOMES);
+    }
+
+    @Test
+    void limitReleaseThatGetsNoAnswer_doesNotChangeHowTheTransferEnded() {
+        STUBS.put(HOLD, new Stub(422, example("common-error.json"), 0));
+        STUBS.put(OUTCOMES, new Stub(503, "{}", 0));
+        StartTransferRequest t = transfer();
+
+        saga.run(t, "corr");
+
+        assertFailed(t, "INSUFFICIENT_FUNDS");
+        assertThat(stages()).endsWith("6 FUNDS_CHECK FAILED FAILED");
+    }
+
+    @Test
+    void holdGivenUpAfterTheRetryWindow_givesTheLimitBackOnceTheHoldIsReleased() {
+        StartTransferRequest t = riskApproved(Duration.ofMinutes(10));
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row(t).getFailureCode()).isEqualTo("LEDGER_UNAVAILABLE");
+        assertThat(limitReleases(t.transactionId())).isEqualTo(1);
+    }
+
+    @Test
+    void reversalOfATransferThatWasHeldOrOnlyApproved_givesItsLimitBack() {
+        UUID heldId = UUID.randomUUID();
+        SagaInstance held = sagas.findOrCreate(heldId);
+        held.setReferenceNo("TX-HELD-LIMIT-001");
+        held.setHoldId(9001L);
+        held.setState(SagaState.FUNDS_RESERVED);
+        sagas.saveAndFlush(held);
+        UUID approvedId = UUID.randomUUID();
+        SagaInstance approved = sagas.findOrCreate(approvedId);
+        approved.setReferenceNo("TX-APPROVED-LIMIT-001");
+        approved.setState(SagaState.RISK_APPROVED);
+        sagas.saveAndFlush(approved);
+
+        reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), heldId, "RV-LIMIT-001", "Sent by mistake", 3L), "corr");
+        reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), approvedId, "RV-LIMIT-002", "Sent by mistake", 3L), "corr");
+
+        assertThat(limitReleases(heldId)).isEqualTo(1);
+        assertThat(limitReleases(approvedId)).isEqualTo(1);
+    }
+
+    @Test
+    void reversalOfAPostedTransfer_doesNotGiveTheLimitBack() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-20261003-8F3A21C0");
+        original.setState(SagaState.POSTED);
+        sagas.saveAndFlush(original);
+
+        reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), origId, "RV-LIMIT-003", "Dispute", 3L), "corr");
+
+        // A reversal corrects a posting; it is not a refund of the day's allowance.
+        assertThat(CALLS).extracting(Call::path).doesNotContain(OUTCOMES);
     }
 
     @Test
@@ -420,7 +524,8 @@ class TransferSagaTest {
 
         assertThat(row(t).getState()).isEqualTo(SagaState.FAILED);
         assertThat(row(t).getFailureCode()).isEqualTo("LEDGER_UNAVAILABLE");
-        assertThat(CALLS).extracting(Call::path).containsExactly(RELEASE);
+        // The hold is released first; only then is the day's limit given back.
+        assertThat(CALLS).extracting(Call::path).containsExactly(RELEASE, OUTCOMES);
     }
 
     @Test
@@ -998,6 +1103,15 @@ class TransferSagaTest {
         return new StartTransferRequest(t.transactionId(), t.referenceNo(), t.channel(), t.customerId(),
                 t.sourceAccountId(), t.destinationAccountId(), t.destinationBankCode(), t.amount(), t.currency(),
                 t.actorId(), t.actorType(), isNewBeneficiary);
+    }
+
+    /** How often the risk engine was told (R2) that this transfer did not post. */
+    private long limitReleases(UUID transactionId) {
+        return BODIES.stream().filter(body -> body.startsWith(OUTCOMES + " "))
+                .map(body -> jsonMapper.readTree(body.substring(OUTCOMES.length() + 1)))
+                .filter(outcome -> transactionId.toString().equals(outcome.path("transactionId").asString())
+                        && "FAILED".equals(outcome.path("outcome").asString()))
+                .count();
     }
 
     /** What the risk engine was asked about this transfer. Recovery may run other sagas as well. */

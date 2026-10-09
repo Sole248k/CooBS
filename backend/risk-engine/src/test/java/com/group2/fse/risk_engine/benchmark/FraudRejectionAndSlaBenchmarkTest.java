@@ -50,6 +50,7 @@ class FraudRejectionAndSlaBenchmarkTest {
     void setUp() {
         limitPolicy = new LimitPolicy();
         riskEvaluator = new RiskEvaluator(limitPolicy, velocityCounter);
+        org.mockito.Mockito.lenient().when(velocityCounter.reserve(any(), any(), any(), any())).thenReturn(true);
     }
 
     @Test
@@ -87,7 +88,7 @@ class FraudRejectionAndSlaBenchmarkTest {
         assertTrue(Double.parseDouble(response.getScore()) > 0.85, "Score must exceed 0.85 threshold");
 
         // Zero-Lock Proof: Never records approved transfer in Redis/Ledger
-        verify(velocityCounter, never()).recordApprovedTransfer(any(), any(), any());
+        verify(velocityCounter, never()).reserve(any(), any(), any(), any());
         log.info("[FIN-406] High-risk rejection verified. Score: {}, Reasons: {}", response.getScore(), response.getFraudCheck().getReasons());
     }
 
@@ -125,7 +126,7 @@ class FraudRejectionAndSlaBenchmarkTest {
         assertTrue(response.getFraudCheck().getReasons().contains("TIER_DAILY_CEILING_REACHED"));
 
         // Zero-Lock Proof: Never records approved transfer
-        verify(velocityCounter, never()).recordApprovedTransfer(any(), any(), any());
+        verify(velocityCounter, never()).reserve(any(), any(), any(), any());
         log.info("[FIN-406] Limit breach rejection verified. Used: 48,000 + Req: 5,000 > Limit: 50,000. Reasons: {}",
                 response.getFraudCheck().getReasons());
     }

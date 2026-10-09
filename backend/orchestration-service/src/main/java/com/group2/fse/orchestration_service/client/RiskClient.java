@@ -13,7 +13,10 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** risk-engine, R1 (H5). The caller treats any DownstreamException as RISK_UNAVAILABLE. */
+/**
+ * risk-engine, R1 (H5) and R2. For R1 the caller treats any DownstreamException as
+ * RISK_UNAVAILABLE.
+ */
 @Component
 public class RiskClient {
 
@@ -36,6 +39,22 @@ public class RiskClient {
                 .body(request)
                 .retrieve()
                 .body(Decision.class));
+    }
+
+    /** R2. Reports that a transfer the engine approved did not post; its reservation is given back. */
+    public OutcomeResult reportOutcome(UUID transactionId, String outcome) {
+        return api.call(() -> http.post()
+                .uri("/internal/v1/risk/outcomes")
+                .body(new Outcome(transactionId, outcome))
+                .retrieve()
+                .body(OutcomeResult.class));
+    }
+
+    public record Outcome(UUID transactionId, String outcome) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record OutcomeResult(String outcome, boolean released) {
     }
 
     public record Request(

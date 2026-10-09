@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +36,8 @@ class RiskEvaluatorTest {
     void setUp() {
         limitPolicy = new LimitPolicy();
         riskEvaluator = new RiskEvaluator(limitPolicy, velocityCounter);
+        // The reservation succeeds unless a test says otherwise.
+        lenient().when(velocityCounter.reserve(any(), any(), any(), any())).thenReturn(true);
     }
 
     @Test
@@ -71,7 +74,7 @@ class RiskEvaluatorTest {
         assertTrue(response.getFraudCheck().getReasons().isEmpty(), "Approved transfer reasons must be empty");
         assertTrue(Double.parseDouble(response.getScore()) < 0.60);
 
-        verify(velocityCounter).recordApprovedTransfer(eq(1L), any(), eq(new BigDecimal("2500.00")));
+        verify(velocityCounter).reserve(eq(1L), any(), eq(new BigDecimal("2500.00")), eq(new BigDecimal("100000.00")));
     }
 
     @Test
@@ -108,7 +111,7 @@ class RiskEvaluatorTest {
         assertTrue(score >= 0.60 && score <= 0.85, "Score should fall into 0.60 - 0.85 band");
 
         // Must not record transfer in Redis on decline
-        verify(velocityCounter, never()).recordApprovedTransfer(any(), any(), any());
+        verify(velocityCounter, never()).reserve(any(), any(), any(), any());
     }
 
     @Test
@@ -181,6 +184,95 @@ class RiskEvaluatorTest {
     }
 
     @Test
+    @DisplayName("Should reserve nothing when the daily limit is already exceeded")
+    void testLimitExceededReservesNothing() {
+        when(velocityCounter.getVelocityState(4L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(new BigDecimal("45000.00"))
+                        .redisAvailable(true)
+                        .build()
+        );
+
+        riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-limit-002").customerId(4L).amount(new BigDecimal("10000.00"))
+                .kycTier("TIER_2_STANDARD").dailyLimit(new BigDecimal("50000.00")).isNewBeneficiary(false).build());
+
+        verify(velocityCounter, never()).reserve(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Two transfers at once: the one whose reservation no longer fits is declined on the limit, not on fraud")
+    void testLostRaceForTheLimitIsALimitDecline() {
+        // The read says there is room; by the time the amount is reserved, another transfer took it.
+        when(velocityCounter.getVelocityState(4L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(new BigDecimal("30000.00"))
+                        .redisAvailable(true)
+                        .build()
+        );
+        when(velocityCounter.reserve(any(), any(), any(), any())).thenReturn(false);
+
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-race-001").customerId(4L).amount(new BigDecimal("15000.00"))
+                .kycTier("TIER_3_FULL").dailyLimit(new BigDecimal("50000.00")).isNewBeneficiary(false).build());
+
+        assertEquals("DECLINE", response.getDecision());
+        assertEquals("FAILED", response.getLimitCheck().getOutcome());
+        assertEquals("PASSED", response.getFraudCheck().getOutcome());
+        assertTrue(response.getFraudCheck().getReasons().contains("LIMIT_EXCEEDED"));
+    }
+
+    @Test
+    @DisplayName("A transfer asked about again keeps its reservation and is not measured against its own amount")
+    void testReEvaluationOfAReservedTransferIsNotDeclinedByItsOwnAmount() {
+        // 95,000 used today already includes this transfer's own 10,000.
+        when(velocityCounter.getVelocityState(1L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(1)
+                        .usedToday(new BigDecimal("95000.00"))
+                        .redisAvailable(true)
+                        .build()
+        );
+        when(velocityCounter.holdsReservation("tx-again-001")).thenReturn(true);
+
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-again-001").customerId(1L).amount(new BigDecimal("10000.00"))
+                .kycTier("TIER_3_FULL").dailyLimit(new BigDecimal("100000.00")).isNewBeneficiary(false).build());
+
+        assertEquals("APPROVE", response.getDecision());
+        assertEquals("PASSED", response.getLimitCheck().getOutcome());
+    }
+
+    @Test
+    @DisplayName("R2: a failed outcome gives the reservation back and says how much, as a money string")
+    void testFailedOutcomeReleasesTheReservation() {
+        when(velocityCounter.release("tx-out-001")).thenReturn(java.util.Optional.of(new BigDecimal("2500.0000")));
+
+        com.group2.fse.risk_engine.dto.RiskOutcomeResponse response = riskEvaluator.recordOutcome(
+                com.group2.fse.risk_engine.dto.RiskOutcomeRequest.builder()
+                        .transactionId("tx-out-001").outcome("FAILED").build());
+
+        assertTrue(response.isReleased());
+        assertEquals("2500.00", response.getReleasedAmount());
+        assertEquals("FAILED", response.getOutcome());
+    }
+
+    @Test
+    @DisplayName("R2: a transfer with no reservation is answered released=false, with no amount")
+    void testOutcomeForATransferWithNoReservation() {
+        when(velocityCounter.release("tx-out-002")).thenReturn(java.util.Optional.empty());
+
+        com.group2.fse.risk_engine.dto.RiskOutcomeResponse response = riskEvaluator.recordOutcome(
+                com.group2.fse.risk_engine.dto.RiskOutcomeRequest.builder()
+                        .transactionId("tx-out-002").outcome("FAILED").build());
+
+        assertFalse(response.isReleased());
+        assertEquals(null, response.getReleasedAmount());
+    }
+
+    @Test
     @DisplayName("Should refuse to decide when Redis is down instead of approving with the limits switched off")
     void testRedisDownHandling() {
         // Given: Redis is unreachable
@@ -207,7 +299,7 @@ class RiskEvaluatorTest {
         org.junit.jupiter.api.Assertions.assertThrows(
                 com.group2.fse.risk_engine.exception.RiskUnavailableException.class,
                 () -> riskEvaluator.evaluate(request));
-        verify(velocityCounter, never()).recordApprovedTransfer(any(), any(), any());
+        verify(velocityCounter, never()).reserve(any(), any(), any(), any());
     }
 
     @Test
