@@ -184,28 +184,40 @@ class Demo extends ChangeNotifier {
         return s[0].toUpperCase() + (s.length > 1 ? s.substring(1).toLowerCase() : '');
       }
 
+      List<Tx> parseTxList(List rawList) {
+        final txList = <Tx>[];
+        for (final t in rawList) {
+          if (t is! Map) continue;
+          final rawDate = (t['createdAt'] ?? t['submittedAt']) as String?;
+          final d = rawDate != null ? DateTime.tryParse(rawDate)?.toLocal() ?? today : today;
+          final amt = parseBal(t['amount']);
+          final isOut = (t['direction'] ?? 'OUT').toString().toUpperCase() == 'OUT';
+          final label = (t['remarks'] != null && '${t['remarks']}'.isNotEmpty)
+              ? '${t['remarks']}'
+              : (t['counterpartyName'] != null && '${t['counterpartyName']}'.isNotEmpty)
+                  ? 'Transfer ${isOut ? 'to' : 'from'} ${t['counterpartyName']}'
+                  : (t['category'] != null && '${t['category']}'.isNotEmpty)
+                      ? '${t['category']}'
+                      : '${t['referenceNo'] ?? t['trackingReference'] ?? 'Transaction'}';
+          final ref = '${t['referenceNo'] ?? t['trackingReference'] ?? t['transactionId'] ?? ''}';
+          txList.add(Tx(label, ref, DateTime(d.year, d.month, d.day), isOut ? -amt : amt));
+        }
+        return txList;
+      }
+
       final parsed = <Acct>[];
+      final liveRecent = (m1['recentTransactions'] as List? ?? []);
       for (final a in k5) {
         if (a is! Map) continue;
         final acctNo = (a['accountNumber'] as String?) ?? '';
         final acctType = parseType(a['accountType']);
         final bal = parseBal(a['availableBalance'] ?? a['balance']);
-        final rawTxList = (((k6[acctNo] as List?)?.isNotEmpty == true)
-            ? (k6[acctNo] as List)
-            : (acctNo == primaryNo ? (m1['recentTransactions'] as List? ?? []) : []));
-        final txList = <Tx>[];
-        for (final t in rawTxList) {
-          if (t is! Map) continue;
-          final rawDate = t['createdAt'] as String?;
-          final d = rawDate != null ? DateTime.tryParse(rawDate)?.toLocal() ?? today : today;
-          final amt = parseBal(t['amount']);
-          final label = (t['remarks'] != null && '${t['remarks']}'.isNotEmpty)
-              ? '${t['remarks']}'
-              : (t['counterpartyName'] != null && '${t['counterpartyName']}'.isNotEmpty)
-                  ? 'Transfer ${t['direction'] == 'OUT' ? 'to' : 'from'} ${t['counterpartyName']}'
-                  : '${t['referenceNo'] ?? 'Transaction'}';
-          txList.add(Tx(label, '${t['referenceNo'] ?? ''}', DateTime(d.year, d.month, d.day), t['direction'] == 'OUT' ? -amt : amt));
-        }
+        final rawTxList = (!AppConfig.useFixtures && liveRecent.isNotEmpty && (acctNo == primaryNo || k5.indexOf(a) == 0))
+            ? liveRecent
+            : (((k6[acctNo] as List?)?.isNotEmpty == true)
+                ? (k6[acctNo] as List)
+                : (acctNo == primaryNo ? liveRecent : []));
+        final txList = parseTxList(rawTxList);
         parsed.add(Acct(acctType, acctNo, bal, txList));
       }
 
@@ -219,9 +231,10 @@ class Demo extends ChangeNotifier {
         if (pNo.isNotEmpty) {
           final pType = parseType(p['accountType']);
           final pBal = parseBal(p['availableBalance'] ?? p['balance']);
+          final txList = parseTxList(liveRecent);
           accts
             ..clear()
-            ..add(Acct(pType, pNo, pBal, []));
+            ..add(Acct(pType, pNo, pBal, txList));
         }
       }
       final notifList = (n1['content'] as List?) ?? (n1['items'] as List?) ?? [];

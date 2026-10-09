@@ -327,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final isLoan = d.isLoanPage;
           final pageCount = d.accts.isEmpty ? 2 : d.accts.length + 1;
           return RefreshIndicator(
-            onRefresh: () => d.initFromApi(force: true),
+            onRefresh: () => d.load(),
             child: ListView(padding: const EdgeInsets.only(top: 4, bottom: 16), children: [
               SizedBox(
                 height: 262,
