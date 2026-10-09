@@ -199,6 +199,8 @@ try {
     Write-Host "Gateway: http://$address" -ForegroundColor Green
     Write-Host "Next, the on-premises zone:"
     Write-Host "  .\infra\scripts\deploy-onprem.ps1 -KeyVaultName $vault -ImageTag $ImageTag -RedisHost $redis"
+    Write-Host "Then the E2E suite against this address (the local environment file, with only the address replaced):"
+    Write-Host "  npx --yes newman run postman/e2e/CooBS_End_To_End.postman_collection.json -e postman/CooBS_Local.postman_environment.json --env-var baseUrl=http://$address --delay-request 150 --reporters cli"
 } finally {
     Get-ChildItem $work -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { [System.IO.File]::Delete($_.FullName) }
 }
