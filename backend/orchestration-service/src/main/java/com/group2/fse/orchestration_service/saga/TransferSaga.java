@@ -184,9 +184,10 @@ public class TransferSaga {
         RiskClient.Decision decision;
         try {
             CustomerClient.RiskProfile profile = customers.riskProfile(t.customerId());
-            // isNewBeneficiary is not part of O1, so it is sent as false until the contract carries it.
+            // transaction-service says whether the customer has paid this account before (O1).
             decision = risk.evaluate(new RiskClient.Request(t.transactionId(), t.customerId(), t.amount(),
-                    t.currency(), t.channel(), profile.riskScore(), profile.kycTier(), profile.dailyLimit(), false));
+                    t.currency(), t.channel(), profile.riskScore(), profile.kycTier(), profile.dailyLimit(),
+                    Boolean.TRUE.equals(t.isNewBeneficiary())));
         } catch (RuntimeException e) {
             log.warn("Risk check unavailable for transaction {}: {}", t.transactionId(), e.getMessage());
             fail(saga, t, Stage.FRAUD_CHECK, "RISK_UNAVAILABLE", null);

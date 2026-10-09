@@ -779,9 +779,12 @@ The **Mobile Backend-for-Frontend (BFF)** is an application-level orchestration 
   "amount": "2500.00",
   "currency": "PHP",
   "actorId": 1,
-  "actorType": "CUSTOMER"
+  "actorType": "CUSTOMER",
+  "isNewBeneficiary": false
 }
 ```
+
+`isNewBeneficiary` is optional; a request without it is treated as `false`. transaction-service sets it to `true` when the customer has no earlier transfer to that destination account that reached `POSTED`. The saga passes it to the risk engine unchanged (R1), where it raises the score by a fixed amount.
 
 **O1 response, 202.** Progress comes back as stage events, not in this response.
 

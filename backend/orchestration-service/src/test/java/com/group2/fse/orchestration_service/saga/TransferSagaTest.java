@@ -92,6 +92,8 @@ class TransferSagaTest {
     private static final List<Call> CALLS = new CopyOnWriteArrayList<>();
     /** Run once, while the stub is answering that path: what another thread does in the meantime. */
     private static final Map<String, Runnable> MEANWHILE = new ConcurrentHashMap<>();
+    /** Every request body the stub received, as "path body". */
+    private static final List<String> BODIES = new CopyOnWriteArrayList<>();
     private static final HttpServer SERVER = startServer();
 
     @Autowired
@@ -136,6 +138,7 @@ class TransferSagaTest {
         CALLS.clear();
         STUBS.clear();
         MEANWHILE.clear();
+        BODIES.clear();
         STUBS.put("/internal/v1/customers/1/risk-profile", ok("C7-risk-profile.response.json"));
         STUBS.put(RISK, ok("R1-risk-evaluate.response.json"));
         STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 0));
@@ -194,6 +197,46 @@ class TransferSagaTest {
         assertThat(event.path("payload").path("referenceNo").asString()).isEqualTo(t.referenceNo());
         assertThat(event.path("payload").path("detail").asString()).isEqualTo("score 0.18");
         assertThat(event.path("payload").path("occurredAt").asString()).endsWith("Z");
+    }
+
+    @Test
+    void newBeneficiary_isPassedOnToTheRiskEngine() {
+        StartTransferRequest t = transferWithNewBeneficiary(true);
+
+        saga.run(t, "corr");
+
+        assertThat(riskRequest(t).path("isNewBeneficiary").asBoolean()).isTrue();
+    }
+
+    @Test
+    void knownBeneficiaryOrAStartWithoutTheFlag_isEvaluatedAsNotNew() {
+        StartTransferRequest known = transferWithNewBeneficiary(false);
+        saga.run(known, "corr");
+        assertThat(riskRequest(known).path("isNewBeneficiary").isBoolean()).isTrue();
+        assertThat(riskRequest(known).path("isNewBeneficiary").asBoolean()).isFalse();
+
+        // A start sent by a caller that does not know the field yet.
+        StartTransferRequest withoutTheFlag = transferWithNewBeneficiary(null);
+        saga.run(withoutTheFlag, "corr");
+        assertThat(riskRequest(withoutTheFlag).path("isNewBeneficiary").isBoolean()).isTrue();
+        assertThat(riskRequest(withoutTheFlag).path("isNewBeneficiary").asBoolean()).isFalse();
+    }
+
+    @Test
+    void newBeneficiary_isKeptInTheSavedPayloadSoARecoveredSagaAsksTheSameQuestion() throws Exception {
+        StartTransferRequest t = transferWithNewBeneficiary(true);
+        String service = tokens.generateToken(0L, "transaction-service", List.of("ROLE_SERVICE"));
+        // The mocked executor drops the task: the service went down between the 202 and the run.
+        mockMvc.perform(post("/internal/v1/sagas/transfers").header("Authorization", "Bearer " + service)
+                .contentType(MediaType.APPLICATION_JSON).content(jsonMapper.writeValueAsString(t)))
+                .andExpect(status().isAccepted());
+        assertThat(row(t).getPayload()).contains("\"isNewBeneficiary\":true").doesNotContain("\"newBeneficiary\"");
+        runTasksInline();
+
+        recovery.run(null);
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        assertThat(riskRequest(t).path("isNewBeneficiary").asBoolean()).isTrue();
     }
 
     @Test
@@ -940,14 +983,29 @@ class TransferSagaTest {
                 StartTransferRequest.class);
         return new StartTransferRequest(UUID.randomUUID(), e.referenceNo(), e.channel(), e.customerId(),
                 e.sourceAccountId(), e.destinationAccountId(), e.destinationBankCode(), e.amount(), e.currency(),
-                e.actorId(), e.actorType());
+                e.actorId(), e.actorType(), e.isNewBeneficiary());
     }
 
     private StartTransferRequest transferTo(String destinationBankCode) {
         StartTransferRequest t = transfer();
         return new StartTransferRequest(t.transactionId(), t.referenceNo(), t.channel(), t.customerId(),
                 t.sourceAccountId(), t.destinationAccountId(), destinationBankCode, t.amount(), t.currency(),
-                t.actorId(), t.actorType());
+                t.actorId(), t.actorType(), t.isNewBeneficiary());
+    }
+
+    private StartTransferRequest transferWithNewBeneficiary(Boolean isNewBeneficiary) {
+        StartTransferRequest t = transfer();
+        return new StartTransferRequest(t.transactionId(), t.referenceNo(), t.channel(), t.customerId(),
+                t.sourceAccountId(), t.destinationAccountId(), t.destinationBankCode(), t.amount(), t.currency(),
+                t.actorId(), t.actorType(), isNewBeneficiary);
+    }
+
+    /** What the risk engine was asked about this transfer. Recovery may run other sagas as well. */
+    private JsonNode riskRequest(StartTransferRequest t) {
+        return BODIES.stream().filter(body -> body.startsWith(RISK + " "))
+                .map(body -> jsonMapper.readTree(body.substring(RISK.length() + 1)))
+                .filter(request -> t.transactionId().toString().equals(request.path("transactionId").asString()))
+                .reduce((first, last) -> last).orElseThrow();
     }
 
     /** Recovery hands sagas to the executor, which is a mock; this makes it run them on the calling thread. */
@@ -1021,7 +1079,7 @@ class TransferSagaTest {
             server.setExecutor(Executors.newCachedThreadPool());
             server.createContext("/", exchange -> {
                 String path = exchange.getRequestURI().getPath();
-                exchange.getRequestBody().readAllBytes();
+                BODIES.add(path + " " + new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
                 CALLS.add(new Call(path, exchange.getRequestHeaders().getFirst("Idempotency-Key"),
                         exchange.getRequestHeaders().getFirst("Authorization"),
                         exchange.getRequestHeaders().getFirst("X-Correlation-ID")));

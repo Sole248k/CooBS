@@ -59,7 +59,8 @@ public class SagaStartRedispatcher {
             boolean staff = "TELLER".equals(txn.getChannel());
             // The original actor is not stored on the row, so the account owner stands in.
             orchestrationClient.triggerTransferSaga(
-                    TransferServiceImpl.sagaRequest(txn, txn.getCustomerId(), staff ? "STAFF" : "CUSTOMER"),
+                    TransferServiceImpl.sagaRequest(txn, txn.getCustomerId(), staff ? "STAFF" : "CUSTOMER",
+                            transactionRepository.isFirstPostedTransferTo(txn)),
                     UUID.randomUUID().toString());
         }
     }
