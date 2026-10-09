@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/theme/theme_controller.dart';
 import '../../shell/app_shell.dart';
 import '../beneficiaries/beneficiary_screens.dart';
 import '../kyc/kyc_intake_screen.dart';
@@ -34,77 +35,80 @@ class _MobileShellState extends State<MobileShell> {
   void _goHome() => setState(() => i = _home);
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: kBg,
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(children: [
-                if (i != _scores && i != _bens)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    logoBox(),
-                    Row(children: [
-                    AnimatedBuilder(
-                      animation: Demo.i,
-                      builder: (context, _) => InkWell(
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycIntakeScreen())),
-                          child: kycChip(Demo.i.kyc)),
-                    ),
-                    const SizedBox(width: 8),
-                    FutureBuilder<String?>(
-                      future: _usernameFuture,
-                      builder: (context, snapshot) {
-                        final user = snapshot.data ?? 'john_doe';
-                        return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(20)),
-                            child: Text('@$user', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)));
-                      },
-                    ),
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: ThemeController.i,
+        builder: (context, _) => Scaffold(
+          backgroundColor: kBg,
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(children: [
+                  if (i != _scores && i != _bens)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      logoBox(),
+                      Row(children: [
+                      AnimatedBuilder(
+                        animation: Demo.i,
+                        builder: (context, _) => InkWell(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycIntakeScreen())),
+                            child: kycChip(Demo.i.kyc)),
+                      ),
+                      const SizedBox(width: 8),
+                      FutureBuilder<String?>(
+                        future: _usernameFuture,
+                        builder: (context, snapshot) {
+                          final user = snapshot.data ?? 'john_doe';
+                          return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(20)),
+                              child: Text('@$user', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)));
+                        },
+                      ),
+                      ]),
                     ]),
-                  ]),
-                ),
-                Expanded(
-                  child: IndexedStack(index: i, children: [
-                    const HomeScreen(),
-                    ScoresPage(onBack: _goHome),
-                    const AlertsScreen(),
-                    BeneficiariesPage(onBack: _goHome),
-                    const ProfileScreen(),
-                  ]),
-                ),
-              ]),
+                  ),
+                  Expanded(
+                    child: IndexedStack(index: i, children: [
+                      const HomeScreen(),
+                      ScoresPage(onBack: _goHome),
+                      const AlertsScreen(),
+                      BeneficiariesPage(onBack: _goHome),
+                      const ProfileScreen(),
+                    ]),
+                  ),
+                ]),
+              ),
             ),
           ),
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Center(
-            heightFactor: 1.0,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Container(
-                height: 72,
-                margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: kSurface,
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(color: kLine, width: 0.5),
-                  boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 2))],
-                ),
-                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  _NavCircle(Icons.home_outlined, 'Home', i == _home, () => setState(() => i = _home)),
-                  _NavCircle(Icons.bar_chart_rounded, 'Scores and habits', i == _scores, () => setState(() => i = _scores)),
-                  ListenableBuilder(
-                    listenable: Demo.i,
-                    builder: (context, _) => _AlertsNavButton(Demo.i.unread, i == _alerts, () => setState(() => i = _alerts)),
+          bottomNavigationBar: SafeArea(
+            child: Center(
+              heightFactor: 1.0,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Container(
+                  height: 72,
+                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: kSurface,
+                    borderRadius: BorderRadius.circular(36),
+                    border: Border.all(color: kLine, width: 0.5),
+                    boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 2))],
                   ),
-                  _NavCircle(Icons.groups_outlined, 'Beneficiaries', i == _bens, () => setState(() => i = _bens)),
-                  _NavCircle(Icons.person_outline, 'Profile', i == _profile, () => setState(() => i = _profile)),
-                ]),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    _NavCircle(Icons.home_outlined, 'Home', i == _home, () => setState(() => i = _home)),
+                    _NavCircle(Icons.bar_chart_rounded, 'Scores and habits', i == _scores, () => setState(() => i = _scores)),
+                    ListenableBuilder(
+                      listenable: Demo.i,
+                      builder: (context, _) => _AlertsNavButton(Demo.i.unread, i == _alerts, () => setState(() => i = _alerts)),
+                    ),
+                    _NavCircle(Icons.groups_outlined, 'Beneficiaries', i == _bens, () => setState(() => i = _bens)),
+                    _NavCircle(Icons.person_outline, 'Profile', i == _profile, () => setState(() => i = _profile)),
+                  ]),
+                ),
               ),
             ),
           ),

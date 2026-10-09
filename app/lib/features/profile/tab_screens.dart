@@ -13,7 +13,7 @@ import '../kyc/kyc_intake_screen.dart';
 
 Widget _title(String t) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
-    child: Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)));
+    child: Text(t, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kInk)));
 
 Future<void> _handleLogout(BuildContext context) async {
   try {
@@ -326,17 +326,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => go(context, const AppShell()),
               ),
-              SwitchListTile(
-                secondary: const Icon(Icons.dark_mode_outlined),
-                title: const Text('Dark mode'),
-                subtitle: Text(ThemeController.i.dark ? 'On' : 'Off'),
-                value: ThemeController.i.dark,
-                activeThumbColor: Colors.white,
-                activeTrackColor: kBlue,
-                inactiveThumbColor: Colors.white,
-                inactiveTrackColor: const Color(0xFFC7CDD3),
-                trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
-                onChanged: ThemeController.i.setDark,
+              ListenableBuilder(
+                listenable: ThemeController.i,
+                builder: (context, _) => SwitchListTile(
+                  secondary: const Icon(Icons.dark_mode_outlined),
+                  title: const Text('Dark mode'),
+                  subtitle: Text(ThemeController.i.dark ? 'On' : 'Off'),
+                  value: ThemeController.i.dark,
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: kBlue,
+                  inactiveThumbColor: Colors.white,
+                  inactiveTrackColor: const Color(0xFFC7CDD3),
+                  trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+                  onChanged: ThemeController.i.setDark,
+                ),
               ),
               ListTile(
                   title: const Text('Log out'),

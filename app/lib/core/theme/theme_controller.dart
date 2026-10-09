@@ -9,7 +9,10 @@ class ThemeController extends ChangeNotifier {
 
   static const String _key = 'coobs_dark_mode';
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      resetOnError: true,
+    ),
   );
 
   bool dark = false;
