@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/models.dart';
 import '../../core/network/api_client.dart';
+import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 
 class BeneficiariesPage extends StatefulWidget {
-  const BeneficiariesPage({super.key});
-
+  final VoidCallback? onBack;
+  const BeneficiariesPage({super.key, this.onBack});
   @override
   State<BeneficiariesPage> createState() => _BeneficiariesPageState();
 }
@@ -100,7 +101,7 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
                       child: Icon(Icons.person_outline, color: kNavy),
                     ),
                     title: Text(b.nickname, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${b.accountNumber} · ${b.bankCode}'),
+                    subtitle: Text('${b.bankCode} · ${b.accountNumber}'),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete_outline, size: 20, color: kMut),
                       onPressed: () => _deleteBeneficiary(b),
@@ -121,6 +122,7 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
             },
           ),
         ],
+        onBack: widget.onBack,
       );
 }
 
@@ -184,6 +186,8 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
           '/customers/me/beneficiaries',
           body: payload,
         );
+
+        Demo.i.addBen(Ben('${s('first')} ${s('last')}', v['rel'] ?? 'Contact', s('mob'), accountNumber: s('acct'), bankCode: v['bank'] ?? 'COOBS'));
 
         if (mounted) {
           snack(context, 'Beneficiary saved successfully');

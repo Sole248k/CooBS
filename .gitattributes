@@ -1,0 +1,13 @@
+# Auto-detect text files and normalize line endings
+* text=auto
+
+# Force LF line endings for scripts, templates and database files
+*.sh text eol=lf
+*.bash text eol=lf
+*.sql text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.bicep text eol=lf
+*.bicepparam text eol=lf
+Dockerfile* text eol=lf

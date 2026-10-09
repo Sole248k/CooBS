@@ -1,0 +1,9 @@
+{
+  "submissionId": "KYC-20261007-0001",
+  "customerId": 1,
+  "submittedAt": "2026-10-07T09:20:00Z",
+  "simulated": true,
+  "status": "REJECTED",
+  "reviewedAt": "2026-10-07T09:25:00Z",
+  "reviewNote": "ID details could not be matched. Please resubmit."
+}

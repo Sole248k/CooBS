@@ -26,6 +26,7 @@ const _mock = [
 /// Live debits from the demo store first, then generated older mock history (>20 per account).
 List<Debit> debitsFor(int a) {
   final out = <Debit>[];
+  if (Demo.i.accts.isEmpty || a >= Demo.i.accts.length) return out;
   for (final x in Demo.i.accts[a].tx) {
     if (x.amt >= 0) continue;
     final p = x.label.split(' to ');
@@ -41,7 +42,9 @@ List<Debit> debitsFor(int a) {
 }
 
 class ScoresPage extends StatefulWidget {
-  const ScoresPage({super.key});
+  /// Back action when shown as a navbar tab (null = pop the route).
+  final VoidCallback? onBack;
+  const ScoresPage({super.key, this.onBack});
   @override
   State<ScoresPage> createState() => _ScoresPageState();
 }
@@ -121,19 +124,24 @@ class _ScoresPageState extends State<ScoresPage> {
     );
   }
 
-  Widget row(Debit d) => ListTile(
+  Widget row(Debit d) {
+    final typeName = (d.acct < Demo.i.accts.length) ? Demo.i.accts[d.acct].type : 'Account';
+    return ListTile(
         isThreeLine: true,
         leading: const CircleAvatar(backgroundColor: Color(0xFFFBE9E7), child: Icon(Icons.north_east, size: 18, color: kRed)),
         title: Text(d.activity, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        subtitle: Text('To ${d.receiver}\n${d.ref} · ${Demo.i.accts[d.acct].type}'),
+        subtitle: Text('To ${d.receiver}\n${d.ref} · $typeName'),
         trailing: Text('-${peso(d.amt)}', style: const TextStyle(fontWeight: FontWeight.w600, color: kRed)),
       );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final all = debitsFor(acct);
-    final pages = (all.length / per).ceil();
+    final safeAcct = Demo.i.accts.isEmpty ? 0 : (acct < Demo.i.accts.length ? acct : 0);
+    final all = debitsFor(safeAcct);
+    final pages = all.isEmpty ? 1 : (all.length / per).ceil();
     if (page >= pages) page = pages - 1;
+    if (page < 0) page = 0;
     final g = <DateTime, List<Debit>>{};
     for (final d in all.skip(page * per).take(per)) { g.putIfAbsent(d.date, () => []).add(d); }
     return Pg('Scores and Habits', [
@@ -147,15 +155,18 @@ class _ScoresPageState extends State<ScoresPage> {
           PopupMenuButton<int>(
             onSelected: (v) => setState(() { acct = v; page = 0; }),
             itemBuilder: (_) => <PopupMenuEntry<int>>[
-              const PopupMenuItem(value: 0, child: Text('Checking')),
-              const PopupMenuItem(value: 1, child: Text('Savings')),
+              for (var i = 0; i < Demo.i.accts.length; i++)
+                PopupMenuItem(value: i, child: Text(Demo.i.accts[i].type)),
             ],
             child: Container(
               padding: const EdgeInsets.only(left: 14, right: 6, top: 6, bottom: 6),
-              decoration: BoxDecoration(color: acct == 0 ? kBlue : kRed, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: safeAcct == 0 ? kBlue : kRed, borderRadius: BorderRadius.circular(16)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(acct == 0 ? 'CHECKING' : 'SAVINGS', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                const Icon(Icons.arrow_drop_down, color: Colors.white),
+                Text(
+                  safeAcct < Demo.i.accts.length ? Demo.i.accts[safeAcct].type.toUpperCase() : 'ACCOUNT',
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                if (Demo.i.accts.length > 1) const Icon(Icons.arrow_drop_down, color: Colors.white),
               ]),
             ),
           ),
@@ -173,6 +184,6 @@ class _ScoresPageState extends State<ScoresPage> {
           IconButton(icon: const Icon(Icons.arrow_right, size: 38, color: kNavy), onPressed: page < pages - 1 ? () => setState(() => page++) : null),
         ]),
       ),
-    ]);
+    ], onBack: widget.onBack);
   }
 }

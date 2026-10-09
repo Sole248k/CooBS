@@ -1,8 +1,260 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/models/models.dart';
 import '../../core/network/network.dart';
 import '../../core/theme/app_theme.dart';
+import '../accounts/demo_store.dart';
+import '../accounts/ui.dart';
+import '../data/mobile_repo.dart';
+
+/// Parses "1234.5" into centavos (123450) without floating-point math. Null if invalid.
+int? centavos(String t) {
+  final m = RegExp(r'^(\d{1,9})(?:\.(\d{1,2}))?$').firstMatch(t.trim());
+  if (m == null) return null;
+  return int.parse(m[1]!) * 100 + int.parse((m[2] ?? '').padRight(2, '0'));
+}
+
+String two(int c) => '${c ~/ 100}.${(c % 100).toString().padLeft(2, '0')}';
+String money(int c) => peso(c / 100);
+
+/// P2P remittance form (contract M3 request) running on mock data / fixtures.
+class RemittanceScreen extends StatefulWidget {
+  final int from;
+  const RemittanceScreen({super.key, this.from = 0});
+  @override
+  State<RemittanceScreen> createState() => _RemittanceScreenState();
+}
+
+class _RemittanceScreenState extends State<RemittanceScreen> {
+  late final Future<Map<String, dynamic>> opts = _init();
+  late int src = widget.from;
+  String idemKey = const Uuid().v4(), corrId = const Uuid().v4();
+  final dest = TextEditingController(), amt = TextEditingController(), rem = TextEditingController();
+  String bank = 'COOBS', cat = 'TRANSFER';
+  Map<String, String> err = {};
+  Map<String, dynamic>? problem;
+  bool busy = false;
+
+  Future<Map<String, dynamic>> _init() async {
+    if (Demo.i.state == LoadState.loading) await Demo.i.load();
+    return MobileRepo.remitOptions();
+  }
+
+  Future<void> submit(Map o) async {
+    if (Demo.i.accts.isEmpty) return;
+    final safeSrc = src < Demo.i.accts.length ? src : 0;
+    final a = Demo.i.accts[safeSrc];
+    final b = (o['banks'] as List).firstWhere((x) => x['code'] == bank) as Map;
+    final lim = o['limits'] as Map;
+    final e = <String, String>{};
+    final cents = centavos(amt.text);
+    final minC = ((lim['minAmount'] as num) * 100).round(), maxC = ((lim['maxAmount'] as num) * 100).round();
+    if (cents == null) {
+      e['amt'] = 'Enter an amount with up to 2 decimals';
+    } else if (cents < minC) {
+      e['amt'] = 'Minimum is ${money(minC)}';
+    } else if (cents > maxC) {
+      e['amt'] = 'Maximum per transfer is ${money(maxC)}';
+    }
+    final d = dest.text.trim();
+    if (!RegExp(b['accountPattern'] as String).hasMatch(d)) e['dest'] = 'Format: ${b['accountHint']}';
+    setState(() { err = e; problem = null; });
+    if (e.isNotEmpty) return;
+    setState(() => busy = true);
+    final fee = ((b['fee'] as num) * 100).round(), bal = (a.bal * 100).round();
+    if (d == a.no) {
+      problem = await MobileRepo.problem(false);
+    } else if (cents! + fee > bal) {
+      problem = await MobileRepo.problem(true);
+    } else {
+      final activeIdemKey = idemKey;
+      final activeCorrId = corrId;
+      // Refresh idempotency and correlation identifiers so subsequent transfers never reuse keys
+      idemKey = const Uuid().v4();
+      corrId = const Uuid().v4();
+
+      final body = {
+        'sourceAccountNumber': a.no,
+        'destinationAccountNumber': d,
+        'destinationBankCode': bank,
+        'amount': two(cents),
+        'currency': 'PHP',
+        'category': cat,
+        'remarks': rem.text.trim(),
+      };
+
+      final Map<String, dynamic> resp;
+      final Map<String, dynamic> tl;
+      try {
+        resp = await MobileRepo.submitRemittance(body, idempotencyKey: activeIdemKey);
+        final ref = resp['referenceNo'] ?? resp['trackingReference'] ?? '';
+        tl = await MobileRepo.timeline(ref.toString());
+      } on ProblemDetailsException catch (pde) {
+        if (!mounted) return;
+        setState(() {
+          busy = false;
+          problem = {
+            'title': pde.error.title,
+            'errorCode': pde.error.errorCode,
+            'detail': pde.error.detail,
+            'invalidParams': pde.error.invalidParams,
+          };
+        });
+        return;
+      } catch (ex) {
+        if (!mounted) return;
+        setState(() {
+          busy = false;
+          problem = {
+            'title': 'Submission Failed',
+            'errorCode': 'NETWORK_ERROR',
+            'detail': ex.toString(),
+            'invalidParams': [],
+          };
+        });
+        return;
+      }
+
+      final ref = resp['referenceNo'] ?? resp['trackingReference'] ?? 'TXN-PENDING';
+      Demo.i.applyRemittance(safeSrc, cents / 100, fee / 100, b['name'] as String, d, ref.toString());
+      if (!mounted) return;
+      setState(() => busy = false);
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => RemittanceResultPage(resp, tl, cents, fee, b['name'] as String, d, activeIdemKey, activeCorrId)));
+      return;
+    }
+    if (mounted) setState(() => busy = false);
+  }
+
+  Widget banner(Map<String, dynamic> p) => Card(
+        color: const Color(0xFFFBE9E7),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${p['title']} (${p['errorCode']})', style: const TextStyle(color: kRed, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('${p['detail']}'),
+            for (final x in (p['invalidParams'] as List)) Text('• ${x['name']}: ${x['reason']}', style: const TextStyle(fontSize: 12)),
+          ]),
+        ),
+      );
+
+  Widget field(TextEditingController c, String l, {String? error, String? hint, TextInputType? k, List<TextInputFormatter>? f}) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: TextField(controller: c, keyboardType: k, inputFormatters: f, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: l, hintText: hint, errorText: error)),
+      );
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+        future: opts,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Pg('Transfer', [Padding(padding: EdgeInsets.all(60), child: Center(child: CircularProgressIndicator()))]);
+          }
+          if (snap.hasError) return const Pg('Transfer', [Padding(padding: EdgeInsets.all(30), child: Text('Could not load transfer options.'))]);
+          final o = snap.data!, banks = o['banks'] as List;
+          final accts = Demo.i.accts;
+          if (accts.isEmpty) {
+            return const Pg('Transfer', [Padding(padding: EdgeInsets.all(30), child: Text('No accounts available for transfer.'))]);
+          }
+          final safeSrc = src < accts.length ? src : 0;
+          final labels = [for (final a in accts) '${a.type} · ${a.no} (${peso(a.bal)})'];
+          final b = banks.firstWhere((x) => x['code'] == bank) as Map;
+          final cents = centavos(amt.text), fee = ((b['fee'] as num) * 100).round();
+          final bal = (accts[safeSrc].bal * 100).round();
+          return Pg('Transfer', [
+            if (problem != null) banner(problem!),
+            const SizedBox(height: 4),
+            dd('From account', labels, labels[safeSrc], (x) => setState(() => src = x != null && labels.contains(x) ? labels.indexOf(x) : 0)),
+            dd('Destination bank', [for (final x in banks) x['name'] as String], b['name'] as String,
+                (x) => setState(() { bank = banks.firstWhere((y) => y['name'] == x)['code'] as String; err = {}; })),
+            if (Demo.i.bens.isNotEmpty) ...[
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4, top: 4),
+                child: Text('Saved Beneficiaries', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kMut)),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  for (final ben in Demo.i.bens)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8, bottom: 8),
+                      child: ActionChip(
+                        avatar: const CircleAvatar(
+                          backgroundColor: Color(0xFFE4EDFF),
+                          radius: 12,
+                          child: Icon(Icons.person, size: 14, color: kNavy),
+                        ),
+                        label: Text(ben.name),
+                        onPressed: () {
+                          setState(() {
+                            final acctNum = ben.accountNumber ?? (ben.rel.contains('·') ? ben.rel.split('·').last.trim() : '');
+                            if (acctNum.isNotEmpty) dest.text = acctNum;
+                            final bCode = ben.bankCode ?? (ben.rel.contains('·') ? ben.rel.split('·').first.trim() : 'COOBS');
+                            if (banks.any((bk) => bk['code'] == bCode)) {
+                              bank = bCode;
+                            }
+                            err = {};
+                          });
+                        },
+                      ),
+                    ),
+                ]),
+              ),
+            ],
+            field(dest, 'Recipient account number', error: err['dest'], hint: b['accountHint'] as String),
+            field(amt, 'Amount (₱)', error: err['amt'], k: const TextInputType.numberWithOptions(decimal: true), f: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+            dd('Category', [for (final x in o['categories'] as List) '$x'], cat, (x) => cat = x ?? cat),
+            field(rem, 'Remarks (optional)'),
+            panel([
+              statRow('Fee', money(fee)),
+              statRow('Total to be debited', cents == null ? '—' : money(cents + fee)),
+              statRow('Balance after', cents == null ? '—' : money(bal - cents - fee)),
+            ]),
+            bigBtn(busy ? 'Sending…' : 'Send transfer', busy ? null : () => submit(o)),
+          ]);
+        },
+      );
+}
+
+class RemittanceResultPage extends StatelessWidget {
+  final Map<String, dynamic> resp, timeline;
+  final int cents, fee;
+  final String bank, dest, idemKey, corr;
+  const RemittanceResultPage(this.resp, this.timeline, this.cents, this.fee, this.bank, this.dest, this.idemKey, this.corr, {super.key});
+
+  @override
+  Widget build(BuildContext context) => Pg('Transfer submitted', [
+        Center(child: Column(children: [
+          const Icon(Icons.check_circle_outline, size: 56, color: kBlue),
+          const SizedBox(height: 8),
+          Text(money(cents), style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800)),
+          Text('to $dest · $bank', style: const TextStyle(color: kMut)),
+        ])),
+        const SizedBox(height: 12),
+        panel([
+          statRow('Reference', '${resp['referenceNo']}'),
+          statRow('Status', '${resp['status']}'),
+          statRow('Fee', money(fee)),
+          statRow('Idempotency-Key', idemKey),
+          statRow('Correlation ID', corr),
+        ]),
+        const Padding(padding: EdgeInsets.only(top: 14, bottom: 4), child: Text('Transfer status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+        Card(
+          child: Column(children: [
+            for (final s in timeline['stages'] as List)
+              ListTile(
+                leading: Icon(s['outcome'] == 'PASSED' ? Icons.check_circle : Icons.radio_button_unchecked, color: s['outcome'] == 'PASSED' ? kBlue : kMut),
+                title: Text('${s['title']}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: Text('${s['subtitle']}'),
+              ),
+          ]),
+        ),
+        bigBtn('Done', () { Navigator.pop(context); Navigator.pop(context); }),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Make another transfer')),
+      ], onBack: () { Navigator.pop(context); Navigator.pop(context); });
+}
 
 /// Interactive Remittance Intake Form (Endpoint M3 via mobile-bff).
 /// Dispatches money movement requests through Spring Cloud Gateway
@@ -28,27 +280,33 @@ class _RemittanceFormState extends State<RemittanceForm> {
   final ApiClient _apiClient = ApiClient();
 
   late final TextEditingController _sourceController;
-  final TextEditingController _destinationController = TextEditingController(text: 'ACC_10000002');
+  late final TextEditingController _destinationController;
   final TextEditingController _amountController = TextEditingController(text: '100.00');
   final TextEditingController _remarksController = TextEditingController(text: 'Mobile Transfer');
 
   String _destinationBank = 'COOBS';
   bool _isSubmitting = false;
 
-  final List<Map<String, String>> _quickRecipients = [
-    {'name': 'Jane Smith', 'account': 'ACC_10000002'},
-    {'name': 'Juan Dela Cruz', 'account': 'ACC_10000004'},
-    {'name': 'Jose Bautista', 'account': 'ACC_10000008'},
-  ];
+  List<Map<String, String>> get _quickRecipients {
+    final src = _sourceController.text.trim();
+    return [
+      if (src != 'ACC_10000001') {'name': 'John Doe', 'account': 'ACC_10000001'},
+      if (src != 'ACC_10000002') {'name': 'Jane Smith', 'account': 'ACC_10000002'},
+      if (src != 'ACC_10000004') {'name': 'Juan Dela Cruz', 'account': 'ACC_10000004'},
+      if (src != 'ACC_10000008') {'name': 'Jose Bautista', 'account': 'ACC_10000008'},
+    ];
+  }
 
   final List<double> _quickAmounts = [50.0, 100.0, 500.0, 1000.0, 2500.0];
 
   @override
   void initState() {
     super.initState();
-    _sourceController = TextEditingController(
-      text: widget.defaultSourceAccount ?? 'ACC_10000001',
-    );
+    final defaultSource = widget.defaultSourceAccount ??
+        (Demo.i.primaryNo.isNotEmpty ? Demo.i.primaryNo : (Demo.i.accts.isNotEmpty ? Demo.i.accts.first.no : 'ACC_10000001'));
+    _sourceController = TextEditingController(text: defaultSource);
+    final defaultDest = (defaultSource == 'ACC_10000002') ? 'ACC_10000004' : 'ACC_10000002';
+    _destinationController = TextEditingController(text: defaultDest);
   }
 
   @override
@@ -387,25 +645,25 @@ class _RemittanceFormState extends State<RemittanceForm> {
                     ),
                   ),
                   child: _isSubmitting
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.send_rounded, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Submit Transfer',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
                         ),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.send_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Submit Transfer',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                 ),
               ],
             ),

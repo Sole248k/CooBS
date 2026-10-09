@@ -28,7 +28,7 @@ public class LedgerServiceClient {
 
     public Map<String, Object> fetchBalance(Long accountId, String bearerToken, String correlationId) {
         try {
-            String url = ledgerServiceBaseUrl + "/api/v1/ledger/balances/" + accountId;
+            String url = ledgerServiceBaseUrl + "/api/v1/ledger/accounts/" + accountId + "/balance";
             HttpHeaders headers = createHeaders(bearerToken, correlationId, null);
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
@@ -64,8 +64,15 @@ public class LedgerServiceClient {
     private HttpHeaders createHeaders(String bearerToken, String correlationId, String idempotencyKey) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        if (bearerToken != null && !bearerToken.isBlank()) {
-            headers.set("Authorization", bearerToken.startsWith("Bearer ") ? bearerToken : "Bearer " + bearerToken);
+        String token = bearerToken;
+        if ((token == null || token.isBlank()) && org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication() != null) {
+            Object creds = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getCredentials();
+            if (creds instanceof String s && !s.isBlank()) {
+                token = s;
+            }
+        }
+        if (token != null && !token.isBlank()) {
+            headers.set("Authorization", token.startsWith("Bearer ") ? token : "Bearer " + token);
         }
         if (correlationId != null && !correlationId.isBlank()) {
             headers.set("X-Correlation-Id", correlationId);
