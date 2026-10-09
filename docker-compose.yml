@@ -446,6 +446,9 @@ services:
       SWAGGER_UI_URL: http://swagger-ui:8080
       REDIS_HOST: redis-cache
       REDIS_PORT: 6379
+      SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/app/application.yml"
+    volumes:
+      - ./backend/api-gateway/src/main/resources/application.yml:/app/application.yml:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 15s
@@ -735,7 +738,7 @@ services:
       - core-banking-net
 
   # ----------------------------------------------------------------------------
-  # staff-bff (cloud) - Staff Backend-for-Frontend middleware (Tellers & Admins)
+  # staff-bff (cloud/staff) - Staff Backend-for-Frontend middleware (Tellers & Admins)
   # ----------------------------------------------------------------------------
   staff-bff:
     profiles:
@@ -784,6 +787,35 @@ services:
     networks:
       - core-banking-net
 
+  # ----------------------------------------------------------------------------
+  # frontend (web) - Staff Portal React SPA served via Nginx
+  # ----------------------------------------------------------------------------
+  frontend:
+    profiles:
+      - expansion
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+      staff-bff:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
 
   # ============================================================================
   # 13. PROMETHEUS (Time-Series Metrics Collection & Alerting)
