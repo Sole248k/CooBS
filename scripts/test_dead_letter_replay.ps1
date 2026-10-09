@@ -73,7 +73,13 @@ try {
     docker stop $database | Out-Null
 
     Write-Host "2. Publishing event evt_$marker to $Topic"
-    $message | docker exec -i kafka-broker /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka-broker:29092 --topic $Topic
+    # Sent from a file inside the broker container. Piping the text from PowerShell puts a
+    # byte-order mark in front of it, which makes the record unreadable for a different reason.
+    $file = Join-Path $env:TEMP "$marker.json"
+    [System.IO.File]::WriteAllText($file, $message + "`n", (New-Object System.Text.UTF8Encoding $false))
+    docker cp $file "kafka-broker:/tmp/$marker.json" | Out-Null
+    Remove-Item $file
+    docker exec kafka-broker sh -c "/opt/kafka/bin/kafka-console-producer.sh --bootstrap-server kafka-broker:29092 --topic $Topic < /tmp/$marker.json"
 
     Write-Host "3. Waiting for the record to be parked on the dead-letter topic after the retries"
     $record = Wait-Until 150 {
@@ -81,6 +87,7 @@ try {
             Where-Object { $_.payload -match $marker } | Select-Object -Last 1
     }
     if (-not $record) { throw "the record never appeared in the dead-letter list" }
+    if (-not $record.payload.StartsWith("{")) { throw "the parked payload is not clean JSON, so it was parked for the wrong reason" }
     Write-Host "   Parked as $($record.recordId) from $($record.originalTopic): $($record.errorMessage)"
 
     Write-Host "4. Starting $database again" -ForegroundColor Cyan
