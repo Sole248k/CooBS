@@ -99,7 +99,9 @@ public class NotificationService {
         }
 
         String eventId = event.getEventId();
-        if (eventId != null && notificationRepository.existsByEventId(eventId)) {
+        // A transfer is stored as two rows, <eventId>_SRC and <eventId>_DEST, so those are what a repeat finds.
+        if (eventId != null && (notificationRepository.existsByEventId(eventId + "_SRC")
+                || notificationRepository.existsByEventId(eventId + "_DEST"))) {
             log.info("Idempotent skip: Transfer Event [{}] already processed.", eventId);
             return;
         }

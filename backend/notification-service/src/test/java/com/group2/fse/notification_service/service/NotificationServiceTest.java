@@ -125,7 +125,6 @@ class NotificationServiceTest {
                         .build())
                 .build();
 
-        when(notificationRepository.existsByEventId("evt_trf_999")).thenReturn(false);
         when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> inv.getArgument(0));
 
         notificationService.processTransferEvent(transferEvent);
@@ -133,6 +132,29 @@ class NotificationServiceTest {
         // Expect 2 notifications saved (sender + recipient)
         verify(notificationRepository, times(2)).save(any(Notification.class));
         verify(notificationDispatcher, times(2)).dispatch(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("A transfer event delivered twice is recognised by the id its rows were stored under")
+    void shouldSkipTransferEventThatWasAlreadyProcessed() {
+        LedgerTransferEvent repeated = LedgerTransferEvent.builder()
+                .eventId("evt_trf_999")
+                .eventType("LEDGER_TRANSFER_COMPLETED")
+                .timestamp(Instant.now())
+                .payload(LedgerTransferEvent.TransferPayload.builder()
+                        .transferReference("TRF-20260925-001")
+                        .sourceCustomerId(101L)
+                        .destinationCustomerId(102L)
+                        .amount(new BigDecimal("1000.0000"))
+                        .build())
+                .build();
+        // The rows of the first delivery carry the suffixed ids, never the plain one.
+        when(notificationRepository.existsByEventId("evt_trf_999_SRC")).thenReturn(true);
+
+        notificationService.processTransferEvent(repeated);
+
+        verify(notificationRepository, never()).save(any(Notification.class));
+        verify(notificationDispatcher, never()).dispatch(any(Notification.class));
     }
 
     @Test
