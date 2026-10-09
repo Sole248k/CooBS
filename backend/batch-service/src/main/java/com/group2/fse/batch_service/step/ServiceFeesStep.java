@@ -54,7 +54,8 @@ public class ServiceFeesStep implements BatchStepExecutor {
                 "    WHERE account_id < 9000 AND DATE(event_timestamp) <= ? " +
                 "    GROUP BY account_id" +
                 ") m ON a.audit_id = m.max_id " +
-                "WHERE a.new_balance < 500 AND a.new_balance > 0",
+                // The ledger takes no posting under one centavo, and one such item would refuse the whole request.
+                "WHERE a.new_balance < 500 AND a.new_balance >= 0.01",
                 (rs, rowNum) -> new Object[]{rs.getLong(1), rs.getBigDecimal(2)},
                 java.sql.Date.valueOf(businessDate)
         );
