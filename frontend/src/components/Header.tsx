@@ -22,7 +22,7 @@ export const Header: FC<HeaderProps> = ({
 
   const getRoleBadge = () => {
     if (isTeller) return <span className="badge badge-role-teller">Branch Teller</span>;
-    if (isAdmin) return <span className="badge badge-role-admin">Branch Manager</span>;
+    if (isAdmin) return <span className="badge badge-role-admin">System Admin</span>;
     return <span className="badge badge-neutral">Staff</span>;
   };
 
@@ -63,7 +63,7 @@ export const Header: FC<HeaderProps> = ({
           </div>
           <div style={{ fontSize: '11px', color: '#64748b' }}>
             {isTeller && 'Teller & Branch Operations Terminal (WEB-03 to WEB-09)'}
-            {isAdmin && 'Supervisory & Back-Office Branch Management (WEB-03 to WEB-10)'}
+            {isAdmin && 'Supervisory & Back-Office Administration (WEB-03 to WEB-10)'}
           </div>
         </div>
       </div>
@@ -116,7 +116,7 @@ export const Header: FC<HeaderProps> = ({
               {session?.username || 'Staff'}
             </div>
             <div style={{ fontSize: '10px', color: '#64748b' }}>
-              {isTeller ? 'Branch Staff' : 'Branch Manager'}
+              {isTeller ? 'Branch Staff' : 'System Admin'}
             </div>
           </div>
         </div>
@@ -138,7 +138,7 @@ export const Header: FC<HeaderProps> = ({
             alignItems: 'center',
             gap: '6px'
           }}
-          title="Switch between Teller and Branch Manager"
+          title="Switch between Teller and Admin"
         >
           <Users size={14} />
           <span>Switch Role</span>

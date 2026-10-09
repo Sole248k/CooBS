@@ -545,7 +545,7 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
             </span>
           </div>
           <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-            Branch Manager approval required
+            Admin approval required
           </div>
         </div>
 
@@ -1431,7 +1431,7 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
               }}>
                 <ShieldAlert size={20} color="#b45309" />
                 <div style={{ fontSize: '13px', color: '#92400e' }}>
-                  <strong>Teller Review Policy:</strong> Tellers can inspect zero-balance closure requests. Final closure authorization is restricted to Branch Managers (<code style={{ fontFamily: 'var(--font-mono)' }}>ROLE_ADMIN</code>) as per bank governance rules.
+                  <strong>Teller Review Policy:</strong> Tellers can inspect zero-balance closure requests. Final closure authorization is restricted to System Administrators (<code style={{ fontFamily: 'var(--font-mono)' }}>ROLE_ADMIN</code>) as per bank governance rules.
                 </div>
               </div>
 
@@ -1474,7 +1474,7 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
                               {new Date(item.requestedAt).toLocaleString()}
                             </td>
                             <td>
-                              <span className="badge badge-pending">PENDING MANAGER</span>
+                              <span className="badge badge-pending">PENDING ADMIN</span>
                             </td>
                           </tr>
                         ))}
@@ -1909,7 +1909,7 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
                   )}
 
                   <div style={{ fontSize: '11px', color: '#dc2626', background: '#fef2f2', padding: '10px', borderRadius: '8px', border: '1px solid #fecaca' }}>
-                    <strong>Note:</strong> Imposing a compliance flag will automatically set this account status to <code style={{ fontFamily: 'var(--font-mono)' }}>FROZEN</code>. Only authorized branch managers may remove compliance holds.
+                    <strong>Note:</strong> Imposing a compliance flag will automatically set this account status to <code style={{ fontFamily: 'var(--font-mono)' }}>FROZEN</code>. Only authorized administrators may remove compliance holds.
                   </div>
                 </div>
 
@@ -2216,7 +2216,7 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
                   </h3>
                 </div>
                 <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
-                  Read-only audit view for branch reconciliation. EOD batch jobs are scheduled and executed by Branch Managers.
+                  Read-only audit view for branch reconciliation. EOD batch jobs are scheduled and executed by System Administrators.
                 </p>
               </div>
 

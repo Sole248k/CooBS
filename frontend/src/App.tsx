@@ -34,20 +34,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAdmin, isLoading } = useAuth();
-
-  if (isLoading) {
-    return null;
-  }
-
-  if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <>{children}</>;
-};
-
 const FallbackRoute: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) {
@@ -79,24 +65,8 @@ export const App: React.FC = () => {
         <Route path="accounts" element={<AccountDirectory />} />
         <Route path="tracker" element={<TransactionTracker />} />
         <Route path="audit" element={<AuditStatement />} />
-        
-        {/* Admin Exclusive Workspaces */}
-        <Route
-          path="admin/eod"
-          element={
-            <AdminRoute>
-              <EODBatchPipeline />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="admin/dlq"
-          element={
-            <AdminRoute>
-              <DeadLetterQueue />
-            </AdminRoute>
-          }
-        />
+        <Route path="admin/eod" element={<EODBatchPipeline />} />
+        <Route path="admin/dlq" element={<DeadLetterQueue />} />
       </Route>
 
       {/* Fallback */}

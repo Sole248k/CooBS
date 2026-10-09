@@ -19,7 +19,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -45,17 +44,6 @@ public class NotificationDlqService {
 
     @Value("${notification.kafka.topics.mutation:ledger.mutation.completed.v1}")
     private String fallbackOriginalTopic;
-
-    private final Map<String, String> replayedRecords = new java.util.concurrent.ConcurrentHashMap<>();
-
-    @PostConstruct
-    public void initResolvedRecords() {
-        // Pre-mark historically replayed and processed closure events from this session
-        String resolvedTimestamp = Instant.now().toString();
-        replayedRecords.put("notification.events.DLT-0-0", resolvedTimestamp);
-        replayedRecords.put("notification.events.DLT-0-1", resolvedTimestamp);
-        replayedRecords.put("notification.events.DLT-0-2", resolvedTimestamp);
-    }
 
     /**
      * Inspects and retrieves all currently available messages in the DLT topic.
@@ -133,13 +121,10 @@ public class NotificationDlqService {
             stringKafkaTemplate.send(originalTopic, targetRecord.key(), targetRecord.value())
                     .get(5, TimeUnit.SECONDS);
 
-            String now = Instant.now().toString();
-            replayedRecords.put(recordId, now);
-
             return DlqReplayResponseDto.builder()
                     .recordId(recordId)
                     .replayed(true)
-                    .replayedAt(now)
+                    .replayedAt(Instant.now().toString())
                     .build();
         } catch (ResourceNotFoundException | IllegalArgumentException ex) {
             throw ex;
@@ -199,7 +184,6 @@ public class NotificationDlqService {
                 .attempts(attempts)
                 .failedAt(failedAt)
                 .payload(record.value())
-                .replayedAt(replayedRecords.get(recordId))
                 .build();
     }
 

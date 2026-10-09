@@ -14,7 +14,6 @@ import {
   QrCode,
   ExternalLink,
   RotateCcw,
-  ShieldAlert,
 } from 'lucide-react';
 
 type CounterTab = 'DEPOSIT' | 'WITHDRAW' | 'TRANSFER';
@@ -142,30 +141,6 @@ export const CounterDesk: React.FC = () => {
           </p>
         </div>
       </div>
-
-      {/* Supervisory Notice for Admins */}
-      {isAdmin && (
-        <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200 flex items-start space-x-3 text-xs text-indigo-950 shadow-xs">
-          <ShieldAlert className="w-5 h-5 text-indigo-700 flex-shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <span className="font-bold text-sm block">Supervisory Oversight Mode</span>
-            <p className="text-indigo-800 leading-relaxed">
-              You are accessing the Branch Counter Desk with Branch Manager credentials. In accordance with banking Segregation of Duties (SoD), physical cash deposits and counter disbursements are designated for branch tellers. Any action taken here will be logged under supervisory audit records.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Teller Active Till Status Banner */}
-      {isTeller && (
-        <div className="p-3.5 rounded-xl bg-blue-50/80 border border-blue-200 flex items-center justify-between text-xs text-blue-900 shadow-xs">
-          <div className="flex items-center space-x-2">
-            <Coins className="w-4 h-4 text-blue-700" />
-            <span>Active Shift Till Status: <strong className="font-mono">₱62,300.00</strong> (Drawer Float In-Balance)</span>
-          </div>
-          <span className="text-[11px] text-blue-700 font-semibold bg-blue-100/70 px-2 py-0.5 rounded-md">Terminal #1 &bull; Ready</span>
-        </div>
-      )}
 
       {/* Segmented Mode Switcher */}
       <div className="bg-white rounded-xl p-1.5 border border-[#E2E8F0] shadow-sm flex items-center space-x-1">
