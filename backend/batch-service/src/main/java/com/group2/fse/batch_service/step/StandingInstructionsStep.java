@@ -9,13 +9,16 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Step 3: STANDING_INSTRUCTIONS
- * Executes scheduled recurring fund transfers due on or before the business date,
- * debits the source deposit account, credits the destination deposit account,
- * and records immutable cryptographic ledger audit entries.
+ * Executes the recurring transfers due on or before the business date: debit the source
+ * account, credit the destination, through the ledger (L8). An instruction moves to its next
+ * date only when the ledger says the transfer is in the journal; one it refuses stays due and
+ * is tried again on the next run.
  */
 @Slf4j
 @Component
@@ -23,7 +26,7 @@ import java.util.List;
 public class StandingInstructionsStep implements BatchStepExecutor {
 
     private final StandingInstructionRepository standingInstructionRepository;
-    private final LedgerAuditHelper ledgerAuditHelper;
+    private final LedgerPostings ledgerPostings;
 
     @Override
     public int getStepNo() {
@@ -38,82 +41,53 @@ public class StandingInstructionsStep implements BatchStepExecutor {
     @Override
     public BatchStepResult execute(Long batchRunId, LocalDate businessDate) {
         log.info("[BatchRun #{}] Executing Step 3: STANDING_INSTRUCTIONS for businessDate={}", batchRunId, businessDate);
-        try {
-            Thread.sleep(910);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
 
         List<StandingInstruction> dueInstructions = standingInstructionRepository.findByNextRunDateLessThanEqualAndActiveTrue(businessDate);
-        int processed = 0;
-        BigDecimal totalAmount = BigDecimal.ZERO;
 
+        // One reference per instruction and due date, so one occurrence can be posted once only.
+        List<StandingInstruction> due = new ArrayList<>();
+        List<LedgerPostings.Posting> postings = new ArrayList<>();
         for (StandingInstruction si : dueInstructions) {
             if (si.getAmount() == null || si.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
+            due.add(si);
+            postings.add(new LedgerPostings.Posting(
+                    "EOD-SI-" + si.getInstructionId() + "-" + si.getNextRunDate().format(DateTimeFormatter.BASIC_ISO_DATE),
+                    si.getSourceAccountId(), si.getDestinationAccountId(), si.getAmount(),
+                    "Standing instruction " + si.getInstructionId()));
+        }
 
-            Long srcId = si.getSourceAccountId();
-            Long dstId = si.getDestinationAccountId();
-            BigDecimal amount = si.getAmount();
+        Map<String, String> outcomes = ledgerPostings.post(batchRunId, getStepName(), postings);
 
-            // 1. Fetch live balances
-            BigDecimal srcOldBal = ledgerAuditHelper.getLatestBalance(srcId);
-            BigDecimal srcNewBal = srcOldBal.subtract(amount);
-
-            BigDecimal dstOldBal = ledgerAuditHelper.getLatestBalance(dstId);
-            BigDecimal dstNewBal = dstOldBal.add(amount);
-
-            String dateStr = businessDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-            String refDebit = "EOD-" + dateStr + "-SI-D-" + si.getInstructionId();
-            String refCredit = "EOD-" + dateStr + "-SI-C-" + si.getInstructionId();
-
-            // 2. Debit source account
-            ledgerAuditHelper.recordMutation(
-                    srcId,
-                    refDebit,
-                    "STANDING_ORDER",
-                    amount,
-                    srcOldBal,
-                    srcNewBal,
-                    businessDate
-            );
-
-            // 3. Credit destination account
-            ledgerAuditHelper.recordMutation(
-                    dstId,
-                    refCredit,
-                    "STANDING_ORDER",
-                    amount,
-                    dstOldBal,
-                    dstNewBal,
-                    businessDate
-            );
-
-            // 4. Roll next run date forward by 1 month
+        int executed = 0;
+        int refused = 0;
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (int i = 0; i < due.size(); i++) {
+            StandingInstruction si = due.get(i);
+            LedgerPostings.Posting posting = postings.get(i);
+            String errorCode = outcomes.get(posting.referenceNo());
+            if (errorCode != null) {
+                refused++;
+                log.warn("[BatchRun #{}] Standing instruction #{} refused by the ledger: {}; it stays due",
+                        batchRunId, si.getInstructionId(), errorCode);
+                continue;
+            }
             si.setNextRunDate(si.getNextRunDate().plusMonths(1));
             standingInstructionRepository.save(si);
-
-            processed++;
-            totalAmount = totalAmount.add(amount);
-            log.info("Executed standing instruction #{}: ₱{} from Account #{} -> Account #{}",
-                    si.getInstructionId(), amount, srcId, dstId);
+            executed++;
+            totalAmount = totalAmount.add(posting.amount());
         }
 
-        // Maintain Contract B2 baseline default for isolated unit test parity if empty
-        if (processed == 0 && dueInstructions.isEmpty()) {
-            processed = 1;
-            totalAmount = new BigDecimal("1000.00");
-        }
-
-        String message = (processed > 0)
-                ? ("Executed " + processed + " recurring instructions (Live ledger transfer)")
-                : "No instructions due";
-
-        log.info("[BatchRun #{}] STANDING_INSTRUCTIONS completed: {} orders executed, totalAmount={}", batchRunId, processed, totalAmount);
+        String message = executed == 0 && refused == 0
+                ? "No instructions due"
+                : "Executed " + executed + " recurring instructions"
+                        + (refused > 0 ? "; " + refused + " refused by the ledger and still due" : "");
+        log.info("[BatchRun #{}] STANDING_INSTRUCTIONS completed: {} executed, {} refused, totalAmount={}",
+                batchRunId, executed, refused, totalAmount);
         return BatchStepResult.builder()
                 .success(true)
-                .itemsProcessed(processed)
+                .itemsProcessed(executed)
                 .totalAmount(totalAmount)
                 .message(message)
                 .build();
