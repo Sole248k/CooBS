@@ -191,14 +191,16 @@ public class TransferServiceImpl implements TransferService {
     private void startSaga(TxnTransaction txn, Caller caller) {
         try {
             orchestrationClient.triggerTransferSagaAsync(
-                    sagaRequest(txn, caller.userId(), caller.staff() ? "STAFF" : "CUSTOMER"), correlationId());
+                    sagaRequest(txn, caller.userId(), caller.staff() ? "STAFF" : "CUSTOMER",
+                            transactionRepository.isFirstPostedTransferTo(txn)), correlationId());
         } catch (RuntimeException e) {
             log.error("Could not hand saga start for {} to the background executor; it will be re-dispatched: {}",
                     txn.getTransactionId(), e.getMessage());
         }
     }
 
-    static StartTransferSagaRequest sagaRequest(TxnTransaction txn, Long actorId, String actorType) {
+    static StartTransferSagaRequest sagaRequest(TxnTransaction txn, Long actorId, String actorType,
+                                                boolean isNewBeneficiary) {
         return StartTransferSagaRequest.builder()
                 .transactionId(txn.getTransactionId())
                 .referenceNo(txn.getReferenceNo())
@@ -211,6 +213,7 @@ public class TransferServiceImpl implements TransferService {
                 .currency(txn.getCurrency())
                 .actorId(actorId)
                 .actorType(actorType)
+                .isNewBeneficiary(isNewBeneficiary)
                 .build();
     }
 

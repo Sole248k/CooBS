@@ -9,5 +9,6 @@
   "amount": "2500.00",
   "currency": "PHP",
   "actorId": 1,
-  "actorType": "CUSTOMER"
+  "actorType": "CUSTOMER",
+  "isNewBeneficiary": false
 }

@@ -75,6 +75,20 @@ class SagaStartRedispatcherTest {
     }
 
     @Test
+    @DisplayName("a start that is sent again says whether the beneficiary is new, as the first one did")
+    void theRepeatedStartCarriesTheNewBeneficiaryFlag() {
+        TxnTransaction txn = waiting(2L);
+        when(transactionRepository.findProcessingWithoutSagaStage(any(), any())).thenReturn(List.of(txn));
+        when(transactionRepository.isFirstPostedTransferTo(txn)).thenReturn(true);
+
+        redispatcher().redispatch(NOW);
+
+        ArgumentCaptor<StartTransferSagaRequest> saga = ArgumentCaptor.forClass(StartTransferSagaRequest.class);
+        verify(orchestrationClient).triggerTransferSaga(saga.capture(), anyString());
+        assertThat(saga.getValue().getIsNewBeneficiary()).isTrue();
+    }
+
+    @Test
     @DisplayName("does not send a start for a row without a resolved destination: there is nothing safe to send")
     void skipsARowWithoutAResolvedDestination() {
         when(transactionRepository.findProcessingWithoutSagaStage(any(), any())).thenReturn(List.of(waiting(null)));
