@@ -17,6 +17,12 @@ spring:
       timeout: 2000ms
   cloud:
     gateway:
+      # A target that cannot be reached (a service down, the on-premises link cut) is answered
+      # 503 after the connect timeout, and one that accepts the call but never answers is 504
+      # after the response timeout. Without these the caller waits on the gateway indefinitely.
+      httpclient:
+        connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:3000}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:15s}
       filter:
         request-rate-limiter:
           deny-empty-key: false
@@ -216,21 +222,10 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
-        # 11. Risk Engine Routes (Internal-only perimeter; blocked by InternalPerimeterRejectionFilter)
-        # Internal service routing: 30 req/s, burst 60
-        - id: risk-engine-route
-          uri: ${RISK_ENGINE_URL:http://localhost:8092}
-          predicates:
-            - Path=/internal/v1/risk/**
-          filters:
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: 30
-                redis-rate-limiter.burstCapacity: 60
-                redis-rate-limiter.requestedTokens: 1
-                key-resolver: "#{@ipKeyResolver}"
+        # No route exists for any /internal/** path. The risk engine is called by the orchestrator
+        # inside the network, never through this gateway.
 
-        # 12. Swagger UI & OpenAPI Specification Routes (Testing Portal)
+        # 11. Swagger UI & OpenAPI Specification Routes (Testing Portal)
         - id: swagger-ui-route
           uri: ${SWAGGER_UI_URL:http://localhost:8086}
           predicates:

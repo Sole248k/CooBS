@@ -26,6 +26,8 @@ class GatewayRoutingIntegrationTest {
 
     @Autowired
     private RouteDefinitionLocator routeDefinitions;
+    @Autowired
+    private org.springframework.cloud.gateway.config.HttpClientProperties httpClientProperties;
 
     private WebTestClient client;
 
@@ -74,8 +76,25 @@ class GatewayRoutingIntegrationTest {
                 "notification-service-route",
                 "audit-service-route",
                 "transaction-service-route",
-                "orchestration-service-route",
-                "risk-engine-route");
+                "orchestration-service-route");
+    }
+
+    @Test
+    @DisplayName("No route exists for an internal path")
+    void shouldHaveNoRouteForAnInternalPath() {
+        List<RouteDefinition> routes = routeDefinitions.getRouteDefinitions().collectList().block();
+
+        assertThat(routes).extracting(RouteDefinition::getId).doesNotContain("risk-engine-route");
+        assertThat(routes).allSatisfy(route -> assertThat(route.getPredicates().toString())
+                .as("predicates of %s", route.getId())
+                .doesNotContain("/internal"));
+    }
+
+    @Test
+    @DisplayName("Calls to a target are bounded by a connect and a response timeout")
+    void shouldBoundCallsToATarget() {
+        assertThat(httpClientProperties.getConnectTimeout()).isEqualTo(3000);
+        assertThat(httpClientProperties.getResponseTimeout()).isEqualTo(java.time.Duration.ofSeconds(15));
     }
 
     @Test
@@ -124,6 +143,19 @@ class GatewayRoutingIntegrationTest {
                 .jsonPath("$.title").isEqualTo("Forbidden")
                 .jsonPath("$.detail").isEqualTo("Access to internal microservice endpoints across the external API Gateway perimeter is strictly forbidden.")
                 .jsonPath("$.instance").isEqualTo("/internal/v1/risk/evaluate");
+    }
+
+    @Test
+    @DisplayName("A percent-encoded internal path is rejected like a plain one")
+    void shouldRejectAPercentEncodedInternalPath() {
+        // %69 is "i". The router matches on the decoded path, so the perimeter filter must too.
+        // Before this was checked, the request below reached the risk-engine route.
+        client.post()
+                .uri(java.net.URI.create("http://localhost:" + port + "/%69nternal/v1/risk/evaluate"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().isForbidden();
     }
 }
 

@@ -439,7 +439,6 @@ services:
       CUSTOMER_SERVICE_URL: http://customer-service:8089
       TRANSACTION_SERVICE_URL: http://transaction-service:8090
       ORCHESTRATION_SERVICE_URL: http://orchestration-service:8091
-      RISK_ENGINE_URL: http://risk-engine:8092
       BATCH_SERVICE_URL: http://batch-service:8093
       MOBILE_BFF_URL: http://mobile-bff:8094
       STAFF_BFF_URL: http://staff-bff:8095

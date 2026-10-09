@@ -67,11 +67,6 @@ spec:
                 configMapKeyRef:
                   name: coobs-config
                   key: ORCHESTRATION_SERVICE_URL
-            - name: RISK_ENGINE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: coobs-config
-                  key: RISK_ENGINE_URL
             - name: MOBILE_BFF_URL
               valueFrom:
                 configMapKeyRef:
