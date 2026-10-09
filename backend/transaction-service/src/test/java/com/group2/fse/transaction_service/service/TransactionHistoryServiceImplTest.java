@@ -29,6 +29,9 @@ class TransactionHistoryServiceImplTest {
     @Mock
     private TxnTransactionRepository transactionRepository;
 
+    @Mock
+    private com.group2.fse.transaction_service.client.OrchestrationClient orchestrationClient;
+
     @InjectMocks
     private TransactionHistoryServiceImpl historyService;
 
@@ -106,6 +109,44 @@ class TransactionHistoryServiceImplTest {
         List<TransactionSummaryDto> result = historyService.getRecentTransactions(101L, 0);
 
         assertThat(result).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("getRecentTransactions correctly maps incoming transfers as IN")
+    void getRecentTransactions_mapsIncomingTransfersAsIn() {
+        com.group2.fse.transaction_service.client.dto.AccountLookupResponse acc =
+                com.group2.fse.transaction_service.client.dto.AccountLookupResponse.builder()
+                        .accountId(2002L)
+                        .accountNumber("ACC-2002")
+                        .customerId(101L)
+                        .build();
+
+        when(orchestrationClient.findAccountsByCustomerId(101L)).thenReturn(List.of(acc));
+
+        TxnTransaction incomingTx = TxnTransaction.builder()
+                .transactionId(UUID.randomUUID())
+                .referenceNo("TXN-IN-001")
+                .customerId(999L) // Sender was someone else
+                .sourceAccountId(1001L)
+                .destinationAccountId(2002L)
+                .destinationAccountNumber("ACC-2002")
+                .amount(new BigDecimal("5000.00"))
+                .currency("PHP")
+                .category("TRANSFER")
+                .status("COMPLETED")
+                .remarks("Allowance")
+                .createdAt(Instant.now())
+                .build();
+
+        when(transactionRepository.findByCustomerOrAccountDetails(eq(101L), anyCollection(), anyCollection()))
+                .thenReturn(List.of(incomingTx));
+
+        List<TransactionSummaryDto> result = historyService.getRecentTransactions(101L, 5);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getDirection()).isEqualTo("IN");
+        assertThat(result.get(0).getAmount()).isEqualTo("5000.00");
+        assertThat(result.get(0).getCounterpartyName()).isEqualTo("Allowance");
     }
 
     @Test

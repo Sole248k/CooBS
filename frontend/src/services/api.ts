@@ -224,6 +224,7 @@ export const staffApi = {
   async getAllAccounts(): Promise<StaffAccountSummary[]> { return staffBffApi.getStaffAccounts(); },
   async openAccount(payload: AccountOpenPayload) { return staffBffApi.openStaffAccount(payload); },
   async updateAccountStatus(accountId: number, status: string) { return staffBffApi.updateStaffAccountStatus(accountId, status); },
+  async requestAccountClosure(accountId: number, reason: string) { return staffBffApi.requestStaffAccountClosure(accountId, reason); },
   async addAccountFlag(accountId: number, reason: string) { return staffBffApi.addStaffAccountFlag(accountId, reason); },
   async removeAccountFlag(accountId: number, flagId: number) { return staffBffApi.removeStaffAccountFlag(accountId, flagId); },
   async getTransactionTimeline(transactionId: string): Promise<TimelineResponse> { return staffBffApi.getStaffBffTimeline(transactionId); },

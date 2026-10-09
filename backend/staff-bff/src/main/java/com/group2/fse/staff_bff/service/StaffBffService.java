@@ -29,6 +29,8 @@ public interface StaffBffService {
 
     Map<String, Object> rejectClosure(Long closureId, String reason, String correlationId, String bearerToken);
 
+    Map<String, Object> requestAccountClosure(Long accountId, String reason, String correlationId, String bearerToken);
+
     List<Map<String, Object>> getAllAccounts(String correlationId, String bearerToken);
 
     Map<String, Object> openAccount(Map<String, Object> payload, String correlationId, String bearerToken);

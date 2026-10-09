@@ -19,6 +19,8 @@ import {
   Check,
   RefreshCw,
   Coins,
+  FileX,
+  CheckCircle2,
 } from 'lucide-react';
 
 export const AccountDirectory: React.FC = () => {
@@ -29,6 +31,7 @@ export const AccountDirectory: React.FC = () => {
   const [accounts, setAccounts] = useState<StaffAccountSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,9 +39,20 @@ export const AccountDirectory: React.FC = () => {
 
   // Drawer & Modals
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [createdAccountModalData, setCreatedAccountModalData] = useState<any | null>(null);
+
+  // Flagging
   const [flaggingAccount, setFlaggingAccount] = useState<StaffAccountSummary | null>(null);
   const [flagReason, setFlagReason] = useState('AML_WATCH');
   const [flagDescription, setFlagDescription] = useState('Suspicious multi-branch high frequency deposits');
+
+  // Closure Request
+  const [closureTargetAccount, setClosureTargetAccount] = useState<StaffAccountSummary | null>(null);
+  const [closureReason, setClosureReason] = useState('Customer requested account closure');
+  const [closureNotes, setClosureNotes] = useState('');
+  const [closureSubmitting, setClosureSubmitting] = useState(false);
+  const [closureError, setClosureError] = useState<string | null>(null);
+
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
 
@@ -65,8 +79,11 @@ export const AccountDirectory: React.FC = () => {
   const handleToggleStatus = async (account: StaffAccountSummary) => {
     const nextStatus = account.status === 'ACTIVE' ? 'FROZEN' : 'ACTIVE';
     setActionLoading(true);
+    setError(null);
     try {
       await staffApi.updateAccountStatus(account.accountId, nextStatus);
+      setSuccessBanner(`Account ${account.accountNumber} successfully updated to ${nextStatus}.`);
+      setTimeout(() => setSuccessBanner(null), 4000);
       loadAccounts();
     } catch (err: any) {
       setError(err.message || `Failed to update status to ${nextStatus}.`);
@@ -80,6 +97,8 @@ export const AccountDirectory: React.FC = () => {
     setActionLoading(true);
     try {
       await staffApi.addAccountFlag(flaggingAccount.accountId, `${flagReason}: ${flagDescription}`);
+      setSuccessBanner(`Compliance flag added to account ${flaggingAccount.accountNumber}.`);
+      setTimeout(() => setSuccessBanner(null), 4000);
       setFlaggingAccount(null);
       loadAccounts();
     } catch (err: any) {
@@ -92,13 +111,36 @@ export const AccountDirectory: React.FC = () => {
   const handleRemoveFlag = async (accountId: number, flagIndex: number) => {
     setActionLoading(true);
     try {
-      // Pass flag index as flagId or numerical representation
       await staffApi.removeAccountFlag(accountId, flagIndex + 1);
+      setSuccessBanner('Compliance flag removed.');
+      setTimeout(() => setSuccessBanner(null), 4000);
       loadAccounts();
     } catch (err: any) {
       setError(err.message || 'Failed to remove flag.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSubmitClosureRequest = async () => {
+    if (!closureTargetAccount) return;
+    setClosureSubmitting(true);
+    setClosureError(null);
+    try {
+      const fullReason = closureNotes.trim()
+        ? `${closureReason} - ${closureNotes.trim()}`
+        : closureReason;
+      await staffApi.requestAccountClosure(closureTargetAccount.accountId, fullReason);
+      setSuccessBanner(
+        `Closure request submitted for account ${closureTargetAccount.accountNumber}. It is now pending Admin approval in the Queues.`
+      );
+      setTimeout(() => setSuccessBanner(null), 6000);
+      setClosureTargetAccount(null);
+      loadAccounts();
+    } catch (err: any) {
+      setClosureError(err.message || 'Failed to submit closure request.');
+    } finally {
+      setClosureSubmitting(false);
     }
   };
 
@@ -148,6 +190,13 @@ export const AccountDirectory: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {successBanner && (
+        <div className="p-4 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] flex items-center space-x-3 text-xs text-[#065F46] animate-in fade-in duration-200">
+          <CheckCircle2 className="w-4 h-4 text-[#10B981] flex-shrink-0" />
+          <span className="font-medium">{successBanner}</span>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-xl bg-[#FEE2E2] border border-[#FECACA] flex items-center space-x-3 text-xs text-[#DC2626]">
@@ -316,6 +365,22 @@ export const AccountDirectory: React.FC = () => {
                           )}
                         </button>
                       )}
+
+                      {/* Request Closure Button */}
+                      {acc.status !== 'CLOSED' && (
+                        <button
+                          onClick={() => {
+                            setClosureTargetAccount(acc);
+                            setClosureReason('Customer requested account closure');
+                            setClosureNotes('');
+                            setClosureError(null);
+                          }}
+                          className="p-1.5 text-[#DC2626] hover:bg-[#FEE2E2] rounded-md transition-colors"
+                          title="Request Account Closure"
+                        >
+                          <FileX className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -324,6 +389,218 @@ export const AccountDirectory: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Account Origination Receipt / Success Modal */}
+      {createdAccountModalData && (
+        <div className="fixed inset-0 z-50 bg-[#0F1E33]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] max-w-md w-full p-6 space-y-5">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-full bg-[#ECFDF5] border border-[#A7F3D0] flex items-center justify-center flex-shrink-0 text-[#059669]">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#1E3A5F]">Account Opened Successfully!</h3>
+                <p className="text-xs text-[#64748B]">New portfolio has been originated and registered in the core ledger.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-[#E2E8F0]">
+                <span className="text-xs text-[#64748B] font-medium">Account Number</span>
+                <div className="flex items-center space-x-1.5 font-mono font-bold text-sm text-[#1E3A5F]">
+                  <span>{createdAccountModalData.accountNumber}</span>
+                  <button
+                    onClick={() => copyToClipboard(createdAccountModalData.accountNumber)}
+                    className="p-1 hover:bg-[#E2E8F0] rounded text-[#64748B] transition-colors"
+                    title="Copy account number"
+                  >
+                    {copiedAccount === createdAccountModalData.accountNumber ? (
+                      <Check className="w-3.5 h-3.5 text-[#10B981]" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-[#64748B] block text-[11px]">Account ID</span>
+                  <span className="font-semibold text-[#1E3A5F] font-mono">#{createdAccountModalData.accountId}</span>
+                </div>
+                <div>
+                  <span className="text-[#64748B] block text-[11px]">Customer / Member ID</span>
+                  <span className="font-semibold text-[#1E3A5F] font-mono">#{createdAccountModalData.customerId}</span>
+                </div>
+                <div>
+                  <span className="text-[#64748B] block text-[11px]">Account Type</span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-[#EFF6FF] text-[#1D4ED8] inline-block">
+                    {createdAccountModalData.accountType}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#64748B] block text-[11px]">Initial Balance</span>
+                  <span className="font-semibold text-[#1E3A5F] font-mono">
+                    {formatCurrency(createdAccountModalData.availableBalance ?? createdAccountModalData.balance ?? 0)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[#E2E8F0] text-xs">
+                <span className="text-[#64748B]">Status</span>
+                <span className="pill pill-success text-[11px] font-semibold">
+                  {createdAccountModalData.status || 'ACTIVE'}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-[#64748B] leading-relaxed">
+              The account is now available for counter operations, cash deposits, assisted transfers, and scheduled interest accrual.
+            </p>
+
+            <div className="flex items-center space-x-2 pt-2">
+              <button
+                onClick={() => setCreatedAccountModalData(null)}
+                className="flex-1 py-2 px-4 rounded-lg border border-[#CBD5E1] text-[#1E3A5F] text-xs font-semibold hover:bg-[#F8FAFC] transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  const accId = createdAccountModalData.accountId;
+                  setCreatedAccountModalData(null);
+                  navigate(`/counter?accountId=${accId}`);
+                }}
+                className="flex-1 py-2 px-4 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition-colors flex items-center justify-center space-x-1.5"
+              >
+                <Coins className="w-3.5 h-3.5" />
+                <span>Transact at Counter</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Account Closure Request Modal */}
+      {closureTargetAccount && (
+        <div className="fixed inset-0 z-50 bg-[#0F1E33]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-full bg-[#FEE2E2] border border-[#FECACA] flex items-center justify-center flex-shrink-0 text-[#DC2626]">
+                <FileX className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#1E3A5F]">Request Account Closure</h3>
+                <p className="text-xs text-[#64748B]">
+                  Submit formal closure request for {closureTargetAccount.accountNumber}
+                </p>
+              </div>
+            </div>
+
+            {closureError && (
+              <div className="p-3 rounded-xl bg-[#FEE2E2] border border-[#FECACA] flex items-start space-x-2 text-xs text-[#DC2626]">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{closureError}</span>
+              </div>
+            )}
+
+            <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Customer Name</span>
+                <span className="font-semibold text-[#1E3A5F]">{closureTargetAccount.customerName || 'Retail Member'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64748B]">Account Type</span>
+                <span className="font-semibold text-[#1E3A5F]">{closureTargetAccount.accountType}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[#64748B]">Available Balance</span>
+                <span className={`font-mono font-bold ${parseFloat(String(closureTargetAccount.availableBalance || '0')) > 0 ? 'text-[#DC2626]' : 'text-[#1E3A5F]'}`}>
+                  {formatCurrency(closureTargetAccount.availableBalance)}
+                </span>
+              </div>
+            </div>
+
+            {parseFloat(String(closureTargetAccount.availableBalance || '0')) > 0 && (
+              <div className="p-3 rounded-xl bg-[#FEF3C7] border border-[#FDE68A] text-xs text-[#92400E] space-y-2">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#D97706]" />
+                  <span>
+                    <strong>Non-Zero Balance Warning:</strong> Accounts must have an available balance of exactly ₱0.00 before final closure can be approved. Liquidate or withdraw the remaining balance at the Counter Desk first.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const accId = closureTargetAccount.accountId;
+                    setClosureTargetAccount(null);
+                    navigate(`/counter?accountId=${accId}`);
+                  }}
+                  className="w-full py-1.5 px-3 bg-[#D97706] hover:bg-[#B45309] text-white rounded-lg font-semibold text-[11px] transition-colors flex items-center justify-center space-x-1"
+                >
+                  <Coins className="w-3.5 h-3.5" />
+                  <span>Withdraw / Disburse Balance at Counter Desk</span>
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#1E3A5F] uppercase tracking-wider mb-1">
+                  Reason for Closure
+                </label>
+                <select
+                  value={closureReason}
+                  onChange={(e) => setClosureReason(e.target.value)}
+                  className="w-full p-2.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#1E3A5F] focus:ring-2 focus:ring-[#2563EB] focus:outline-none"
+                >
+                  <option value="Customer requested account closure">Customer requested account closure</option>
+                  <option value="Consolidating accounts into primary portfolio">Consolidating accounts into primary portfolio</option>
+                  <option value="Relocation / Changing primary financial provider">Relocation / Changing primary financial provider</option>
+                  <option value="Estate settlement / Probate execution">Estate settlement / Probate execution</option>
+                  <option value="Dormancy liquidation and final settlement">Dormancy liquidation and final settlement</option>
+                  <option value="Administrative / Regulatory compliance termination">Administrative / Regulatory compliance termination</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#1E3A5F] uppercase tracking-wider mb-1">
+                  Branch Notes / Justification
+                </label>
+                <textarea
+                  value={closureNotes}
+                  onChange={(e) => setClosureNotes(e.target.value)}
+                  rows={2}
+                  className="w-full p-2.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#1E3A5F] focus:ring-2 focus:ring-[#2563EB] focus:outline-none"
+                  placeholder="Optional branch notes or member signature reference..."
+                />
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-[#EFF6FF] border border-[#DBEAFE] rounded-lg text-[11px] text-[#1E40AF]">
+              Submitting this request routes it to the <strong>Staff Approval Queues</strong> under Account Closures for Admin verification and decisioning.
+            </div>
+
+            <div className="flex space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setClosureTargetAccount(null)}
+                className="flex-1 py-2 px-4 rounded-lg border border-[#CBD5E1] text-[#1E3A5F] text-xs font-semibold hover:bg-[#F8FAFC] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitClosureRequest}
+                disabled={closureSubmitting}
+                className="flex-1 py-2 px-4 rounded-lg bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-semibold transition-colors disabled:opacity-50"
+              >
+                {closureSubmitting ? 'Submitting...' : 'Submit Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Flag Modal */}
       {flaggingAccount && (
@@ -393,7 +670,12 @@ export const AccountDirectory: React.FC = () => {
       <OpenAccountDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        onSuccess={loadAccounts}
+        onSuccess={(created) => {
+          loadAccounts();
+          if (created) {
+            setCreatedAccountModalData(created);
+          }
+        }}
         initialCustomerId={searchParams.get('openCustomer') || '1'}
       />
     </div>

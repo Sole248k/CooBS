@@ -61,6 +61,8 @@ export interface StaffCustomer360Response {
     category?: string;
     status?: string;
     timestamp?: string;
+    createdAt?: string;
+    currency?: string;
     direction?: 'IN' | 'OUT';
     counterpartyName?: string;
     counterpartyAccountNumber?: string;
@@ -80,12 +82,22 @@ export interface StaffQueuesSummaryResponse {
   totalPendingKyc: number;
   totalPendingClosures: number;
   pendingKycRequests: Array<{
-    requestId: number;
+    requestId?: number;
+    kycRequestId?: number;
+    kycId?: number;
     customerId: number;
     customerName?: string;
     requestedFields?: Record<string, string>;
     status: string;
-    submittedAt: string;
+    submittedAt?: string;
+    requestedAt?: string;
+    newFirstName?: string;
+    newMiddleInitial?: string;
+    newLastName?: string;
+    newAddress?: string;
+    newMobileNumber?: string;
+    newCivilStatus?: string;
+    newOccupation?: string;
   }>;
   pendingClosureRequests: Array<{
     closureId: number;
@@ -179,6 +191,8 @@ export interface CounterTransferPayload {
   sourceAccountId: number;
   destinationAccountNumber: string;
   amount: number | string;
+  destinationBankCode?: string;
+  currency?: string;
   category?: string;
   remarks?: string;
 }

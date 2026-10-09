@@ -32,11 +32,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initialize from localStorage
+  // Initialize from sessionStorage and purge legacy localStorage sessions
   useEffect(() => {
     try {
-      const savedToken = localStorage.getItem(TOKEN_KEY);
-      const savedUserStr = localStorage.getItem(USER_KEY);
+      // Clear legacy localStorage auth keys so new/initial boots do not auto-login
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        localStorage.removeItem('coobs_auth_session');
+      }
+
+      const savedToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(TOKEN_KEY) : null;
+      const savedUserStr = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(USER_KEY) : null;
       if (savedToken && savedUserStr) {
         const parsedUser: StaffUser = JSON.parse(savedUserStr);
         setToken(savedToken);
@@ -45,8 +52,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err) {
       console.error('Failed to parse saved staff auth session', err);
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(USER_KEY);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -66,8 +75,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(staffUser);
     staffApi.setAuthToken(authData.accessToken);
 
-    localStorage.setItem(TOKEN_KEY, authData.accessToken);
-    localStorage.setItem(USER_KEY, JSON.stringify(staffUser));
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(TOKEN_KEY, authData.accessToken);
+      sessionStorage.setItem(USER_KEY, JSON.stringify(staffUser));
+    }
   }, []);
 
   const logout = useCallback(async () => {
@@ -79,8 +90,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(null);
       setUser(null);
       staffApi.setAuthToken(null);
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(USER_KEY);
+      }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+      }
     }
   }, []);
 

@@ -30,7 +30,14 @@ public class TransactionServiceClient {
         String url = transactionServiceBaseUrl + "/api/v1/transactions/transfers";
         String effectiveIdempotencyKey = (idempotencyKey != null && !idempotencyKey.isBlank()) ? idempotencyKey : java.util.UUID.randomUUID().toString();
         HttpHeaders headers = createHeaders(bearerToken, correlationId, effectiveIdempotencyKey);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+        Map<String, Object> effectivePayload = new java.util.HashMap<>(payload);
+        if (!effectivePayload.containsKey("destinationBankCode") || effectivePayload.get("destinationBankCode") == null) {
+            effectivePayload.put("destinationBankCode", "COOBS");
+        }
+        if (!effectivePayload.containsKey("currency") || effectivePayload.get("currency") == null) {
+            effectivePayload.put("currency", "PHP");
+        }
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(effectivePayload, headers);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});

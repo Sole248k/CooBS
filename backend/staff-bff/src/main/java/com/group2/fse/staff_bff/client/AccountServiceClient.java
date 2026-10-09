@@ -80,13 +80,16 @@ public class AccountServiceClient {
 
     public List<Map<String, Object>> fetchPendingClosureRequests(String bearerToken, String correlationId) {
         try {
-            String url = accountServiceBaseUrl + "/api/v1/accounts/closure-requests?status=PENDING";
+            String url = accountServiceBaseUrl + "/api/v1/accounts/closure-requests?status=PENDING&size=100";
             HttpHeaders headers = createHeaders(bearerToken, correlationId);
             HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                     url, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
-            return response.getBody() != null ? response.getBody() : Collections.emptyList();
+            if (response.getBody() != null && response.getBody().get("content") instanceof List) {
+                return (List<Map<String, Object>>) response.getBody().get("content");
+            }
+            return Collections.emptyList();
         } catch (Exception e) {
             log.warn("Failed to fetch pending closure requests: {}", e.getMessage());
             return Collections.emptyList();
@@ -149,6 +152,17 @@ public class AccountServiceClient {
         String url = accountServiceBaseUrl + "/api/v1/accounts/closure-requests/" + closureId + "/reject";
         HttpHeaders headers = createHeaders(bearerToken, correlationId);
         Map<String, String> payload = Map.of("reason", reason != null ? reason : "Account balance non-zero or unresolved holds");
+        HttpEntity<Map<String, String>> entity = new HttpEntity<>(payload, headers);
+
+        ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+        return response.getBody();
+    }
+
+    public Map<String, Object> requestAccountClosure(Long accountId, String reason, String bearerToken, String correlationId) {
+        String url = accountServiceBaseUrl + "/api/v1/accounts/" + accountId + "/closure-request";
+        HttpHeaders headers = createHeaders(bearerToken, correlationId);
+        Map<String, String> payload = Map.of("reason", reason != null ? reason : "Staff initiated closure request");
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(payload, headers);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(

@@ -67,6 +67,35 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(org.springframework.web.client.HttpStatusCodeException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpStatusCodeException(
+            org.springframework.web.client.HttpStatusCodeException ex, HttpServletRequest request) {
+        log.warn("Downstream service error on [{}]: status={}, body={}", request.getRequestURI(), ex.getStatusCode(), ex.getResponseBodyAsString());
+        String body = ex.getResponseBodyAsString();
+        String detail = ex.getMessage();
+        String errorCode = "DOWNSTREAM_SERVICE_ERROR";
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<?, ?> map = mapper.readValue(body, Map.class);
+            if (map.containsKey("detail") && map.get("detail") != null) {
+                detail = map.get("detail").toString();
+            } else if (map.containsKey("message") && map.get("message") != null) {
+                detail = map.get("message").toString();
+            }
+            if (map.containsKey("errorCode") && map.get("errorCode") != null) {
+                errorCode = map.get("errorCode").toString();
+            }
+        } catch (Exception ignored) {
+        }
+        return buildErrorResponse(
+                HttpStatus.valueOf(ex.getStatusCode().value()),
+                errorCode,
+                detail,
+                request.getRequestURI(),
+                null
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneralException(Exception ex, HttpServletRequest request) {
         log.error("Unhandled internal server error on [{}]: {}", request.getRequestURI(), ex.getMessage(), ex);

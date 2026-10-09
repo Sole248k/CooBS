@@ -34,6 +34,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+const FallbackRoute: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) {
+    return null;
+  }
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
+};
+
 export const App: React.FC = () => {
   return (
     <Routes>
@@ -62,7 +70,7 @@ export const App: React.FC = () => {
       </Route>
 
       {/* Fallback */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<FallbackRoute />} />
     </Routes>
   );
 };

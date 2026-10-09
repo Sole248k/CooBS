@@ -158,7 +158,7 @@ public class StaffBffController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PatchMapping("/accounts/{accountId}/status")
+    @RequestMapping(value = "/accounts/{accountId}/status", method = {RequestMethod.PATCH, RequestMethod.POST})
     @PreAuthorize("hasAnyRole('TELLER', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> updateAccountStatus(
             @PathVariable Long accountId,
@@ -169,6 +169,19 @@ public class StaffBffController {
         log.info("Staff setting status of account {} to {}", accountId, status);
         Map<String, Object> result = staffBffService.updateAccountStatus(accountId, status, correlationId, authorization);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/accounts/{accountId}/closure-request")
+    @PreAuthorize("hasAnyRole('TELLER', 'ADMIN')")
+    public ResponseEntity<Map<String, Object>> requestAccountClosure(
+            @PathVariable Long accountId,
+            @RequestBody(required = false) Map<String, String> body,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
+        String reason = body != null ? body.get("reason") : "Branch counter closure request";
+        log.info("Staff requesting closure for account {}: {}", accountId, reason);
+        Map<String, Object> result = staffBffService.requestAccountClosure(accountId, reason, correlationId, authorization);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(result);
     }
 
     @PostMapping("/accounts/{accountId}/flags")

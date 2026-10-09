@@ -16,7 +16,7 @@ export const AppHeader: React.FC = () => {
   }, []);
 
   return (
-    <header className="h-[56px] bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between select-none z-20">
+    <header className="sticky top-0 z-40 shrink-0 h-[56px] w-full bg-white border-b border-[#E2E8F0] px-6 flex items-center justify-between select-none shadow-sm">
       {/* Left: Brand & Branch Context */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2.5">

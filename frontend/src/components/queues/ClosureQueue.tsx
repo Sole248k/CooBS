@@ -102,48 +102,50 @@ export const ClosureQueue: React.FC<ClosureQueueProps> = ({ requests, onRefresh 
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0]">
-                {requests.map((req) => (
-                  <tr key={req.closureId} className="hover:bg-[#F8FAFC]/70 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-medium text-[#1E3A5F]">
-                      #CLS-{req.closureId}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-[#1E3A5F]">
-                      {req.accountNumber}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-[#1E3A5F]">
-                        {req.customerName || `Customer #${req.customerId}`}
-                      </div>
-                      <div className="text-xs text-[#64748B] font-mono">ID: {req.customerId}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-[#1E3A5F] tabular-nums">
-                      {formatCurrency(req.availableBalance)}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-[#64748B] max-w-xs truncate">
-                      {req.reason || 'Member requested closure'}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-[#64748B]">
-                      {formatTimestamp(req.requestedAt)}
-                    </td>
-                    {isAdmin && (
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center space-x-2">
-                          <button
-                            onClick={() => handleApprove(req.closureId)}
-                            disabled={submitting}
-                            className="px-3 py-1.5 rounded-lg bg-[#D1FAE5] text-[#065F46] hover:bg-[#A7F3D0] text-xs font-semibold transition-colors flex items-center space-x-1"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Approve</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setRejectingId(req.closureId);
-                              setRejectReason('Closure denied: requirements unmet');
-                            }}
-                            disabled={submitting}
-                            className="px-3 py-1.5 rounded-lg bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] text-xs font-semibold transition-colors flex items-center space-x-1"
-                          >
+                {requests.map((req, index) => {
+                  const clsId = req.closureId ?? (req as any).id ?? index + 1;
+                  return (
+                    <tr key={clsId} className="hover:bg-[#F8FAFC]/70 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-medium text-[#1E3A5F]">
+                        #CLS-{clsId}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-[#1E3A5F]">
+                        {req.accountNumber}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-semibold text-[#1E3A5F]">
+                          {req.customerName || `Customer #${req.customerId}`}
+                        </div>
+                        <div className="text-xs text-[#64748B] font-mono">ID: {req.customerId}</div>
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-[#1E3A5F] tabular-nums">
+                        {formatCurrency(req.availableBalance)}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-[#64748B] max-w-xs truncate">
+                        {req.reason || 'Member requested closure'}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-[#64748B]">
+                        {formatTimestamp(req.requestedAt)}
+                      </td>
+                      {isAdmin && (
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center space-x-2">
+                            <button
+                              onClick={() => handleApprove(clsId)}
+                              disabled={submitting}
+                              className="px-3 py-1.5 rounded-lg bg-[#D1FAE5] text-[#065F46] hover:bg-[#A7F3D0] text-xs font-semibold transition-colors flex items-center space-x-1"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setRejectingId(clsId);
+                                setRejectReason('Closure denied: requirements unmet');
+                              }}
+                              disabled={submitting}
+                              className="px-3 py-1.5 rounded-lg bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] text-xs font-semibold transition-colors flex items-center space-x-1"
+                            >
                             <X className="w-3.5 h-3.5" />
                             <span>Reject</span>
                           </button>
@@ -151,7 +153,8 @@ export const ClosureQueue: React.FC<ClosureQueueProps> = ({ requests, onRefresh 
                       </td>
                     )}
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
             </table>
           </div>

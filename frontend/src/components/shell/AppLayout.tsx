@@ -5,12 +5,12 @@ import { Sidebar } from './Sidebar';
 
 export const AppLayout: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[#F0F4F8] flex flex-col antialiased text-[#1E3A5F]">
+    <div className="h-screen max-h-screen w-screen overflow-hidden bg-[#F0F4F8] flex flex-col antialiased text-[#1E3A5F]">
       {/* Top Header */}
       <AppHeader />
 
       {/* Main Body: Sidebar + Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left Navigation Sidebar */}
         <Sidebar />
 

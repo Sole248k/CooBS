@@ -74,6 +74,7 @@ export const CounterDesk: React.FC = () => {
     }
 
     const idempotencyKey = generateUUID();
+    const referenceNo = `TX-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     try {
       let result;
@@ -82,6 +83,7 @@ export const CounterDesk: React.FC = () => {
           {
             accountId: parsedAccountId,
             amount: parsedAmount.toFixed(2),
+            referenceNo,
             remarks,
           },
           idempotencyKey
@@ -91,6 +93,7 @@ export const CounterDesk: React.FC = () => {
           {
             accountId: parsedAccountId,
             amount: parsedAmount.toFixed(2),
+            referenceNo,
             remarks,
           },
           idempotencyKey
@@ -100,7 +103,9 @@ export const CounterDesk: React.FC = () => {
           {
             sourceAccountId: parsedAccountId,
             destinationAccountNumber: destinationAccount,
+            destinationBankCode: 'COOBS',
             amount: parsedAmount.toFixed(2),
+            currency: 'PHP',
             category,
             remarks,
           },
@@ -113,7 +118,7 @@ export const CounterDesk: React.FC = () => {
         accountId: parsedAccountId,
         destinationAccount: activeTab === 'TRANSFER' ? destinationAccount : null,
         amount: parsedAmount.toFixed(2),
-        referenceNo: result?.referenceNo || result?.transactionReference || `TX-${Date.now().toString().slice(-8)}`,
+        referenceNo: result?.referenceNo || result?.transactionReference || referenceNo,
         transactionId: result?.transactionId || generateUUID(),
         timestamp: new Date().toISOString(),
         newBalance: result?.newBalance ?? result?.balance ?? null,
@@ -130,7 +135,7 @@ export const CounterDesk: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-[#1E3A5F]">Branch Counter Desk</h1>
+          <h1 className="text-xl font-bold text-[#1E3A5F]">Counter Desk</h1>
           <p className="text-xs text-[#64748B]">
             Real-time cash ledger postings &amp; assisted member transfers
           </p>
