@@ -7,6 +7,7 @@ import '../kyc/kyc_intake_screen.dart';
 import '../remittance/remittance_screen.dart';
 import '../loans/loan_screens.dart';
 import '../profile/tab_screens.dart';
+import '../resilience/service_unavailable_view.dart';
 import '../scores/scores_screen.dart';
 import 'demo_store.dart';
 import 'ui.dart';
@@ -552,16 +553,9 @@ class _Offline extends StatelessWidget {
   final VoidCallback retry;
   const _Offline(this.retry);
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.wifi_off, size: 40, color: kMut),
-          const SizedBox(height: 14),
-          const Text('Service Temporarily Unavailable', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          const Text("We can't reach the bank right now. Please try again.", textAlign: TextAlign.center, style: TextStyle(color: kMut)),
-          bigBtn('Retry connection', retry),
-        ]),
+  Widget build(BuildContext context) => ServiceUnavailableView(
+        isEmbedded: true,
+        onRetry: retry,
       );
 }
 
