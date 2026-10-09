@@ -102,6 +102,42 @@ INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (11, 'VERIFIED
 INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (12, 'VERIFIED', DATEADD(DAY, -111, SYSUTCDATETIME()));
 INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (13, 'VERIFIED', DATEADD(DAY, -29, SYSUTCDATETIME()));
 INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (14, 'VERIFIED', DATEADD(DAY, -101, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (15, 'VERIFIED', DATEADD(DAY, -171, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (16, 'VERIFIED', DATEADD(DAY, -167, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (17, 'VERIFIED', DATEADD(DAY, -163, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (18, 'VERIFIED', DATEADD(DAY, -159, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (19, 'VERIFIED', DATEADD(DAY, -155, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (20, 'VERIFIED', DATEADD(DAY, -151, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (21, 'VERIFIED', DATEADD(DAY, -147, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (22, 'VERIFIED', DATEADD(DAY, -143, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (23, 'VERIFIED', DATEADD(DAY, -139, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (24, 'VERIFIED', DATEADD(DAY, -135, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (25, 'VERIFIED', DATEADD(DAY, -131, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (26, 'VERIFIED', DATEADD(DAY, -127, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (27, 'VERIFIED', DATEADD(DAY, -123, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (28, 'VERIFIED', DATEADD(DAY, -119, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (29, 'VERIFIED', DATEADD(DAY, -115, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (30, 'VERIFIED', DATEADD(DAY, -111, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (31, 'VERIFIED', DATEADD(DAY, -107, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (32, 'VERIFIED', DATEADD(DAY, -103, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (33, 'VERIFIED', DATEADD(DAY, -99, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (34, 'VERIFIED', DATEADD(DAY, -95, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (35, 'VERIFIED', DATEADD(DAY, -91, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (36, 'VERIFIED', DATEADD(DAY, -87, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (37, 'VERIFIED', DATEADD(DAY, -83, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (38, 'VERIFIED', DATEADD(DAY, -79, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (39, 'VERIFIED', DATEADD(DAY, -75, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (40, 'VERIFIED', DATEADD(DAY, -71, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (41, 'VERIFIED', DATEADD(DAY, -67, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (42, 'VERIFIED', DATEADD(DAY, -63, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (43, 'VERIFIED', DATEADD(DAY, -59, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (44, 'VERIFIED', DATEADD(DAY, -55, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (45, 'VERIFIED', DATEADD(DAY, -51, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (46, 'VERIFIED', DATEADD(DAY, -47, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (47, 'VERIFIED', DATEADD(DAY, -43, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (48, 'VERIFIED', DATEADD(DAY, -39, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (49, 'VERIFIED', DATEADD(DAY, -35, SYSUTCDATETIME()));
+INSERT INTO customer (customer_id, kyc_status, created_at) VALUES (50, 'VERIFIED', DATEADD(DAY, -31, SYSUTCDATETIME()));
 
 -- CHANNEL PROFILES
 SET IDENTITY_INSERT customer OFF;
@@ -133,6 +169,78 @@ INSERT INTO channel_profile (customer_id, membership_number, username, display_n
 VALUES (13, 'MBR-000013', 'ricardo_magbanua', 'Ricardo M.', 'ricardo.magbanua@example.com', 'fil', 'TIER_2_STANDARD', 'VERIFIED', 0.19, 660, 25000.0000);
 INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
 VALUES (14, 'MBR-000014', 'lourdes_salazar', 'Lourdes S.', 'lourdes.salazar@example.com', 'fil', 'TIER_3_FULL', 'VERIFIED', 0.17, 690, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (15, 'MBR-000015', 'carl_lontac', 'Carl Lawrence L.', 'carl.lontac@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 690, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (16, 'MBR-000016', 'raphael_devera', 'Raphael Wayne D.', 'raphael.devera@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 703, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (17, 'MBR-000017', 'april_ternal', 'April Joy T.', 'april.ternal@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.14, 716, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (18, 'MBR-000018', 'alyssa_sanchez', 'Alyssa S.', 'alyssa.sanchez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.16, 729, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (19, 'MBR-000019', 'gabriel_florendo', 'Gabriel Enrico F.', 'gabriel.florendo@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.91, 545, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (20, 'MBR-000020', 'jared_carranza', 'Jared Lev C.', 'jared.carranza@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.20, 755, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (21, 'MBR-000021', 'hans_coo', 'Hans Dean Timothy C.', 'hans.coo@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.22, 768, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (22, 'MBR-000022', 'marveen_bernabe', 'Marveen Antonio B.', 'marveen.bernabe@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.74, 635, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (23, 'MBR-000023', 'christian_javier', 'Christian Rei J.', 'christian.javier@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.17, 704, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (24, 'MBR-000024', 'barani_sundaram', 'Barani S.', 'barani.sundaram@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.11, 717, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (25, 'MBR-000025', 'rod_vekez', 'Rod V.', 'rod.vekez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 730, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (26, 'MBR-000026', 'assissi_raval', 'Assissi R.', 'assissi.raval@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 743, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (27, 'MBR-000027', 'jet_almazan', 'Jet A.', 'jet.almazan@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.14, 756, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (28, 'MBR-000028', 'gerard_martinez', 'Gerard M.', 'gerard.martinez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.16, 769, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (29, 'MBR-000029', 'emy_quilala', 'Emy Q.', 'emy.quilala@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.18, 692, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (30, 'MBR-000030', 'hannah_manuel', 'Hannah M.', 'hannah.manuel@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.20, 705, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (31, 'MBR-000031', 'marie_castro', 'Marie Therese C.', 'marie.castro@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.22, 718, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (32, 'MBR-000032', 'ryan_delacruz', 'Ryan D.', 'ryan.delacruz@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.13, 731, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (33, 'MBR-000033', 'hector_gutierrez', 'Hector G.', 'hector.gutierrez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.17, 744, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (34, 'MBR-000034', 'john_manay', 'John Reymark M.', 'john.manay@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.11, 757, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (35, 'MBR-000035', 'emmanuel_lorbis', 'Emmanuel L.', 'emmanuel.lorbis@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 770, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (36, 'MBR-000036', 'jan_claudio', 'Jan Marion C.', 'jan.claudio@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 693, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (37, 'MBR-000037', 'dennis_medina', 'Dennis M.', 'dennis.medina@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.14, 706, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (38, 'MBR-000038', 'ina_quizon', 'Ina Camille Q.', 'ina.quizon@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.16, 719, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (39, 'MBR-000039', 'cj_ramos', 'CJ R.', 'cj.ramos@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.18, 732, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (40, 'MBR-000040', 'tasha_venturina', 'Tasha V.', 'tasha.venturina@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.20, 745, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (41, 'MBR-000041', 'kristian_kabigting', 'Kristian K.', 'kristian.kabigting@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.22, 758, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (42, 'MBR-000042', 'donna_demu', 'Donna D.', 'donna.demu@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.13, 771, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (43, 'MBR-000043', 'jp_tanedo', 'JP T.', 'jp.tanedo@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.17, 694, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (44, 'MBR-000044', 'amiel_deguia', 'Amiel D.', 'amiel.deguia@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.11, 707, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (45, 'MBR-000045', 'mark_ramirez', 'Mark Paul R.', 'mark.ramirez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 720, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (46, 'MBR-000046', 'noemi_canedo', 'Noemi C.', 'noemi.canedo@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 733, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (47, 'MBR-000047', 'marie_reyes', 'Marie Kris R.', 'marie.reyes@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.14, 746, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (48, 'MBR-000048', 'mike_manuel', 'Mike M.', 'mike.manuel@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.16, 759, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (49, 'MBR-000049', 'clayton_sy', 'Clayton S.', 'clayton.sy@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.18, 772, 100000.0000);
+INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
+VALUES (50, 'MBR-000050', 'allan_binauhan', 'Allan B.', 'allan.binauhan@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.20, 695, 100000.0000);
 
 -- KYC
 SET IDENTITY_INSERT kyc ON;
@@ -164,6 +272,78 @@ INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, add
 VALUES (13, 13, 'Ricardo', 'N', 'Magbanua', '7 Rizal Street, Puerto Princesa City, Palawan', 'MARRIED', 'Fisherman', '+639505550113', 'VERIFIED', DATEADD(DAY, -29, SYSUTCDATETIME()));
 INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
 VALUES (14, 14, 'Lourdes', 'V', 'Salazar', '22 Zamora Street, Tacloban City, Leyte', 'MARRIED', 'Market Vendor', '+639355550114', 'VERIFIED', DATEADD(DAY, -101, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (15, 15, 'Carl Lawrence', NULL, 'Lontac', '115 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550015', 'VERIFIED', DATEADD(DAY, -171, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (16, 16, 'Raphael Wayne', NULL, 'De Vera', '116 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550016', 'VERIFIED', DATEADD(DAY, -167, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (17, 17, 'April Joy', NULL, 'Ternal', '117 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550017', 'VERIFIED', DATEADD(DAY, -163, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (18, 18, 'Alyssa', NULL, 'Sanchez', '118 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550018', 'VERIFIED', DATEADD(DAY, -159, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (19, 19, 'Gabriel Enrico', NULL, 'Florendo', '119 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550019', 'VERIFIED', DATEADD(DAY, -155, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (20, 20, 'Jared Lev', NULL, 'Carranza', '120 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550020', 'VERIFIED', DATEADD(DAY, -151, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (21, 21, 'Hans Dean Timothy', NULL, 'Coo', '121 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550021', 'VERIFIED', DATEADD(DAY, -147, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (22, 22, 'Marveen Antonio', NULL, 'Bernabe', '122 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Software Developer', '+639175550022', 'VERIFIED', DATEADD(DAY, -143, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (23, 23, 'Christian Rei', NULL, 'Javier', '123 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550023', 'VERIFIED', DATEADD(DAY, -139, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (24, 24, 'Barani', NULL, 'Sundaram', '124 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550024', 'VERIFIED', DATEADD(DAY, -135, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (25, 25, 'Rod', NULL, 'Vekez', '125 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550025', 'VERIFIED', DATEADD(DAY, -131, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (26, 26, 'Assissi', NULL, 'Raval', '126 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550026', 'VERIFIED', DATEADD(DAY, -127, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (27, 27, 'Jet', NULL, 'Almazan', '127 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550027', 'VERIFIED', DATEADD(DAY, -123, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (28, 28, 'Gerard', NULL, 'Martinez', '128 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550028', 'VERIFIED', DATEADD(DAY, -119, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (29, 29, 'Emy', NULL, 'Quilala', '129 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550029', 'VERIFIED', DATEADD(DAY, -115, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (30, 30, 'Hannah', NULL, 'Manuel', '130 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550030', 'VERIFIED', DATEADD(DAY, -111, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (31, 31, 'Marie Therese', NULL, 'Castro', '131 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550031', 'VERIFIED', DATEADD(DAY, -107, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (32, 32, 'Ryan', NULL, 'Dela Cruz', '132 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550032', 'VERIFIED', DATEADD(DAY, -103, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (33, 33, 'Hector', NULL, 'Gutierrez', '133 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550033', 'VERIFIED', DATEADD(DAY, -99, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (34, 34, 'John Reymark', NULL, 'Manay', '134 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550034', 'VERIFIED', DATEADD(DAY, -95, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (35, 35, 'Emmanuel', NULL, 'Lorbis', '135 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550035', 'VERIFIED', DATEADD(DAY, -91, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (36, 36, 'Jan Marion', NULL, 'Claudio', '136 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550036', 'VERIFIED', DATEADD(DAY, -87, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (37, 37, 'Dennis', NULL, 'Medina', '137 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550037', 'VERIFIED', DATEADD(DAY, -83, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (38, 38, 'Ina Camille', NULL, 'Quizon', '138 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550038', 'VERIFIED', DATEADD(DAY, -79, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (39, 39, 'CJ', NULL, 'Ramos', '139 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550039', 'VERIFIED', DATEADD(DAY, -75, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (40, 40, 'Tasha', NULL, 'Venturina', '140 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550040', 'VERIFIED', DATEADD(DAY, -71, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (41, 41, 'Kristian', NULL, 'Kabigting', '141 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550041', 'VERIFIED', DATEADD(DAY, -67, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (42, 42, 'Donna', NULL, 'Demu', '142 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550042', 'VERIFIED', DATEADD(DAY, -63, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (43, 43, 'JP', NULL, 'Tanedo', '143 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550043', 'VERIFIED', DATEADD(DAY, -59, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (44, 44, 'Amiel', NULL, 'De Guia', '144 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550044', 'VERIFIED', DATEADD(DAY, -55, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (45, 45, 'Mark Paul', NULL, 'Ramirez', '145 Ayala Avenue, Makati City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550045', 'VERIFIED', DATEADD(DAY, -51, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (46, 46, 'Noemi', NULL, 'Canedo', '146 Shaw Boulevard, Mandaluyong City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550046', 'VERIFIED', DATEADD(DAY, -47, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (47, 47, 'Marie Kris', NULL, 'Reyes', '147 Katipunan Avenue, Quezon City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550047', 'VERIFIED', DATEADD(DAY, -43, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (48, 48, 'Mike', NULL, 'Manuel', '148 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550048', 'VERIFIED', DATEADD(DAY, -39, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (49, 49, 'Clayton', NULL, 'Sy', '149 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550049', 'VERIFIED', DATEADD(DAY, -35, SYSUTCDATETIME()));
+INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
+VALUES (50, 50, 'Allan', NULL, 'Binauhan', '150 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550050', 'VERIFIED', DATEADD(DAY, -31, SYSUTCDATETIME()));
 
 -- KYC UPDATE REQUESTS
 SET IDENTITY_INSERT kyc OFF;

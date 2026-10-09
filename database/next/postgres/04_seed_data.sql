@@ -24,98 +24,242 @@ VALUES (9, 9001, 'REF-INIT-003-D', 'DEBIT', 100000.0000, 999896950.0000, 9997969
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
 VALUES (10, 3, 'REF-INIT-003', 'INITIAL_DEPOSIT', 100000.0000, 0.0000, 100000.0000, 1, '127.0.0.1', now() - interval '259200 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (11, 9001, 'REF-INIT-004-D', 'DEBIT', 85000.0000, 999796950.0000, 999711950.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
+VALUES (11, 9001, 'REF-INIT-019-D', 'DEBIT', 20000.0000, 999796950.0000, 999776950.0000, 1, '127.0.0.1', now() - interval '244800 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (12, 4, 'REF-INIT-004', 'INITIAL_DEPOSIT', 85000.0000, 0.0000, 85000.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
+VALUES (12, 19, 'REF-INIT-019', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, 1, '127.0.0.1', now() - interval '244800 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (13, 9001, 'REF-INIT-005-D', 'DEBIT', 40000.0000, 999711950.0000, 999671950.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
+VALUES (13, 9001, 'REF-INIT-020-D', 'DEBIT', 55000.0000, 999776950.0000, 999721950.0000, 1, '127.0.0.1', now() - interval '239040 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (14, 5, 'REF-INIT-005', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
+VALUES (14, 20, 'REF-INIT-020', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, 1, '127.0.0.1', now() - interval '239040 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (15, 9001, 'REF-INIT-007-D', 'DEBIT', 60000.0000, 999671950.0000, 999611950.0000, 1, '127.0.0.1', now() - interval '172800 minutes');
+VALUES (15, 9001, 'REF-INIT-021-D', 'DEBIT', 30000.0000, 999721950.0000, 999691950.0000, 1, '127.0.0.1', now() - interval '233280 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (16, 7, 'REF-INIT-007', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 1, '127.0.0.1', now() - interval '172800 minutes');
+VALUES (16, 21, 'REF-INIT-021', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 1, '127.0.0.1', now() - interval '233280 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (17, 9001, 'REF-INIT-008-D', 'DEBIT', 45000.0000, 999611950.0000, 999566950.0000, 1, '127.0.0.1', now() - interval '172800 minutes');
+VALUES (17, 9001, 'REF-INIT-022-D', 'DEBIT', 65000.0000, 999691950.0000, 999626950.0000, 1, '127.0.0.1', now() - interval '227520 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (18, 8, 'REF-INIT-008', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 1, '127.0.0.1', now() - interval '172800 minutes');
+VALUES (18, 22, 'REF-INIT-022', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, 1, '127.0.0.1', now() - interval '227520 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (19, 9001, 'REF-INIT-016-D', 'DEBIT', 35000.0000, 999566950.0000, 999531950.0000, 1, '127.0.0.1', now() - interval '158400 minutes');
+VALUES (19, 9001, 'REF-INIT-023-D', 'DEBIT', 40000.0000, 999626950.0000, 999586950.0000, 1, '127.0.0.1', now() - interval '221760 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (20, 16, 'REF-INIT-016', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 1, '127.0.0.1', now() - interval '158400 minutes');
+VALUES (20, 23, 'REF-INIT-023', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 1, '127.0.0.1', now() - interval '221760 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (21, 9001, 'REF-INIT-018-D', 'DEBIT', 5000.0000, 999531950.0000, 999526950.0000, 1, '127.0.0.1', now() - interval '144000 minutes');
+VALUES (21, 9001, 'REF-INIT-004-D', 'DEBIT', 85000.0000, 999586950.0000, 999501950.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (22, 18, 'REF-INIT-018', 'INITIAL_DEPOSIT', 5000.0000, 0.0000, 5000.0000, 1, '127.0.0.1', now() - interval '144000 minutes');
+VALUES (22, 4, 'REF-INIT-004', 'INITIAL_DEPOSIT', 85000.0000, 0.0000, 85000.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (23, 9001, 'REF-INIT-009-D', 'DEBIT', 150.0000, 999526950.0000, 999526800.0000, 1, '127.0.0.1', now() - interval '129600 minutes');
+VALUES (23, 9001, 'REF-INIT-005-D', 'DEBIT', 40000.0000, 999501950.0000, 999461950.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (24, 9, 'REF-INIT-009', 'INITIAL_DEPOSIT', 150.0000, 0.0000, 150.0000, 1, '127.0.0.1', now() - interval '129600 minutes');
+VALUES (24, 5, 'REF-INIT-005', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (25, 9004, 'REF-LOAN-006-D', 'DEBIT', 125000.0000, 1000000000.0000, 999875000.0000, 1, '127.0.0.1', now() - interval '100800 minutes');
+VALUES (25, 9001, 'REF-INIT-024-D', 'DEBIT', 75000.0000, 999461950.0000, 999386950.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (26, 6, 'REF-LOAN-006', 'CREDIT', 125000.0000, 0.0000, 125000.0000, 1, '127.0.0.1', now() - interval '100800 minutes');
+VALUES (26, 24, 'REF-INIT-024', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, 1, '127.0.0.1', now() - interval '216000 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (27, 9001, 'REF-INIT-012-D', 'DEBIT', 30000.0000, 999526800.0000, 999496800.0000, 1, '127.0.0.1', now() - interval '86400 minutes');
+VALUES (27, 9001, 'REF-INIT-025-D', 'DEBIT', 50000.0000, 999386950.0000, 999336950.0000, 1, '127.0.0.1', now() - interval '210240 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (28, 12, 'REF-INIT-012', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 1, '127.0.0.1', now() - interval '86400 minutes');
+VALUES (28, 25, 'REF-INIT-025', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, 1, '127.0.0.1', now() - interval '210240 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (29, 9004, 'REF-LOAN-010-D', 'DEBIT', 30000.0000, 999875000.0000, 999845000.0000, 1, '127.0.0.1', now() - interval '43200 minutes');
+VALUES (29, 9001, 'REF-INIT-026-D', 'DEBIT', 25000.0000, 999336950.0000, 999311950.0000, 1, '127.0.0.1', now() - interval '204480 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (30, 10, 'REF-LOAN-010', 'CREDIT', 30000.0000, 0.0000, 30000.0000, 1, '127.0.0.1', now() - interval '43200 minutes');
+VALUES (30, 26, 'REF-INIT-026', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, 1, '127.0.0.1', now() - interval '204480 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (31, 9001, 'REF-INIT-017-D', 'DEBIT', 12500.0000, 999496800.0000, 999484300.0000, 1, '127.0.0.1', now() - interval '40320 minutes');
+VALUES (31, 9001, 'REF-INIT-027-D', 'DEBIT', 60000.0000, 999311950.0000, 999251950.0000, 1, '127.0.0.1', now() - interval '198720 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (32, 17, 'REF-INIT-017', 'INITIAL_DEPOSIT', 12500.0000, 0.0000, 12500.0000, 1, '127.0.0.1', now() - interval '40320 minutes');
+VALUES (32, 27, 'REF-INIT-027', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 1, '127.0.0.1', now() - interval '198720 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (33, 4, 'TX-SEED-0001-D', 'DEBIT', 2500.0000, 85000.0000, 82500.0000, NULL, '127.0.0.1', now() - interval '36600 minutes');
+VALUES (33, 9001, 'REF-INIT-028-D', 'DEBIT', 35000.0000, 999251950.0000, 999216950.0000, 1, '127.0.0.1', now() - interval '192960 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (34, 7, 'TX-SEED-0001-C', 'CREDIT', 2500.0000, 60000.0000, 62500.0000, NULL, '127.0.0.1', now() - interval '36600 minutes');
+VALUES (34, 28, 'REF-INIT-028', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 1, '127.0.0.1', now() - interval '192960 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (35, 4, 'TX-SEED-0002-D', 'DEBIT', 1200.0000, 82500.0000, 81300.0000, NULL, '127.0.0.1', now() - interval '29340 minutes');
+VALUES (35, 9001, 'REF-INIT-029-D', 'DEBIT', 70000.0000, 999216950.0000, 999146950.0000, 1, '127.0.0.1', now() - interval '187200 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (36, 17, 'TX-SEED-0002-C', 'CREDIT', 1200.0000, 12500.0000, 13700.0000, NULL, '127.0.0.1', now() - interval '29340 minutes');
+VALUES (36, 29, 'REF-INIT-029', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, 1, '127.0.0.1', now() - interval '187200 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (37, 5, 'TX-SEED-0003-D', 'DEBIT', 3800.0000, 40000.0000, 36200.0000, NULL, '127.0.0.1', now() - interval '22080 minutes');
+VALUES (37, 9001, 'REF-INIT-030-D', 'DEBIT', 45000.0000, 999146950.0000, 999101950.0000, 1, '127.0.0.1', now() - interval '181440 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (38, 8, 'TX-SEED-0003-C', 'CREDIT', 3800.0000, 45000.0000, 48800.0000, NULL, '127.0.0.1', now() - interval '22080 minutes');
+VALUES (38, 30, 'REF-INIT-030', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 1, '127.0.0.1', now() - interval '181440 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (39, 4, 'EOD-SEED-LOAN-0001-D', 'DEBIT', 5450.0000, 81300.0000, 75850.0000, NULL, '127.0.0.1', now() - interval '14460 minutes');
+VALUES (39, 9001, 'REF-INIT-031-D', 'DEBIT', 20000.0000, 999101950.0000, 999081950.0000, 1, '127.0.0.1', now() - interval '175680 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (40, 9004, 'EOD-SEED-LOAN-0001-C', 'CREDIT', 5450.0000, 999845000.0000, 999850450.0000, NULL, '127.0.0.1', now() - interval '14460 minutes');
+VALUES (40, 31, 'REF-INIT-031', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, 1, '127.0.0.1', now() - interval '175680 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (41, 6, 'EOD-SEED-LOANP-0001-D', 'DEBIT', 5000.0000, 125000.0000, 120000.0000, NULL, '127.0.0.1', now() - interval '14460 minutes');
+VALUES (41, 9001, 'REF-INIT-007-D', 'DEBIT', 60000.0000, 999081950.0000, 999021950.0000, 1, '127.0.0.1', now() - interval '172800 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (42, 9004, 'EOD-SEED-LOANP-0001-C', 'CREDIT', 5000.0000, 999850450.0000, 999855450.0000, NULL, '127.0.0.1', now() - interval '14460 minutes');
+VALUES (42, 7, 'REF-INIT-007', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 1, '127.0.0.1', now() - interval '172800 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (43, 4, 'TX-SEED-0004-D', 'DEBIT', 10000.0000, 75850.0000, 65850.0000, NULL, '127.0.0.1', now() - interval '10500 minutes');
+VALUES (43, 9001, 'REF-INIT-008-D', 'DEBIT', 45000.0000, 999021950.0000, 998976950.0000, 1, '127.0.0.1', now() - interval '172800 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (44, 5, 'TX-SEED-0004-C', 'CREDIT', 10000.0000, 36200.0000, 46200.0000, NULL, '127.0.0.1', now() - interval '10500 minutes');
+VALUES (44, 8, 'REF-INIT-008', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 1, '127.0.0.1', now() - interval '172800 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (45, 9002, 'EOD-SEED-INT-0001-D', 'DEBIT', 11.6400, 1000000000.0000, 999999988.3600, NULL, '127.0.0.1', now() - interval '8690 minutes');
+VALUES (45, 9001, 'REF-INIT-032-D', 'DEBIT', 55000.0000, 998976950.0000, 998921950.0000, 1, '127.0.0.1', now() - interval '169920 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (46, 4, 'EOD-SEED-INT-0001-C', 'CREDIT', 11.6400, 65850.0000, 65861.6400, NULL, '127.0.0.1', now() - interval '8690 minutes');
+VALUES (46, 32, 'REF-INIT-032', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, 1, '127.0.0.1', now() - interval '169920 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (47, 13, 'EOD-SEED-FEE-0001-D', 'DEBIT', 50.0000, 8050.0000, 8000.0000, NULL, '127.0.0.1', now() - interval '8689 minutes');
+VALUES (47, 9001, 'REF-INIT-033-D', 'DEBIT', 30000.0000, 998921950.0000, 998891950.0000, 1, '127.0.0.1', now() - interval '164160 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (48, 9003, 'EOD-SEED-FEE-0001-C', 'CREDIT', 50.0000, 1000000000.0000, 1000000050.0000, NULL, '127.0.0.1', now() - interval '8689 minutes');
+VALUES (48, 33, 'REF-INIT-033', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 1, '127.0.0.1', now() - interval '164160 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (49, 16, 'TX-SEED-0005-D', 'DEBIT', 1500.0000, 35000.0000, 33500.0000, NULL, '127.0.0.1', now() - interval '7500 minutes');
+VALUES (49, 9001, 'REF-INIT-016-D', 'DEBIT', 35000.0000, 998891950.0000, 998856950.0000, 1, '127.0.0.1', now() - interval '158400 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (50, 5, 'TX-SEED-0005-C', 'CREDIT', 1500.0000, 46200.0000, 47700.0000, NULL, '127.0.0.1', now() - interval '7500 minutes');
+VALUES (50, 16, 'REF-INIT-016', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 1, '127.0.0.1', now() - interval '158400 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (51, 16, 'RV-SEED-0001-C', 'REVERSAL_CREDIT', 1500.0000, 33500.0000, 35000.0000, 2, '127.0.0.1', now() - interval '5960 minutes');
+VALUES (51, 9001, 'REF-INIT-034-D', 'DEBIT', 65000.0000, 998856950.0000, 998791950.0000, 1, '127.0.0.1', now() - interval '158400 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (52, 5, 'RV-SEED-0001-D', 'REVERSAL_DEBIT', 1500.0000, 47700.0000, 46200.0000, 2, '127.0.0.1', now() - interval '5960 minutes');
+VALUES (52, 34, 'REF-INIT-034', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, 1, '127.0.0.1', now() - interval '158400 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (53, 9005, 'IB-SEED-IN-0001-D', 'DEBIT', 7500.0000, 1000000000.0000, 999992500.0000, NULL, '127.0.0.1', now() - interval '1940 minutes');
+VALUES (53, 9001, 'REF-INIT-035-D', 'DEBIT', 40000.0000, 998791950.0000, 998751950.0000, 1, '127.0.0.1', now() - interval '152640 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (54, 4, 'IB-SEED-IN-0001-C', 'CREDIT', 7500.0000, 65861.6400, 73361.6400, NULL, '127.0.0.1', now() - interval '1940 minutes');
+VALUES (54, 35, 'REF-INIT-035', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 1, '127.0.0.1', now() - interval '152640 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (55, 5, 'TX-SEED-0011-D', 'DEBIT', 2000.0000, 46200.0000, 44200.0000, NULL, '127.0.0.1', now() - interval '1840 minutes');
+VALUES (55, 9001, 'REF-INIT-036-D', 'DEBIT', 75000.0000, 998751950.0000, 998676950.0000, 1, '127.0.0.1', now() - interval '146880 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (56, 9005, 'TX-SEED-0011-C', 'CREDIT', 2000.0000, 999992500.0000, 999994500.0000, NULL, '127.0.0.1', now() - interval '1840 minutes');
+VALUES (56, 36, 'REF-INIT-036', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, 1, '127.0.0.1', now() - interval '146880 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (57, 5, 'TX-SEED-0012-D', 'DEBIT', 3000.0000, 44200.0000, 41200.0000, 2, '127.0.0.1', now() - interval '1530 minutes');
+VALUES (57, 9001, 'REF-INIT-018-D', 'DEBIT', 5000.0000, 998676950.0000, 998671950.0000, 1, '127.0.0.1', now() - interval '144000 minutes');
 INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
-VALUES (58, 9001, 'TX-SEED-0012-C', 'CREDIT', 3000.0000, 999484300.0000, 999487300.0000, 2, '127.0.0.1', now() - interval '1530 minutes');
+VALUES (58, 18, 'REF-INIT-018', 'INITIAL_DEPOSIT', 5000.0000, 0.0000, 5000.0000, 1, '127.0.0.1', now() - interval '144000 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (59, 9001, 'REF-INIT-037-D', 'DEBIT', 50000.0000, 998671950.0000, 998621950.0000, 1, '127.0.0.1', now() - interval '141120 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (60, 37, 'REF-INIT-037', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, 1, '127.0.0.1', now() - interval '141120 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (61, 9001, 'REF-INIT-038-D', 'DEBIT', 25000.0000, 998621950.0000, 998596950.0000, 1, '127.0.0.1', now() - interval '135360 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (62, 38, 'REF-INIT-038', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, 1, '127.0.0.1', now() - interval '135360 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (63, 9001, 'REF-INIT-009-D', 'DEBIT', 150.0000, 998596950.0000, 998596800.0000, 1, '127.0.0.1', now() - interval '129600 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (64, 9, 'REF-INIT-009', 'INITIAL_DEPOSIT', 150.0000, 0.0000, 150.0000, 1, '127.0.0.1', now() - interval '129600 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (65, 9001, 'REF-INIT-039-D', 'DEBIT', 60000.0000, 998596800.0000, 998536800.0000, 1, '127.0.0.1', now() - interval '129600 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (66, 39, 'REF-INIT-039', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 1, '127.0.0.1', now() - interval '129600 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (67, 9001, 'REF-INIT-040-D', 'DEBIT', 35000.0000, 998536800.0000, 998501800.0000, 1, '127.0.0.1', now() - interval '123840 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (68, 40, 'REF-INIT-040', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 1, '127.0.0.1', now() - interval '123840 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (69, 9001, 'REF-INIT-041-D', 'DEBIT', 70000.0000, 998501800.0000, 998431800.0000, 1, '127.0.0.1', now() - interval '118080 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (70, 41, 'REF-INIT-041', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, 1, '127.0.0.1', now() - interval '118080 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (71, 9001, 'REF-INIT-042-D', 'DEBIT', 45000.0000, 998431800.0000, 998386800.0000, 1, '127.0.0.1', now() - interval '112320 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (72, 42, 'REF-INIT-042', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 1, '127.0.0.1', now() - interval '112320 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (73, 9001, 'REF-INIT-043-D', 'DEBIT', 20000.0000, 998386800.0000, 998366800.0000, 1, '127.0.0.1', now() - interval '106560 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (74, 43, 'REF-INIT-043', 'INITIAL_DEPOSIT', 20000.0000, 0.0000, 20000.0000, 1, '127.0.0.1', now() - interval '106560 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (75, 9004, 'REF-LOAN-006-D', 'DEBIT', 125000.0000, 1000000000.0000, 999875000.0000, 1, '127.0.0.1', now() - interval '100800 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (76, 6, 'REF-LOAN-006', 'CREDIT', 125000.0000, 0.0000, 125000.0000, 1, '127.0.0.1', now() - interval '100800 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (77, 9001, 'REF-INIT-044-D', 'DEBIT', 55000.0000, 998366800.0000, 998311800.0000, 1, '127.0.0.1', now() - interval '100800 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (78, 44, 'REF-INIT-044', 'INITIAL_DEPOSIT', 55000.0000, 0.0000, 55000.0000, 1, '127.0.0.1', now() - interval '100800 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (79, 9001, 'REF-INIT-045-D', 'DEBIT', 30000.0000, 998311800.0000, 998281800.0000, 1, '127.0.0.1', now() - interval '95040 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (80, 45, 'REF-INIT-045', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 1, '127.0.0.1', now() - interval '95040 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (81, 9001, 'REF-INIT-046-D', 'DEBIT', 65000.0000, 998281800.0000, 998216800.0000, 1, '127.0.0.1', now() - interval '89280 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (82, 46, 'REF-INIT-046', 'INITIAL_DEPOSIT', 65000.0000, 0.0000, 65000.0000, 1, '127.0.0.1', now() - interval '89280 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (83, 9001, 'REF-INIT-012-D', 'DEBIT', 30000.0000, 998216800.0000, 998186800.0000, 1, '127.0.0.1', now() - interval '86400 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (84, 12, 'REF-INIT-012', 'INITIAL_DEPOSIT', 30000.0000, 0.0000, 30000.0000, 1, '127.0.0.1', now() - interval '86400 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (85, 9001, 'REF-INIT-047-D', 'DEBIT', 40000.0000, 998186800.0000, 998146800.0000, 1, '127.0.0.1', now() - interval '83520 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (86, 47, 'REF-INIT-047', 'INITIAL_DEPOSIT', 40000.0000, 0.0000, 40000.0000, 1, '127.0.0.1', now() - interval '83520 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (87, 9001, 'REF-INIT-048-D', 'DEBIT', 75000.0000, 998146800.0000, 998071800.0000, 1, '127.0.0.1', now() - interval '77760 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (88, 48, 'REF-INIT-048', 'INITIAL_DEPOSIT', 75000.0000, 0.0000, 75000.0000, 1, '127.0.0.1', now() - interval '77760 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (89, 9001, 'REF-INIT-049-D', 'DEBIT', 50000.0000, 998071800.0000, 998021800.0000, 1, '127.0.0.1', now() - interval '72000 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (90, 49, 'REF-INIT-049', 'INITIAL_DEPOSIT', 50000.0000, 0.0000, 50000.0000, 1, '127.0.0.1', now() - interval '72000 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (91, 9001, 'REF-INIT-050-D', 'DEBIT', 25000.0000, 998021800.0000, 997996800.0000, 1, '127.0.0.1', now() - interval '66240 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (92, 50, 'REF-INIT-050', 'INITIAL_DEPOSIT', 25000.0000, 0.0000, 25000.0000, 1, '127.0.0.1', now() - interval '66240 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (93, 9001, 'REF-INIT-051-D', 'DEBIT', 60000.0000, 997996800.0000, 997936800.0000, 1, '127.0.0.1', now() - interval '60480 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (94, 51, 'REF-INIT-051', 'INITIAL_DEPOSIT', 60000.0000, 0.0000, 60000.0000, 1, '127.0.0.1', now() - interval '60480 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (95, 9001, 'REF-INIT-052-D', 'DEBIT', 35000.0000, 997936800.0000, 997901800.0000, 1, '127.0.0.1', now() - interval '54720 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (96, 52, 'REF-INIT-052', 'INITIAL_DEPOSIT', 35000.0000, 0.0000, 35000.0000, 1, '127.0.0.1', now() - interval '54720 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (97, 9001, 'REF-INIT-053-D', 'DEBIT', 70000.0000, 997901800.0000, 997831800.0000, 1, '127.0.0.1', now() - interval '48960 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (98, 53, 'REF-INIT-053', 'INITIAL_DEPOSIT', 70000.0000, 0.0000, 70000.0000, 1, '127.0.0.1', now() - interval '48960 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (99, 9004, 'REF-LOAN-010-D', 'DEBIT', 30000.0000, 999875000.0000, 999845000.0000, 1, '127.0.0.1', now() - interval '43200 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (100, 10, 'REF-LOAN-010', 'CREDIT', 30000.0000, 0.0000, 30000.0000, 1, '127.0.0.1', now() - interval '43200 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (101, 9001, 'REF-INIT-054-D', 'DEBIT', 45000.0000, 997831800.0000, 997786800.0000, 1, '127.0.0.1', now() - interval '43200 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (102, 54, 'REF-INIT-054', 'INITIAL_DEPOSIT', 45000.0000, 0.0000, 45000.0000, 1, '127.0.0.1', now() - interval '43200 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (103, 9001, 'REF-INIT-017-D', 'DEBIT', 12500.0000, 997786800.0000, 997774300.0000, 1, '127.0.0.1', now() - interval '40320 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (104, 17, 'REF-INIT-017', 'INITIAL_DEPOSIT', 12500.0000, 0.0000, 12500.0000, 1, '127.0.0.1', now() - interval '40320 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (105, 4, 'TX-SEED-0001-D', 'DEBIT', 2500.0000, 85000.0000, 82500.0000, NULL, '127.0.0.1', now() - interval '36600 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (106, 7, 'TX-SEED-0001-C', 'CREDIT', 2500.0000, 60000.0000, 62500.0000, NULL, '127.0.0.1', now() - interval '36600 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (107, 4, 'TX-SEED-0002-D', 'DEBIT', 1200.0000, 82500.0000, 81300.0000, NULL, '127.0.0.1', now() - interval '29340 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (108, 17, 'TX-SEED-0002-C', 'CREDIT', 1200.0000, 12500.0000, 13700.0000, NULL, '127.0.0.1', now() - interval '29340 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (109, 5, 'TX-SEED-0003-D', 'DEBIT', 3800.0000, 40000.0000, 36200.0000, NULL, '127.0.0.1', now() - interval '22080 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (110, 8, 'TX-SEED-0003-C', 'CREDIT', 3800.0000, 45000.0000, 48800.0000, NULL, '127.0.0.1', now() - interval '22080 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (111, 4, 'EOD-SEED-LOAN-0001-D', 'DEBIT', 5450.0000, 81300.0000, 75850.0000, NULL, '127.0.0.1', now() - interval '14460 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (112, 9004, 'EOD-SEED-LOAN-0001-C', 'CREDIT', 5450.0000, 999845000.0000, 999850450.0000, NULL, '127.0.0.1', now() - interval '14460 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (113, 6, 'EOD-SEED-LOANP-0001-D', 'DEBIT', 5000.0000, 125000.0000, 120000.0000, NULL, '127.0.0.1', now() - interval '14460 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (114, 9004, 'EOD-SEED-LOANP-0001-C', 'CREDIT', 5000.0000, 999850450.0000, 999855450.0000, NULL, '127.0.0.1', now() - interval '14460 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (115, 4, 'TX-SEED-0004-D', 'DEBIT', 10000.0000, 75850.0000, 65850.0000, NULL, '127.0.0.1', now() - interval '10500 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (116, 5, 'TX-SEED-0004-C', 'CREDIT', 10000.0000, 36200.0000, 46200.0000, NULL, '127.0.0.1', now() - interval '10500 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (117, 9002, 'EOD-SEED-INT-0001-D', 'DEBIT', 11.6400, 1000000000.0000, 999999988.3600, NULL, '127.0.0.1', now() - interval '8690 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (118, 4, 'EOD-SEED-INT-0001-C', 'CREDIT', 11.6400, 65850.0000, 65861.6400, NULL, '127.0.0.1', now() - interval '8690 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (119, 13, 'EOD-SEED-FEE-0001-D', 'DEBIT', 50.0000, 8050.0000, 8000.0000, NULL, '127.0.0.1', now() - interval '8689 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (120, 9003, 'EOD-SEED-FEE-0001-C', 'CREDIT', 50.0000, 1000000000.0000, 1000000050.0000, NULL, '127.0.0.1', now() - interval '8689 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (121, 16, 'TX-SEED-0005-D', 'DEBIT', 1500.0000, 35000.0000, 33500.0000, NULL, '127.0.0.1', now() - interval '7500 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (122, 5, 'TX-SEED-0005-C', 'CREDIT', 1500.0000, 46200.0000, 47700.0000, NULL, '127.0.0.1', now() - interval '7500 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (123, 16, 'RV-SEED-0001-C', 'REVERSAL_CREDIT', 1500.0000, 33500.0000, 35000.0000, 2, '127.0.0.1', now() - interval '5960 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (124, 5, 'RV-SEED-0001-D', 'REVERSAL_DEBIT', 1500.0000, 47700.0000, 46200.0000, 2, '127.0.0.1', now() - interval '5960 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (125, 9005, 'IB-SEED-IN-0001-D', 'DEBIT', 7500.0000, 1000000000.0000, 999992500.0000, NULL, '127.0.0.1', now() - interval '1940 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (126, 4, 'IB-SEED-IN-0001-C', 'CREDIT', 7500.0000, 65861.6400, 73361.6400, NULL, '127.0.0.1', now() - interval '1940 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (127, 5, 'TX-SEED-0011-D', 'DEBIT', 2000.0000, 46200.0000, 44200.0000, NULL, '127.0.0.1', now() - interval '1840 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (128, 9005, 'TX-SEED-0011-C', 'CREDIT', 2000.0000, 999992500.0000, 999994500.0000, NULL, '127.0.0.1', now() - interval '1840 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (129, 5, 'TX-SEED-0012-D', 'DEBIT', 3000.0000, 44200.0000, 41200.0000, 2, '127.0.0.1', now() - interval '1530 minutes');
+INSERT INTO audit_store.ledger_mutation_audit (transaction_id, account_id, reference_no, transaction_type, amount, old_balance, new_balance, actor_id, client_ip, event_timestamp)
+VALUES (130, 9001, 'TX-SEED-0012-C', 'CREDIT', 3000.0000, 997774300.0000, 997777300.0000, 2, '127.0.0.1', now() - interval '1530 minutes');

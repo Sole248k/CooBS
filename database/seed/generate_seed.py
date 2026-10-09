@@ -148,6 +148,78 @@ ACCOUNTS = [
     (17, 13, "ACC_10000017", "SAVINGS", "ACTIVE", "12500.00", 28),
     (18, 14, "ACC_10000018", "SAVINGS", "ACTIVE", "5000.00", 100),
 ]
+# Members 15 to 50: the project team and guests of the demonstration, so that each of them can
+# sign in as themselves. Every one is an ordinary full-KYC member with one savings account and
+# no history. Only the names are real: addresses, mobile numbers, e-mail addresses and
+# occupations are placeholders. Two of them are given a high risk score of their own, which
+# declines every transfer they send (the risk engine uses the member's score as a floor).
+GUEST_FIRST_CUSTOMER_ID = 15
+GUEST_FIRST_ACCOUNT_ID = 19
+GUESTS = [
+    # first name, last name, occupation, risk, credit, opening amount, opened N days ago
+    ("Carl Lawrence", "Lontac", "Software Developer", "0.10", 690, "20000.00", 170),
+    ("Raphael Wayne", "De Vera", "Software Developer", "0.12", 703, "55000.00", 166),
+    ("April Joy", "Ternal", "Software Developer", "0.14", 716, "30000.00", 162),
+    ("Alyssa", "Sanchez", "Software Developer", "0.16", 729, "65000.00", 158),
+    ("Gabriel Enrico", "Florendo", "Software Developer", "0.91", 545, "40000.00", 154),
+    ("Jared Lev", "Carranza", "Software Developer", "0.20", 755, "75000.00", 150),
+    ("Hans Dean Timothy", "Coo", "Software Developer", "0.22", 768, "50000.00", 146),
+    ("Marveen Antonio", "Bernabe", "Software Developer", "0.74", 635, "25000.00", 142),
+    ("Christian Rei", "Javier", "Private Employee", "0.17", 704, "60000.00", 138),
+    ("Barani", "Sundaram", "Private Employee", "0.11", 717, "35000.00", 134),
+    ("Rod", "Vekez", "Private Employee", "0.10", 730, "70000.00", 130),
+    ("Assissi", "Raval", "Private Employee", "0.12", 743, "45000.00", 126),
+    ("Jet", "Almazan", "Private Employee", "0.14", 756, "20000.00", 122),
+    ("Gerard", "Martinez", "Private Employee", "0.16", 769, "55000.00", 118),
+    ("Emy", "Quilala", "Private Employee", "0.18", 692, "30000.00", 114),
+    ("Hannah", "Manuel", "Private Employee", "0.20", 705, "65000.00", 110),
+    ("Marie Therese", "Castro", "Private Employee", "0.22", 718, "40000.00", 106),
+    ("Ryan", "Dela Cruz", "Private Employee", "0.13", 731, "75000.00", 102),
+    ("Hector", "Gutierrez", "Private Employee", "0.17", 744, "50000.00", 98),
+    ("John Reymark", "Manay", "Private Employee", "0.11", 757, "25000.00", 94),
+    ("Emmanuel", "Lorbis", "Private Employee", "0.10", 770, "60000.00", 90),
+    ("Jan Marion", "Claudio", "Private Employee", "0.12", 693, "35000.00", 86),
+    ("Dennis", "Medina", "Private Employee", "0.14", 706, "70000.00", 82),
+    ("Ina Camille", "Quizon", "Private Employee", "0.16", 719, "45000.00", 78),
+    ("CJ", "Ramos", "Private Employee", "0.18", 732, "20000.00", 74),
+    ("Tasha", "Venturina", "Private Employee", "0.20", 745, "55000.00", 70),
+    ("Kristian", "Kabigting", "Private Employee", "0.22", 758, "30000.00", 66),
+    ("Donna", "Demu", "Private Employee", "0.13", 771, "65000.00", 62),
+    ("JP", "Tanedo", "Private Employee", "0.17", 694, "40000.00", 58),
+    ("Amiel", "De Guia", "Private Employee", "0.11", 707, "75000.00", 54),
+    ("Mark Paul", "Ramirez", "Private Employee", "0.10", 720, "50000.00", 50),
+    ("Noemi", "Canedo", "Private Employee", "0.12", 733, "25000.00", 46),
+    ("Marie Kris", "Reyes", "Private Employee", "0.14", 746, "60000.00", 42),
+    ("Mike", "Manuel", "Private Employee", "0.16", 759, "35000.00", 38),
+    ("Clayton", "Sy", "Private Employee", "0.18", 772, "70000.00", 34),
+    ("Allan", "Binauhan", "Private Employee", "0.20", 695, "45000.00", 30),
+]
+GUEST_ADDRESSES = [
+    "Ayala Avenue, Makati City, Metro Manila",
+    "Shaw Boulevard, Mandaluyong City, Metro Manila",
+    "Katipunan Avenue, Quezon City, Metro Manila",
+    "Taft Avenue, Pasay City, Metro Manila",
+    "Ortigas Avenue, Pasig City, Metro Manila",
+    "Alabang-Zapote Road, Las Pinas City, Metro Manila",
+]
+for offset, (first, last, occupation, risk, credit, opening, opened) in enumerate(GUESTS):
+    cid = GUEST_FIRST_CUSTOMER_ID + offset
+    aid = GUEST_FIRST_ACCOUNT_ID + offset
+    # The sign-in name is the first given name and the surname: carl_lontac, ryan_delacruz.
+    username = (first.split()[0] + "_" + last.replace(" ", "")).lower()
+    if D(risk) > D("0.85"):
+        scenario = "Risk score above 0.85: every transfer is declined as HIGH_RISK."
+    elif D(risk) >= D("0.60"):
+        scenario = "Risk score in the 0.60 to 0.85 band: declined as REVIEW_REQUIRED."
+    else:
+        scenario = "Demonstration member: one savings account, nothing unusual."
+    CUSTOMERS.append(dict(
+        id=cid, username=username, first=first, mi=None, last=last,
+        address=f"{100 + cid} {GUEST_ADDRESSES[offset % len(GUEST_ADDRESSES)]}", civil="SINGLE",
+        occupation=occupation, mobile=f"+63917555{cid:04d}", email=username.replace("_", ".") + "@example.com",
+        tier="TIER_3_FULL", risk=risk, credit=credit, limit="100000.00", login="ACTIVE", scenario=scenario))
+    ACCOUNTS.append((aid, cid, f"ACC_{10000000 + aid}", "SAVINGS", "ACTIVE", opening, opened))
+
 # Internal GL accounts. Seeded with a large opening balance because BALANCE forbids
 # a negative available balance and these accounts are debited.
 GL_OPENING = D("1000000000.00")
@@ -1575,7 +1647,8 @@ md += ["", "## Members", "",
        "| Customer ID | Username | Name | Tier | Risk | Credit | Daily limit (PHP) | Login | Scenario |",
        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
 for c in CUSTOMERS:
-    md.append(f"| {c['id']} | `{c['username']}` | {c['first']} {c['mi']}. {c['last']} | {c['tier']} | {c['risk']} | {c['credit']} | {m2(c['limit'])} | {c['login']} | {c['scenario']} |")
+    middle = f" {c['mi']}." if c["mi"] else ""
+    md.append(f"| {c['id']} | `{c['username']}` | {c['first']}{middle} {c['last']} | {c['tier']} | {c['risk']} | {c['credit']} | {m2(c['limit'])} | {c['login']} | {c['scenario']} |")
 md += ["", "## Accounts", "",
        "| Account ID | Number | Type | Status | Owner | Ledger balance (PHP) | Held (PHP) | Available (PHP) |",
        "| --- | --- | --- | --- | --- | --- | --- | --- |"]

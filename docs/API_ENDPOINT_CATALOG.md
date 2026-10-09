@@ -86,7 +86,7 @@ Base Path via Gateway: `/api/v1/auth`
 | 5 | `POST` | `/api/v1/auth/token/revoke` | Authenticated | Revokes current JWT token and blacklists token ID in Redis. |
 | 6 | `GET` | `/api/v1/auth/token/me` | Authenticated | Returns identity, roles, and session metadata for active token holder. |
 
-> **Note on Registration:** `POST /api/v1/auth/customers/register` is REMOVED in target architecture. All test and demo members (14 members, 18 accounts) are pre-seeded across all data stores (see `database/seed/SEED_REFERENCE.md`). Baseline customer credentials: `john_doe` / `Password123!`. Full showcase member: `juan_delacruz` / `Password123!`. Login directly via `POST /api/v1/auth/customers/login`.
+> **Note on Registration:** `POST /api/v1/auth/customers/register` is REMOVED in target architecture. All test and demo members (50 members, 54 accounts) are pre-seeded across all data stores (see `database/seed/SEED_REFERENCE.md`). Baseline customer credentials: `john_doe` / `Password123!`. Full showcase member: `juan_delacruz` / `Password123!`. Login directly via `POST /api/v1/auth/customers/login`.
 
 ---
 

@@ -34,6 +34,42 @@ For a customer the token's `userId` is the customer ID.
 | 12 | `teresita_ramos` | Teresita B. Ramos | TIER_3_FULL | 0.11 | 765 | 100,000.00 | ACTIVE | A transfer in flight with a RESERVED hold, and one transfer that was reversed. |
 | 13 | `ricardo_magbanua` | Ricardo N. Magbanua | TIER_2_STANDARD | 0.19 | 660 | 25,000.00 | ACTIVE | New member: no beneficiaries and no outgoing history. First-time beneficiary case. |
 | 14 | `lourdes_salazar` | Lourdes V. Salazar | TIER_3_FULL | 0.17 | 690 | 100,000.00 | INACTIVE | Login is INACTIVE: sign-in is refused. |
+| 15 | `carl_lontac` | Carl Lawrence Lontac | TIER_3_FULL | 0.10 | 690 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 16 | `raphael_devera` | Raphael Wayne De Vera | TIER_3_FULL | 0.12 | 703 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 17 | `april_ternal` | April Joy Ternal | TIER_3_FULL | 0.14 | 716 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 18 | `alyssa_sanchez` | Alyssa Sanchez | TIER_3_FULL | 0.16 | 729 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 19 | `gabriel_florendo` | Gabriel Enrico Florendo | TIER_3_FULL | 0.91 | 545 | 100,000.00 | ACTIVE | Risk score above 0.85: every transfer is declined as HIGH_RISK. |
+| 20 | `jared_carranza` | Jared Lev Carranza | TIER_3_FULL | 0.20 | 755 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 21 | `hans_coo` | Hans Dean Timothy Coo | TIER_3_FULL | 0.22 | 768 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 22 | `marveen_bernabe` | Marveen Antonio Bernabe | TIER_3_FULL | 0.74 | 635 | 100,000.00 | ACTIVE | Risk score in the 0.60 to 0.85 band: declined as REVIEW_REQUIRED. |
+| 23 | `christian_javier` | Christian Rei Javier | TIER_3_FULL | 0.17 | 704 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 24 | `barani_sundaram` | Barani Sundaram | TIER_3_FULL | 0.11 | 717 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 25 | `rod_vekez` | Rod Vekez | TIER_3_FULL | 0.10 | 730 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 26 | `assissi_raval` | Assissi Raval | TIER_3_FULL | 0.12 | 743 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 27 | `jet_almazan` | Jet Almazan | TIER_3_FULL | 0.14 | 756 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 28 | `gerard_martinez` | Gerard Martinez | TIER_3_FULL | 0.16 | 769 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 29 | `emy_quilala` | Emy Quilala | TIER_3_FULL | 0.18 | 692 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 30 | `hannah_manuel` | Hannah Manuel | TIER_3_FULL | 0.20 | 705 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 31 | `marie_castro` | Marie Therese Castro | TIER_3_FULL | 0.22 | 718 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 32 | `ryan_delacruz` | Ryan Dela Cruz | TIER_3_FULL | 0.13 | 731 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 33 | `hector_gutierrez` | Hector Gutierrez | TIER_3_FULL | 0.17 | 744 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 34 | `john_manay` | John Reymark Manay | TIER_3_FULL | 0.11 | 757 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 35 | `emmanuel_lorbis` | Emmanuel Lorbis | TIER_3_FULL | 0.10 | 770 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 36 | `jan_claudio` | Jan Marion Claudio | TIER_3_FULL | 0.12 | 693 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 37 | `dennis_medina` | Dennis Medina | TIER_3_FULL | 0.14 | 706 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 38 | `ina_quizon` | Ina Camille Quizon | TIER_3_FULL | 0.16 | 719 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 39 | `cj_ramos` | CJ Ramos | TIER_3_FULL | 0.18 | 732 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 40 | `tasha_venturina` | Tasha Venturina | TIER_3_FULL | 0.20 | 745 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 41 | `kristian_kabigting` | Kristian Kabigting | TIER_3_FULL | 0.22 | 758 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 42 | `donna_demu` | Donna Demu | TIER_3_FULL | 0.13 | 771 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 43 | `jp_tanedo` | JP Tanedo | TIER_3_FULL | 0.17 | 694 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 44 | `amiel_deguia` | Amiel De Guia | TIER_3_FULL | 0.11 | 707 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 45 | `mark_ramirez` | Mark Paul Ramirez | TIER_3_FULL | 0.10 | 720 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 46 | `noemi_canedo` | Noemi Canedo | TIER_3_FULL | 0.12 | 733 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 47 | `marie_reyes` | Marie Kris Reyes | TIER_3_FULL | 0.14 | 746 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 48 | `mike_manuel` | Mike Manuel | TIER_3_FULL | 0.16 | 759 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 49 | `clayton_sy` | Clayton Sy | TIER_3_FULL | 0.18 | 772 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 50 | `allan_binauhan` | Allan Binauhan | TIER_3_FULL | 0.20 | 695 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
 
 ## Accounts
 
@@ -57,6 +93,42 @@ For a customer the token's `userId` is the customer ID.
 | 16 | `ACC_10000016` | SAVINGS | ACTIVE | 12 `teresita_ramos` | 35,000.00 | 3,000.00 | 32,000.00 |
 | 17 | `ACC_10000017` | SAVINGS | ACTIVE | 13 `ricardo_magbanua` | 13,700.00 | 0.00 | 13,700.00 |
 | 18 | `ACC_10000018` | SAVINGS | ACTIVE | 14 `lourdes_salazar` | 5,000.00 | 0.00 | 5,000.00 |
+| 19 | `ACC_10000019` | SAVINGS | ACTIVE | 15 `carl_lontac` | 20,000.00 | 0.00 | 20,000.00 |
+| 20 | `ACC_10000020` | SAVINGS | ACTIVE | 16 `raphael_devera` | 55,000.00 | 0.00 | 55,000.00 |
+| 21 | `ACC_10000021` | SAVINGS | ACTIVE | 17 `april_ternal` | 30,000.00 | 0.00 | 30,000.00 |
+| 22 | `ACC_10000022` | SAVINGS | ACTIVE | 18 `alyssa_sanchez` | 65,000.00 | 0.00 | 65,000.00 |
+| 23 | `ACC_10000023` | SAVINGS | ACTIVE | 19 `gabriel_florendo` | 40,000.00 | 0.00 | 40,000.00 |
+| 24 | `ACC_10000024` | SAVINGS | ACTIVE | 20 `jared_carranza` | 75,000.00 | 0.00 | 75,000.00 |
+| 25 | `ACC_10000025` | SAVINGS | ACTIVE | 21 `hans_coo` | 50,000.00 | 0.00 | 50,000.00 |
+| 26 | `ACC_10000026` | SAVINGS | ACTIVE | 22 `marveen_bernabe` | 25,000.00 | 0.00 | 25,000.00 |
+| 27 | `ACC_10000027` | SAVINGS | ACTIVE | 23 `christian_javier` | 60,000.00 | 0.00 | 60,000.00 |
+| 28 | `ACC_10000028` | SAVINGS | ACTIVE | 24 `barani_sundaram` | 35,000.00 | 0.00 | 35,000.00 |
+| 29 | `ACC_10000029` | SAVINGS | ACTIVE | 25 `rod_vekez` | 70,000.00 | 0.00 | 70,000.00 |
+| 30 | `ACC_10000030` | SAVINGS | ACTIVE | 26 `assissi_raval` | 45,000.00 | 0.00 | 45,000.00 |
+| 31 | `ACC_10000031` | SAVINGS | ACTIVE | 27 `jet_almazan` | 20,000.00 | 0.00 | 20,000.00 |
+| 32 | `ACC_10000032` | SAVINGS | ACTIVE | 28 `gerard_martinez` | 55,000.00 | 0.00 | 55,000.00 |
+| 33 | `ACC_10000033` | SAVINGS | ACTIVE | 29 `emy_quilala` | 30,000.00 | 0.00 | 30,000.00 |
+| 34 | `ACC_10000034` | SAVINGS | ACTIVE | 30 `hannah_manuel` | 65,000.00 | 0.00 | 65,000.00 |
+| 35 | `ACC_10000035` | SAVINGS | ACTIVE | 31 `marie_castro` | 40,000.00 | 0.00 | 40,000.00 |
+| 36 | `ACC_10000036` | SAVINGS | ACTIVE | 32 `ryan_delacruz` | 75,000.00 | 0.00 | 75,000.00 |
+| 37 | `ACC_10000037` | SAVINGS | ACTIVE | 33 `hector_gutierrez` | 50,000.00 | 0.00 | 50,000.00 |
+| 38 | `ACC_10000038` | SAVINGS | ACTIVE | 34 `john_manay` | 25,000.00 | 0.00 | 25,000.00 |
+| 39 | `ACC_10000039` | SAVINGS | ACTIVE | 35 `emmanuel_lorbis` | 60,000.00 | 0.00 | 60,000.00 |
+| 40 | `ACC_10000040` | SAVINGS | ACTIVE | 36 `jan_claudio` | 35,000.00 | 0.00 | 35,000.00 |
+| 41 | `ACC_10000041` | SAVINGS | ACTIVE | 37 `dennis_medina` | 70,000.00 | 0.00 | 70,000.00 |
+| 42 | `ACC_10000042` | SAVINGS | ACTIVE | 38 `ina_quizon` | 45,000.00 | 0.00 | 45,000.00 |
+| 43 | `ACC_10000043` | SAVINGS | ACTIVE | 39 `cj_ramos` | 20,000.00 | 0.00 | 20,000.00 |
+| 44 | `ACC_10000044` | SAVINGS | ACTIVE | 40 `tasha_venturina` | 55,000.00 | 0.00 | 55,000.00 |
+| 45 | `ACC_10000045` | SAVINGS | ACTIVE | 41 `kristian_kabigting` | 30,000.00 | 0.00 | 30,000.00 |
+| 46 | `ACC_10000046` | SAVINGS | ACTIVE | 42 `donna_demu` | 65,000.00 | 0.00 | 65,000.00 |
+| 47 | `ACC_10000047` | SAVINGS | ACTIVE | 43 `jp_tanedo` | 40,000.00 | 0.00 | 40,000.00 |
+| 48 | `ACC_10000048` | SAVINGS | ACTIVE | 44 `amiel_deguia` | 75,000.00 | 0.00 | 75,000.00 |
+| 49 | `ACC_10000049` | SAVINGS | ACTIVE | 45 `mark_ramirez` | 50,000.00 | 0.00 | 50,000.00 |
+| 50 | `ACC_10000050` | SAVINGS | ACTIVE | 46 `noemi_canedo` | 25,000.00 | 0.00 | 25,000.00 |
+| 51 | `ACC_10000051` | SAVINGS | ACTIVE | 47 `marie_reyes` | 60,000.00 | 0.00 | 60,000.00 |
+| 52 | `ACC_10000052` | SAVINGS | ACTIVE | 48 `mike_manuel` | 35,000.00 | 0.00 | 35,000.00 |
+| 53 | `ACC_10000053` | SAVINGS | ACTIVE | 49 `clayton_sy` | 70,000.00 | 0.00 | 70,000.00 |
+| 54 | `ACC_10000054` | SAVINGS | ACTIVE | 50 `allan_binauhan` | 45,000.00 | 0.00 | 45,000.00 |
 
 For a `LOAN` account the balance is the outstanding principal.
 
@@ -66,7 +138,7 @@ Owned by internal customer 900. Each opens with PHP 1,000,000,000.00 because `BA
 
 | Account ID | Number | Used for | Ledger balance (PHP) |
 | --- | --- | --- | --- |
-| 9001 | `GL_CASH_VAULT` | Counter-leg of deposits, withdrawals and opening deposits | 999,487,300.00 |
+| 9001 | `GL_CASH_VAULT` | Counter-leg of deposits, withdrawals and opening deposits | 997,777,300.00 |
 | 9002 | `GL_INTEREST_EXPENSE` | Debited when interest is paid | 999,999,988.36 |
 | 9003 | `GL_FEE_INCOME` | Credited when fees are charged | 1,000,000,050.00 |
 | 9004 | `GL_LOAN_RECEIVABLE` | Loan booking and repayments | 999,855,450.00 |
@@ -94,7 +166,7 @@ Owned by internal customer 900. Each opens with PHP 1,000,000,000.00 because `BA
 | `TX-SEED-0012` | 1 day ago | `ACC_10000005` | `GL_CASH_VAULT` | 3,000.00 | OTHER | TELLER | Posted |
 | `TX-SEED-0013` | today | `ACC_10000016` | `ACC_10000009` | 3,000.00 | TRANSFER | APP | Processing: hold RESERVED |
 
-Ledger totals: debits PHP 714,211.64, credits PHP 714,211.64. 58 ledger rows, each with an audit row.
+Ledger totals: debits PHP 2,424,211.64, credits PHP 2,424,211.64. 130 ledger rows, each with an audit row.
 
 ## Scenario coverage
 
