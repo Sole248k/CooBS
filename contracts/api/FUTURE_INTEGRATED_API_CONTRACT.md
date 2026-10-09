@@ -1498,7 +1498,7 @@ Two parts share the work, as a payment engine and its clearing connection do in 
 
 | Step | Who | What happens |
 | --- | --- | --- |
-| 1 | T1 | Accepts the transfer only for a configured partner; any other bank is `422 INTERBANK_REJECTED` and no saga starts. Sends O1 with the partner's code as `destinationBankCode` and that partner's settlement GL account as `destinationAccountId` |
+| 1 | T1 | Accepts the transfer only for a configured partner; any other bank is `422 INTERBANK_REJECTED` and no saga starts. The account is at the partner, so it is not looked up: its number has at most 34 characters and the amount at most two decimals, or the request is `400`. Records the message for the partner (`txn.interbank_message`, status `CREATED`) with the transaction, and sends O1 with the partner's code as `destinationBankCode` and that partner's settlement GL account as `destinationAccountId` |
 | 2 | Saga | Risk check and the hold on the sender's account, as for any transfer. Stage 6 passes; stage 7 `AUTHORIZED` waits for the partner |
 | 3 | Saga | Calls I4 |
 | 4 | Gateway | `InterbankClient` calls the partner's endpoint, translating our fields to theirs, with `transactionId` as the partner's `messageId`. No answer: it asks the partner's status endpoint up to three times |
@@ -1542,7 +1542,9 @@ The gateway reads the beneficiary's account number, name and the remarks from it
 | `PENDING` | Not an answer from the partner: the gateway sent the message, asked for its status, and still does not know | `null` |
 
 - **Safe to repeat.** The gateway sends one message per `transactionId`. Called again, it answers with what the partner said before, or asks the partner's status endpoint; it never sends a second transfer.
-- **A 4xx means nothing was sent** (`404 TRANSACTION_NOT_FOUND`, `422 INTERBANK_REJECTED` for a bank that is not a configured partner). The saga releases the hold and fails the transfer.
-- **A 5xx or no answer means the outcome is unknown.** The saga treats it as `PENDING`.
+- **A 4xx means nothing was sent** (`404 TRANSACTION_NOT_FOUND`, `422 INTERBANK_REJECTED` for a bank that is not a configured partner, `400` when the bank or amount does not match the transaction). The saga releases the hold and fails the transfer.
+- **A 5xx or no answer means the outcome is unknown.** The saga treats it as `PENDING`. `503 ACCOUNT_UNAVAILABLE` is the one 5xx the gateway chooses: the sender's account could not be read, nothing was sent, and the saga asks again.
+- **Once a message may have left, I4 never answers with an error.** The message is marked `PENDING` before the partner is called. From then on anything that goes wrong is answered `PENDING`, and the next call asks the partner's status endpoint before anything is sent again.
+- **A partner with no address is our own loopback.** `app.interbank.partners.<CODE>.base-url` says where a partner's I1 and I2 are. When it is empty there is no real bank behind the code: the gateway accepts the transfer itself, except to an account number beginning `0000`, which it refuses with `ACCOUNT_NOT_FOUND` so that a refusal can be shown. `BANKB` is seeded this way.
 - If the ledger refuses the capture after the partner has accepted, the hold is **not** released: the partner holds the money, so the transfer stays at `FUNDS_RESERVED` for staff.
 - A transfer that is with a partner bank, or has posted to one, cannot be reversed through T5: the reversal ends `FAILED` with `REVERSAL_NOT_ALLOWED`. The money comes back only as a transfer from that bank (I1).

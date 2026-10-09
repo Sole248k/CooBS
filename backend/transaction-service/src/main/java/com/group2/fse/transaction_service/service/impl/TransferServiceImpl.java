@@ -7,12 +7,16 @@ import com.group2.fse.transaction_service.client.dto.StartTransferSagaRequest;
 import com.group2.fse.transaction_service.dto.Money;
 import com.group2.fse.transaction_service.dto.TransferInitiateResponseDto;
 import com.group2.fse.transaction_service.dto.TransferRequestDto;
+import com.group2.fse.transaction_service.entity.InterbankMessage;
 import com.group2.fse.transaction_service.entity.TxnStageEvent;
 import com.group2.fse.transaction_service.entity.TxnTransaction;
 import com.group2.fse.transaction_service.event.StageEventPublisher;
 import com.group2.fse.transaction_service.exception.DuplicateIdempotencyKeyException;
 import com.group2.fse.transaction_service.exception.InvalidTransactionException;
 import com.group2.fse.transaction_service.exception.TransferRejectedException;
+import com.group2.fse.transaction_service.interbank.security.InterbankSecurityProperties;
+import com.group2.fse.transaction_service.interbank.security.InterbankSecurityProperties.PartnerConfig;
+import com.group2.fse.transaction_service.repository.InterbankMessageRepository;
 import com.group2.fse.transaction_service.repository.TxnStageEventRepository;
 import com.group2.fse.transaction_service.repository.TxnTransactionRepository;
 import com.group2.fse.transaction_service.security.UserPrincipal;
@@ -48,6 +52,11 @@ import java.util.UUID;
  *
  * Nothing here guesses. An account that cannot be confirmed stops the request, because a
  * guessed customer or destination would move real money for the wrong person.
+ *
+ * A transfer to another bank is accepted only for a configured partner. Its destination
+ * account is at that bank, so it is not looked up here: the saga is given the partner's
+ * settlement account to post against, and the message for the partner is recorded with the
+ * transaction (contract section 14).
  */
 @Slf4j
 @Service
@@ -59,6 +68,9 @@ public class TransferServiceImpl implements TransferService {
     private static final String OWN_BANK_CODE = "COOBS";
     /** The stored key is "<callerId>:<key>" and txn_transaction.idempotency_key is VARCHAR(64). */
     private static final int MAX_KEY_LENGTH = 40;
+    /** interbank_message.counterparty_account and counterparty_name. */
+    private static final int MAX_PARTNER_ACCOUNT = 34;
+    private static final int MAX_PARTNER_NAME = 120;
 
     private final IdempotencyService idempotencyService;
     private final TxnTransactionRepository transactionRepository;
@@ -66,13 +78,19 @@ public class TransferServiceImpl implements TransferService {
     private final OrchestrationClient orchestrationClient;
     private final StageEventPublisher stageEventPublisher;
     private final TransactionTemplate transactionTemplate;
+    private final InterbankSecurityProperties interbankProperties;
+    private final InterbankMessageRepository interbankMessages;
 
     public TransferServiceImpl(IdempotencyService idempotencyService,
                                TxnTransactionRepository transactionRepository,
                                TxnStageEventRepository stageEventRepository,
                                OrchestrationClient orchestrationClient,
                                StageEventPublisher stageEventPublisher,
-                               PlatformTransactionManager transactionManager) {
+                               PlatformTransactionManager transactionManager,
+                               InterbankSecurityProperties interbankProperties,
+                               InterbankMessageRepository interbankMessages) {
+        this.interbankProperties = interbankProperties;
+        this.interbankMessages = interbankMessages;
         this.idempotencyService = idempotencyService;
         this.transactionRepository = transactionRepository;
         this.stageEventRepository = stageEventRepository;
@@ -94,9 +112,7 @@ public class TransferServiceImpl implements TransferService {
             return replay(accepted.get(), request);
         }
 
-        if (!OWN_BANK_CODE.equalsIgnoreCase(bankCodeOf(request))) {
-            throw TransferRejectedException.interbankNotAvailable();
-        }
+        PartnerConfig partner = partnerFor(request);
         AccountLookupResponse source = findAccount(
                 () -> orchestrationClient.findAccountById(request.getSourceAccountId()), "Source");
         if (!caller.staff() && !Objects.equals(source.getCustomerId(), caller.userId())) {
@@ -104,8 +120,10 @@ public class TransferServiceImpl implements TransferService {
                     caller.userId(), source.getAccountId(), source.getCustomerId());
             throw TransferRejectedException.accountNotOwned();
         }
-        AccountLookupResponse destination = findAccount(
-                () -> orchestrationClient.findAccountByNumber(request.getDestinationAccountNumber()), "Destination");
+        AccountLookupResponse destination = partner != null
+                ? settlementAccountOf(partner)
+                : findAccount(() -> orchestrationClient.findAccountByNumber(request.getDestinationAccountNumber()),
+                        "Destination");
 
         if (!idempotencyService.tryAcquire(key, LOCK_TTL)) {
             log.warn("A request with the same Idempotency-Key is still being accepted; answering 409");
@@ -118,7 +136,8 @@ public class TransferServiceImpl implements TransferService {
             if (accepted.isPresent()) {
                 return replay(accepted.get(), request);
             }
-            TxnTransaction txn = transactionTemplate.execute(status -> save(request, caller, key, source, destination));
+            TxnTransaction txn = transactionTemplate.execute(
+                    status -> save(request, caller, key, source, destination, partner));
             publishIngressStages(txn);
             startSaga(txn, caller);
             return firstResponse(txn);
@@ -132,8 +151,40 @@ public class TransferServiceImpl implements TransferService {
         }
     }
 
+    /**
+     * The partner bank a transfer is for, or null when it stays in our own bank. A bank we have
+     * no agreement with is refused here, before anything is saved or reserved.
+     */
+    private PartnerConfig partnerFor(TransferRequestDto request) {
+        String bankCode = bankCodeOf(request);
+        if (OWN_BANK_CODE.equalsIgnoreCase(bankCode)) {
+            return null;
+        }
+        PartnerConfig partner = interbankProperties.getPartner(bankCode);
+        if (partner == null) {
+            throw TransferRejectedException.interbankNotAvailable();
+        }
+        if (request.getDestinationAccountNumber().trim().length() > MAX_PARTNER_ACCOUNT) {
+            throw new InvalidTransactionException(
+                    "An account number at another bank has at most " + MAX_PARTNER_ACCOUNT + " characters.");
+        }
+        if (request.getAmount().stripTrailingZeros().scale() > 2) {
+            throw new InvalidTransactionException("An amount for another bank has at most two decimals.");
+        }
+        return partner;
+    }
+
+    /** What the saga posts against for this partner. The beneficiary's own account is at the partner. */
+    private AccountLookupResponse settlementAccountOf(PartnerConfig partner) {
+        AccountLookupResponse settlement = new AccountLookupResponse();
+        settlement.setAccountId(partner.getSettlementAccountId() != null
+                ? partner.getSettlementAccountId() : interbankProperties.getDefaultSettlementAccountId());
+        return settlement;
+    }
+
     private TxnTransaction save(TransferRequestDto request, Caller caller, String key,
-                                AccountLookupResponse source, AccountLookupResponse destination) {
+                                AccountLookupResponse source, AccountLookupResponse destination,
+                                PartnerConfig partner) {
         UUID transactionId = UUID.randomUUID();
         Instant now = Instant.now();
         String randomHex = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
@@ -148,7 +199,7 @@ public class TransferServiceImpl implements TransferService {
                 .sourceAccountId(source.getAccountId())
                 .destinationAccountId(destination.getAccountId())
                 .destinationAccountNumber(request.getDestinationAccountNumber())
-                .destinationBankCode(OWN_BANK_CODE)
+                .destinationBankCode(partner != null ? partner.getBankCode() : OWN_BANK_CODE)
                 .amount(request.getAmount())
                 .currency(request.getCurrency() != null ? request.getCurrency() : "PHP")
                 .category(request.getCategory() != null ? request.getCategory() : "TRANSFER")
@@ -157,6 +208,23 @@ public class TransferServiceImpl implements TransferService {
                 .createdAt(now)
                 .build();
         transactionRepository.save(txn);
+
+        if (partner != null) {
+            // The message for the partner, kept with the transfer. Nothing is sent from here: the
+            // saga asks for that (I4) once the money is reserved.
+            String name = request.getBeneficiaryName();
+            interbankMessages.save(InterbankMessage.builder()
+                    .messageId(transactionId)
+                    .direction(InterbankMessage.OUTBOUND)
+                    .partnerBankCode(partner.getBankCode())
+                    .transactionId(transactionId)
+                    .counterpartyAccount(request.getDestinationAccountNumber().trim())
+                    .counterpartyName(name == null || name.isBlank() ? null
+                            : name.trim().substring(0, Math.min(name.trim().length(), MAX_PARTNER_NAME)))
+                    .status(InterbankMessage.CREATED)
+                    .createdAt(now)
+                    .build());
+        }
 
         stageEventRepository.saveAll(List.of(
                 stage(transactionId, 1, "INITIATED", now),

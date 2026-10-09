@@ -30,5 +30,11 @@ public class InterbankSecurityProperties {
         private String bankCode;
         private String sharedSecret;
         private Long settlementAccountId = 9005L;
+        /**
+         * Where this partner's inter-bank endpoints are reached, for transfers we send to it.
+         * Empty means there is no real partner behind the code: outbound transfers go to our
+         * own loopback (LoopbackPartnerAdapter).
+         */
+        private String baseUrl;
     }
 }
