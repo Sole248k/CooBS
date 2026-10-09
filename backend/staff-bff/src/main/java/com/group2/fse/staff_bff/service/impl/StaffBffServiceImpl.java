@@ -323,7 +323,45 @@ public class StaffBffServiceImpl implements StaffBffService {
 
     @Override
     public List<Map<String, Object>> getAllAccounts(String correlationId, String bearerToken) {
-        return accountClient.fetchAllAccounts(bearerToken, correlationId);
+        List<Map<String, Object>> accounts = accountClient.fetchAllAccounts(bearerToken, correlationId);
+
+        // account-service knows the customer ID only and answers "Customer #<id>". The name is
+        // customer-service's, so it is read there, once per customer, and put on each account.
+        // shortcut: one profile call per customer on every load; fine for the 50 seeded members,
+        // add a bulk endpoint in customer-service if the list grows into the hundreds.
+        Map<Long, CompletableFuture<String>> names = new HashMap<>();
+        for (Map<String, Object> account : accounts) {
+            Long customerId = customerIdOf(account);
+            if (customerId != null) {
+                names.computeIfAbsent(customerId, id -> CompletableFuture.supplyAsync(() -> {
+                    Map<String, Object> profile = customerClient.fetchCustomerProfile(id, bearerToken, correlationId);
+                    Object name = profile == null ? null : profile.get("displayName");
+                    return name == null || name.toString().isBlank() ? null : name.toString();
+                }, bffExecutor));
+            }
+        }
+        List<Map<String, Object>> named = new ArrayList<>();
+        for (Map<String, Object> account : accounts) {
+            Long customerId = customerIdOf(account);
+            String name = customerId == null ? null : names.get(customerId).join();
+            if (name == null) {
+                named.add(account);
+            } else {
+                Map<String, Object> copy = new LinkedHashMap<>(account);
+                copy.put("customerName", name);
+                named.add(copy);
+            }
+        }
+        return named;
+    }
+
+    private static Long customerIdOf(Map<String, Object> account) {
+        Object id = account.get("customerId");
+        try {
+            return id == null ? null : Long.valueOf(id.toString());
+        } catch (NumberFormatException notANumber) {
+            return null;
+        }
     }
 
     @Override
