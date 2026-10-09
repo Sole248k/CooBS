@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.group2.fse.orchestration_service.client.CustomerClient;
 import com.group2.fse.orchestration_service.client.DownstreamException;
+import com.group2.fse.orchestration_service.client.InterbankGatewayClient;
 import com.group2.fse.orchestration_service.client.InternalApi;
 import com.group2.fse.orchestration_service.client.LedgerClient;
 import com.group2.fse.orchestration_service.client.RiskClient;
@@ -38,8 +39,17 @@ import lombok.extern.slf4j.Slf4j;
  * hold that is still unanswered after the retry window is given up: RISK_APPROVED goes to
  * COMPENSATING with the hold the ledger finally reports, and ends FAILED once it is released.
  *
- * A transfer for another bank is refused at STARTED with INTERBANK_REJECTED, before risk or
- * the ledger is asked anything, until the outbound inter-bank path exists.
+ * A transfer for another bank takes the same road with one more step between the hold and
+ * the capture: the partner bank is asked, through the inter-bank gateway, to credit its
+ * customer. The money is reserved before the partner is asked and leaves the sender's
+ * account only once the partner has accepted, against that partner's settlement account.
+ *
+ * <pre>
+ * FUNDS_RESERVED --partner accepts--> capture as above
+ *        |
+ *        +--partner refuses--> COMPENSATING --released--> FAILED, INTERBANK_REJECTED
+ *        +--no answer--------> stays FUNDS_RESERVED with the hold, asked again by the sweep
+ * </pre>
  */
 @Slf4j
 @Service
@@ -57,13 +67,14 @@ public class TransferSaga {
     private final LedgerClient ledger;
     private final StageEvents events;
     private final RiskOutcomes riskOutcomes;
+    private final InterbankGatewayClient interbank;
     private final int captureAttempts;
     private final Duration captureBackoff;
     private final Duration holdRetryWindow;
     private final ObjectMapper objectMapper;
 
     public TransferSaga(SagaRepository sagas, CustomerClient customers, RiskClient risk, LedgerClient ledger,
-            StageEvents events, RiskOutcomes riskOutcomes,
+            StageEvents events, RiskOutcomes riskOutcomes, InterbankGatewayClient interbank,
             @Value("${app.saga.capture-attempts}") int captureAttempts,
             @Value("${app.saga.capture-backoff}") Duration captureBackoff,
             @Value("${app.saga.hold-retry-window:5m}") Duration holdRetryWindow,
@@ -75,6 +86,7 @@ public class TransferSaga {
         this.ledger = ledger;
         this.events = events;
         this.riskOutcomes = riskOutcomes;
+        this.interbank = interbank;
         this.captureAttempts = captureAttempts;
         this.captureBackoff = captureBackoff;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
@@ -118,13 +130,12 @@ public class TransferSaga {
      * what is saved there, so the other writer's state is never overwritten.
      */
     private void advance(SagaInstance saga, StartTransferRequest transfer) {
+        // What the partner bank said in this run; a later run only has the failure code.
+        String partnerDetail = null;
         for (int conflicts = 0;; conflicts++) {
             try {
                 if (conflicts > 0) {
                     saga = reload(saga);
-                }
-                if (saga.getState() == SagaState.STARTED && isOutboundInterbank(transfer)) {
-                    refuseInterbank(saga, transfer);
                 }
                 if (saga.getState() == SagaState.STARTED) {
                     checkRisk(saga, transfer);
@@ -133,10 +144,14 @@ public class TransferSaga {
                     reserveFunds(saga, transfer);
                 }
                 if (saga.getState() == SagaState.FUNDS_RESERVED) {
-                    capture(saga, transfer);
+                    if (isOutboundInterbank(transfer)) {
+                        partnerDetail = settleWithPartner(saga, transfer);
+                    } else {
+                        capture(saga, transfer, null);
+                    }
                 }
                 if (saga.getState() == SagaState.COMPENSATING) {
-                    releaseHold(saga, transfer);
+                    releaseHold(saga, transfer, partnerDetail);
                 }
                 return;
             } catch (OptimisticLockingFailureException conflict) {
@@ -167,18 +182,6 @@ public class TransferSaga {
     private static boolean isOutboundInterbank(StartTransferRequest t) {
         String bankCode = t.destinationBankCode();
         return bankCode != null && !bankCode.isBlank() && !OWN_BANK_CODE.equalsIgnoreCase(bankCode.trim());
-    }
-
-    /**
-     * There is no outbound inter-bank path yet: no partner call and no settlement posting. The
-     * steps below would credit destinationAccountId as if the money had stayed in this bank, so
-     * the transfer is refused while nothing has been asked of risk or the ledger. It ends at
-     * stage 4, the first stage this service owns.
-     */
-    private void refuseInterbank(SagaInstance saga, StartTransferRequest t) {
-        log.warn("Transaction {} is for bank {}; refused, outbound inter-bank transfers are not supported",
-                t.transactionId(), t.destinationBankCode());
-        fail(saga, t, Stage.FRAUD_CHECK, INTERBANK_REJECTED, "outbound inter-bank transfers are not supported");
     }
 
     /** Stages 4 and 5. Fails closed: anything other than a clear APPROVE ends the saga before any hold. */
@@ -260,7 +263,59 @@ public class TransferSaga {
         }
         save(saga, SagaState.FUNDS_RESERVED);
         events.passed(t.transactionId(), t.referenceNo(), Stage.FUNDS_CHECK, null);
-        events.passed(t.transactionId(), t.referenceNo(), Stage.AUTHORIZED, null);
+        if (!isOutboundInterbank(t)) {
+            // A transfer to another bank is authorised by that bank's answer, not by the hold.
+            events.passed(t.transactionId(), t.referenceNo(), Stage.AUTHORIZED, null);
+        }
+    }
+
+    /**
+     * Stage 7 of a transfer to another bank. The money is already reserved; the partner is now
+     * asked to credit its customer, and only its answer decides what happens to the hold.
+     *
+     * Accepted: the hold is captured against the partner's settlement account, which is the
+     * destinationAccountId transaction-service gave for this bank. Refused, by the partner or
+     * by our own gateway before anything was sent: the hold is released and the transfer fails.
+     * No answer: the partner may have credited its customer, so the hold is kept and the saga
+     * stays at FUNDS_RESERVED; the sweep asks again, and the gateway sends one message per
+     * transaction however often it is asked. The hold is never released on a timeout.
+     *
+     * @return what the partner said when it refused, for the stage event; otherwise null
+     */
+    private String settleWithPartner(SagaInstance saga, StartTransferRequest t) {
+        String bank = t.destinationBankCode().trim();
+        InterbankGatewayClient.Answer answer;
+        try {
+            answer = interbank.send(new InterbankGatewayClient.Dispatch(t.transactionId(), t.referenceNo(),
+                    bank, t.amount(), t.currency()));
+        } catch (DownstreamException e) {
+            if (e.refused()) {
+                // Our own gateway said no (the bank is not a configured partner, for one): nothing was sent.
+                log.warn("Transaction {} was not sent to {}: {}", t.transactionId(), bank, e.getErrorCode());
+                saga.setFailureCode(INTERBANK_REJECTED);
+                save(saga, SagaState.COMPENSATING);
+                return "not sent to " + bank + ": " + e.getErrorCode();
+            }
+            log.error("No answer about transaction {} for {}; the hold {} is kept and the saga left at "
+                    + "FUNDS_RESERVED for the sweep to ask again: {}", t.transactionId(), bank, saga.getHoldId(),
+                    e.getMessage());
+            return null;
+        }
+        if (answer.accepted()) {
+            String reference = answer.partnerReference() == null ? "" : ", reference " + answer.partnerReference();
+            capture(saga, t, "accepted by " + bank + reference);
+            return null;
+        }
+        if (answer.rejected()) {
+            log.warn("{} refused transaction {}: {}", bank, t.transactionId(), answer.reasonCode());
+            saga.setFailureCode(INTERBANK_REJECTED);
+            save(saga, SagaState.COMPENSATING);
+            return "refused by " + bank + (answer.reasonCode() == null ? "" : ": " + answer.reasonCode());
+        }
+        // PENDING, or a status this service does not know: the outcome at the partner is unknown.
+        log.error("{} has not confirmed transaction {} ({}); the hold {} is kept for staff to follow up, and "
+                + "the sweep asks again", bank, t.transactionId(), answer.partnerStatus(), saga.getHoldId());
+        return null;
     }
 
     /**
@@ -268,14 +323,28 @@ public class TransferSaga {
      * ambiguous: the capture may have succeeded, so the hold is never released on a timeout.
      * The call is repeated with the same idempotency key, and if the ledger stays silent the
      * saga is left at FUNDS_RESERVED for a later run.
+     *
+     * A transfer to another bank is captured only after the partner has accepted it. If the
+     * ledger then refuses, the partner already holds the money, so the hold is not released:
+     * the saga stays at FUNDS_RESERVED and the refusal is for staff to resolve.
+     *
+     * @param authorizedBy for a transfer to another bank, what the partner answered; stage 7 is
+     *                     published with it once the money has moved. Null for our own bank,
+     *                     whose stage 7 was published when the hold was placed.
      */
-    private void capture(SagaInstance saga, StartTransferRequest t) {
+    private void capture(SagaInstance saga, StartTransferRequest t, String authorizedBy) {
         for (int attempt = 1;; attempt++) {
             try {
                 ledger.capture(t.transactionId(), saga.getHoldId(),
                         new LedgerClient.CaptureRequest(t.destinationAccountId(), t.actorId()));
                 break;
             } catch (DownstreamException e) {
+                if (e.refused() && authorizedBy != null) {
+                    log.error("The ledger refused to capture hold {} for transaction {} ({}) after the partner "
+                            + "bank accepted the transfer; the hold is kept and the saga left at FUNDS_RESERVED "
+                            + "for staff", saga.getHoldId(), t.transactionId(), e.getErrorCode());
+                    return;
+                }
                 if (e.refused()) {
                     saga.setFailureCode(e.getErrorCode());
                     save(saga, SagaState.COMPENSATING);
@@ -289,19 +358,25 @@ public class TransferSaga {
             }
         }
         save(saga, SagaState.POSTED);
+        if (authorizedBy != null) {
+            events.passed(t.transactionId(), t.referenceNo(), Stage.AUTHORIZED, authorizedBy);
+        }
         events.passed(t.transactionId(), t.referenceNo(), Stage.POSTED, null);
     }
 
     /**
      * Undoes a hold. After a refused capture the saga ends COMPENSATED at stage 8. A hold that
      * was given up or cancelled before it was ever authorised ends FAILED at stage 6, where
-     * it stopped.
+     * it stopped. A transfer the partner bank refused ends FAILED at stage 7, the stage that
+     * bank's answer decides.
      */
-    private void releaseHold(SagaInstance saga, StartTransferRequest t) {
+    private void releaseHold(SagaInstance saga, StartTransferRequest t, String partnerDetail) {
         boolean neverAuthorized = LEDGER_UNAVAILABLE.equals(saga.getFailureCode())
                 || ReversalSaga.CANCELLED_BEFORE_HOLD.equals(saga.getFailureCode());
+        boolean partnerRefused = INTERBANK_REJECTED.equals(saga.getFailureCode());
         try {
-            ledger.release(t.transactionId(), saga.getHoldId(), neverAuthorized ? "HOLD_ABANDONED" : "CAPTURE_FAILED");
+            ledger.release(t.transactionId(), saga.getHoldId(),
+                    neverAuthorized ? "HOLD_ABANDONED" : partnerRefused ? INTERBANK_REJECTED : "CAPTURE_FAILED");
         } catch (DownstreamException e) {
             log.error("Hold {} for transaction {} was not released; saga left at COMPENSATING: {}",
                     saga.getHoldId(), t.transactionId(), e.getMessage());
@@ -311,6 +386,13 @@ public class TransferSaga {
             save(saga, SagaState.FAILED);
             events.failed(t.transactionId(), t.referenceNo(), Stage.FUNDS_CHECK, saga.getFailureCode(),
                     "hold released");
+            riskOutcomes.notPosted(t.transactionId());
+            return;
+        }
+        if (partnerRefused) {
+            save(saga, SagaState.FAILED);
+            events.failed(t.transactionId(), t.referenceNo(), Stage.AUTHORIZED, INTERBANK_REJECTED,
+                    partnerDetail == null ? "hold released" : partnerDetail + "; hold released");
             riskOutcomes.notPosted(t.transactionId());
             return;
         }

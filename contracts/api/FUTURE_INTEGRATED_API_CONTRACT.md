@@ -147,6 +147,7 @@ Every service returns the existing problem shape. `errorCode` is the field clien
 | `RISK_UNAVAILABLE` (new) | 503 | orchestration |
 | `HOLD_NOT_FOUND`, `HOLD_NOT_RESERVED` (new) | 404, 409 | ledger |
 | `ALREADY_REVERSED` (new) | 409 | ledger |
+| `REVERSAL_NOT_ALLOWED` (new) | 422 | orchestration |
 | `LEDGER_UNAVAILABLE` (new) | 503 | orchestration, batch |
 | `BATCH_ALREADY_RUNNING` (new) | 409 | batch |
 | `INTERBANK_REJECTED`, `INTERBANK_TIMEOUT` (new) | 422, 504 | transaction, orchestration |
@@ -231,6 +232,7 @@ Order matters: the gateway must match the more specific KYC route before the gen
 | orchestration-service | risk-engine `/internal/v1/risk/evaluate` | Decision |
 | orchestration-service | risk-engine `/internal/v1/risk/outcomes` | Gives back the daily-limit reservation of a transfer that did not post; counts a reversal of one that did |
 | orchestration-service | ledger-service `/internal/v1/ledger/**` | Hold, capture, release, reverse |
+| orchestration-service | transaction-service `/internal/v1/interbank/outbound` | Has an outbound transfer sent to the partner bank |
 | customer-service | account-service `/internal/v1/**` | Accounts lookup for Customer 360 |
 | customer-service | transaction-service `/internal/v1/transactions` | Recent transactions |
 | account-service | ledger-service `/internal/v1/ledger/balances/**` | Open and read balances |
@@ -1475,8 +1477,9 @@ The full proposal for partner groups is in [`INTERBANK_TRANSFER_PROPOSAL.md`](IN
 | I1 | `POST /api/v1/interbank/transfers` | Partner → us | Credit one of our accounts |
 | I2 | `GET /api/v1/interbank/transfers/{messageId}` | Partner → us | Status of a transfer they sent |
 | I3 | `GET /api/v1/interbank/accounts/{accountNumber}` | Partner → us | Optional name check before sending |
+| I4 | `POST /internal/v1/interbank/outbound` | Saga → our gateway → partner | Send one of our transfers to a partner bank |
 
-These three are not protected by our JWT. They require `X-Bank-Code`, `X-Timestamp` and `X-Signature` as defined in the proposal.
+I1 to I3 are not protected by our JWT. They require `X-Bank-Code`, `X-Timestamp` and `X-Signature` as defined in the proposal. I4 is internal: a service token with `ROLE_SERVICE`, never routed by the gateway.
 
 **Inbound mapping**
 
@@ -1491,12 +1494,55 @@ These three are not protected by our JWT. They require `X-Bank-Code`, `X-Timesta
 
 **Outbound mapping** (T1 with a foreign `destinationBankCode`)
 
-| Step | What happens |
-| --- | --- |
-| 1 | Normal saga up to the hold on the sender's account |
-| 2 | `InterbankClient` calls the partner's endpoint, translating our fields to theirs |
-| 3 | `ACCEPTED`: capture the hold against the settlement GL account for that partner |
-| 4 | `REJECTED`: release the hold; the transaction fails with `INTERBANK_REJECTED` |
-| 5 | No answer: query the partner's status endpoint up to three times, then keep the hold and flag for staff. Never release on a timeout alone |
+Two parts share the work, as a payment engine and its clearing connection do in a bank. The **saga** decides and keeps the order: reserve, ask the partner, then post or release. The **inter-bank gateway** in `transaction-service` is the only code that talks to another bank: it holds the partner's address and shared secret, builds and signs the partner's message, and asks the partner's status endpoint. The saga never calls a partner and never holds a partner's secret.
+
+| Step | Who | What happens |
+| --- | --- | --- |
+| 1 | T1 | Accepts the transfer only for a configured partner; any other bank is `422 INTERBANK_REJECTED` and no saga starts. Sends O1 with the partner's code as `destinationBankCode` and that partner's settlement GL account as `destinationAccountId` |
+| 2 | Saga | Risk check and the hold on the sender's account, as for any transfer. Stage 6 passes; stage 7 `AUTHORIZED` waits for the partner |
+| 3 | Saga | Calls I4 |
+| 4 | Gateway | `InterbankClient` calls the partner's endpoint, translating our fields to theirs, with `transactionId` as the partner's `messageId`. No answer: it asks the partner's status endpoint up to three times |
+| 5 | Saga | `ACCEPTED`: captures the hold against the settlement account. Stage 7 passes with the partner's reference, then stage 8 `POSTED` |
+| 6 | Saga | `REJECTED`: releases the hold; the transfer ends `FAILED` at stage 7 with `INTERBANK_REJECTED` |
+| 7 | Saga | `PENDING` or no answer from the gateway: keeps the hold and stays at `FUNDS_RESERVED`, so the customer sees `PROCESSING` and staff see stage 7 waiting. The sweep calls I4 again. Never release on a timeout alone |
 
 One adapter class per partner sits behind `InterbankClient`, so a partner whose payload differs from the proposal needs only its own mapping.
+
+**I4 request**
+
+<!-- example: I4-interbank-outbound.request.json -->
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "destinationBankCode": "BANKB",
+  "amount": "2500.00",
+  "currency": "PHP"
+}
+```
+
+The gateway reads the beneficiary's account number, name and the remarks from its own transaction record; the saga does not carry them.
+
+**I4 response, 200**
+
+<!-- example: I4-interbank-outbound.response.json -->
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "partnerStatus": "ACCEPTED",
+  "partnerReference": "BB-20261003-000123",
+  "reasonCode": null
+}
+```
+
+| `partnerStatus` | Meaning | `reasonCode` |
+| --- | --- | --- |
+| `ACCEPTED` | The partner has credited its customer. `partnerReference` is the partner's own reference | `null` |
+| `REJECTED` | The partner refused. Nothing was credited | The partner's reason code |
+| `PENDING` | Not an answer from the partner: the gateway sent the message, asked for its status, and still does not know | `null` |
+
+- **Safe to repeat.** The gateway sends one message per `transactionId`. Called again, it answers with what the partner said before, or asks the partner's status endpoint; it never sends a second transfer.
+- **A 4xx means nothing was sent** (`404 TRANSACTION_NOT_FOUND`, `422 INTERBANK_REJECTED` for a bank that is not a configured partner). The saga releases the hold and fails the transfer.
+- **A 5xx or no answer means the outcome is unknown.** The saga treats it as `PENDING`.
+- If the ledger refuses the capture after the partner has accepted, the hold is **not** released: the partner holds the money, so the transfer stays at `FUNDS_RESERVED` for staff.
+- A transfer that is with a partner bank, or has posted to one, cannot be reversed through T5: the reversal ends `FAILED` with `REVERSAL_NOT_ALLOWED`. The money comes back only as a transfer from that bank (I1).

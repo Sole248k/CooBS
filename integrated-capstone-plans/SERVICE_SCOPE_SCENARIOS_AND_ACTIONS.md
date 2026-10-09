@@ -319,6 +319,8 @@ Registration is not available to anyone: members are seeded.
 | Outbound inter-bank: partner accepts             | Hold captured against the partner's settlement account                                                                          | `POSTED`                          |
 | Outbound inter-bank: partner rejects             | Hold released                                                                                                                   | `FAILED`, `INTERBANK_REJECTED`    |
 | Outbound inter-bank: partner silent              | Status asked up to three times; the hold is kept and staff are alerted                                                          | `PROCESSING`                      |
+| Outbound inter-bank: ledger refuses the capture after the partner accepted | The hold is kept, not released; staff resolve it | `PROCESSING` |
+| Reversal asked for a transfer that is with, or has posted to, a partner bank | Refused; the money comes back only as a transfer from that bank | Reversal `FAILED`, `REVERSAL_NOT_ALLOWED` |
 | Reversal requested                               | Ledger posts the compensating entries                                                                                           | Original becomes`REVERSED`        |
 
 ---

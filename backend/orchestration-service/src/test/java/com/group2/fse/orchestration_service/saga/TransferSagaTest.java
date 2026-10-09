@@ -77,6 +77,7 @@ class TransferSagaTest {
     private static final String POSTINGS = "/internal/v1/ledger/postings";
     private static final String REVERSAL = "/internal/v1/ledger/reversals";
     private static final String INBOUND = "/internal/v1/sagas/inbound-interbank";
+    private static final String PARTNER = "/internal/v1/interbank/outbound";
 
     private record Stub(int status, String body, long delayMs) {
     }
@@ -126,6 +127,7 @@ class TransferSagaTest {
         registry.add("app.clients.customer.base-url", () -> url);
         registry.add("app.clients.risk.base-url", () -> url);
         registry.add("app.clients.ledger.base-url", () -> url);
+        registry.add("app.clients.interbank.base-url", () -> url);
     }
 
     @AfterAll
@@ -148,6 +150,7 @@ class TransferSagaTest {
         STUBS.put(RELEASE, ok("L5-release-hold.response.json"));
         STUBS.put(POSTINGS, POSTED_ONCE);
         STUBS.put(REVERSAL, ok("L7-reversal.response.json"));
+        STUBS.put(PARTNER, ok("I4-interbank-outbound.response.json"));
         when(kafkaTemplate.send(anyString(), anyString(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(null));
     }
@@ -449,31 +452,180 @@ class TransferSagaTest {
         assertThat(ledgerCalls()).isEmpty();
     }
 
+    // --- a transfer to another bank: reserve, ask the partner through the gateway, then post or release ---
+
     @Test
-    void transferForAnotherBank_isRefusedBeforeRiskOrTheLedgerIsAsked() {
-        StartTransferRequest t = transferTo("BPI");
+    void transferForAnotherBank_partnerAccepts_isCapturedAfterTheirAnswer() {
+        StartTransferRequest t = transferTo("BANKB");
 
         saga.run(t, "corr");
 
-        assertFailed(t, "INTERBANK_REJECTED");
-        assertThat(row(t).getRiskDecision()).isNull();
-        assertThat(CALLS).isEmpty();
-        assertThat(stages()).containsExactly("4 FRAUD_CHECK FAILED FAILED");
-        JsonNode payload = events().get(0).path("payload");
-        assertThat(payload.path("failureCode").asString()).isEqualTo("INTERBANK_REJECTED");
-        assertThat(payload.path("customerMessage").asString()).contains("other banks");
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        // The money is reserved first, the partner is asked second, and only then does it move.
+        assertThat(CALLS.stream().map(Call::path).filter(path -> !path.contains("/risk")).toList())
+                .containsExactly(HOLD, PARTNER, CAPTURE);
+        JsonNode sent = partnerRequests(t).get(0);
+        assertThat(sent.path("destinationBankCode").asString()).isEqualTo("BANKB");
+        assertThat(sent.path("referenceNo").asString()).isEqualTo(t.referenceNo());
+        assertThat(sent.path("amount").isString()).as("money is a string").isTrue();
+        assertThat(sent.path("amount").asString()).isEqualTo(t.amount().toPlainString());
+        // Stage 7 is the partner's answer: it is published with their reference, not when the hold is placed.
+        assertThat(stages()).containsExactly("4 FRAUD_CHECK PASSED PROCESSING", "5 LIMIT_CHECK PASSED PROCESSING",
+                "6 FUNDS_CHECK PASSED PROCESSING", "7 AUTHORIZED PASSED PROCESSING", "8 POSTED PASSED POSTED");
+        JsonNode authorized = events().get(3).path("payload");
+        assertThat(authorized.path("detail").asString()).contains("accepted by BANKB").contains("BB-20261003-000123");
+        assertThat(limitReleases(t.transactionId())).isZero();
     }
 
     @Test
-    void transferForAnotherBank_staysRefusedWhenTheSagaIsRunAgain() {
+    void transferForAnotherBank_partnerRejects_releasesTheHoldAndFailsAtStage7() {
+        STUBS.put(PARTNER, new Stub(200, """
+                {"transactionId":"x","partnerStatus":"REJECTED","partnerReference":null,
+                 "reasonCode":"ACCOUNT_NOT_FOUND"}""", 0));
+        StartTransferRequest t = transferTo("BANKB");
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row(t).getFailureCode()).isEqualTo("INTERBANK_REJECTED");
+        assertThat(ledgerCalls()).containsExactly(
+                new Call(HOLD, t.transactionId() + ":hold", null, null),
+                new Call(RELEASE, t.transactionId() + ":release", null, null));
+        assertThat(stages()).endsWith("6 FUNDS_CHECK PASSED PROCESSING", "7 AUTHORIZED FAILED FAILED");
+        JsonNode failed = events().get(events().size() - 1).path("payload");
+        assertThat(failed.path("failureCode").asString()).isEqualTo("INTERBANK_REJECTED");
+        assertThat(failed.path("detail").asString()).contains("ACCOUNT_NOT_FOUND").contains("hold released");
+        assertThat(failed.path("customerMessage").asString()).contains("other bank");
+        // The transfer did not post, so the daily limit it reserved is given back.
+        assertThat(limitReleases(t.transactionId())).isEqualTo(1);
+    }
+
+    @Test
+    void transferForAnotherBank_partnerUndecided_keepsTheHoldAndAsksAgainWithTheSameMessage() {
+        STUBS.put(PARTNER, new Stub(200, """
+                {"transactionId":"x","partnerStatus":"PENDING","partnerReference":null,"reasonCode":null}""", 0));
+        StartTransferRequest t = transferTo("BANKB");
+
+        saga.run(t, "corr");
+
+        // Nobody knows whether the partner credited its customer: nothing is captured and nothing released.
+        assertThat(row(t).getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+        assertThat(row(t).getFailureCode()).isNull();
+        assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD);
+        assertThat(stages()).endsWith("6 FUNDS_CHECK PASSED PROCESSING");
+
+        STUBS.put(PARTNER, ok("I4-interbank-outbound.response.json"));
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        // The second request is the first one again, so the gateway can tell it is not a new transfer.
+        assertThat(partnerRequests(t)).hasSize(2);
+        assertThat(partnerRequests(t).get(1)).isEqualTo(partnerRequests(t).get(0));
+        assertThat(CALLS.stream().filter(call -> call.path().equals(PARTNER)).map(Call::idempotencyKey).distinct())
+                .containsExactly(t.transactionId() + ":interbank");
+        assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD, CAPTURE);
+    }
+
+    @Test
+    void transferForAnotherBank_gatewaySilent_keepsTheHoldAndNeverReleasesOnATimeout() {
+        STUBS.put(PARTNER, new Stub(503, "{}", 0));
+        StartTransferRequest t = transferTo("BANKB");
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+        assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD);
+        assertThat(limitReleases(t.transactionId())).isZero();
+    }
+
+    @Test
+    void transferForAnotherBank_gatewayRefusesToSend_releasesTheHold() {
+        // Our own gateway answers no, for a bank that is not a configured partner: nothing went out.
+        STUBS.put(PARTNER, new Stub(422, """
+                {"status":422,"errorCode":"INTERBANK_REJECTED"}""", 0));
         StartTransferRequest t = transferTo("BPI");
-        saga.run(t, "corr");
 
         saga.run(t, "corr");
 
-        assertFailed(t, "INTERBANK_REJECTED");
+        assertThat(row(t).getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row(t).getFailureCode()).isEqualTo("INTERBANK_REJECTED");
+        assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD, RELEASE);
+        assertThat(stages()).endsWith("7 AUTHORIZED FAILED FAILED");
+    }
+
+    @Test
+    void transferForAnotherBank_captureRefusedAfterThePartnerAccepted_keepsTheHoldForStaff() {
+        STUBS.put(CAPTURE, new Stub(422, """
+                {"status":422,"errorCode":"ACCOUNT_NOT_ACTIVE"}""", 0));
+        StartTransferRequest t = transferTo("BANKB");
+
+        saga.run(t, "corr");
+
+        // The partner holds the money. Releasing the hold would give the sender the same money back.
+        assertThat(row(t).getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+        assertThat(ledgerCalls()).extracting(Call::path).containsExactly(HOLD, CAPTURE);
+        assertThat(limitReleases(t.transactionId())).isZero();
+    }
+
+    @Test
+    void transferForAnotherBank_declinedByRisk_isNeverSentToThePartner() {
+        STUBS.put(RISK, new Stub(200, """
+                {"decision":"DECLINE","score":"0.91",
+                 "fraudCheck":{"outcome":"FAILED","reasons":["HIGH_RISK"]},
+                 "limitCheck":{"outcome":"PASSED"}}""", 0));
+        StartTransferRequest t = transferTo("BANKB");
+
+        saga.run(t, "corr");
+
+        assertFailed(t, "RISK_DECLINED");
+        assertThat(CALLS).extracting(Call::path).doesNotContain(HOLD, PARTNER);
+    }
+
+    @Test
+    void transferInsideOurBank_neverCallsTheGateway() {
+        StartTransferRequest t = transfer();
+
+        saga.run(t, "corr");
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        assertThat(CALLS).extracting(Call::path).doesNotContain(PARTNER);
+    }
+
+    @Test
+    void reversalOfATransferThatIsWithAPartnerBank_isRefusedAndTheHoldIsKept() {
+        STUBS.put(PARTNER, new Stub(200, """
+                {"transactionId":"x","partnerStatus":"PENDING","partnerReference":null,"reasonCode":null}""", 0));
+        StartTransferRequest t = transferTo("BANKB");
+        saga.run(t, "corr");
+        assertThat(row(t).getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+        CALLS.clear();
+        UUID reversalId = UUID.randomUUID();
+
+        reversalSaga.run(new StartReversalRequest(reversalId, t.transactionId(), "RV-OUT-001", "Sent by mistake", 3L),
+                "corr");
+
+        SagaInstance reversal = sagas.findByTransactionId(reversalId).orElseThrow();
+        assertThat(reversal.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(reversal.getFailureCode()).isEqualTo("REVERSAL_NOT_ALLOWED");
+        // The partner may still accept: the hold must be there when it does.
+        assertThat(row(t).getState()).isEqualTo(SagaState.FUNDS_RESERVED);
         assertThat(CALLS).isEmpty();
-        assertThat(stages()).containsExactly("4 FRAUD_CHECK FAILED FAILED");
+    }
+
+    @Test
+    void reversalOfATransferThatPostedToAPartnerBank_isRefusedAndNothingIsPostedBack() {
+        StartTransferRequest t = transferTo("BANKB");
+        saga.run(t, "corr");
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        CALLS.clear();
+        UUID reversalId = UUID.randomUUID();
+
+        reversalSaga.run(new StartReversalRequest(reversalId, t.transactionId(), "RV-OUT-002", "Dispute", 3L), "corr");
+
+        assertThat(sagas.findByTransactionId(reversalId).orElseThrow().getFailureCode())
+                .isEqualTo("REVERSAL_NOT_ALLOWED");
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        assertThat(CALLS).isEmpty();
     }
 
     @Test
@@ -1159,6 +1311,14 @@ class TransferSagaTest {
     /** How often the risk engine was told (R2) that this transfer did not post. */
     private long limitReleases(UUID transactionId) {
         return outcomes(transactionId).stream().filter(o -> "FAILED".equals(o.path("outcome").asString())).count();
+    }
+
+    /** Every I4 request about this transfer, in the order sent. */
+    private List<JsonNode> partnerRequests(StartTransferRequest t) {
+        return BODIES.stream().filter(body -> body.startsWith(PARTNER + " "))
+                .map(body -> jsonMapper.readTree(body.substring(PARTNER.length() + 1)))
+                .filter(request -> t.transactionId().toString().equals(request.path("transactionId").asString()))
+                .toList();
     }
 
     /** Every R2 report about this transfer, in the order sent. */

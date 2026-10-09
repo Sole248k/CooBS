@@ -104,6 +104,12 @@ spec:
                 configMapKeyRef:
                   name: coobs-config
                   key: LEDGER_SERVICE_URL
+            # The inter-bank gateway (I4): an outbound transfer is sent to the partner bank from there
+            - name: TRANSACTION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: TRANSACTION_SERVICE_URL
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
