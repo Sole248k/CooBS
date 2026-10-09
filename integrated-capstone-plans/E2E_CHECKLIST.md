@@ -288,7 +288,7 @@ newman run postman/CooBS_Kafka_Event_Driven_Verification.postman_collection.json
 - [ ] **Drill C: Dead-Letter Queue (DLQ) Recovery**:
   - Kafka consumer fails repeatedly on poisoned message.
   - Message routed to `transaction.dlq.v1`.
-  - Admin inspects DLQ via `/api/v1/transactions/admin/dlq` and triggers `/replay`.
+  - Admin inspects DLQ via `/api/v1/notifications/admin/dlq` (N4) and triggers `/{recordId}/replay` (N5). `scripts/test_dead_letter_replay.ps1` runs this end to end.
 
 ---
 

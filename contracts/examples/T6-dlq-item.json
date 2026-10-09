@@ -1,9 +1,0 @@
-{
-  "recordId": "ledger.transfer.completed.v1.DLT-0-42",
-  "topic": "ledger.transfer.completed.v1.DLT",
-  "originalTopic": "ledger.transfer.completed.v1",
-  "key": "1",
-  "errorMessage": "Could not deserialize payload",
-  "attempts": 3,
-  "failedAt": "2026-10-03T11:41:00Z"
-}

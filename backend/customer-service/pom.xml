@@ -51,6 +51,12 @@
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- Azure SQL: the cloud deployment supplies a jdbc:sqlserver URL. The version comes from Spring Boot. -->
+		<dependency>
+			<groupId>com.microsoft.sqlserver</groupId>
+			<artifactId>mssql-jdbc</artifactId>
+			<scope>runtime</scope>
+		</dependency>
 
 		<!-- Redis for Blacklist & Caching -->
 		<dependency>
