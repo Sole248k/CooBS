@@ -106,7 +106,17 @@ Each command below creates or changes resources and costs money. Run them yourse
    az deployment group show --resource-group CooBS-rsg --name coobs-demo --query properties.outputs
    ```
 
-4. Start the on-premises zone, once the images are in the registry and the secrets are in Key Vault (next section).
+4. Publish the images: the pipeline pushes them from a `release/*` branch once the `coobs-acr` service connection exists. Note the tag.
+
+5. Deploy the cloud zone. This generates the application secrets into Key Vault, creates the Kubernetes Secret, loads the four databases with a Job in the cluster, and applies `infra/k8s`. It prints the gateway's public address and the exact command for step 6.
+
+   ```
+   ./infra/scripts/deploy-cloud.ps1 -ImageTag <tag>
+   ```
+
+   Add `-RenderOnly <file>` with `-SqlServerFqdn`, `-SqlAdminLogin` and `-RedisHost` to see the manifests it would apply without calling Azure or the cluster.
+
+6. Start the on-premises zone (next section). It comes after step 5 because the VM reads secrets that step creates and connects to the Kafka broker that step starts.
 
 If Azure refuses to create Azure Managed Redis on the trial, deploy with `deployManagedRedis=false` and use `infra/k8s/optional/redis-in-cluster.yaml`.
 
@@ -138,4 +148,5 @@ The what-if checks the templates, names, API versions and the Kubernetes version
 - That first boot installs Docker on the VM through the NAT gateway.
 - `deploy-onprem.ps1` and `start.sh` on a real VM. Checked here: the generated script and archive are well formed, the shell syntax is valid, and the Compose file passes `docker compose config`.
 - That 8 GB is enough for Oracle, PostgreSQL and four JVMs.
+- `deploy-cloud.ps1` against a real vault and cluster, and the schema Job against Azure SQL. Checked here: the render-only mode produces 8 Deployments, Kafka and the on-premises endpoints with every placeholder filled, and the Job's shell script is valid. The same scripts load into SQL Server 2022 locally.
 - The NAT gateway price.
