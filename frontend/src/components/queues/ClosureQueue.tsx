@@ -75,7 +75,19 @@ export const ClosureQueue: React.FC<ClosureQueueProps> = ({ requests, onRefresh 
         <div className="p-3 rounded-lg bg-[#EFF6FF] border border-[#DBEAFE] flex items-center space-x-2 text-xs text-[#1E40AF]">
           <Info className="w-4 h-4 flex-shrink-0" />
           <span>
-            Branch Tellers have read-only visibility for Account Closure requests. Admin authorization is required to approve or reject closures.
+            <strong>Maker-Checker Dual Control:</strong> Branch Tellers have read-only visibility for Account Closure requests. Branch Manager authorization (Checker role) is required to approve or reject closures.
+          </span>
+        </div>
+      )}
+
+      {/* Action requirement for Admins */}
+      {isAdmin && (
+        <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center space-x-2 text-xs text-indigo-900">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-200/80 text-indigo-800 flex-shrink-0">
+            CHECKER ROLE
+          </span>
+          <span>
+            <strong>Supervisory Decision Required:</strong> Approving closures permanently closes accounts. Available balance must be ₱0.00 and active governance flags must be resolved.
           </span>
         </div>
       )}

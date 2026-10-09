@@ -262,7 +262,7 @@ export const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
       const res = await apiClient.submitAccountClosureRequest(selectedClosureAccount.accountId, closureReason);
       setClosureMessage({
         type: 'success',
-        text: `Closure request #${res.closureRequestId} submitted. Awaiting administrator review.`
+        text: `Closure request #${res.closureRequestId} submitted. Awaiting branch manager review.`
       });
       loadClosureRequests();
       onRefreshAccounts();
@@ -1156,7 +1156,7 @@ export const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>Request Account Closure</h2>
                 <p style={{ fontSize: '13px', color: '#64748b' }}>
-                  Accounts must have zero balance (₱0.00) before closure can be authorized by a bank administrator.
+                  Accounts must have zero balance (₱0.00) before closure can be authorized by a branch manager.
                 </p>
               </div>
             </div>

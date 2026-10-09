@@ -21,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -196,11 +197,20 @@ public class NotificationService {
         }
 
         AccountClosureEvent.ClosurePayload p = event.getPayload();
+        Long customerId = p.getCustomerId() != null ? p.getCustomerId() : p.getAccountId();
+        if (customerId == null) {
+            log.warn("Discarding AccountClosureEvent [{}] because customerId is missing", eventId);
+            return;
+        }
+
+        BigDecimal finalBal = p.getFinalBalance() != null ? p.getFinalBalance() : BigDecimal.ZERO;
         Notification notification = Notification.builder()
-                .customerId(p.getCustomerId())
+                .customerId(customerId)
                 .title("Account Closed")
                 .message(String.format("Account %s closure request #%s has been finalized. Final balance: PHP %s.",
-                        p.getAccountNumber(), p.getClosureRequestId(), p.getFinalBalance()))
+                        p.getAccountNumber() != null ? p.getAccountNumber() : "N/A",
+                        p.getClosureRequestId() != null ? p.getClosureRequestId() : "N/A",
+                        finalBal.toPlainString()))
                 .channel(NotificationChannel.IN_APP)
                 .isRead(false)
                 .eventId(eventId)
