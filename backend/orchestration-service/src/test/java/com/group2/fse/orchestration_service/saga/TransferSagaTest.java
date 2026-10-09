@@ -439,6 +439,8 @@ class TransferSagaTest {
         assertFailed(t, "RISK_UNAVAILABLE");
         assertThat(ledgerCalls()).isEmpty();
         assertThat(stages()).containsExactly("4 FRAUD_CHECK FAILED FAILED");
+        // The engine may have reserved the amount before its answer was lost, so it is given back.
+        assertThat(limitReleases(t.transactionId())).isEqualTo(1);
     }
 
     @Test

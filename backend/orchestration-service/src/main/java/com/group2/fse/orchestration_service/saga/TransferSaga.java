@@ -196,6 +196,8 @@ public class TransferSaga {
         } catch (RuntimeException e) {
             log.warn("Risk check unavailable for transaction {}: {}", t.transactionId(), e.getMessage());
             fail(saga, t, Stage.FRAUD_CHECK, "RISK_UNAVAILABLE", null);
+            // The engine may have approved and reserved the amount before its answer was lost.
+            riskOutcomes.notPosted(t.transactionId());
             return;
         }
 
