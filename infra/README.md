@@ -118,6 +118,14 @@ Each command below creates or changes resources and costs money. Run them yourse
 
 6. Start the on-premises zone (next section). It comes after step 5 because the VM reads secrets that step creates and connects to the Kafka broker that step starts.
 
+7. Run the E2E suite against the gateway's public address. There is no separate Postman environment for Azure: the seed, and so the sign-in names, are the same as locally, and only the address differs. `deploy-cloud.ps1` prints this command with the address filled in.
+
+   ```
+   npx --yes newman run postman/e2e/CooBS_End_To_End.postman_collection.json -e postman/CooBS_Local.postman_environment.json --env-var baseUrl=http://<gateway address> --delay-request 150 --reporters cli
+   ```
+
+   One assertion depends on the network: step 1.1 expects the gateway's health answer within 500 ms. The scripts under `scripts/test_*.ps1` reach containers through `docker exec` and run against the local stack only.
+
 If Azure refuses to create Azure Managed Redis on the trial, deploy with `deployManagedRedis=false` and use `infra/k8s/optional/redis-in-cluster.yaml`.
 
 ## The on-premises VM

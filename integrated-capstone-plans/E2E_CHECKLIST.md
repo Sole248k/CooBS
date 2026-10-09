@@ -171,6 +171,22 @@ newman run postman/CooBS_Kafka_Event_Driven_Verification.postman_collection.json
 
 ---
 
+### 5.3 Running the suite against the Azure deployment
+
+The same collection and the same environment file, with the address replaced on the command line. The Azure databases are loaded from the same seed, so the members and passwords are the ones used locally.
+
+```bash
+newman run postman/e2e/CooBS_End_To_End.postman_collection.json \
+  -e postman/CooBS_Local.postman_environment.json \
+  --env-var baseUrl=http://<gateway address> \
+  --delay-request 150 \
+  --reporters cli
+```
+
+`infra/scripts/deploy-cloud.ps1` prints the command with the address filled in. In the Postman application, duplicate the environment and change `baseUrl`.
+
+---
+
 ## 6. End-to-End Functional Scenario Checklist
 
 ### Scenario 1: Identity, RBAC & Customer 360
