@@ -16,9 +16,12 @@ These manifests run the eight cloud services and Kafka on one AKS cluster, in th
 | `kafka.yaml` | One Kafka broker, its internal load balancer for the VM, and the job that creates the topics |
 | `secret.template.yaml` | The keys the Secret must have. Not applied |
 | `optional/redis-in-cluster.yaml` | Fallback Redis. Not applied |
+| `jobs/load-schemas.yaml` | A Job that loads the four Azure SQL databases from `database/azure-sql/`. Applied by the deploy script, not by `kustomization.yaml` |
 | `ingress-tls.yaml` | Target-state Ingress and Key Vault CSI class from FIN-807. Not applied; see the last section |
 
 ## Before applying
+
+`infra/scripts/deploy-cloud.ps1` does every step in this section and the next: it reads the values from the Bicep outputs, generates the application secrets into Key Vault, creates the Secret, loads the databases with `jobs/load-schemas.yaml`, and applies the rendered manifests. It edits no file in this folder. The steps below are what it does, for doing them by hand.
 
 1. In `config.yaml`, replace the five values marked REPLACE:
 
