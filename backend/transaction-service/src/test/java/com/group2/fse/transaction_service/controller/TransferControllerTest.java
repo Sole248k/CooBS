@@ -7,9 +7,12 @@ import com.group2.fse.transaction_service.client.OrchestrationClient;
 import com.group2.fse.transaction_service.client.dto.AccountLookupResponse;
 import com.group2.fse.transaction_service.client.dto.StartTransferSagaRequest;
 import com.group2.fse.transaction_service.dto.TransferRequestDto;
+import com.group2.fse.transaction_service.entity.InterbankMessage;
 import com.group2.fse.transaction_service.entity.TxnTransaction;
 import com.group2.fse.transaction_service.event.StageEventPublisher;
 import com.group2.fse.transaction_service.exception.GlobalExceptionHandler;
+import com.group2.fse.transaction_service.interbank.security.InterbankSecurityProperties;
+import com.group2.fse.transaction_service.repository.InterbankMessageRepository;
 import com.group2.fse.transaction_service.repository.TxnStageEventRepository;
 import com.group2.fse.transaction_service.repository.TxnTransactionRepository;
 import com.group2.fse.transaction_service.security.UserPrincipal;
@@ -80,14 +83,24 @@ class TransferControllerTest {
     @Mock
     private PlatformTransactionManager transactionManager;
 
+    @Mock
+    private InterbankMessageRepository interbankMessages;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        InterbankSecurityProperties partners = new InterbankSecurityProperties();
+        InterbankSecurityProperties.PartnerConfig bankB = new InterbankSecurityProperties.PartnerConfig();
+        bankB.setBankCode("BANKB");
+        bankB.setSharedSecret("test-shared-secret-2026");
+        bankB.setSettlementAccountId(9005L);
+        partners.getPartners().put("BANKB", bankB);
         TransferServiceImpl transferService = new TransferServiceImpl(idempotencyService, transactionRepository,
-                stageEventRepository, orchestrationClient, stageEventPublisher, transactionManager);
+                stageEventRepository, orchestrationClient, stageEventPublisher, transactionManager,
+                partners, interbankMessages);
         mockMvc = MockMvcBuilders.standaloneSetup(new TransferController(transferService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -310,7 +323,62 @@ class TransferControllerTest {
     }
 
     @Test
-    @DisplayName("a transfer to another bank is refused with 422 INTERBANK_REJECTED, not posted as an internal one")
+    @DisplayName("a transfer to a partner bank is accepted: no lookup of the account there, the settlement account for the saga, and the message recorded")
+    void partnerBankIsAccepted() throws Exception {
+        TransferRequestDto request = transfer("2500.00");
+        request.setDestinationBankCode("bankb");
+        request.setDestinationAccountNumber("1000-2000-3000");
+        request.setBeneficiaryName("Ana Lim");
+
+        mockMvc.perform(t1(request, "idemp-key-12345"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("INITIATED"));
+
+        // The account is at the other bank; ours cannot know it.
+        verify(orchestrationClient, never()).findAccountByNumber(anyString());
+        ArgumentCaptor<TxnTransaction> saved = ArgumentCaptor.forClass(TxnTransaction.class);
+        verify(transactionRepository).save(saved.capture());
+        assertThat(saved.getValue().getDestinationBankCode()).isEqualTo("BANKB");
+        assertThat(saved.getValue().getDestinationAccountNumber()).isEqualTo("1000-2000-3000");
+        assertThat(saved.getValue().getDestinationAccountId()).as("the partner's settlement account").isEqualTo(9005L);
+
+        ArgumentCaptor<InterbankMessage> message = ArgumentCaptor.forClass(InterbankMessage.class);
+        verify(interbankMessages).save(message.capture());
+        assertThat(message.getValue().getMessageId()).isEqualTo(saved.getValue().getTransactionId());
+        assertThat(message.getValue().getDirection()).isEqualTo("OUTBOUND");
+        assertThat(message.getValue().getPartnerBankCode()).isEqualTo("BANKB");
+        assertThat(message.getValue().getCounterpartyAccount()).isEqualTo("1000-2000-3000");
+        assertThat(message.getValue().getCounterpartyName()).isEqualTo("Ana Lim");
+        assertThat(message.getValue().getStatus()).as("nothing is sent from T1").isEqualTo("CREATED");
+
+        ArgumentCaptor<StartTransferSagaRequest> saga = ArgumentCaptor.forClass(StartTransferSagaRequest.class);
+        verify(orchestrationClient).triggerTransferSagaAsync(saga.capture(), any());
+        assertThat(saga.getValue().getDestinationBankCode()).isEqualTo("BANKB");
+        assertThat(saga.getValue().getDestinationAccountId()).isEqualTo(9005L);
+    }
+
+    @Test
+    @DisplayName("a transfer inside our own bank records no inter-bank message")
+    void ownBankRecordsNoMessage() throws Exception {
+        mockMvc.perform(t1(transfer("2500.00"), "idemp-key-12345")).andExpect(status().isAccepted());
+
+        verify(interbankMessages, never()).save(any(InterbankMessage.class));
+    }
+
+    @Test
+    @DisplayName("an amount a partner bank cannot carry (more than two decimals) is refused before anything is saved")
+    void partnerBankAmountHasTwoDecimals() throws Exception {
+        TransferRequestDto request = transfer("2500.005");
+        request.setDestinationBankCode("BANKB");
+        request.setDestinationAccountNumber("1000-2000-3000");
+
+        mockMvc.perform(t1(request, "idemp-key-12345")).andExpect(status().isBadRequest());
+
+        verify(transactionRepository, never()).save(any(TxnTransaction.class));
+    }
+
+    @Test
+    @DisplayName("a transfer to a bank that is not a configured partner is refused with 422 INTERBANK_REJECTED")
     void anotherBankIsRefused() throws Exception {
         TransferRequestDto request = transfer("2500.00");
         request.setDestinationBankCode("PARTNERBANK");

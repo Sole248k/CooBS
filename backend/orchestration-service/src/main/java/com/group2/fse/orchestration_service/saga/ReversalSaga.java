@@ -26,6 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ReversalSaga {
 
     static final String CANCELLED_BEFORE_HOLD = "CANCELLED_BEFORE_HOLD";
+    static final String REVERSAL_NOT_ALLOWED = "REVERSAL_NOT_ALLOWED";
+    private static final String OWN_BANK_CODE = "COOBS";
     private static final int MAX_CONFLICTS = 3;
 
     private final SagaRepository sagas;
@@ -98,6 +100,18 @@ public class ReversalSaga {
         }
 
         SagaInstance original = originalOpt.get();
+
+        // Money that has gone, or may have gone, to another bank cannot be taken back from here.
+        // Releasing the hold of a transfer the partner is still deciding on, or reversing the
+        // postings of one it accepted, would leave the partner's customer credited and nothing
+        // debited. Such money comes back only as a transfer from that bank.
+        boolean sentOrSending = original.getState() == SagaState.FUNDS_RESERVED
+                || original.getState() == SagaState.POSTED || original.getState() == SagaState.COMPLETED;
+        if (sentOrSending && isOutboundInterbank(original)) {
+            fail(reversalSaga, r, REVERSAL_NOT_ALLOWED,
+                    "The original transfer went to another bank; it is returned by that bank, not reversed here");
+            return;
+        }
 
         if (original.getState() == SagaState.POSTED || original.getState() == SagaState.COMPLETED) {
             reversePostedTransfer(reversalSaga, original, r);
@@ -180,6 +194,21 @@ public class ReversalSaga {
         events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
         // If risk had approved it, the amount it reserved goes back; if not, the engine has nothing to release.
         riskOutcomes.notPosted(original.getTransactionId());
+    }
+
+    /** True when the original transfer was for another bank, read from the payload its saga was started with. */
+    private boolean isOutboundInterbank(SagaInstance original) {
+        if (original.getPayload() == null) {
+            return false;
+        }
+        try {
+            String bankCode = objectMapper.readTree(original.getPayload()).path("destinationBankCode").asText("");
+            return !bankCode.isBlank() && !OWN_BANK_CODE.equalsIgnoreCase(bankCode.trim());
+        } catch (Exception e) {
+            log.warn("The payload of transaction {} could not be read for its bank: {}",
+                    original.getTransactionId(), e.getMessage());
+            return false;
+        }
     }
 
     /**

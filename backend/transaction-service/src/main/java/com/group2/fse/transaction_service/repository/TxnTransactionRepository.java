@@ -44,12 +44,25 @@ public interface TxnTransactionRepository extends JpaRepository<TxnTransaction, 
     boolean existsByCustomerIdAndDestinationAccountIdAndStatusAndCreatedAtBefore(
             Long customerId, Long destinationAccountId, String status, java.time.Instant createdAt);
 
+    boolean existsByCustomerIdAndDestinationBankCodeAndDestinationAccountNumberAndStatusAndCreatedAtBefore(
+            Long customerId, String destinationBankCode, String destinationAccountNumber, String status,
+            java.time.Instant createdAt);
+
     /**
      * True when the customer has no earlier transfer to that account that posted. This is what
      * the risk engine calls a new beneficiary. Only transfers created before this one count,
      * so the answer is the same when the saga start is sent again later.
+     *
+     * A transfer to another bank is matched on the bank and the account number there: its
+     * destination account ID is the partner's settlement account, the same for every customer
+     * of that bank.
      */
     default boolean isFirstPostedTransferTo(TxnTransaction txn) {
+        if (txn.getDestinationBankCode() != null && !"COOBS".equalsIgnoreCase(txn.getDestinationBankCode())) {
+            return !existsByCustomerIdAndDestinationBankCodeAndDestinationAccountNumberAndStatusAndCreatedAtBefore(
+                    txn.getCustomerId(), txn.getDestinationBankCode(), txn.getDestinationAccountNumber(), "POSTED",
+                    txn.getCreatedAt());
+        }
         return !existsByCustomerIdAndDestinationAccountIdAndStatusAndCreatedAtBefore(
                 txn.getCustomerId(), txn.getDestinationAccountId(), "POSTED", txn.getCreatedAt());
     }

@@ -77,3 +77,5 @@ Dev 7 curates these into `app/assets/fixtures/` (handshake H15). To change one, 
 | `event-ledger-transfer-completed.payload.json` | 13. Events (Kafka) |
 | `event-notification-dispatched.payload.json` | 13. Events (Kafka) |
 | `event-batch-eod-step-completed.payload.json` | 13. Events (Kafka) |
+| `I4-interbank-outbound.request.json` | 14. Inter-bank transfers |
+| `I4-interbank-outbound.response.json` | 14. Inter-bank transfers |

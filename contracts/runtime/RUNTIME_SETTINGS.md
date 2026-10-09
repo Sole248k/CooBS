@@ -58,7 +58,7 @@ Which service receives which URL follows section 3.2 of the API contract, the li
 | api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch, mobile-bff, staff-bff |
 | customer-service | `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL` |
 | transaction-service | `ACCOUNT_SERVICE_URL`, `ORCHESTRATION_SERVICE_URL` |
-| orchestration-service | `CUSTOMER_SERVICE_URL`, `RISK_ENGINE_URL`, `LEDGER_SERVICE_URL` |
+| orchestration-service | `CUSTOMER_SERVICE_URL`, `RISK_ENGINE_URL`, `LEDGER_SERVICE_URL`, `TRANSACTION_SERVICE_URL` (the inter-bank gateway, I4) |
 | account-service | `LEDGER_SERVICE_URL` |
 | batch-service | `LEDGER_SERVICE_URL` |
 | mobile-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
@@ -166,6 +166,13 @@ Whether `batch-service` publishes its step event itself or through the ledger ou
 | Database passwords (`POSTGRES_CLOUD_PASSWORD`, `POSTGRES_PASSWORD`, `APP_USER_PASSWORD`, `DATABASE_PASSWORD`) | No fallback in any `application.properties`: a missing password fails at startup |
 | `JWT_EXPIRATION_MS` | Default 86400000 |
 | `CORS_ALLOWED_ORIGINS` | Default `http://localhost:3000,http://localhost:5173,http://localhost:8088,http://127.0.0.1:8088`. Fixed port `8088` handles Flutter web development (H14). Native Android (`10.0.2.2:8080`) uses direct OS sockets, bypassing browser SOP with zero CORS friction |
+
+### Inter-bank partners (transaction-service)
+
+| Variable | Rule |
+| --- | --- |
+| `INTERBANK_SHARED_SECRET`, `INTERBANK_BANKB_SECRET` | The secret shared with a partner bank: checks the signature on what it sends us (I1 to I3) and signs what we send it (I4) |
+| `INTERBANK_BANKB_URL` | Optional. The address of the partner's inter-bank endpoints, for example `http://partner-host:8090`. Empty by default, which makes `BANKB` our own loopback: no network call is made |
 
 ## 6. Changing a setting
 
