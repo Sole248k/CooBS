@@ -13,6 +13,7 @@ import com.group2.fse.transaction_service.event.StageEventPublisher;
 import com.group2.fse.transaction_service.exception.DuplicateIdempotencyKeyException;
 import com.group2.fse.transaction_service.exception.InvalidTransactionException;
 import com.group2.fse.transaction_service.exception.TransferRejectedException;
+import com.group2.fse.transaction_service.interbank.security.InterbankSecurityProperties;
 import com.group2.fse.transaction_service.repository.TxnStageEventRepository;
 import com.group2.fse.transaction_service.repository.TxnTransactionRepository;
 import com.group2.fse.transaction_service.security.UserPrincipal;
@@ -66,19 +67,22 @@ public class TransferServiceImpl implements TransferService {
     private final OrchestrationClient orchestrationClient;
     private final StageEventPublisher stageEventPublisher;
     private final TransactionTemplate transactionTemplate;
+    private final InterbankSecurityProperties interbankSecurityProperties;
 
     public TransferServiceImpl(IdempotencyService idempotencyService,
                                TxnTransactionRepository transactionRepository,
                                TxnStageEventRepository stageEventRepository,
                                OrchestrationClient orchestrationClient,
                                StageEventPublisher stageEventPublisher,
-                               PlatformTransactionManager transactionManager) {
+                               PlatformTransactionManager transactionManager,
+                               InterbankSecurityProperties interbankSecurityProperties) {
         this.idempotencyService = idempotencyService;
         this.transactionRepository = transactionRepository;
         this.stageEventRepository = stageEventRepository;
         this.orchestrationClient = orchestrationClient;
         this.stageEventPublisher = stageEventPublisher;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.interbankSecurityProperties = interbankSecurityProperties;
     }
 
     @Override
@@ -94,9 +98,18 @@ public class TransferServiceImpl implements TransferService {
             return replay(accepted.get(), request);
         }
 
-        if (!OWN_BANK_CODE.equalsIgnoreCase(bankCodeOf(request))) {
-            throw TransferRejectedException.interbankNotAvailable();
+        String targetBankCode = bankCodeOf(request);
+        boolean isInterbank = !OWN_BANK_CODE.equalsIgnoreCase(targetBankCode);
+        InterbankSecurityProperties.PartnerConfig partner = null;
+        if (isInterbank) {
+            partner = interbankSecurityProperties != null
+                    ? interbankSecurityProperties.getPartner(targetBankCode)
+                    : null;
+            if (partner == null) {
+                throw TransferRejectedException.interbankNotAvailable();
+            }
         }
+
         AccountLookupResponse source = findAccount(
                 () -> orchestrationClient.findAccountById(request.getSourceAccountId()), "Source");
         if (!caller.staff() && !Objects.equals(source.getCustomerId(), caller.userId())) {
@@ -104,8 +117,23 @@ public class TransferServiceImpl implements TransferService {
                     caller.userId(), source.getAccountId(), source.getCustomerId());
             throw TransferRejectedException.accountNotOwned();
         }
-        AccountLookupResponse destination = findAccount(
-                () -> orchestrationClient.findAccountByNumber(request.getDestinationAccountNumber()), "Destination");
+
+        AccountLookupResponse destination;
+        if (isInterbank) {
+            // For external banks, destination account is external; internal counter-leg is the partner's settlement GL
+            Long settlementAccountId = partner.getSettlementAccountId() != null
+                    ? partner.getSettlementAccountId()
+                    : interbankSecurityProperties.getDefaultSettlementAccountId();
+            destination = AccountLookupResponse.builder()
+                    .accountId(settlementAccountId)
+                    .accountNumber(request.getDestinationAccountNumber())
+                    .customerId(900L)
+                    .status("ACTIVE")
+                    .build();
+        } else {
+            destination = findAccount(
+                    () -> orchestrationClient.findAccountByNumber(request.getDestinationAccountNumber()), "Destination");
+        }
 
         if (!idempotencyService.tryAcquire(key, LOCK_TTL)) {
             log.warn("A request with the same Idempotency-Key is still being accepted; answering 409");
@@ -138,6 +166,7 @@ public class TransferServiceImpl implements TransferService {
         Instant now = Instant.now();
         String randomHex = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
         String referenceNo = "TX-" + DATE_FORMATTER.format(now) + "-" + randomHex;
+        String targetBankCode = bankCodeOf(request);
 
         TxnTransaction txn = TxnTransaction.builder()
                 .transactionId(transactionId)
@@ -148,7 +177,7 @@ public class TransferServiceImpl implements TransferService {
                 .sourceAccountId(source.getAccountId())
                 .destinationAccountId(destination.getAccountId())
                 .destinationAccountNumber(request.getDestinationAccountNumber())
-                .destinationBankCode(OWN_BANK_CODE)
+                .destinationBankCode(targetBankCode)
                 .amount(request.getAmount())
                 .currency(request.getCurrency() != null ? request.getCurrency() : "PHP")
                 .category(request.getCategory() != null ? request.getCategory() : "TRANSFER")

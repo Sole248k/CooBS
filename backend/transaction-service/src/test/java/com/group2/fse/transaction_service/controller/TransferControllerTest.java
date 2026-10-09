@@ -10,6 +10,7 @@ import com.group2.fse.transaction_service.dto.TransferRequestDto;
 import com.group2.fse.transaction_service.entity.TxnTransaction;
 import com.group2.fse.transaction_service.event.StageEventPublisher;
 import com.group2.fse.transaction_service.exception.GlobalExceptionHandler;
+import com.group2.fse.transaction_service.interbank.security.InterbankSecurityProperties;
 import com.group2.fse.transaction_service.repository.TxnStageEventRepository;
 import com.group2.fse.transaction_service.repository.TxnTransactionRepository;
 import com.group2.fse.transaction_service.security.UserPrincipal;
@@ -80,14 +81,21 @@ class TransferControllerTest {
     @Mock
     private PlatformTransactionManager transactionManager;
 
+    private InterbankSecurityProperties interbankSecurityProperties;
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+        interbankSecurityProperties = new InterbankSecurityProperties();
+        InterbankSecurityProperties.PartnerConfig aurabank = new InterbankSecurityProperties.PartnerConfig();
+        aurabank.setBankCode("AURABANK");
+        aurabank.setSettlementAccountId(9005L);
+        interbankSecurityProperties.getPartners().put("AURABANK", aurabank);
+
         TransferServiceImpl transferService = new TransferServiceImpl(idempotencyService, transactionRepository,
-                stageEventRepository, orchestrationClient, stageEventPublisher, transactionManager);
+                stageEventRepository, orchestrationClient, stageEventPublisher, transactionManager, interbankSecurityProperties);
         mockMvc = MockMvcBuilders.standaloneSetup(new TransferController(transferService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -335,5 +343,23 @@ class TransferControllerTest {
         request.setSourceAccountId(null);
 
         mockMvc.perform(t1(request, "idemp-key-12345")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("a transfer to configured partner bank AURABANK is accepted with 202 and sets destination to settlement GL")
+    void transferToPartnerBankIsAccepted() throws Exception {
+        TransferRequestDto request = transfer("2500.00");
+        request.setDestinationBankCode("AURABANK");
+        request.setDestinationAccountNumber("AURA_99990001");
+
+        mockMvc.perform(t1(request, "idemp-key-aura-out"))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("INITIATED"));
+
+        ArgumentCaptor<StartTransferSagaRequest> saga = ArgumentCaptor.forClass(StartTransferSagaRequest.class);
+        verify(orchestrationClient).triggerTransferSagaAsync(saga.capture(), anyString());
+        assertThat(saga.getValue().getDestinationBankCode()).isEqualTo("AURABANK");
+        assertThat(saga.getValue().getDestinationAccountId()).isEqualTo(9005L);
+        verify(transactionRepository).save(any(TxnTransaction.class));
     }
 }
