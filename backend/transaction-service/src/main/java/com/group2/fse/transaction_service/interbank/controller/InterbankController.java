@@ -49,16 +49,13 @@ public class InterbankController {
 
         log.info("Received inbound interbank transfer request from bankCode={}, timestamp={}", bankCode, timestamp);
 
-        // 1. Authenticate request via signature or API key
-        authValidator.validate(bankCode, timestamp, signature, apiKey, rawBody != null ? rawBody : "");
-
         if (rawBody == null || rawBody.isBlank()) {
             return ResponseEntity.badRequest().body(
                     InterbankTransferResponse.rejected("unknown", "INVALID_REQUEST", "Request body is empty.", Instant.now().toString())
             );
         }
 
-        // 2. Deserialize request
+        // 1. Deserialize request
         InterbankTransferRequest request;
         try {
             request = objectMapper.readValue(rawBody, InterbankTransferRequest.class);
@@ -68,6 +65,14 @@ public class InterbankController {
                     InterbankTransferResponse.rejected("unknown", "INVALID_REQUEST", "Malformed JSON payload.", Instant.now().toString())
             );
         }
+
+        // If X-Bank-Code header was omitted, fallback to sourceBankCode in request body
+        String effectiveBankCode = (bankCode != null && !bankCode.isBlank())
+                ? bankCode
+                : (request != null ? request.getSourceBankCode() : null);
+
+        // 2. Authenticate request via signature, API key, or partner auth bypass
+        authValidator.validate(effectiveBankCode, timestamp, signature, apiKey, rawBody);
 
         // 3. Bean Validation
         Set<ConstraintViolation<InterbankTransferRequest>> violations = validator.validate(request);

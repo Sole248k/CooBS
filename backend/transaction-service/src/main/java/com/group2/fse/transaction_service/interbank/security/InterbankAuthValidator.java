@@ -38,6 +38,23 @@ public class InterbankAuthValidator {
             throw new InterbankAuthException("UNKNOWN_BANK", "X-Bank-Code header is required.");
         }
 
+        InterbankSecurityProperties.PartnerConfig partner = properties.getPartner(bankCode);
+        if (partner == null) {
+            log.warn("Unknown bank code in interbank request: {}", bankCode);
+            throw new InterbankAuthException("UNKNOWN_BANK", "X-Bank-Code not recognised.");
+        }
+
+        // If partner is configured with authRequired=false, bypass signature, API key and timestamp checks
+        if (!partner.isAuthRequired()) {
+            log.info("Interbank authentication bypassed for partner {} (authRequired=false)", bankCode);
+            return;
+        }
+
+        if (partner.getSharedSecret() == null || partner.getSharedSecret().isBlank()) {
+            log.warn("Partner bank {} has no shared secret configured", bankCode);
+            throw new InterbankAuthException("UNKNOWN_BANK", "X-Bank-Code not recognised.");
+        }
+
         if (timestamp == null || timestamp.isBlank()) {
             throw new InterbankAuthException("INVALID_REQUEST", "X-Timestamp header is required.");
         }
@@ -54,12 +71,6 @@ public class InterbankAuthValidator {
         } catch (DateTimeParseException ex) {
             log.warn("Invalid ISO-8601 timestamp in interbank request: {}", timestamp);
             throw new InterbankAuthException("INVALID_REQUEST", "Malformed X-Timestamp header.");
-        }
-
-        InterbankSecurityProperties.PartnerConfig partner = properties.getPartner(bankCode);
-        if (partner == null || partner.getSharedSecret() == null || partner.getSharedSecret().isBlank()) {
-            log.warn("Unknown bank code in interbank request: {}", bankCode);
-            throw new InterbankAuthException("UNKNOWN_BANK", "X-Bank-Code not recognised.");
         }
 
         String sharedSecret = partner.getSharedSecret();

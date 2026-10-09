@@ -30,5 +30,6 @@ public class InterbankSecurityProperties {
         private String bankCode;
         private String sharedSecret;
         private Long settlementAccountId = 9005L;
+        private boolean authRequired = true;
     }
 }

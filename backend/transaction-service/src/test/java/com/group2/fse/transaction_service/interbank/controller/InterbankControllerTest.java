@@ -186,4 +186,44 @@ class InterbankControllerTest {
                 .andExpect(jsonPath("$.active").value(true))
                 .andExpect(jsonPath("$.maskedName").value("C*** M***"));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/interbank/transfers succeeds with raw JSON body without any headers (AURABANK flow)")
+    void rawJsonInboundTransferWithoutHeadersSucceeds() throws Exception {
+        InterbankTransferRequest auraReq = InterbankTransferRequest.builder()
+                .messageId("aura-uuid-001")
+                .sourceBankCode("AURABANK")
+                .destinationBankCode("COOBS")
+                .sender(InterbankTransferRequest.Party.builder()
+                        .accountNumber("AURA_99990001")
+                        .name("Aura Customer")
+                        .build())
+                .beneficiary(InterbankTransferRequest.Beneficiary.builder()
+                        .accountNumber("ACC_10000001")
+                        .name("Juan Dela Cruz")
+                        .build())
+                .amount("1500.00")
+                .currency("PHP")
+                .senderReference("AURA-REF-001")
+                .createdAt("2026-10-09T06:00:00Z")
+                .build();
+
+        String rawJson = objectMapper.writeValueAsString(auraReq);
+
+        when(interbankService.processInboundTransfer(any())).thenReturn(
+                InterbankTransferResponse.accepted("aura-uuid-001", "IB-20261009-888888", "J*** D***", Instant.now().toString())
+        );
+
+        // Perform POST with NO custom headers (no X-Bank-Code, no X-Timestamp, no X-Signature, no X-Api-Key)
+        mockMvc.perform(post("/api/v1/interbank/transfers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.receiverReference").value("IB-20261009-888888"))
+                .andExpect(jsonPath("$.messageId").value("aura-uuid-001"));
+
+        // Verify validator was invoked using the body's sourceBankCode ("AURABANK")
+        verify(authValidator).validate(eq("AURABANK"), isNull(), isNull(), isNull(), eq(rawJson));
+    }
 }

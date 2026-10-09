@@ -104,4 +104,18 @@ class InterbankAuthValidatorTest {
                 .isInstanceOf(InterbankAuthException.class)
                 .hasFieldOrPropertyWithValue("reasonCode", "UNKNOWN_BANK");
     }
+
+    @Test
+    @DisplayName("Partner with authRequired=false passes without signature, apiKey, or timestamp (e.g. AURABANK)")
+    void authNotRequiredPassesWithoutAuthHeaders() {
+        InterbankSecurityProperties.PartnerConfig noAuthPartner = new InterbankSecurityProperties.PartnerConfig();
+        noAuthPartner.setBankCode("AURABANK");
+        noAuthPartner.setAuthRequired(false);
+        noAuthPartner.setSettlementAccountId(9005L);
+        properties.getPartners().put("AURABANK", noAuthPartner);
+
+        // Should pass with null timestamp, null signature, null apiKey
+        validator.validate("AURABANK", null, null, null, "{\"messageId\":\"aura-1\"}");
+    }
 }
+
