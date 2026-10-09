@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/storage/secure_storage_service.dart';
 import '../../core/theme/theme_controller.dart';
-import '../../shell/app_shell.dart';
 import '../beneficiaries/beneficiary_screens.dart';
 import '../kyc/kyc_intake_screen.dart';
 import '../remittance/remittance_screen.dart';
