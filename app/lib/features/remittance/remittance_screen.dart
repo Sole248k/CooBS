@@ -675,15 +675,16 @@ class _RemittanceFormState extends State<RemittanceForm> {
                         const SizedBox(height: 14),
                         DropdownButtonFormField<String>(
                           initialValue: _destinationBank,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Destination Bank',
                             prefixIcon: Icon(Icons.account_balance_outlined),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'COOBS', child: Text('CooBS Core Banking (Internal)')),
-                            DropdownMenuItem(value: 'BDO', child: Text('BDO Unibank')),
-                            DropdownMenuItem(value: 'BPI', child: Text('Bank of the Philippine Islands')),
-                            DropdownMenuItem(value: 'MBTC', child: Text('Metrobank')),
+                            DropdownMenuItem(value: 'COOBS', child: Text('CooBS Core Banking (Internal)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                            DropdownMenuItem(value: 'BDO', child: Text('BDO Unibank', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                            DropdownMenuItem(value: 'BPI', child: Text('Bank of the Philippine Islands', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                            DropdownMenuItem(value: 'MBTC', child: Text('Metrobank', overflow: TextOverflow.ellipsis, maxLines: 1)),
                           ],
                           onChanged: (val) {
                             if (val != null) setState(() => _destinationBank = val);

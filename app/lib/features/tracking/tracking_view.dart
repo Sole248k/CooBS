@@ -6,6 +6,7 @@ import '../../core/models/remittance_models.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
+import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../resilience/service_unavailable_view.dart';
 import 'tracking_models.dart';
@@ -79,7 +80,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
   void initState() {
     super.initState();
     _apiClient = widget.apiClient ?? ApiClient();
-    final initialRef = widget.trackingReference ?? 'TX-20261003-8F3A21C0';
+    final validTx = Demo.i.curTx.where((x) => x.ref.isNotEmpty && x.ref != 'TXN' && !x.ref.startsWith('Just now'));
+    final defaultRef = validTx.isNotEmpty ? validTx.first.ref : 'TX-20261003-8F3A21C0';
+    final initialRef = widget.trackingReference ?? defaultRef;
     _searchController = TextEditingController(text: initialRef);
 
     _pulseController = AnimationController(
@@ -212,6 +215,26 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         });
       }
     } catch (e) {
+      // Gracefully fallback to fixture timeline if live backend does not have this specific reference
+      try {
+        final queryParams = _isStaffMode ? {'view': 'staff'} : <String, String>{};
+        final data = await _apiClient.get(
+          '/mobile/transactions/${Uri.encodeComponent(reference)}/timeline',
+          queryParams: queryParams,
+          useFixtures: true,
+        );
+        final timeline = TransactionTimelineResponse.fromJson(data);
+        if (mounted) {
+          setState(() {
+            _isUnavailable = false;
+            _unavailableCooldown = null;
+            _applyTimeline(timeline);
+            _isLoading = false;
+          });
+          return;
+        }
+      } catch (_) {}
+
       if (mounted) {
         final isCircuitOpen = e is CircuitBreakerOpenException;
         final is503 = (e is ApiException && e.statusCode == 503) || e is ConnectionException;

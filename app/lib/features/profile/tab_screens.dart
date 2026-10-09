@@ -373,7 +373,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: Text('Live Saga & Audit Timeline', style: TextStyle(color: kInk)),
                   subtitle: Text('Distributed transfers, timeline & resilience', style: TextStyle(color: kMut)),
                   trailing: Icon(Icons.chevron_right, color: kMut),
-                  onTap: () => go(context, const AppShell()),
+                  onTap: () {
+                    final validTx = Demo.i.curTx.where((x) => x.ref.isNotEmpty && x.ref != 'TXN' && !x.ref.startsWith('Just now'));
+                    final latest = validTx.isNotEmpty ? validTx.first.ref : null;
+                    go(context, AppShell(initialIndex: 2, trackingReference: latest));
+                  },
                 ),
                 SwitchListTile(
                   secondary: const Icon(Icons.dark_mode_outlined),

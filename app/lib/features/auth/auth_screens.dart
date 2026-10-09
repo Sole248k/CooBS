@@ -8,6 +8,7 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../core/session/biometric_authenticator.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/home_screen.dart';
 import '../accounts/ui.dart';
@@ -353,70 +354,72 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: const Color(0xFFF8FAFC),
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Soft ambient light gradients for frosted glass refraction (Light Pearl & Cyan)
-            Positioned(
-              top: -110,
-              right: -70,
-              child: Container(
-                width: 340,
-                height: 340,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFF0091AE).withAlpha(35),
-                      const Color(0xFFE0F4F8).withAlpha(25),
-                      Colors.transparent,
-                    ],
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark.copyWith(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarColor: const Color(0xFFF8FAFC),
+        ),
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Soft ambient light gradients for frosted glass refraction (Light Pearl & Cyan)
+              Positioned(
+                top: -110,
+                right: -70,
+                child: Container(
+                  width: 340,
+                  height: 340,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFF0091AE).withAlpha(35),
+                        const Color(0xFFE0F4F8).withAlpha(25),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: -90,
-              left: -70,
-              child: Container(
-                width: 320,
-                height: 320,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFFBAE6FD).withAlpha(45),
-                      const Color(0xFFF1F5F9).withAlpha(20),
-                      Colors.transparent,
-                    ],
+              Positioned(
+                bottom: -90,
+                left: -70,
+                child: Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        const Color(0xFFBAE6FD).withAlpha(45),
+                        const Color(0xFFF1F5F9).withAlpha(20),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Foreground Content
-            SafeArea(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // 1. Top Bar: Seamless Logo & Frosted Glass Server settings button
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            logoBox(height: 36, forceDark: false),
+              // Foreground Content
+              SafeArea(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // 1. Top Bar: Seamless Logo & Frosted Glass Server settings button
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              logoBox(height: 36, forceLight: true, forceDark: false),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: BackdropFilter(
@@ -556,7 +559,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 

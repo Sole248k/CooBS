@@ -109,7 +109,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Seamless transparent CooBS logo (light mode)
-                      logoBox(height: 64, forceDark: false),
+                      logoBox(height: 64, forceLight: true, forceDark: false),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),

@@ -42,7 +42,18 @@ Widget dd(String l, List<String> o, String? v, ValueChanged<String?> f) {
     child: DropdownButtonFormField<String>(
         key: ValueKey('$l-$effectiveValue'),
         initialValue: effectiveValue,
-        items: [for (final x in o) DropdownMenuItem(value: x, child: Text(x))],
+        isExpanded: true,
+        items: [
+          for (final x in o)
+            DropdownMenuItem(
+              value: x,
+              child: Text(
+                x,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+        ],
         onChanged: f,
         decoration: InputDecoration(labelText: l)));
 }
@@ -72,8 +83,8 @@ Widget statRow(String k, String v) => Padding(
 Widget panel(List<Widget> kids) => Card(
     child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: kids)));
 
-Widget logoBox({double height = 28, bool forceDark = false}) {
-  final isDark = forceDark || kDark;
+Widget logoBox({double height = 28, bool? forceDark, bool forceLight = false}) {
+  final isDark = forceLight ? false : (forceDark ?? kDark);
   return Image.asset(
     isDark ? 'assets/images/coobs_logo_dark.png' : 'assets/images/coobs_logo.png',
     height: height,
@@ -266,7 +277,7 @@ Widget txRow(Tx x) {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '${out ? '-' : '+'}${peso(x.amt.abs())}',
+                    '${out ? '- ' : '+ '}${peso(x.amt.abs())}',
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.w500,

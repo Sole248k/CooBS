@@ -1035,6 +1035,149 @@ class _HomeScreenState extends State<HomeScreen> {
             Ben('Andrea', 'COOBS · ACC_10000007', '+63 919 444 5555', accountNumber: 'ACC_10000007', bankCode: 'COOBS'),
           ];
 
+    final addBtn = SizedBox(
+      width: 58,
+      child: InkWell(
+        onTap: () async {
+          final added = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const AddBeneficiaryPage()),
+          );
+          if (added == true) {
+            d.load();
+          }
+        },
+        borderRadius: BorderRadius.circular(18),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: kDark ? const Color(0xFF16202E) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: kDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  width: 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(kDark ? 14 : 5),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.add_rounded,
+                size: 22,
+                color: kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Add',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: kMut,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final benWidgets = <Widget>[
+      for (final b in bensList)
+        Builder(
+          builder: (context) {
+            final rawAccount = b.accountNumber ?? (b.rel.contains('·') ? b.rel.split('·').last.trim() : '');
+            final rawBank = b.bankCode ?? (b.rel.contains('·') ? b.rel.split('·').first.trim() : 'COOBS');
+
+            final cleanName = b.name.replaceAll(RegExp(r'\([^)]*\)'), '').trim();
+            final words = cleanName.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+            final firstName = words.isNotEmpty ? words.first : b.name;
+            final initials = words.take(2).map((w) {
+              final cleanWord = w.replaceAll(RegExp(r'[^A-Za-z]'), '');
+              return cleanWord.isNotEmpty ? cleanWord[0].toUpperCase() : '';
+            }).join();
+
+            return SizedBox(
+              width: 58,
+              child: InkWell(
+                onTap: () => go(
+                  RemittanceScreen(
+                    from: d.cur < d.accts.length ? d.cur : 0,
+                    initialDest: rawAccount,
+                    initialBank: rawBank,
+                    initialRemarks: 'Transfer to ${b.name}',
+                  ),
+                ),
+                borderRadius: BorderRadius.circular(18),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: kDark ? const Color(0xFF16202E) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: kDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                          width: 1.0,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(kDark ? 14 : 5),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: initials.isNotEmpty
+                            ? Text(
+                                initials,
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: kDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+                                ),
+                              )
+                            : Icon(
+                                Icons.person_outline_rounded,
+                                size: 20,
+                                color: kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      firstName,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: kInk,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+    ];
+
+    final allItems = <Widget>[addBtn, ...benWidgets];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1075,157 +1218,39 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          clipBehavior: Clip.none,
-          child: Row(
-            children: [
-              // + Add Beneficiary button (clean neutral)
-              Padding(
-                padding: const EdgeInsets.only(right: 14),
-                child: InkWell(
-                  onTap: () async {
-                    final added = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddBeneficiaryPage()),
-                    );
-                    if (added == true) {
-                      d.load();
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(18),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: kDark ? const Color(0xFF16202E) : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: kDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                            width: 1.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(kDark ? 14 : 5),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.add_rounded,
-                          size: 22,
-                          color: kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Add',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: kMut,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const itemWidth = 58.0;
+            final availableWidth = constraints.maxWidth;
+            final totalWidth = allItems.length * itemWidth;
+
+            // When items fit comfortably across the width, space them evenly so
+            // the first item aligns with 'Send again' (left) and the last item aligns with 'Manage' (right)
+            final canSpaceBetween = allItems.length >= 4 &&
+                totalWidth <= availableWidth &&
+                ((availableWidth - totalWidth) / (allItems.length - 1)) >= 8 &&
+                ((availableWidth - totalWidth) / (allItems.length - 1)) <= 52;
+
+            if (canSpaceBetween) {
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: allItems,
+              );
+            }
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              child: Row(
+                children: [
+                  for (var i = 0; i < allItems.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 14),
+                    allItems[i],
+                  ],
+                ],
               ),
-              // Seeded / saved beneficiaries list (clean neutral, simple)
-              for (var idx = 0; idx < bensList.length; idx++) ...[
-                Builder(
-                  builder: (context) {
-                    final b = bensList[idx];
-                    final rawAccount = b.accountNumber ?? (b.rel.contains('·') ? b.rel.split('·').last.trim() : '');
-                    final rawBank = b.bankCode ?? (b.rel.contains('·') ? b.rel.split('·').first.trim() : 'COOBS');
-
-                    // Clean name (strip parentheses like '(supplier)')
-                    final cleanName = b.name.replaceAll(RegExp(r'\([^)]*\)'), '').trim();
-                    final words = cleanName.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-                    final firstName = words.isNotEmpty ? words.first : b.name;
-                    final initials = words.take(2).map((w) {
-                      final cleanWord = w.replaceAll(RegExp(r'[^A-Za-z]'), '');
-                      return cleanWord.isNotEmpty ? cleanWord[0].toUpperCase() : '';
-                    }).join();
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 14),
-                      child: InkWell(
-                        onTap: () => go(
-                          RemittanceScreen(
-                            from: d.cur < d.accts.length ? d.cur : 0,
-                            initialDest: rawAccount,
-                            initialBank: rawBank,
-                            initialRemarks: 'Transfer to ${b.name}',
-                          ),
-                        ),
-                        borderRadius: BorderRadius.circular(18),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: kDark ? const Color(0xFF16202E) : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: kDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                                  width: 1.0,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withAlpha(kDark ? 14 : 5),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 1),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: initials.isNotEmpty
-                                    ? Text(
-                                        initials,
-                                        style: TextStyle(
-                                          fontFamily: 'Poppins',
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: kDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
-                                        ),
-                                      )
-                                    : Icon(
-                                        Icons.person_outline_rounded,
-                                        size: 20,
-                                        color: kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            SizedBox(
-                              width: 58,
-                              child: Text(
-                                firstName,
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: kInk,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ],
-          ),
+            );
+          },
         ),
       ],
     );
