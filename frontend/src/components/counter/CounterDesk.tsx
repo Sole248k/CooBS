@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { staffApi } from '../../services/api';
@@ -54,6 +54,8 @@ export const CounterDesk: React.FC = () => {
     setAmount('0.00');
   };
 
+  const pending = useRef<{ operation: string; idempotencyKey: string; referenceNo: string } | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -74,8 +76,18 @@ export const CounterDesk: React.FC = () => {
       return;
     }
 
-    const idempotencyKey = generateUUID();
-    const referenceNo = `TX-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    // One key and one reference per operation, not per click. If the answer is lost after the
+    // ledger has posted, pressing the button again sends the same two and the ledger answers
+    // from what it already did; a new pair would post the cash a second time.
+    const operation = `${activeTab}|${parsedAccountId}|${parsedAmount.toFixed(2)}|${destinationAccount}`;
+    if (pending.current?.operation !== operation) {
+      pending.current = {
+        operation,
+        idempotencyKey: generateUUID(),
+        referenceNo: `TX-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      };
+    }
+    const { idempotencyKey, referenceNo } = pending.current;
 
     try {
       let result;
@@ -124,6 +136,7 @@ export const CounterDesk: React.FC = () => {
         timestamp: new Date().toISOString(),
         newBalance: result?.newBalance ?? result?.balance ?? null,
       });
+      pending.current = null;
     } catch (err: any) {
       setError(err.message || 'Counter operation failed. Please check balance and account status.');
     } finally {
