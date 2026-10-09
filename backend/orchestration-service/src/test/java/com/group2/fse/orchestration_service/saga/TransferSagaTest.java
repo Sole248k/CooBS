@@ -48,6 +48,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.group2.fse.orchestration_service.client.DownstreamException;
 import com.group2.fse.orchestration_service.dto.SagaDtos.InboundInterbankRequest;
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartReversalRequest;
 import com.group2.fse.orchestration_service.dto.SagaDtos.StartTransferRequest;
@@ -74,12 +75,18 @@ class TransferSagaTest {
     private static final String RELEASE = "/internal/v1/ledger/holds/9001/release";
     private static final String POSTINGS = "/internal/v1/ledger/postings";
     private static final String REVERSAL = "/internal/v1/ledger/reversals";
+    private static final String INBOUND = "/internal/v1/sagas/inbound-interbank";
 
     private record Stub(int status, String body, long delayMs) {
     }
 
     private record Call(String path, String idempotencyKey, String authorization, String correlationId) {
     }
+
+    /** L8 answering that the one posting of an inbound credit is in the journal. */
+    private static final Stub POSTED_ONCE = new Stub(200, """
+            {"posted":1,"failed":0,"totalAmount":"2500.00",
+             "results":[{"referenceNo":"IB-20261003-000045","status":"POSTED","errorCode":null}]}""", 0);
 
     private static final Map<String, Stub> STUBS = new ConcurrentHashMap<>();
     private static final List<Call> CALLS = new CopyOnWriteArrayList<>();
@@ -134,9 +141,7 @@ class TransferSagaTest {
         STUBS.put(HOLD, new Stub(201, example("L3-place-hold.response.json"), 0));
         STUBS.put(CAPTURE, ok("L4-capture-hold.response.json"));
         STUBS.put(RELEASE, ok("L5-release-hold.response.json"));
-        STUBS.put(POSTINGS, new Stub(200, """
-                {"posted":1,"failed":0,"totalAmount":"2500.00",
-                 "results":[{"referenceNo":"IB-20261003-000045","status":"POSTED","errorCode":null}]}""", 0));
+        STUBS.put(POSTINGS, POSTED_ONCE);
         STUBS.put(REVERSAL, ok("L7-reversal.response.json"));
         when(kafkaTemplate.send(anyString(), anyString(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(null));
@@ -757,6 +762,177 @@ class TransferSagaTest {
         assertThat(sagas.findByTransactionId(revReq.transactionId()).orElseThrow().getState())
                 .isEqualTo(SagaState.STARTED);
         assertThat(sagas.findByTransactionId(origId).orElseThrow().getState()).isEqualTo(SagaState.FUNDS_RESERVED);
+    }
+
+    // --- inbound inter-bank: the ways the credit does not post ---
+
+    @Test
+    void inboundInterbank_postingRefusedInTheAnswer_failsAtStage8WithTheLedgersCode() {
+        // L8 answers 200 even when it refuses a posting; the outcome is in the body.
+        STUBS.put(POSTINGS, new Stub(200, """
+                {"posted":0,"failed":1,"totalAmount":"0.00",
+                 "results":[{"referenceNo":"IB-20261003-000045","status":"FAILED","errorCode":"ACCOUNT_NOT_ACTIVE"}]}""", 0));
+        InboundInterbankRequest r = inbound();
+
+        SagaInstance row = inboundSaga.run(r, "corr");
+
+        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row.getFailureCode()).isEqualTo("ACCOUNT_NOT_ACTIVE");
+        assertThat(stages()).hasSize(8).endsWith("7 AUTHORIZED PASSED PROCESSING", "8 POSTED FAILED FAILED");
+    }
+
+    @Test
+    void inboundInterbank_ledgerRefusesTheCall_failsWithItsCode() {
+        STUBS.put(POSTINGS, new Stub(422, example("common-error.json"), 0));
+        InboundInterbankRequest r = inbound();
+
+        SagaInstance row = inboundSaga.run(r, "corr");
+
+        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row.getFailureCode()).isEqualTo("INSUFFICIENT_FUNDS");
+        assertThat(stages()).endsWith("8 POSTED FAILED FAILED");
+    }
+
+    @Test
+    void inboundInterbank_answerThatNamesNoOutcome_isNotTakenForAPosting() {
+        STUBS.put(POSTINGS, new Stub(200, "{\"posted\":0,\"failed\":0,\"results\":[]}", 0));
+        InboundInterbankRequest r = inbound();
+
+        SagaInstance row = inboundSaga.run(r, "corr");
+
+        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(row.getFailureCode()).isEqualTo("INTERNAL_SERVER_ERROR");
+    }
+
+    @Test
+    void inboundInterbank_ledgerGivesNoAnswer_staysStartedAndTheRepeatIsTheSamePosting() {
+        STUBS.put(POSTINGS, new Stub(503, "{}", 0));
+        InboundInterbankRequest r = inbound();
+
+        assertThatThrownBy(() -> inboundSaga.run(r, "corr")).isInstanceOf(DownstreamException.class);
+
+        // Nothing is claimed either way: no stage event, and the row waits for the partner to repeat.
+        assertThat(sagas.findByTransactionId(r.transactionId()).orElseThrow().getState()).isEqualTo(SagaState.STARTED);
+        assertThat(events()).isEmpty();
+
+        STUBS.put(POSTINGS, POSTED_ONCE);
+        SagaInstance row = inboundSaga.run(r, "corr");
+
+        assertThat(row.getState()).isEqualTo(SagaState.COMPLETED);
+        // The same key both times, so the ledger sees one posting however often it is asked.
+        assertThat(CALLS).extracting(Call::path, Call::idempotencyKey).containsExactly(
+                org.assertj.core.groups.Tuple.tuple(POSTINGS, r.transactionId() + ":posting"),
+                org.assertj.core.groups.Tuple.tuple(POSTINGS, r.transactionId() + ":posting"));
+        assertThat(stages()).hasSize(11);
+    }
+
+    @Test
+    void inboundEndpoint_turnsALedgerSilenceInto503AndAnswersTheStateOnceItPosts() throws Exception {
+        String service = tokens.generateToken(0L, "transaction-service", List.of("ROLE_SERVICE"));
+        InboundInterbankRequest r = inbound();
+        String body = jsonMapper.writeValueAsString(r);
+
+        mockMvc.perform(post(INBOUND).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnauthorized());
+
+        STUBS.put(POSTINGS, new Stub(503, "{}", 0));
+        mockMvc.perform(post(INBOUND).header("Authorization", "Bearer " + service)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.errorCode").value("LEDGER_UNAVAILABLE"));
+
+        STUBS.put(POSTINGS, POSTED_ONCE);
+        mockMvc.perform(post(INBOUND).header("Authorization", "Bearer " + service)
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionId").value(r.transactionId().toString()))
+                .andExpect(jsonPath("$.sagaState").value("COMPLETED"));
+    }
+
+    // --- recovery and reversal: the remaining branches ---
+
+    @Test
+    void recovery_aPayloadThatCannotBeRead_isSkippedAndTheOthersStillRun() {
+        UUID brokenId = UUID.randomUUID();
+        SagaInstance broken = sagas.findOrCreate(brokenId, "TX-BROKEN-PAYLOAD", "{this is not json");
+        broken.setState(SagaState.RISK_APPROVED);
+        sagas.saveAndFlush(broken);
+        StartTransferRequest t = riskApproved(Duration.ZERO);
+        runTasksInline();
+
+        recovery.run(null);
+
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+        SagaInstance stillThere = sagas.findByTransactionId(brokenId).orElseThrow();
+        assertThat(stillThere.getState()).isEqualTo(SagaState.RISK_APPROVED);
+
+        // Taken out of flight so that it is not picked up by the recovery of another test.
+        stillThere.setState(SagaState.FAILED);
+        sagas.saveAndFlush(stillThere);
+    }
+
+    @Test
+    void reversalOfATransferThatNeverReachedTheLedger_cancelsItWithoutAnyLedgerCall() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-NOT-HELD-001");
+        original.setState(SagaState.RISK_APPROVED);
+        sagas.saveAndFlush(original);
+        UUID revId = UUID.randomUUID();
+
+        reversalSaga.run(new StartReversalRequest(revId, origId, "RV-NOT-HELD-001", "Sent by mistake", 3L), "corr");
+
+        SagaInstance cancelled = sagas.findByTransactionId(origId).orElseThrow();
+        assertThat(cancelled.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(cancelled.getFailureCode()).isEqualTo(ReversalSaga.CANCELLED_BEFORE_HOLD);
+        assertThat(sagas.findByTransactionId(revId).orElseThrow().getState()).isEqualTo(SagaState.COMPLETED);
+        // No hold was ever placed, so there is nothing to ask the ledger to undo.
+        assertThat(ledgerCalls()).isEmpty();
+    }
+
+    @Test
+    void reversalOfATransferThatAlreadyFailed_isRefusedWithoutAnyLedgerCall() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-FAILED-001");
+        original.setState(SagaState.FAILED);
+        original.setFailureCode("INSUFFICIENT_FUNDS");
+        sagas.saveAndFlush(original);
+        UUID revId = UUID.randomUUID();
+
+        reversalSaga.run(new StartReversalRequest(revId, origId, "RV-FAILED-001", "Dispute", 3L), "corr");
+
+        SagaInstance reversal = sagas.findByTransactionId(revId).orElseThrow();
+        assertThat(reversal.getState()).isEqualTo(SagaState.FAILED);
+        assertThat(reversal.getFailureCode()).isEqualTo("ALREADY_TERMINAL");
+        // The transfer moved no money, so it keeps its own outcome and the ledger is not asked.
+        assertThat(sagas.findByTransactionId(origId).orElseThrow().getFailureCode()).isEqualTo("INSUFFICIENT_FUNDS");
+        assertThat(ledgerCalls()).isEmpty();
+    }
+
+    @Test
+    void sameReversalRunTwice_reversesOnce() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-20261003-8F3A21C0");
+        original.setState(SagaState.POSTED);
+        sagas.saveAndFlush(original);
+        StartReversalRequest r = new StartReversalRequest(
+                UUID.randomUUID(), origId, "RV-TWICE-001", "Customer dispute approved", 3L);
+
+        reversalSaga.run(r, "corr");
+        reversalSaga.run(r, "corr");
+
+        assertThat(sagas.findByTransactionId(r.transactionId()).orElseThrow().getState()).isEqualTo(SagaState.COMPLETED);
+        assertThat(ledgerCalls()).extracting(Call::path).containsExactly(REVERSAL);
+    }
+
+    /** The O4 contract example with a fresh transaction ID, so each test has its own saga row. */
+    private InboundInterbankRequest inbound() {
+        InboundInterbankRequest e = jsonMapper.readValue(example("O4-inbound-interbank-saga.request.json"),
+                InboundInterbankRequest.class);
+        return new InboundInterbankRequest(UUID.randomUUID(), e.referenceNo(), e.messageId(), e.sourceBankCode(),
+                e.settlementAccountId(), e.destinationAccountId(), e.amount(), e.currency());
     }
 
     private StartTransferRequest transfer() {
