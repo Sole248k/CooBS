@@ -77,7 +77,7 @@ services:
       - /bin/bash
       - -ec
       - |
-        run() { /opt/mssql-tools18/bin/sqlcmd -S sqlserver-cloud-db -U sa -C -b -x -f 65001 "$$@"; }
+        run() { /opt/mssql-tools18/bin/sqlcmd -S sqlserver-cloud-db -U sa -C -I -b -x -f 65001 "$$@"; }
         if run -Q "IF DB_ID(N'coobs_seed_done') IS NULL RAISERROR('not loaded', 16, 1)" > /dev/null; then
           echo "Cloud databases are already loaded."
           exit 0

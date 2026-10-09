@@ -2,7 +2,7 @@
 
 The four cloud databases (`identity_db`, `customer_db`, `transaction_db`, `notification_db`) as SQL Server scripts, for Azure SQL Database and for a local SQL Server 2022 container.
 
-**Status: generated and read through, never run.** No SQL Server was available where these were written, so the first load is the test.
+**Status: first load attempted on 9 October 2026; it stopped at `payload TEXT` in `04_transaction_db.sql`, which is fixed. No complete load yet.**
 
 ## Where the scripts come from
 
@@ -27,13 +27,13 @@ The translator reads `database/postgres-cloud/02..05_*.sql` and writes this fold
 Each script must run while connected to its own database. Azure SQL has no `USE` across databases, so the scripts contain none.
 
 ```
-sqlcmd -S <server> -U <login> -P <password> -b -x -f 65001 -d identity_db     -i database/azure-sql/02_identity_db.sql
-sqlcmd -S <server> -U <login> -P <password> -b -x -f 65001 -d customer_db     -i database/azure-sql/03_customer_db.sql
-sqlcmd -S <server> -U <login> -P <password> -b -x -f 65001 -d transaction_db  -i database/azure-sql/04_transaction_db.sql
-sqlcmd -S <server> -U <login> -P <password> -b -x -f 65001 -d notification_db -i database/azure-sql/05_notification_db.sql
+sqlcmd -S <server> -U <login> -P <password> -I -b -x -f 65001 -d identity_db     -i database/azure-sql/02_identity_db.sql
+sqlcmd -S <server> -U <login> -P <password> -I -b -x -f 65001 -d customer_db     -i database/azure-sql/03_customer_db.sql
+sqlcmd -S <server> -U <login> -P <password> -I -b -x -f 65001 -d transaction_db  -i database/azure-sql/04_transaction_db.sql
+sqlcmd -S <server> -U <login> -P <password> -I -b -x -f 65001 -d notification_db -i database/azure-sql/05_notification_db.sql
 ```
 
-`-b` stops at the first error, `-x` turns off `$(...)` substitution, and `-f 65001` reads the files as UTF-8. For a local container, run `01_create_databases.sql` first with no `-d`, and add `-C` to trust its self-signed certificate.
+`-I` turns on quoted identifiers, which the filtered unique indexes need (the scripts also set it themselves), `-b` stops at the first error, `-x` turns off `$(...)` substitution, and `-f 65001` reads the files as UTF-8. For a local container, run `01_create_databases.sql` first with no `-d`, and add `-C` to trust its self-signed certificate.
 
 The scripts load into empty databases. Like the PostgreSQL ones, they are not meant to be run twice: the seed rows would collide. Rebuild from empty on any schema change; there are no migrations.
 
@@ -55,7 +55,7 @@ Create each database with `Latin1_General_100_CI_AS_SC_UTF8`. `01_create_databas
 | `UNIQUE` on a nullable column | A filtered unique index | SQL Server's `UNIQUE` allows a single `NULL`; three columns rely on many: `app_user.customer_id`, `txn_transaction.idempotency_key`, `notifications.event_id` |
 | Identity with seeded ids | `IDENTITY` plus `SET IDENTITY_INSERT`, then `DBCC CHECKIDENT` | The next generated id is the same as in PostgreSQL |
 | A `CHECK` comparing two conditions | Rewritten with `AND` and `OR` | T-SQL has no boolean equality |
-| `saga.saga_instance.payload TEXT` | `TEXT`, unchanged | `SagaInstance` declares `columnDefinition = "TEXT"`; `validate` compares the name. `TEXT` is deprecated in SQL Server, so this should become `VARCHAR(MAX)` once the entity stops naming the type |
+| `saga.saga_instance.payload TEXT` | `VARCHAR(MAX)` | SQL Server refuses `TEXT` in a database with a UTF-8 collation (error 4188, found on the first load). `SagaInstance` still declares `columnDefinition = "TEXT"`; `validate` compares the JDBC type, and any character type matches a `String` |
 
 ## Not verified
 
