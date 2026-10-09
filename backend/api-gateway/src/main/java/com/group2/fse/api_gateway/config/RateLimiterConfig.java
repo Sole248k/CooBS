@@ -19,14 +19,14 @@ import java.net.InetSocketAddress;
 @Configuration
 public class RateLimiterConfig {
 
-    private static final String X_FORWARDED_FOR = "X-Forwarded-For";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * IP-Based Key Resolver:
-     * Resolves the originating client IP address, properly handling X-Forwarded-For proxies.
+     * Resolves the address the connection came from. X-Forwarded-For is not read: the caller
+     * writes that header, so a new value on every request would never be limited.
      * Used for public / unauthenticated endpoints such as /api/v1/auth/login and /register
      * to protect against credential brute force and denial of service.
      */
@@ -34,14 +34,6 @@ public class RateLimiterConfig {
     @Bean
     public KeyResolver ipKeyResolver() {
         return exchange -> {
-            String forwardedFor = exchange.getRequest().getHeaders().getFirst(X_FORWARDED_FOR);
-            if (forwardedFor != null && !forwardedFor.trim().isEmpty()) {
-                String clientIp = forwardedFor.split(",")[0].trim();
-                if (!clientIp.isEmpty() && clientIp.matches("^[a-fA-F0-9.:]+$")) {
-                    return Mono.just("ip_" + clientIp);
-                }
-            }
-
             InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
             if (remoteAddress != null && remoteAddress.getAddress() != null) {
                 return Mono.just("ip_" + remoteAddress.getAddress().getHostAddress());

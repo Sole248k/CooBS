@@ -21,15 +21,16 @@ class RateLimiterConfigTest {
     }
 
     @Test
-    @DisplayName("ipKeyResolver should resolve client IP from X-Forwarded-For header when present")
-    void ipKeyResolver_withXForwardedFor_resolvesFirstIp() {
+    @DisplayName("ipKeyResolver ignores X-Forwarded-For, which the caller controls")
+    void ipKeyResolver_withXForwardedFor_stillResolvesRemoteAddress() {
         MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/auth/login")
                 .header("X-Forwarded-For", "198.51.100.42, 192.168.1.1")
+                .remoteAddress(new InetSocketAddress("10.0.0.5", 12345))
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
         StepVerifier.create(rateLimiterConfig.ipKeyResolver().resolve(exchange))
-                .expectNext("ip_198.51.100.42")
+                .expectNext("ip_10.0.0.5")
                 .verifyComplete();
     }
 
@@ -95,7 +96,7 @@ class RateLimiterConfigTest {
     @DisplayName("userOrIpKeyResolver should fallback to ipKeyResolver when Authorization header is absent")
     void userOrIpKeyResolver_withoutAuthHeader_fallsBackToIp() {
         MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/accounts")
-                .header("X-Forwarded-For", "203.0.113.88")
+                .remoteAddress(new InetSocketAddress("203.0.113.88", 12345))
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
