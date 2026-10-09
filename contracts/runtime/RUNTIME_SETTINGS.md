@@ -64,6 +64,15 @@ Which service receives which URL follows section 3.2 of the API contract, the li
 | mobile-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
 | staff-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `LEDGER_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `AUDIT_SERVICE_URL`, `BATCH_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
 
+The gateway has no route for any `/internal/**` path, so it receives no address for the risk engine.
+
+The gateway bounds every call to a target. Both settings are optional:
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `GATEWAY_CONNECT_TIMEOUT_MS` | `3000` | A target that cannot be reached in this time (a service down, the on-premises link cut) is answered 503 |
+| `GATEWAY_RESPONSE_TIMEOUT` | `15s` | A target that accepts the call but does not answer in this time is answered 504 |
+
 In `application.properties`, give the local default so the service also runs from an IDE:
 
 ```properties
