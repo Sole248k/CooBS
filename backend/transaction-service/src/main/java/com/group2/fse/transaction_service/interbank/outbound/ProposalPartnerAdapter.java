@@ -22,7 +22,9 @@ import java.time.Instant;
  * ourselves (I1 and I2), signed with the secret shared with that partner.
  *
  * The request is signed as the proposal says: X-Signature is the HMAC-SHA256, in hex, of
- * "<X-Timestamp>.<body>" with the shared secret, and X-Bank-Code is our own bank code.
+ * "<X-Timestamp>.<body>" with the shared secret, and X-Bank-Code is our own bank code. A partner
+ * that has agreed on the payload but not on signing has no shared secret here and is sent the
+ * same message unsigned.
  */
 @Slf4j
 @Component
@@ -80,15 +82,24 @@ public class ProposalPartnerAdapter implements PartnerAdapter {
                 .GET().build(), "status");
     }
 
+    /**
+     * A partner we share a secret with gets the proposal's timestamp and signature. A partner
+     * with no secret configured takes plain JSON, so the request goes out unsigned; our bank
+     * code is still named.
+     */
     private HttpRequest.Builder signed(OutboundTransfer t, String body) {
-        String timestamp = Instant.now().toString();
-        return HttpRequest.newBuilder()
+        HttpRequest.Builder request = HttpRequest.newBuilder()
                 .timeout(timeout)
                 .header("Accept", "application/json")
-                .header("X-Bank-Code", t.ownBankCode())
+                .header("X-Bank-Code", t.ownBankCode());
+        String secret = t.partner().getSharedSecret();
+        if (secret == null || secret.isBlank()) {
+            return request;
+        }
+        String timestamp = Instant.now().toString();
+        return request
                 .header("X-Timestamp", timestamp)
-                .header("X-Signature", InterbankAuthValidator.computeHmacSha256Hex(
-                        t.partner().getSharedSecret(), timestamp + "." + body));
+                .header("X-Signature", InterbankAuthValidator.computeHmacSha256Hex(secret, timestamp + "." + body));
     }
 
     /**

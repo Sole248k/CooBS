@@ -136,6 +136,22 @@ class InterbankClientTest {
     }
 
     @Test
+    @DisplayName("a partner with no shared secret takes plain JSON: the same message, unsigned")
+    void partnerWithoutASecretIsSentPlainJson() throws Exception {
+        bankB.setSharedSecret(null);
+        replies.add(accepted());
+
+        PartnerAnswer answer = client.deliver(transfer(), false);
+
+        assertThat(answer.outcome()).isEqualTo(PartnerAnswer.Outcome.ACCEPTED);
+        Seen request = seen.get(0);
+        assertThat(request.signature()).isNull();
+        assertThat(request.timestamp()).isNull();
+        assertThat(request.bankCode()).isEqualTo("COOBS");
+        assertThat(objectMapper.readTree(request.body()).path("messageId").asText()).isEqualTo(MESSAGE.toString());
+    }
+
+    @Test
     @DisplayName("a refusal is an answer, whatever HTTP status carries it")
     void rejectionIsAnAnswer() {
         replies.add(new Reply(422, """
