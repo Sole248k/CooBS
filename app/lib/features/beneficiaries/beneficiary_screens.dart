@@ -24,7 +24,9 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
   }
 
   Future<void> _loadBeneficiaries() async {
-    setState(() => _isLoading = true);
+    if (!_isLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final json = await _apiClient.get('/customers/me/beneficiaries');
       List<dynamic> list = [];

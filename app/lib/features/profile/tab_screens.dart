@@ -75,7 +75,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    setState(() => _isLoading = true);
+    if (!_isLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final json = await _apiClient.get('/notifications/my-notifications');
       final page = NotificationPageResponse.fromJson(json);
@@ -274,8 +276,22 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 }
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  late final Future<String?> _usernameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameFuture = SecureStorageService().getUsername();
+  }
+
   void go(BuildContext c, Widget w) => Navigator.push(c, MaterialPageRoute(builder: (_) => w));
 
   @override
@@ -286,7 +302,7 @@ class ProfileScreen extends StatelessWidget {
           child: Card(
             child: Column(children: [
               FutureBuilder<String?>(
-                future: SecureStorageService().getUsername(),
+                future: _usernameFuture,
                 builder: (context, snapshot) {
                   final username = snapshot.data ?? 'john_doe';
                   return ListTile(
@@ -310,20 +326,17 @@ class ProfileScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => go(context, const AppShell()),
               ),
-              ListenableBuilder(
-                listenable: ThemeController.i,
-                builder: (context, _) => SwitchListTile(
-                  secondary: const Icon(Icons.dark_mode_outlined),
-                  title: const Text('Dark mode'),
-                  subtitle: Text(ThemeController.i.dark ? 'On' : 'Off'),
-                  value: ThemeController.i.dark,
-                  activeThumbColor: Colors.white,
-                  activeTrackColor: kBlue,
-                  inactiveThumbColor: Colors.white,
-                  inactiveTrackColor: const Color(0xFFC7CDD3),
-                  trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
-                  onChanged: ThemeController.i.setDark,
-                ),
+              SwitchListTile(
+                secondary: const Icon(Icons.dark_mode_outlined),
+                title: const Text('Dark mode'),
+                subtitle: Text(ThemeController.i.dark ? 'On' : 'Off'),
+                value: ThemeController.i.dark,
+                activeThumbColor: Colors.white,
+                activeTrackColor: kBlue,
+                inactiveThumbColor: Colors.white,
+                inactiveTrackColor: const Color(0xFFC7CDD3),
+                trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+                onChanged: ThemeController.i.setDark,
               ),
               ListTile(
                   title: const Text('Log out'),
@@ -384,7 +397,9 @@ class _KycDetailsPageState extends State<KycDetailsPage> {
   }
 
   Future<void> _loadProfile() async {
-    setState(() => _isLoading = true);
+    if (!_isLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final json = await _apiClient.get('/customers/me');
       final profile = CustomerProfileData.fromJson(json);

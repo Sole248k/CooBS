@@ -23,6 +23,13 @@ class MobileShell extends StatefulWidget {
 class _MobileShellState extends State<MobileShell> {
   int i = 0;
   static const _home = 0, _scores = 1, _alerts = 2, _bens = 3, _profile = 4;
+  late final Future<String?> _usernameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameFuture = SecureStorageService().getUsername();
+  }
 
   void _goHome() => setState(() => i = _home);
 
@@ -48,7 +55,7 @@ class _MobileShellState extends State<MobileShell> {
                     ),
                     const SizedBox(width: 8),
                     FutureBuilder<String?>(
-                      future: SecureStorageService().getUsername(),
+                      future: _usernameFuture,
                       builder: (context, snapshot) {
                         final user = snapshot.data ?? 'john_doe';
                         return Container(

@@ -25,6 +25,7 @@ class ThemeController extends ChangeNotifier {
   }
 
   Future<void> setDark(bool v) async {
+    if (dark == v) return;
     dark = v;
     notifyListeners();
     try {
