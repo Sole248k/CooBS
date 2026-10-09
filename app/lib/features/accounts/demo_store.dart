@@ -110,6 +110,7 @@ class Demo extends ChangeNotifier {
     }
   }
 
+  final List<Tx> _pendingLocalTx = [];
   final accts = <Acct>[
     Acct('Checking', 'ACC-1001-8842', 14750.50, [
       Tx('Transfer to ACC-1002-9915', 'TXN-9021', today, -150),
@@ -131,7 +132,9 @@ class Demo extends ChangeNotifier {
   bool _kycTouched = false;
   bool hide = false;
   int cur = 0;
-  final bens = <Ben>[const Ben('Juan Dela Cruz', 'Brother', '+63 917 000 1111')];
+  final bens = <Ben>[
+    const Ben('Maria Santos', 'COOBS · ACC_10000002', '+63 917 000 1111', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
+  ];
   final alerts = <List<String>>[
     ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
     ['₱150.00 transferred to ACC-1002-9915', 'Ref TXN-9021 · Today'],
@@ -157,7 +160,12 @@ class Demo extends ChangeNotifier {
         }
       }
       final k5 = await MobileRepo.myAccounts();
-      final k6 = (await MobileRepo.accountTx())['accounts'] as Map<String, dynamic>? ?? {};
+      var k6 = (await MobileRepo.accountTx())['accounts'] as Map<String, dynamic>? ?? {};
+      if (k6.isEmpty) {
+        try {
+          k6 = (await ApiClient().loadFixtureJson('K6-account-transactions.response.json'))['accounts'] as Map<String, dynamic>? ?? {};
+        } catch (_) {}
+      }
       final n1 = await MobileRepo.notifications();
       if (m1['member'] is Map) {
         memberName = (m1['member']['displayName'] as String?) ?? memberName;
@@ -222,6 +230,20 @@ class Demo extends ChangeNotifier {
       }
 
       if (parsed.isNotEmpty) {
+        // Ensure primary account is first in carousel if present
+        if (primaryNo.isNotEmpty) {
+          final primIdx = parsed.indexWhere((a) => a.no == primaryNo);
+          if (primIdx > 0) {
+            final prim = parsed.removeAt(primIdx);
+            parsed.insert(0, prim);
+          }
+        }
+        // Retain any pending local transfers not yet in server list
+        for (final pTx in _pendingLocalTx) {
+          if (!parsed[0].tx.any((t) => t.ref == pTx.ref)) {
+            parsed[0].tx.insert(0, pTx);
+          }
+        }
         accts
           ..clear()
           ..addAll(parsed);
@@ -289,11 +311,18 @@ class Demo extends ChangeNotifier {
   void simulate(String? mode) { forced = mode; load(); }
   void setKyc(String s) { kyc = s; _kycTouched = true; notifyListeners(); }
 
-  /// Local effect of a successful (mock) remittance so the cards and history stay consistent.
+  /// Local effect of a successful remittance so the cards and history stay consistent.
   void applyRemittance(int from, double amt, double fee, String bank, String dest, String ref) {
+    if (from < 0 || from >= accts.length) return;
+    final tx = Tx('Transfer to $bank', ref, today, -amt);
+    _pendingLocalTx.insert(0, tx);
     accts[from].bal = r2(accts[from].bal - amt - fee);
-    accts[from].tx.insert(0, Tx('Transfer to $bank', ref, today, -amt));
-    if (fee > 0) accts[from].tx.insert(0, Tx('Transfer fee', ref, today, -fee));
+    accts[from].tx.insert(0, tx);
+    if (fee > 0) {
+      final feeTx = Tx('Transfer fee', ref, today, -fee);
+      _pendingLocalTx.insert(0, feeTx);
+      accts[from].tx.insert(0, feeTx);
+    }
     _alert('${peso(amt)} transferred to $dest ($bank). Ref $ref');
     notifyListeners();
   }
@@ -388,6 +417,7 @@ class Demo extends ChangeNotifier {
     primaryNo = '';
     unread = 0;
     unavailable.clear();
+    _pendingLocalTx.clear();
     accts.clear();
     accts.addAll([
       Acct('Checking', 'ACC-1001-8842', 14750.50, [

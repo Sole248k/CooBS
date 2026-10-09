@@ -4,7 +4,7 @@
 # ==============================================================================
 
 # Stage 1: Build Executable JAR with Maven
-FROM maven:3.9-eclipse-temurin-21 AS builder
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /workspace
 
 # Copy POM and download dependencies for layer caching

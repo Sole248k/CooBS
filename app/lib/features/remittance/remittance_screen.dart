@@ -52,17 +52,56 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     final e = <String, String>{};
     final cents = centavos(amt.text);
     final minC = ((lim['minAmount'] as num) * 100).round(), maxC = ((lim['maxAmount'] as num) * 100).round();
-    if (cents == null) {
-      e['amt'] = 'Enter an amount with up to 2 decimals';
-    } else if (cents < minC) {
-      e['amt'] = 'Minimum is ${money(minC)}';
-    } else if (cents > maxC) {
-      e['amt'] = 'Maximum per transfer is ${money(maxC)}';
+    var d = dest.text.trim();
+    if (bank == 'COOBS' && RegExp(r'^\d{8}$').hasMatch(d)) {
+      d = 'ACC_$d';
+      dest.text = d;
     }
-    final d = dest.text.trim();
-    if (!RegExp(b['accountPattern'] as String).hasMatch(d)) e['dest'] = 'Format: ${b['accountHint']}';
+    bool isValidDest(String pattern, String value) {
+      try {
+        var p = pattern;
+        var caseSensitive = true;
+        if (p.contains('(?i)')) {
+          p = p.replaceAll('(?i)', '');
+          caseSensitive = false;
+        }
+        return RegExp(p, caseSensitive: caseSensitive).hasMatch(value);
+      } catch (_) {
+        return RegExp(r'^[A-Za-z0-9_-]{4,34}$').hasMatch(value);
+      }
+    }
+    if (d.isEmpty) {
+      e['dest'] = 'Please enter a recipient account number';
+    } else if (d == a.no) {
+      e['dest'] = 'Self-transfer is not allowed. Select a different recipient account';
+    } else if (!isValidDest(b['accountPattern'] as String, d)) {
+      e['dest'] = 'Invalid format. Hint: ${b['accountHint']} (e.g. ACC_10000002)';
+    }
+
+    if (cents == null) {
+      e['amt'] = amt.text.trim().isEmpty ? 'Please enter a transfer amount' : 'Enter a valid amount with up to 2 decimal places';
+    } else if (cents < minC) {
+      e['amt'] = 'Minimum transfer amount is ${money(minC)}';
+    } else if (cents > maxC) {
+      e['amt'] = 'Maximum transfer limit per transaction is ${money(maxC)}';
+    } else {
+      final fee = ((b['fee'] as num) * 100).round(), bal = (a.bal * 100).round();
+      if (cents + fee > bal) {
+        e['amt'] = 'Insufficient balance. Available: ${peso(a.bal)} (Transfer + fee: ${money(cents + fee)})';
+      }
+    }
+
     setState(() { err = e; problem = null; });
-    if (e.isNotEmpty) return;
+    if (e.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.values.first),
+          backgroundColor: kRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     setState(() => busy = true);
     final fee = ((b['fee'] as num) * 100).round(), bal = (a.bal * 100).round();
     if (d == a.no) {
@@ -87,11 +126,23 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
       };
 
       final Map<String, dynamic> resp;
-      final Map<String, dynamic> tl;
+      Map<String, dynamic> tl;
       try {
         resp = await MobileRepo.submitRemittance(body, idempotencyKey: activeIdemKey);
         final ref = resp['referenceNo'] ?? resp['trackingReference'] ?? '';
-        tl = await MobileRepo.timeline(ref.toString());
+        try {
+          tl = await MobileRepo.timeline(ref.toString());
+        } catch (_) {
+          tl = {
+            'stages': [
+              {
+                'title': 'Transfer submitted',
+                'subtitle': 'Reference: $ref',
+                'outcome': 'PASSED',
+              }
+            ]
+          };
+        }
       } on CircuitBreakerOpenException catch (cbe) {
         if (!mounted) return;
         setState(() => busy = false);
@@ -191,6 +242,28 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
             dd('From account', labels, labels[safeSrc], (x) => setState(() => src = x != null && labels.contains(x) ? labels.indexOf(x) : 0)),
             dd('Destination bank', [for (final x in banks) x['name'] as String], b['name'] as String,
                 (x) => setState(() { bank = banks.firstWhere((y) => y['name'] == x)['code'] as String; err = {}; })),
+            if (bank != 'COOBS')
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF8E1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFFB300), width: 0.8),
+                  ),
+                  child: const Row(children: [
+                    Icon(Icons.info_outline, size: 16, color: Color(0xFFB45309)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Interbank clearing is currently limited. For real-time processing, select CooBS (same bank).',
+                        style: TextStyle(fontSize: 11, color: Color(0xFF78350F), fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
             if (Demo.i.bens.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: 4, top: 4),
@@ -265,7 +338,7 @@ class RemittanceResultPage extends StatelessWidget {
         const Padding(padding: EdgeInsets.only(top: 14, bottom: 4), child: Text('Transfer status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
         Card(
           child: Column(children: [
-            for (final s in timeline['stages'] as List)
+            for (final s in (timeline['stages'] as List? ?? []))
               ListTile(
                 leading: Icon(s['outcome'] == 'PASSED' ? Icons.check_circle : Icons.radio_button_unchecked, color: s['outcome'] == 'PASSED' ? kBlue : kMut),
                 title: Text('${s['title']}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
@@ -397,6 +470,16 @@ class _RemittanceFormState extends State<RemittanceForm> {
       final ref = remittance.referenceNo.isNotEmpty
           ? remittance.referenceNo
           : remittance.transactionId;
+
+      final srcIdx = Demo.i.accts.indexWhere((a) => a.no == source);
+      Demo.i.applyRemittance(
+        srcIdx >= 0 ? srcIdx : 0,
+        parsedAmount,
+        0.0,
+        _destinationBank,
+        dest,
+        ref,
+      );
 
       if (mounted) {
         _showSnackbar('Transfer accepted! Ref: $ref', isError: false);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/theme_controller.dart';
+import '../tracking/tracking_view.dart';
 import 'demo_store.dart';
 
 /// Mobile palette. Getters (not consts) so every screen follows the dark mode toggle.
@@ -86,14 +87,32 @@ Widget txRow(Tx x) {
   final out = x.amt < 0;
   final now = DateTime.now();
   final isToday = x.date.year == now.year && x.date.month == now.month && x.date.day == now.day;
-  return ListTile(
-    leading: CircleAvatar(
-        backgroundColor: out ? kOutBg : kInBg,
-        child: Icon(out ? Icons.north_east : Icons.south_west, size: 18, color: out ? kRed : kNavyFg)),
-    title: Text(x.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-    subtitle: Text('${x.ref} · ${isToday ? 'Today' : fmt(x.date)}'),
-    trailing: Text('${out ? '-' : '+'}${peso(x.amt.abs())}',
-        style: TextStyle(fontWeight: FontWeight.w600, color: out ? kRed : kNavyFg)),
+  return Builder(
+    builder: (context) => ListTile(
+      leading: CircleAvatar(
+          backgroundColor: out ? kOutBg : kInBg,
+          child: Icon(out ? Icons.north_east : Icons.south_west, size: 18, color: out ? kRed : kNavyFg)),
+      title: Text(x.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      subtitle: Text('${x.ref} · ${isToday ? 'Today' : fmt(x.date)}'),
+      trailing: Text('${out ? '-' : '+'}${peso(x.amt.abs())}',
+          style: TextStyle(fontWeight: FontWeight.w600, color: out ? kRed : kNavyFg)),
+      onTap: x.ref.isNotEmpty && x.ref != 'TXN' && !x.ref.startsWith('Just now')
+          ? () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                    backgroundColor: kBg,
+                    appBar: AppBar(
+                      backgroundColor: kBg,
+                      foregroundColor: kInk,
+                      title: Text('Track ${x.ref}', style: TextStyle(color: kInk, fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                    body: TrackingView(trackingReference: x.ref),
+                  ),
+                ),
+              )
+          : null,
+    ),
   );
 }
 
