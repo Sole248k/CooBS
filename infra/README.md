@@ -106,7 +106,18 @@ Each command below creates or changes resources and costs money. Run them yourse
    az deployment group show --resource-group CooBS-rsg --name coobs-demo --query properties.outputs
    ```
 
-4. Publish the images: the pipeline pushes them from a `release/*` branch once the `coobs-acr` service connection exists. Note the tag.
+4. Publish the images and note the tag. There are two ways:
+
+   - **From a machine with Docker**, while the pipeline is switched off. Sign in to the registry, then build and push the twelve deployed services from a clean checkout of the commit to deploy. `-DryRun` prints the commands without running them.
+
+     ```
+     az acr login --name CooBS
+     ./infra/scripts/publish-images.ps1 -ImageTag <tag>
+     ```
+
+   - **From the pipeline**, which pushes them from a `release/*` branch once the `coobs-acr` service connection exists.
+
+   Building inside the registry (`az acr build`) is not an option to plan on: the subscription is a free trial, and registry build tasks are not expected to be allowed on one. Not tried.
 
 5. Deploy the cloud zone. This generates the application secrets into Key Vault, creates the Kubernetes Secret, loads the four databases with a Job in the cluster, and applies `infra/k8s`. It prints the gateway's public address and the exact command for step 6.
 
