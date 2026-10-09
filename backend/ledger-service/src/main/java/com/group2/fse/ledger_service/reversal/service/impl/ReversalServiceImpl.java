@@ -18,14 +18,11 @@ import com.group2.fse.ledger_service.reversal.dto.ReversalResponseDto;
 import com.group2.fse.ledger_service.reversal.service.ReversalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -46,9 +43,6 @@ public class ReversalServiceImpl implements ReversalService {
 
     private final PostingEngine postingEngine;
     private final TransactionRepository transactionRepository;
-
-    @Autowired(required = false)
-    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     @Transactional
@@ -261,9 +255,6 @@ public class ReversalServiceImpl implements ReversalService {
                 clientIp
         );
 
-        // Increment Redis daily reversal counter for customer velocity tracking
-        recordReversalMetric(senderAccount);
-
         log.info("Completed transfer reversal: revRef={}, senderAcct={}, recipientAcct={}, amount={}",
                 reversalRef, senderAccountId, recipientAccountId, amount);
 
@@ -345,8 +336,6 @@ public class ReversalServiceImpl implements ReversalService {
                 clientIp
         );
 
-        recordReversalMetric(account);
-
         return List.of(
                 ReversalEntryDto.builder()
                         .transactionId(revTxn.getTransactionId())
@@ -356,20 +345,5 @@ public class ReversalServiceImpl implements ReversalService {
                         .newBalance(newBalance.setScale(2, RoundingMode.HALF_UP))
                         .build()
         );
-    }
-
-    private void recordReversalMetric(Account account) {
-        if (stringRedisTemplate != null && account != null && account.getCustomer() != null && account.getCustomer().getCustomerId() != null) {
-            try {
-                Long customerId = account.getCustomer().getCustomerId();
-                String today = LocalDate.now(ZoneOffset.UTC).toString();
-                String key = "risk:daily:reversals:" + customerId + ":" + today;
-                stringRedisTemplate.opsForValue().increment(key);
-                stringRedisTemplate.expire(key, Duration.ofHours(24));
-                log.info("Incremented Redis daily reversal counter for customer {}: key={}", customerId, key);
-            } catch (Exception ex) {
-                log.warn("Non-fatal error incrementing Redis reversal metric: {}", ex.getMessage());
-            }
-        }
     }
 }

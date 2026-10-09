@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -22,6 +23,7 @@ public class RiskClient {
 
     public static final String APPROVE = "APPROVE";
     public static final String FAILED = "FAILED";
+    public static final String REVERSED = "REVERSED";
 
     private final InternalApi api;
     private final RestClient http;
@@ -41,16 +43,21 @@ public class RiskClient {
                 .body(Decision.class));
     }
 
-    /** R2. Reports that a transfer the engine approved did not post; its reservation is given back. */
-    public OutcomeResult reportOutcome(UUID transactionId, String outcome) {
+    /**
+     * R2. Reports what became of a transfer: FAILED (approved, but it did not post, so its
+     * reservation is given back) or REVERSED (posted and reversed later, counted for the
+     * sending customer, who must then be named).
+     */
+    public OutcomeResult reportOutcome(UUID transactionId, String outcome, Long customerId) {
         return api.call(() -> http.post()
                 .uri("/internal/v1/risk/outcomes")
-                .body(new Outcome(transactionId, outcome))
+                .body(new Outcome(transactionId, outcome, customerId))
                 .retrieve()
                 .body(OutcomeResult.class));
     }
 
-    public record Outcome(UUID transactionId, String outcome) {
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Outcome(UUID transactionId, String outcome, Long customerId) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
