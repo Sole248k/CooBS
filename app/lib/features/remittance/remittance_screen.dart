@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../data/mobile_repo.dart';
+import '../resilience/service_unavailable_view.dart';
 
 /// Parses "1234.5" into centavos (123450) without floating-point math. Null if invalid.
 int? centavos(String t) {
@@ -91,8 +92,22 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
         resp = await MobileRepo.submitRemittance(body, idempotencyKey: activeIdemKey);
         final ref = resp['referenceNo'] ?? resp['trackingReference'] ?? '';
         tl = await MobileRepo.timeline(ref.toString());
+      } on CircuitBreakerOpenException catch (cbe) {
+        if (!mounted) return;
+        setState(() => busy = false);
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => ServiceUnavailableView(cooldown: cbe.remainingCooldown),
+        ));
+        return;
       } on ProblemDetailsException catch (pde) {
         if (!mounted) return;
+        if (pde.statusCode == 503) {
+          setState(() => busy = false);
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const ServiceUnavailableView(),
+          ));
+          return;
+        }
         setState(() {
           busy = false;
           problem = {
@@ -105,6 +120,13 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
         return;
       } catch (ex) {
         if (!mounted) return;
+        if (ex is ConnectionException || (ex is ApiException && ex.statusCode == 503)) {
+          setState(() => busy = false);
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const ServiceUnavailableView(),
+          ));
+          return;
+        }
         setState(() {
           busy = false;
           problem = {
@@ -382,6 +404,17 @@ class _RemittanceFormState extends State<RemittanceForm> {
       }
     } catch (e) {
       if (mounted) {
+        if (e is CircuitBreakerOpenException) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => ServiceUnavailableView(cooldown: e.remainingCooldown),
+          ));
+          return;
+        } else if ((e is ApiException && e.statusCode == 503) || e is ConnectionException) {
+          Navigator.push(context, MaterialPageRoute(
+            builder: (_) => const ServiceUnavailableView(),
+          ));
+          return;
+        }
         final message = e is ApiException
             ? e.message
             : 'Transfer failed. Please check network connection or account status.';

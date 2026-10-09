@@ -396,11 +396,17 @@ class ApiClient {
       return 'T1-transfer.response.json';
     }
     if (lower.contains('/timeline')) {
+      if (lower.contains('dlq') || queryParams?['dlq'] == 'true') {
+        return 'T3-timeline-dlq.response.json';
+      }
       final view = queryParams?['view']?.toLowerCase();
       if (view == 'staff') {
         return 'T3-timeline-staff.response.json';
       }
       return 'T3-timeline-customer.response.json';
+    }
+    if (lower.contains('/dlq') || lower.contains('replay')) {
+      return 'T7-dlq-replay.response.json';
     }
     if (lower.contains('/transactions/')) {
       return 'T2-transaction.response.json';
@@ -525,6 +531,50 @@ class ApiClient {
           {'stageNo': 10, 'stageNumber': 10, 'stageKey': 'NOTIFICATIONS_DISPATCHED', 'title': 'Member Notifications Sent', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:01.100Z'},
           {'stageNo': 11, 'stageNumber': 11, 'stageKey': 'COMPLETED', 'title': 'Saga Fully Reconciled', 'service': 'orchestration-service', 'status': 'COMPLETED', 'occurredAt': '2026-10-03T11:40:01.400Z'}
         ]
+      };
+    }
+    if (filename.contains('timeline-dlq')) {
+      return {
+        'transactionId': '6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11',
+        'trackingReference': 'TX-20261003-8F3A21C0',
+        'status': 'FAILED',
+        'overallStatus': 'FAILED',
+        'view': 'STAFF',
+        'currentStage': 10,
+        'totalStages': 11,
+        'failureMessage': 'Notification dispatch poison pill routed to dead-letter queue (DLQ)',
+        'stages': [
+          {'stageNo': 1, 'stageNumber': 1, 'stageKey': 'INGRESS_ACCEPTED', 'title': 'Ingress Accepted', 'service': 'transaction-service', 'status': 'COMPLETED'},
+          {'stageNo': 2, 'stageNumber': 2, 'stageKey': 'PREFLIGHT_VALIDATED', 'title': 'Pre-flight Solvency Checked', 'service': 'transaction-service', 'status': 'COMPLETED'},
+          {'stageNo': 3, 'stageNumber': 3, 'stageKey': 'DISPATCHED_TO_ORCHESTRATOR', 'title': 'Dispatched to Orchestrator', 'service': 'transaction-service', 'status': 'COMPLETED'},
+          {'stageNo': 4, 'stageNumber': 4, 'stageKey': 'SAGA_INITIALIZED', 'title': 'Saga State Machine Initialized', 'service': 'orchestration-service', 'status': 'COMPLETED'},
+          {'stageNo': 5, 'stageNumber': 5, 'stageKey': 'RISK_EVALUATION_REQUESTED', 'title': 'Risk Evaluation Requested', 'service': 'orchestration-service', 'status': 'COMPLETED'},
+          {'stageNo': 6, 'stageNumber': 6, 'stageKey': 'RISK_EVALUATION_COMPLETED', 'title': 'Risk Screening Passed', 'service': 'orchestration-service', 'status': 'COMPLETED'},
+          {'stageNo': 7, 'stageNumber': 7, 'stageKey': 'LEDGER_HOLD_RESERVED', 'title': 'Ledger Balance Hold Reserved', 'service': 'ledger-service', 'status': 'COMPLETED'},
+          {'stageNo': 8, 'stageNumber': 8, 'stageKey': 'LEDGER_POSTED', 'title': 'Double-Entry SoR Committed', 'service': 'ledger-service', 'status': 'COMPLETED'},
+          {'stageNo': 9, 'stageNumber': 9, 'stageKey': 'EVENT_EMITTED', 'title': 'Domain Event Emitted', 'service': 'notification-service', 'status': 'COMPLETED'},
+          {
+            'stageNo': 10,
+            'stageNumber': 10,
+            'stageKey': 'NOTIFICATIONS_DISPATCHED',
+            'title': 'Member Notifications Sent',
+            'service': 'notification-service',
+            'status': 'FAILED',
+            'detail': 'Poison pill routed to notification.events.DLT after 3 backoff retries exhausted',
+            'isDlq': true,
+            'retryAttempts': 3,
+            'dlqTopic': 'notification.events.DLT'
+          },
+          {'stageNo': 11, 'stageNumber': 11, 'stageKey': 'COMPLETED', 'title': 'Saga Fully Reconciled', 'service': 'orchestration-service', 'status': 'PENDING'}
+        ]
+      };
+    }
+    if (filename.contains('replay') || filename.contains('dlq-replay')) {
+      return {
+        'status': 'REPLAYED',
+        'topic': 'notification.events.DLT',
+        'replayedCount': 1,
+        'message': 'Successfully replayed DLQ record to original Kafka topic',
       };
     }
     if (filename.contains('transfer') || filename.contains('remittance')) {
