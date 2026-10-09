@@ -55,7 +55,8 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
   }
 
   Future<void> submit(Map o) async {
-    if (Demo.i.accts.isEmpty) return;
+    // Re-tap guard: a second tap can arrive before the rebuild disables the button.
+    if (busy || Demo.i.accts.isEmpty) return;
     final safeSrc = src < Demo.i.accts.length ? src : 0;
     final a = Demo.i.accts[safeSrc];
     final b = (o['banks'] as List).firstWhere((x) => x['code'] == bank) as Map;
@@ -367,11 +368,15 @@ class RemittanceForm extends StatefulWidget {
   final double? availableBalance;
   final void Function(String trackingReference)? onSuccess;
 
+  /// Injected in tests; the form builds its own client otherwise.
+  final ApiClient? apiClient;
+
   const RemittanceForm({
     super.key,
     this.defaultSourceAccount,
     this.availableBalance,
     this.onSuccess,
+    this.apiClient,
   });
 
   @override
@@ -380,7 +385,7 @@ class RemittanceForm extends StatefulWidget {
 
 class _RemittanceFormState extends State<RemittanceForm> {
   final _formKey = GlobalKey<FormState>();
-  final ApiClient _apiClient = ApiClient();
+  late final ApiClient _apiClient = widget.apiClient ?? ApiClient();
 
   late final TextEditingController _sourceController;
   late final TextEditingController _destinationController;
@@ -425,7 +430,8 @@ class _RemittanceFormState extends State<RemittanceForm> {
   }
 
   Future<void> _submitTransfer() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Re-tap guard: a second tap can arrive before the rebuild disables the button.
+    if (_isSubmitting || !_formKey.currentState!.validate()) return;
 
     final source = _sourceController.text.trim();
     final dest = _destinationController.text.trim();
