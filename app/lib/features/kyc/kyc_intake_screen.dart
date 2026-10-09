@@ -91,7 +91,7 @@ class _KycIntakeScreenState extends State<KycIntakeScreen> {
           statRow('Mode', 'Simulated (no real verification)'),
         ]),
         if (st == 'PENDING_REVIEW') ...[
-          const Padding(padding: EdgeInsets.only(top: 16, bottom: 4), child: Text('Tester: simulate the teller decision', style: TextStyle(color: kMut, fontSize: 12))),
+          Padding(padding: EdgeInsets.only(top: 16, bottom: 4), child: Text('Tester: simulate the teller decision', style: TextStyle(color: kMut, fontSize: 12))),
           Row(children: [
             Expanded(child: OutlinedButton(onPressed: busy ? null : () => decide('VERIFIED'), child: const Text('Approve'))),
             const SizedBox(width: 10),
@@ -117,7 +117,7 @@ class _KycIntakeScreenState extends State<KycIntakeScreen> {
             final st = Demo.i.kyc;
             if (!editing && st != 'UNVERIFIED') return Pg('Verify identity', [status(st)]);
             return Pg('Verify identity', [
-              const Padding(padding: EdgeInsets.only(bottom: 14), child: Text('Sample details are prefilled. A teller review is simulated.', style: TextStyle(color: kMut, fontSize: 13))),
+              Padding(padding: EdgeInsets.only(bottom: 14), child: Text('Sample details are prefilled. A teller review is simulated.', style: TextStyle(color: kMut, fontSize: 13))),
               f('firstName', 'First name'),
               f('middleInitial', 'Middle initial'),
               f('lastName', 'Last name'),

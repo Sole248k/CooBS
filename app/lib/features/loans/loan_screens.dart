@@ -72,7 +72,7 @@ class _LoanApplyPageState extends State<LoanApplyPage> {
     final labels = ['Continue', 'Next', 'Request approval', 'Done'];
     return Pg(step == 0 ? 'Apply for a loan' : step == 3 ? 'Loan preview' : 'Loan details',
         [...body[step], bigBtn(labels[step], step == 3 ? () => Navigator.pop(context) : next)],
-        chip: step == 1 || step == 2 ? Text('$step / 2', style: const TextStyle(color: kBlue, fontWeight: FontWeight.w700)) : null,
+        chip: step == 1 || step == 2 ? Text('$step / 2', style: TextStyle(color: kBlue, fontWeight: FontWeight.w700)) : null,
         onBack: () => step == 0 || step == 3 ? Navigator.pop(context) : setState(() => step--));
   }
 }
@@ -164,7 +164,7 @@ class _PayAdvanceSheetState extends State<PayAdvanceSheet> {
       padding: EdgeInsets.fromLTRB(20, 22, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Pay in Advance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        const Text('Pay now to settle your next bill early. Any extra goes to the following bills.', style: TextStyle(color: kMut, fontSize: 13)),
+        Text('Pay now to settle your next bill early. Any extra goes to the following bills.', style: TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
         if (acctOptions.isNotEmpty && selectedLabel != null)
           dd('Pay from', acctOptions, selectedLabel, (x) {
@@ -172,7 +172,7 @@ class _PayAdvanceSheetState extends State<PayAdvanceSheet> {
             if (idx != -1) setState(() => selectedAcctIndex = idx);
           }),
         tf(amt, 'Amount (₱)', k: const TextInputType.numberWithOptions(decimal: true)),
-        Text('Outstanding balance: ${peso(d.loan!.balance)}', style: const TextStyle(color: kMut, fontSize: 12)),
+        Text('Outstanding balance: ${peso(d.loan!.balance)}', style: TextStyle(color: kMut, fontSize: 12)),
         bigBtn('Pay', () {
           final v = double.tryParse(amt.text) ?? 0;
           if (selectedAcctIndex < 0 || selectedAcctIndex >= d.accts.length) {

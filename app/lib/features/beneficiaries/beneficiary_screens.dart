@@ -24,7 +24,9 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
   }
 
   Future<void> _loadBeneficiaries() async {
-    setState(() => _isLoading = true);
+    if (!_isLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final json = await _apiClient.get('/customers/me/beneficiaries');
       List<dynamic> list = [];
@@ -80,13 +82,13 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
         'Beneficiaries',
         [
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(child: CircularProgressIndicator(color: kNavy)),
             )
           else if (_beneficiaries.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(40),
+            Padding(
+              padding: const EdgeInsets.all(40),
               child: Center(
                 child: Text('No saved beneficiaries yet', style: TextStyle(color: kMut)),
               ),
@@ -96,14 +98,14 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
               child: Column(children: [
                 for (final b in _beneficiaries)
                   ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Color(0xFFE4EDFF),
-                      child: Icon(Icons.person_outline, color: kNavy),
+                    leading: CircleAvatar(
+                      backgroundColor: kInBg,
+                      child: Icon(Icons.person_outline, color: kNavyFg),
                     ),
                     title: Text(b.nickname, style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text('${b.bankCode} · ${b.accountNumber}'),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20, color: kMut),
+                      icon: Icon(Icons.delete_outline, size: 20, color: kMut),
                       onPressed: () => _deleteBeneficiary(b),
                     ),
                   ),
@@ -211,7 +213,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Provide the destination account and quick reference name.',
           style: TextStyle(color: kMut, fontSize: 13),
         ),
@@ -226,7 +228,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Provide the legal identity of the recipient.',
           style: TextStyle(color: kMut, fontSize: 13),
         ),
@@ -243,7 +245,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Provide optional residence notes or confirmation.',
           style: TextStyle(color: kMut, fontSize: 13),
         ),
@@ -274,13 +276,13 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
       [
         ...body[step],
         _isSubmitting
-            ? const Padding(
-                padding: EdgeInsets.only(top: 20),
+            ? Padding(
+                padding: const EdgeInsets.only(top: 20),
                 child: Center(child: CircularProgressIndicator(color: kNavy)),
               )
             : bigBtn(step == 2 ? 'Save Beneficiary' : 'Next', next),
       ],
-      chip: Text('${step + 1} / 3', style: const TextStyle(color: kBlue, fontWeight: FontWeight.w700)),
+      chip: Text('${step + 1} / 3', style: TextStyle(color: kBlue, fontWeight: FontWeight.w700)),
       onBack: () => step == 0 ? Navigator.pop(context) : setState(() => step--),
     );
   }

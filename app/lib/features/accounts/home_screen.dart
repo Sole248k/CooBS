@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/theme/theme_controller.dart';
 import '../../shell/app_shell.dart';
 import '../beneficiaries/beneficiary_screens.dart';
 import '../kyc/kyc_intake_screen.dart';
@@ -23,80 +24,91 @@ class MobileShell extends StatefulWidget {
 class _MobileShellState extends State<MobileShell> {
   int i = 0;
   static const _home = 0, _scores = 1, _alerts = 2, _bens = 3, _profile = 4;
+  late final Future<String?> _usernameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameFuture = SecureStorageService().getUsername();
+  }
 
   void _goHome() => setState(() => i = _home);
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: kBg,
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Column(children: [
-                if (i != _scores && i != _bens)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    logoBox(),
-                    Row(children: [
-                    AnimatedBuilder(
-                      animation: Demo.i,
-                      builder: (context, _) => InkWell(
-                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycIntakeScreen())),
-                          child: kycChip(Demo.i.kyc)),
-                    ),
-                    const SizedBox(width: 8),
-                    FutureBuilder<String?>(
-                      future: SecureStorageService().getUsername(),
-                      builder: (context, snapshot) {
-                        final user = snapshot.data ?? 'john_doe';
-                        return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(20)),
-                            child: Text('@$user', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)));
-                      },
-                    ),
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: ThemeController.i,
+        builder: (context, _) => Scaffold(
+          backgroundColor: kBg,
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Column(children: [
+                  if (i != _scores && i != _bens)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      logoBox(),
+                      Row(children: [
+                      AnimatedBuilder(
+                        animation: Demo.i,
+                        builder: (context, _) => InkWell(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KycIntakeScreen())),
+                            child: kycChip(Demo.i.kyc)),
+                      ),
+                      const SizedBox(width: 8),
+                      FutureBuilder<String?>(
+                        future: _usernameFuture,
+                        builder: (context, snapshot) {
+                          final user = snapshot.data ?? 'john_doe';
+                          return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(color: kNavy, borderRadius: BorderRadius.circular(20)),
+                              child: Text('@$user', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)));
+                        },
+                      ),
+                      ]),
                     ]),
-                  ]),
-                ),
-                Expanded(
-                  child: IndexedStack(index: i, children: [
-                    const HomeScreen(),
-                    ScoresPage(onBack: _goHome),
-                    const AlertsScreen(),
-                    BeneficiariesPage(onBack: _goHome),
-                    const ProfileScreen(),
-                  ]),
-                ),
-              ]),
+                  ),
+                  Expanded(
+                    child: IndexedStack(index: i, children: [
+                      const HomeScreen(),
+                      ScoresPage(onBack: _goHome),
+                      const AlertsScreen(),
+                      BeneficiariesPage(onBack: _goHome),
+                      const ProfileScreen(),
+                    ]),
+                  ),
+                ]),
+              ),
             ),
           ),
-        ),
-        bottomNavigationBar: SafeArea(
-          child: Center(
-            heightFactor: 1.0,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: Container(
-                height: 72,
-                margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(color: const Color(0xFFE6E9E8), width: 0.5),
-                ),
-                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  _NavCircle(Icons.home_outlined, 'Home', i == _home, () => setState(() => i = _home)),
-                  _NavCircle(Icons.bar_chart_rounded, 'Scores and habits', i == _scores, () => setState(() => i = _scores)),
-                  ListenableBuilder(
-                    listenable: Demo.i,
-                    builder: (context, _) => _AlertsNavButton(Demo.i.unread, i == _alerts, () => setState(() => i = _alerts)),
+          bottomNavigationBar: SafeArea(
+            child: Center(
+              heightFactor: 1.0,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 600),
+                child: Container(
+                  height: 72,
+                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: kSurface,
+                    borderRadius: BorderRadius.circular(36),
+                    border: Border.all(color: kLine, width: 0.5),
+                    boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 2))],
                   ),
-                  _NavCircle(Icons.groups_outlined, 'Beneficiaries', i == _bens, () => setState(() => i = _bens)),
-                  _NavCircle(Icons.person_outline, 'Profile', i == _profile, () => setState(() => i = _profile)),
-                ]),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    _NavCircle(Icons.home_outlined, 'Home', i == _home, () => setState(() => i = _home)),
+                    _NavCircle(Icons.bar_chart_rounded, 'Scores and habits', i == _scores, () => setState(() => i = _scores)),
+                    ListenableBuilder(
+                      listenable: Demo.i,
+                      builder: (context, _) => _AlertsNavButton(Demo.i.unread, i == _alerts, () => setState(() => i = _alerts)),
+                    ),
+                    _NavCircle(Icons.groups_outlined, 'Beneficiaries', i == _bens, () => setState(() => i = _bens)),
+                    _NavCircle(Icons.person_outline, 'Profile', i == _profile, () => setState(() => i = _profile)),
+                  ]),
+                ),
               ),
             ),
           ),
@@ -113,29 +125,45 @@ class _NavCircle extends StatelessWidget {
   const _NavCircle(this.icon, this.label, this.selected, this.onTap);
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        selected: selected,
-        label: label,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-            Material(
-              color: selected ? const Color(0xFFDADDE1) : const Color(0xFFF4F4F5),
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onTap,
-                child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 20, color: Colors.black)),
+  Widget build(BuildContext context) => Tooltip(
+        message: label,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: label,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+              Material(
+                color: selected
+                    ? (kDark ? const Color(0xFF33415A) : const Color(0xFFDADDE1))
+                    : (kDark ? const Color(0xFF222C3D) : const Color(0xFFF4F4F5)),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onTap,
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(icon, size: 20, color: kDark ? const Color(0xFFE6EAF0) : Colors.black),
+                  ),
+                ),
               ),
-            ),
-            if (selected)
-              Positioned(
-                bottom: -8,
-                child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)),
-              ),
-          ]),
+              if (selected)
+                Positioned(
+                  bottom: -8,
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: kDark ? const Color(0xFFE6EAF0) : Colors.black,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ]),
+          ),
         ),
       );
 }
@@ -148,39 +176,42 @@ class _AlertsNavButton extends StatelessWidget {
   const _AlertsNavButton(this.unread, this.selected, this.onTap);
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        selected: selected,
-        label: unread > 0 ? 'Alerts, $unread unread' : 'Alerts',
-        child: SizedBox(
-          width: 60,
-          height: 60,
-          child: Stack(clipBehavior: Clip.none, children: [
-            Material(
-              color: kNavy,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onTap,
-                child: const SizedBox(width: 60, height: 60, child: Icon(Icons.notifications_none, size: 26, color: Colors.white)),
-              ),
-            ),
-            if (unread > 0)
-              Positioned(
-                top: 2,
-                right: 2,
-                child: IgnorePointer(
-                  child: Container(
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(8)),
-                    child: Text(unread > 9 ? '9+' : '$unread',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700, height: 1)),
-                  ),
+  Widget build(BuildContext context) => Tooltip(
+        message: unread > 0 ? 'Alerts ($unread)' : 'Alerts',
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: unread > 0 ? 'Alerts, $unread unread' : 'Alerts',
+          child: SizedBox(
+            width: 60,
+            height: 60,
+            child: Stack(clipBehavior: Clip.none, children: [
+              Material(
+                color: kDark ? const Color(0xFF2B5BD0) : const Color(0xFF14305F),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onTap,
+                  child: const SizedBox(width: 60, height: 60, child: Icon(Icons.notifications_none, size: 26, color: Colors.white)),
                 ),
               ),
-          ]),
+              if (unread > 0)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: IgnorePointer(
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: const Color(0xFFC0392B), borderRadius: BorderRadius.circular(8)),
+                      child: Text(unread > 9 ? '9+' : '$unread',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700, height: 1)),
+                    ),
+                  ),
+                ),
+            ]),
+          ),
         ),
       );
 }
@@ -224,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                  child: Text(status, style: const TextStyle(fontSize: 11, color: kInk, fontWeight: FontWeight.w600))),
+                  child: Text(status, style: const TextStyle(fontSize: 11, color: Color(0xFF14231B), fontWeight: FontWeight.w600))),
             ]),
             ...kids,
           ]),
@@ -309,13 +340,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SizedBox(
           width: 100,
           child: Column(children: [
-            CircleAvatar(radius: 32, backgroundColor: const Color(0xFFCBD3DC), child: Icon(ic, color: kNavy, size: 26)),
+            CircleAvatar(radius: 32, backgroundColor: kDark ? const Color(0xFF222C3D) : const Color(0xFFCBD3DC), child: Icon(ic, color: kNavyFg, size: 26)),
             const SizedBox(height: 8),
-            Text(t, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+            Text(t, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: kInk)),
           ]),
         ),
       );
-
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: d,
@@ -360,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 for (var i = 0; i < pageCount; i++)
                   Container(
                       margin: const EdgeInsets.fromLTRB(3, 12, 3, 0), width: d.cur == i ? 18 : 7, height: 7,
-                      decoration: BoxDecoration(color: d.cur == i ? kInk : const Color(0xFFC3CCC7), borderRadius: BorderRadius.circular(4))),
+                      decoration: BoxDecoration(color: d.cur == i ? kInk : kDot, borderRadius: BorderRadius.circular(4))),
               ]),
               if (d.kyc != 'VERIFIED')
                 Padding(
@@ -401,9 +431,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? const Text('All bills are fully paid.')
                           : Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                const Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
+                                Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
                                 Text(peso(r2(nb.amt - nb.paid)), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-                                Text('Due Date on ${fmt(nb.due)}', style: const TextStyle(fontSize: 12, color: kMut)),
+                                Text('Due Date on ${fmt(nb.due)}', style: TextStyle(fontSize: 12, color: kMut)),
                               ]),
                               SizedBox(
                                   width: 150,
@@ -418,7 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                       const Text('Recent transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                       if (tx.isNotEmpty)
-                        TextButton(onPressed: () => go(const SeeAllPage()), child: const Text('See all', style: TextStyle(color: kBlue))),
+                        TextButton(onPressed: () => go(const SeeAllPage()), child: Text('See all', style: TextStyle(color: kBlue))),
                     ]),
                   ),
                   failed
@@ -426,13 +456,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       : tx.isEmpty
                       ? Container(
                           width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 44),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                          decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(16)),
                           child: Column(children: [
-                            const Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF9AA5AD))),
-                            Text(isLoan ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
+                            Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kFaint)),
+                            Text(isLoan ? 'Apply for a loan' : 'No transactions yet', style: TextStyle(color: kFaint)),
                           ]))
                       : txCard(tx.take(5).toList()),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 12),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
                     circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const ScoresPage())),
                     circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
@@ -446,7 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       );
-}
+  }
 
 class MoneySheet extends StatefulWidget {
   final int from;
@@ -471,7 +501,7 @@ class _MoneySheetState extends State<MoneySheet> {
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(widget.transfer ? 'Transfer' : 'Deposit', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
         Text(widget.transfer ? 'From ${a.no} (${peso(a.bal)}) to another bank.' : (to != null ? 'Move money from ${a.no} to your other account.' : 'Cash deposit to ${a.no}.'),
-            style: const TextStyle(color: kMut, fontSize: 13)),
+            style: TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
         if (widget.transfer) ...[
           Padding(
@@ -535,7 +565,7 @@ class SeeAllPage extends StatelessWidget {
 
 class _Skeleton extends StatelessWidget {
   const _Skeleton();
-  Widget bar(double h, [double? w]) => Container(height: h, width: w, decoration: BoxDecoration(color: const Color(0xFFE3E8EC), borderRadius: BorderRadius.circular(14)));
+  Widget bar(double h, [double? w]) => Container(height: h, width: w, decoration: BoxDecoration(color: kSkel, borderRadius: BorderRadius.circular(14)));
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),

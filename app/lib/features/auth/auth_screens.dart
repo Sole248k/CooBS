@@ -99,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             const Text('Backend Gateway URL', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            const Text('Configure the Spring Cloud Gateway address running in Docker.', style: TextStyle(color: kMut, fontSize: 13)),
+            Text('Configure the Spring Cloud Gateway address running in Docker.', style: TextStyle(color: kMut, fontSize: 13)),
             const SizedBox(height: 14),
             tf(c, 'Gateway Base URL (e.g. http://192.168.254.126:8080)'),
             const SizedBox(height: 8),
@@ -150,14 +150,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     logoBox(),
                     IconButton(
                       tooltip: 'Server Connection',
-                      icon: const Icon(Icons.dns_outlined, color: kNavy),
+                      icon: Icon(Icons.dns_outlined, color: kNavy),
                       onPressed: _showServerSettings,
                     ),
                   ],
                 ),
                 const SizedBox(height: 30),
                 const Text('Welcome back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                const Padding(padding: EdgeInsets.only(top: 4, bottom: 20), child: Text('Log in to see your accounts.', style: TextStyle(color: kMut))),
+                Padding(padding: EdgeInsets.only(top: 4, bottom: 20), child: Text('Log in to see your accounts.', style: TextStyle(color: kMut))),
                 tf(u, 'Username'),
                 tf(p, 'Password', obscure: true),
                 Align(alignment: Alignment.centerLeft, child: TextButton(onPressed: () => _push(context, const ForgotPage()), child: const Text('Forgot password?'))),
@@ -179,7 +179,7 @@ class ForgotPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final e = TextEditingController();
     return Pg('Forgot password', [
-      const Padding(padding: EdgeInsets.only(bottom: 16), child: Text("Enter your email and we'll send a reset link.", style: TextStyle(color: kMut))),
+      Padding(padding: EdgeInsets.only(bottom: 16), child: Text("Enter your email and we'll send a reset link.", style: TextStyle(color: kMut))),
       tf(e, 'Email', k: TextInputType.emailAddress),
       bigBtn('Send reset link', () {
         final m = ScaffoldMessenger.of(context);
@@ -211,7 +211,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) => Pg('Create account', [
-        const Padding(padding: EdgeInsets.only(bottom: 14), child: Text('Step 1 of 2: your basic details.', style: TextStyle(color: kMut))),
+        Padding(padding: EdgeInsets.only(bottom: 14), child: Text('Step 1 of 2: your basic details.', style: TextStyle(color: kMut))),
         tf(t('first'), 'First name'),
         tf(t('mid'), 'Middle name'),
         tf(t('last'), 'Last name'),
@@ -242,7 +242,7 @@ class _KycVerifyPageState extends State<KycVerifyPage> {
   Widget upload(String label, String hint) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: kMut)),
+          Text(label, style: TextStyle(fontSize: 12, color: kMut)),
           const SizedBox(height: 6),
           OutlinedButton(
               onPressed: () => snack(context, 'Upload is a placeholder'),
@@ -264,12 +264,12 @@ class _KycVerifyPageState extends State<KycVerifyPage> {
 
   @override
   Widget build(BuildContext context) => Pg('Verify your identity', [
-        const Padding(padding: EdgeInsets.only(bottom: 14), child: Text('A teller reviews this before your accounts open.', style: TextStyle(color: kMut))),
+        Padding(padding: EdgeInsets.only(bottom: 14), child: Text('A teller reviews this before your accounts open.', style: TextStyle(color: kMut))),
         dd('ID type', const ['Passport', "Driver's license", 'UMID', 'National ID'], idType, (x) => idType = x),
         upload('ID front', 'Tap to upload'),
         upload('ID back', 'Tap to upload'),
         upload('Selfie holding your ID', 'Open camera'),
         bigBtn('Submit for review', done),
         if (!widget.fromProfile) TextButton(onPressed: () => toApp(context), child: const Text('Do this later')),
-      ], chip: widget.fromProfile ? null : const Text('2 / 2', style: TextStyle(color: kBlue, fontWeight: FontWeight.w700)));
+      ], chip: widget.fromProfile ? null : Text('2 / 2', style: TextStyle(color: kBlue, fontWeight: FontWeight.w700)));
 }

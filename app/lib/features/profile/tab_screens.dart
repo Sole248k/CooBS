@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/models/models.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/theme/theme_controller.dart';
 import '../../shell/app_shell.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
@@ -12,7 +13,7 @@ import '../kyc/kyc_intake_screen.dart';
 
 Widget _title(String t) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
-    child: Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)));
+    child: Text(t, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kInk)));
 
 Future<void> _handleLogout(BuildContext context) async {
   try {
@@ -29,7 +30,7 @@ Future<void> _handleLogout(BuildContext context) async {
   }
 }
 
-/// Dummy Pay QR screen (no camera yet).
+/// Dummy Pay QR screen (no camera yet). Currently not in the mobile navbar; kept for a later phase.
 class PayQrScreen extends StatelessWidget {
   const PayQrScreen({super.key});
   @override
@@ -39,16 +40,16 @@ class PayQrScreen extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(16)),
             child: Column(children: [
               Container(
                   width: 200, height: 200,
                   decoration: BoxDecoration(border: Border.all(width: 3), borderRadius: BorderRadius.circular(14)),
                   child: const Icon(Icons.qr_code_scanner, size: 80)),
               const SizedBox(height: 20),
-              const Text('Scan a QR code to pay from the selected account.', textAlign: TextAlign.center, style: TextStyle(color: kMut)),
+              Text('Scan a QR code to pay from the selected account.', textAlign: TextAlign.center, style: TextStyle(color: kMut)),
               const SizedBox(height: 6),
-              const Text('Placeholder screen', style: TextStyle(color: kMut, fontSize: 12)),
+              Text('Placeholder screen', style: TextStyle(color: kMut, fontSize: 12)),
             ]),
           ),
         ),
@@ -74,7 +75,9 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    setState(() => _isLoading = true);
+    if (!_isLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final json = await _apiClient.get('/notifications/my-notifications');
       final page = NotificationPageResponse.fromJson(json);
@@ -139,8 +142,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
         children: [
           _title('Notifications'),
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(
                 child: CircularProgressIndicator(color: kNavy),
               ),
@@ -156,7 +159,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   margin: EdgeInsets.zero,
                   child: ListTile(
                     title: Text(a[0], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    subtitle: Text(a[1], style: const TextStyle(color: kMut, fontSize: 12)),
+                    subtitle: Text(a[1], style: TextStyle(color: kMut, fontSize: 12)),
                   ),
                 ),
               ),
@@ -171,7 +174,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     const SizedBox(height: 12),
                     const Text('No notifications yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'Transaction alerts and updates will appear here.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: kMut, fontSize: 13),
@@ -236,7 +239,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                               width: 8,
                               height: 8,
                               margin: const EdgeInsets.only(left: 6),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: kBlue,
                                 shape: BoxShape.circle,
                               ),
@@ -273,8 +276,22 @@ class _AlertsScreenState extends State<AlertsScreen> {
   }
 }
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  late final Future<String?> _usernameFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameFuture = SecureStorageService().getUsername();
+  }
+
   void go(BuildContext c, Widget w) => Navigator.push(c, MaterialPageRoute(builder: (_) => w));
 
   @override
@@ -285,11 +302,11 @@ class ProfileScreen extends StatelessWidget {
           child: Card(
             child: Column(children: [
               FutureBuilder<String?>(
-                future: SecureStorageService().getUsername(),
+                future: _usernameFuture,
                 builder: (context, snapshot) {
                   final username = snapshot.data ?? 'john_doe';
                   return ListTile(
-                    leading: const CircleAvatar(backgroundColor: Color(0xFFE4EDFF), child: Icon(Icons.person_outline, color: kNavy)),
+                    leading: CircleAvatar(backgroundColor: kInBg, child: Icon(Icons.person_outline, color: kNavyFg)),
                     title: Text(username, style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: const Text('Customer'),
                   );
@@ -309,13 +326,28 @@ class ProfileScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => go(context, const AppShell()),
               ),
+              ListenableBuilder(
+                listenable: ThemeController.i,
+                builder: (context, _) => SwitchListTile(
+                  secondary: const Icon(Icons.dark_mode_outlined),
+                  title: const Text('Dark mode'),
+                  subtitle: Text(ThemeController.i.dark ? 'On' : 'Off'),
+                  value: ThemeController.i.dark,
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: kBlue,
+                  inactiveThumbColor: Colors.white,
+                  inactiveTrackColor: const Color(0xFFC7CDD3),
+                  trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+                  onChanged: ThemeController.i.setDark,
+                ),
+              ),
               ListTile(
                   title: const Text('Log out'),
                   onTap: () => _handleLogout(context)),
             ]),
           ),
         ),
-        const Padding(padding: EdgeInsets.fromLTRB(20, 20, 20, 6), child: Text('Tester tools', style: TextStyle(fontSize: 12, color: kMut))),
+        Padding(padding: EdgeInsets.fromLTRB(20, 20, 20, 6), child: Text('Tester tools', style: TextStyle(fontSize: 12, color: kMut))),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Card(
@@ -368,7 +400,9 @@ class _KycDetailsPageState extends State<KycDetailsPage> {
   }
 
   Future<void> _loadProfile() async {
-    setState(() => _isLoading = true);
+    if (!_isLoading && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final json = await _apiClient.get('/customers/me');
       final profile = CustomerProfileData.fromJson(json);
@@ -441,15 +475,15 @@ class _KycDetailsPageState extends State<KycDetailsPage> {
   @override
   Widget build(BuildContext context) => Pg('KYC details', [
         if (_isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(child: CircularProgressIndicator(color: kNavy)),
           )
         else ...[
           Row(children: [
             miniTag(_kycStatus),
             const SizedBox(width: 8),
-            const Flexible(child: Text('Changes need teller approval.', style: TextStyle(color: kMut, fontSize: 12))),
+            Flexible(child: Text('Changes need teller approval.', style: TextStyle(color: kMut, fontSize: 12))),
           ]),
           const SizedBox(height: 14),
           tf(_firstCtrl, 'First name'),
@@ -460,8 +494,8 @@ class _KycDetailsPageState extends State<KycDetailsPage> {
           tf(_occCtrl, 'Occupation'),
           tf(_mobCtrl, 'Mobile number', k: TextInputType.phone),
           _isSubmitting
-              ? const Padding(
-                  padding: EdgeInsets.only(top: 20),
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 20),
                   child: Center(child: CircularProgressIndicator(color: kNavy)),
                 )
               : bigBtn('Request update', _submitUpdateRequest),
@@ -480,7 +514,7 @@ class _SecurityPageState extends State<SecurityPage> {
 
   @override
   Widget build(BuildContext context) => Pg('Security & tokens', [
-        const Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Manage your password and signed-in devices.', style: TextStyle(color: kMut))),
+        Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Manage your password and signed-in devices.', style: TextStyle(color: kMut))),
         Card(
           child: Column(children: [
             ListTile(title: const Text('Access token'), subtitle: const Text('Expires in 14 min · auto-refreshes'), trailing: miniTag('Active')),

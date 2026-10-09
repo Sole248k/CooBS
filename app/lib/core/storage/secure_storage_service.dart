@@ -17,7 +17,10 @@ class SecureStorageService {
   SecureStorageService({FlutterSecureStorage? storage})
       : _storage = storage ??
             const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
+              aOptions: AndroidOptions(
+                encryptedSharedPreferences: true,
+                resetOnError: true,
+              ),
             );
 
   Future<void> saveTokens({
@@ -66,6 +69,7 @@ class SecureStorageService {
       _memoryFallback.remove(_keyUsername);
       return;
     }
+    // Delete only session keys so device preferences (e.g. dark mode) survive logout.
     try {
       await _storage.delete(key: _keyAccessToken);
       await _storage.delete(key: _keyRefreshToken);
