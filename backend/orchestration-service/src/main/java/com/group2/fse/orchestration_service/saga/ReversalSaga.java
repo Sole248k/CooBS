@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.group2.fse.orchestration_service.client.DownstreamException;
 import com.group2.fse.orchestration_service.client.InternalApi;
@@ -30,15 +31,15 @@ public class ReversalSaga {
     private final SagaRepository sagas;
     private final LedgerClient ledger;
     private final StageEvents events;
-    private final LimitRelease limit;
+    private final RiskOutcomes riskOutcomes;
     private final ObjectMapper objectMapper;
 
-    public ReversalSaga(SagaRepository sagas, LedgerClient ledger, StageEvents events, LimitRelease limit,
+    public ReversalSaga(SagaRepository sagas, LedgerClient ledger, StageEvents events, RiskOutcomes riskOutcomes,
             @Autowired(required = false) ObjectMapper objectMapper) {
         this.sagas = sagas;
         this.ledger = ledger;
         this.events = events;
-        this.limit = limit;
+        this.riskOutcomes = riskOutcomes;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
     }
 
@@ -123,6 +124,8 @@ public class ReversalSaga {
             events.passed(r.transactionId(), r.referenceNo(), Stage.LEDGER_UPDATE, null);
             events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
             events.passed(r.transactionId(), r.referenceNo(), Stage.RECONCILIATION, null);
+            // The engine counts reversals per customer and day; the limit the transfer used stays used.
+            riskOutcomes.reversed(original.getTransactionId(), senderOf(original));
         } catch (DownstreamException e) {
             if (!e.refused()) {
                 // No answer is not a refusal: the ledger may have posted the reversal. The saga
@@ -151,7 +154,7 @@ public class ReversalSaga {
             events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Hold cancelled and funds released");
             events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
             // The transfer never posted, so its share of the daily limit goes back.
-            limit.release(original.getTransactionId());
+            riskOutcomes.notPosted(original.getTransactionId());
         } catch (DownstreamException e) {
             if (!e.refused()) {
                 // The release may have been applied. Both rows are left as they are for the sweep.
@@ -176,7 +179,25 @@ public class ReversalSaga {
         events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Pre-hold transaction cancelled");
         events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
         // If risk had approved it, the amount it reserved goes back; if not, the engine has nothing to release.
-        limit.release(original.getTransactionId());
+        riskOutcomes.notPosted(original.getTransactionId());
+    }
+
+    /**
+     * The customer who sent the original transfer, read from the payload its saga was started
+     * with. Null for a row with no payload (seeded, or an inbound credit from another bank).
+     */
+    private Long senderOf(SagaInstance original) {
+        if (original.getPayload() == null) {
+            return null;
+        }
+        try {
+            JsonNode customerId = objectMapper.readTree(original.getPayload()).path("customerId");
+            return customerId.isIntegralNumber() ? customerId.longValue() : null;
+        } catch (Exception e) {
+            log.warn("The payload of transaction {} could not be read for its sender: {}",
+                    original.getTransactionId(), e.getMessage());
+            return null;
+        }
     }
 
     private void fail(SagaInstance reversalSaga, StartReversalRequest r, String failureCode, String detail) {

@@ -229,7 +229,7 @@ Order matters: the gateway must match the more specific KYC route before the gen
 | transaction-service | orchestration-service `/internal/v1/sagas/**` | Start transfer or reversal saga |
 | orchestration-service | customer-service `/internal/v1/customers/{id}/risk-profile` | Score and tier |
 | orchestration-service | risk-engine `/internal/v1/risk/evaluate` | Decision |
-| orchestration-service | risk-engine `/internal/v1/risk/outcomes` | Gives back the daily-limit reservation of a transfer that did not post |
+| orchestration-service | risk-engine `/internal/v1/risk/outcomes` | Gives back the daily-limit reservation of a transfer that did not post; counts a reversal of one that did |
 | orchestration-service | ledger-service `/internal/v1/ledger/**` | Hold, capture, release, reverse |
 | customer-service | account-service `/internal/v1/**` | Accounts lookup for Customer 360 |
 | customer-service | transaction-service `/internal/v1/transactions` | Recent transactions |
@@ -904,9 +904,16 @@ The caller times out at 150 ms and treats a timeout as `RISK_UNAVAILABLE`.
 
 **The daily limit is a reservation.** An `APPROVE` reserves the amount against the customer's limit for the business date, which is the date in Manila (`Asia/Manila`), not in UTC. The amount is added and the new total compared with the limit in one step, so two transfers at the same moment cannot both take the last of the room: the one that no longer fits is declined with `LIMIT_EXCEEDED`. A transaction is reserved once, however often R1 is asked about it. `usedToday` is what is reserved for that business date.
 
-**R2** tells the engine what became of a transfer it approved. The only outcome is `FAILED`: the transfer ended without posting (the hold was refused, the capture was refused and the hold released, or it was cancelled before posting), and the amount it reserved is given back. The saga sends it once the transfer has ended. It is safe to repeat, and for a transfer that holds no reservation it changes nothing and answers `released: false`. A transfer that posted keeps its reservation; reversing it later does not give the amount back.
+**R2** tells the engine what became of a transfer. The saga sends it once the transfer or its reversal has ended, and each report is safe to repeat.
 
-R2 is best effort. If it does not arrive, the customer has less of that day's limit left; no money is affected. Any other outcome is `400 INVALID_REQUEST_PARAMETERS`, and `503 RISK_UNAVAILABLE` means the counter could not be reached.
+| `outcome` | When | What the engine does |
+| --- | --- | --- |
+| `FAILED` | The engine approved the transfer and it ended without posting: the hold was refused, the capture was refused and the hold released, or it was cancelled before posting | Gives back the amount it reserved. For a transfer that holds no reservation it changes nothing and answers `released: false` |
+| `REVERSED` | The transfer posted and the ledger has since reversed it (L7) | Counts one reversal for the sending customer on the business date of the reversal. Nothing is given back: a transfer that posted keeps its reservation. `customerId` is required |
+
+Two or more reversals on a business date add 0.25 to the fraud score of that customer's later transfers that day. Only the engine writes its counters; no other service touches them.
+
+R2 is best effort. If it does not arrive, the customer has less of that day's limit left, or one reversal fewer is counted; no money is affected. Any other outcome, or `REVERSED` with no `customerId`, is `400 INVALID_REQUEST_PARAMETERS`, and `503 RISK_UNAVAILABLE` means the counter could not be reached.
 
 **R2 request**
 
@@ -927,6 +934,29 @@ R2 is best effort. If it does not arrive, the customer has less of that day's li
   "outcome": "FAILED",
   "released": true,
   "releasedAmount": "2500.00"
+}
+```
+
+**R2 request, a reversed transfer**
+
+<!-- example: R2-risk-outcome-reversed.request.json -->
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "outcome": "REVERSED",
+  "customerId": 1
+}
+```
+
+**R2 response, 200.** `reversalsToday` is the customer's count for the business date, this one included.
+
+<!-- example: R2-risk-outcome-reversed.response.json -->
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "outcome": "REVERSED",
+  "released": false,
+  "reversalsToday": 1
 }
 ```
 

@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * The engine's counters in Redis: transfers in the last ten minutes, and what each customer
- * has used of the daily limit.
+ * has used of the daily limit, and how many of their transfers were reversed today.
  *
  * The daily limit is kept as a reservation, the way a bank holds an authorisation against a
  * limit. An approval reserves the amount; if the transfer then does not post, the saga says
@@ -39,6 +39,8 @@ public class VelocityCounter {
     private static final String DAILY_REVERSALS_PREFIX = "risk:daily:reversals:";
     /** One per approved transaction: "<business date>|<units>|<customerId>", what release gives back. */
     private static final String COUNTED_PREFIX = "risk:counted:";
+    /** One per reversed transaction, so that a repeated report is not counted twice. */
+    private static final String REVERSED_PREFIX = "risk:reversed:";
     private static final Duration VELOCITY_WINDOW_TTL = Duration.ofMinutes(10);
     private static final Duration DAILY_METRIC_TTL = Duration.ofHours(24);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -86,13 +88,11 @@ public class VelocityCounter {
             String velocityVal = redisTemplate.opsForValue().get(velocityKey);
             int velocityCount = velocityVal != null ? Integer.parseInt(velocityVal) : 0;
 
-            String reservedVal = redisTemplate.opsForValue().get(DAILY_RESERVED_PREFIX + customerId + ":" + businessDate(Instant.now()));
+            String day = businessDate(Instant.now());
+            String reservedVal = redisTemplate.opsForValue().get(DAILY_RESERVED_PREFIX + customerId + ":" + day);
             BigDecimal usedToday = reservedVal != null ? fromUnits(Long.parseLong(reservedVal)) : BigDecimal.ZERO;
 
-            // Written by ledger-service, which dates it in UTC.
-            String todayStr = LocalDate.now().format(DATE_FORMATTER);
-            String dailyReversalsKey = DAILY_REVERSALS_PREFIX + customerId + ":" + todayStr;
-            String dailyReversalsVal = redisTemplate.opsForValue().get(dailyReversalsKey);
+            String dailyReversalsVal = redisTemplate.opsForValue().get(DAILY_REVERSALS_PREFIX + customerId + ":" + day);
             int reversalsToday = dailyReversalsVal != null ? Integer.parseInt(dailyReversalsVal) : 0;
 
             return VelocityState.builder()
@@ -235,23 +235,39 @@ public class VelocityCounter {
     }
 
     /**
-     * Records a committed reversal in Redis: increments daily reversal counter.
+     * Counts a reversed transfer against its sender for today's business date. A transaction is
+     * counted once, however often the saga reports it. The reservation of the reversed transfer
+     * is left alone: a reversal corrects a posting, it does not give the day's limit back.
+     *
+     * @return how many of the customer's transfers have been reversed today
+     * @throws RiskUnavailableException when Redis cannot be reached
      */
-    public void recordReversal(Long customerId) {
-        if (redisTemplate == null || customerId == null) {
-            return;
-        }
-
+    public int recordReversal(Long customerId, String transactionId) {
         try {
-            String todayStr = LocalDate.now().format(DATE_FORMATTER);
-            String dailyReversalsKey = DAILY_REVERSALS_PREFIX + customerId + ":" + todayStr;
-            Long currentCount = redisTemplate.opsForValue().increment(dailyReversalsKey);
-            if (currentCount != null && currentCount == 1) {
-                redisTemplate.expire(dailyReversalsKey, DAILY_METRIC_TTL);
+            StringRedisTemplate redis = requireRedis();
+            String dailyReversalsKey = DAILY_REVERSALS_PREFIX + customerId + ":" + businessDate(Instant.now());
+
+            Boolean firstTime = redis.opsForValue().setIfAbsent(
+                    REVERSED_PREFIX + transactionId, dailyReversalsKey, DAILY_METRIC_TTL);
+            if (!Boolean.TRUE.equals(firstTime)) {
+                String counted = redis.opsForValue().get(dailyReversalsKey);
+                log.debug("Reversal of transaction {} is already counted for customerId {}", transactionId, customerId);
+                return counted != null ? Integer.parseInt(counted) : 0;
             }
-            log.debug("Incremented daily reversals in Redis for customerId {}: count={}", customerId, currentCount);
+
+            Long currentCount = redis.opsForValue().increment(dailyReversalsKey);
+            if (currentCount != null && currentCount == 1) {
+                redis.expire(dailyReversalsKey, DAILY_METRIC_TTL);
+            }
+            log.info("Counted the reversal of transaction {} for customerId {}: {} today",
+                    transactionId, customerId, currentCount);
+            return currentCount != null ? currentCount.intValue() : 0;
+        } catch (RiskUnavailableException e) {
+            throw e;
         } catch (Exception ex) {
-            log.error("Failed to record reversal in Redis for customerId {}: {}", customerId, ex.getMessage());
+            log.error("Failed to count the reversal of transaction {} for customerId {}: {}",
+                    transactionId, customerId, ex.getMessage());
+            throw new RiskUnavailableException("The reversal counter cannot be updated.");
         }
     }
 

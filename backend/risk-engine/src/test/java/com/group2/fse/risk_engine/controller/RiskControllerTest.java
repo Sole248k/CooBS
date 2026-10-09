@@ -226,7 +226,34 @@ class RiskControllerTest {
     }
 
     @Test
-    @DisplayName("R2: an outcome other than FAILED, or a call without a service token, is refused")
+    @DisplayName("R2: a reversed outcome names the customer and is answered with today's reversal count")
+    void testRecordReversedOutcome() throws Exception {
+        String serviceToken = jwtTokenProvider.generateToken(0L, "orchestration-service", List.of("ROLE_SERVICE"));
+        when(riskEvaluator.recordOutcome(any(com.group2.fse.risk_engine.dto.RiskOutcomeRequest.class)))
+                .thenReturn(com.group2.fse.risk_engine.dto.RiskOutcomeResponse.builder()
+                        .transactionId("6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11").outcome("REVERSED")
+                        .released(false).reversalsToday(1).build());
+
+        mockMvc.perform(post("/internal/v1/risk/outcomes")
+                        .header("Authorization", "Bearer " + serviceToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transactionId\":\"6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11\",\"outcome\":\"REVERSED\",\"customerId\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.outcome").value("REVERSED"))
+                .andExpect(jsonPath("$.released").value(false))
+                .andExpect(jsonPath("$.reversalsToday").value(1))
+                .andExpect(jsonPath("$.releasedAmount").doesNotExist());
+
+        // Without the customer there is nobody to count it for.
+        mockMvc.perform(post("/internal/v1/risk/outcomes")
+                        .header("Authorization", "Bearer " + serviceToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transactionId\":\"6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11\",\"outcome\":\"REVERSED\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("R2: an outcome other than FAILED or REVERSED, or a call without a service token, is refused")
     void testRecordOutcomeRefusals() throws Exception {
         String serviceToken = jwtTokenProvider.generateToken(0L, "orchestration-service", List.of("ROLE_SERVICE"));
 

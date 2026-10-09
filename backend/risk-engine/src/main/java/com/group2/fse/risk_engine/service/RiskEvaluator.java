@@ -214,10 +214,21 @@ public class RiskEvaluator {
     }
 
     /**
-     * R2. The saga reports that a transfer the engine approved did not post, and the amount it
-     * reserved goes back to the customer's daily limit. Repeating the report changes nothing.
+     * R2. The saga reports what became of a transfer. FAILED: it was approved here but did not
+     * post, and the amount it reserved goes back to the customer's daily limit. REVERSED: it
+     * posted and was reversed afterwards, which counts as one of the customer's reversals for
+     * the day and gives nothing back. Repeating a report changes nothing.
      */
     public RiskOutcomeResponse recordOutcome(RiskOutcomeRequest request) {
+        if (RiskOutcomeRequest.REVERSED.equals(request.getOutcome())) {
+            int reversalsToday = velocityCounter.recordReversal(request.getCustomerId(), request.getTransactionId());
+            return RiskOutcomeResponse.builder()
+                    .transactionId(request.getTransactionId())
+                    .outcome(request.getOutcome())
+                    .released(false)
+                    .reversalsToday(reversalsToday)
+                    .build();
+        }
         Optional<BigDecimal> released = velocityCounter.release(request.getTransactionId());
         return RiskOutcomeResponse.builder()
                 .transactionId(request.getTransactionId())

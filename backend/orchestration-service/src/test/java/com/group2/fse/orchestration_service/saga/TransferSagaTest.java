@@ -330,17 +330,68 @@ class TransferSagaTest {
     }
 
     @Test
-    void reversalOfAPostedTransfer_doesNotGiveTheLimitBack() {
+    void reversalOfAPostedTransfer_isCountedForItsSenderAndDoesNotGiveTheLimitBack() {
+        StartTransferRequest t = transfer();
+        saga.run(t, "corr");
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
+
+        reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), t.transactionId(), "RV-LIMIT-003", "Dispute", 3L),
+                "corr");
+
+        // One report, REVERSED, naming the sender. A reversal corrects a posting; it is not a
+        // refund of the day's allowance, so nothing reports FAILED.
+        List<JsonNode> reports = outcomes(t.transactionId());
+        assertThat(reports).hasSize(1);
+        assertThat(reports.get(0).path("outcome").asString()).isEqualTo("REVERSED");
+        assertThat(reports.get(0).path("customerId").asLong()).isEqualTo(t.customerId());
+        // The ledger has reversed before the engine is told.
+        List<String> paths = CALLS.stream().map(Call::path).toList();
+        assertThat(paths.indexOf(REVERSAL)).isLessThan(paths.lastIndexOf(OUTCOMES));
+    }
+
+    @Test
+    void reversalOfATransferWithNoKnownSender_reportsNothing() {
+        // A seeded row has no payload, so there is no customer of ours to count the reversal for.
         UUID origId = UUID.randomUUID();
         SagaInstance original = sagas.findOrCreate(origId);
         original.setReferenceNo("TX-20261003-8F3A21C0");
         original.setState(SagaState.POSTED);
         sagas.saveAndFlush(original);
+        UUID reversalId = UUID.randomUUID();
 
-        reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), origId, "RV-LIMIT-003", "Dispute", 3L), "corr");
+        reversalSaga.run(new StartReversalRequest(reversalId, origId, "RV-LIMIT-004", "Dispute", 3L), "corr");
 
-        // A reversal corrects a posting; it is not a refund of the day's allowance.
+        assertThat(sagas.findByTransactionId(reversalId).orElseThrow().getState()).isEqualTo(SagaState.COMPLETED);
         assertThat(CALLS).extracting(Call::path).doesNotContain(OUTCOMES);
+    }
+
+    @Test
+    void reversalRefusedOrUnanswered_isNotCounted() {
+        StartTransferRequest t = transfer();
+        saga.run(t, "corr");
+        CALLS.clear();
+        BODIES.clear();
+
+        STUBS.put(REVERSAL, new Stub(503, "{}", 0));
+        reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), t.transactionId(), "RV-LIMIT-005", "Dispute", 3L),
+                "corr");
+        STUBS.put(REVERSAL, new Stub(409, example("common-error.json"), 0));
+        reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), t.transactionId(), "RV-LIMIT-006", "Dispute", 3L),
+                "corr");
+
+        assertThat(outcomes(t.transactionId())).isEmpty();
+    }
+
+    @Test
+    void reversalCountThatGetsNoAnswer_doesNotChangeHowTheReversalEnded() {
+        StartTransferRequest t = transfer();
+        saga.run(t, "corr");
+        STUBS.put(OUTCOMES, new Stub(503, "{}", 0));
+        UUID reversalId = UUID.randomUUID();
+
+        reversalSaga.run(new StartReversalRequest(reversalId, t.transactionId(), "RV-LIMIT-007", "Dispute", 3L), "corr");
+
+        assertThat(sagas.findByTransactionId(reversalId).orElseThrow().getState()).isEqualTo(SagaState.COMPLETED);
     }
 
     @Test
@@ -1107,11 +1158,15 @@ class TransferSagaTest {
 
     /** How often the risk engine was told (R2) that this transfer did not post. */
     private long limitReleases(UUID transactionId) {
+        return outcomes(transactionId).stream().filter(o -> "FAILED".equals(o.path("outcome").asString())).count();
+    }
+
+    /** Every R2 report about this transfer, in the order sent. */
+    private List<JsonNode> outcomes(UUID transactionId) {
         return BODIES.stream().filter(body -> body.startsWith(OUTCOMES + " "))
                 .map(body -> jsonMapper.readTree(body.substring(OUTCOMES.length() + 1)))
-                .filter(outcome -> transactionId.toString().equals(outcome.path("transactionId").asString())
-                        && "FAILED".equals(outcome.path("outcome").asString()))
-                .count();
+                .filter(outcome -> transactionId.toString().equals(outcome.path("transactionId").asString()))
+                .toList();
     }
 
     /** What the risk engine was asked about this transfer. Recovery may run other sagas as well. */

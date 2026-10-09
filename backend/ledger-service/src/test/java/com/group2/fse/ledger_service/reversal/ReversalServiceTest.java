@@ -21,12 +21,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,12 +40,6 @@ class ReversalServiceTest {
 
     @Mock
     private TransactionRepository transactionRepository;
-
-    @Mock
-    private StringRedisTemplate stringRedisTemplate;
-
-    @Mock
-    private ValueOperations<String, String> valueOperations;
 
     @InjectMocks
     private ReversalServiceImpl reversalService;
@@ -123,9 +113,6 @@ class ReversalServiceTest {
     @Test
     @DisplayName("Successfully reverse a two-legged transfer with immutable counter-entries")
     void testProcessReversal_Transfer_Success() {
-        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        ReflectionTestUtils.setField(reversalService, "stringRedisTemplate", stringRedisTemplate);
-
         ReversalRequestDto request = ReversalRequestDto.builder()
                 .originalReferenceNo("TX-20261003-8F3A21C0")
                 .reversalReferenceNo("RV-20261003-11AA22BB")
@@ -191,10 +178,6 @@ class ReversalServiceTest {
         verify(postingEngine).applyCredit(senderBalance, new BigDecimal("2500.0000"));
         verify(postingEngine).recordAudit(eq(5003L), eq(1L), eq("REVERSAL_CREDIT"), any(), any(), any(), eq(3L), eq("10.0.0.1"));
         verify(postingEngine).recordAudit(eq(5004L), eq(2L), eq("REVERSAL_DEBIT"), any(), any(), any(), eq(3L), eq("10.0.0.1"));
-
-        // Verify Redis daily reversal counter incremented for customer
-        verify(valueOperations).increment(startsWith("risk:daily:reversals:101:"));
-        verify(stringRedisTemplate).expire(anyString(), eq(Duration.ofHours(24)));
     }
 
     @Test

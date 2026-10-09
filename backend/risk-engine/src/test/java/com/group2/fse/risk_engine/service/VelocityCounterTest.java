@@ -146,6 +146,39 @@ class VelocityCounterTest {
     }
 
     @Test
+    @DisplayName("A reversal is counted once for the sender, on the Manila business date")
+    void reversalIsCountedOnce() {
+        when(values.setIfAbsent(eq("risk:reversed:tx-1"), anyString(), any(Duration.class))).thenReturn(true);
+        when(values.increment("risk:daily:reversals:1:" + TODAY)).thenReturn(2L);
+
+        assertEquals(2, counter.recordReversal(1L, "tx-1"));
+
+        verify(values).increment("risk:daily:reversals:1:" + TODAY);
+        // The amount the transfer reserved stays reserved: a reversal is not a refund of the limit.
+        verify(values, never()).increment(anyString(), anyLong());
+        verify(values, never()).getAndDelete(anyString());
+    }
+
+    @Test
+    @DisplayName("A reversal reported twice is counted once, and the answer is still today's count")
+    void repeatedReversalReportIsNotCountedAgain() {
+        when(values.setIfAbsent(eq("risk:reversed:tx-1"), anyString(), any(Duration.class))).thenReturn(false);
+        when(values.get("risk:daily:reversals:1:" + TODAY)).thenReturn("2");
+
+        assertEquals(2, counter.recordReversal(1L, "tx-1"));
+
+        verify(values, never()).increment(anyString());
+    }
+
+    @Test
+    @DisplayName("Today's reversals are read from the Manila business date, the one they are written under")
+    void reversalsTodayAreReadFromTheBusinessDate() {
+        when(values.get("risk:daily:reversals:1:" + TODAY)).thenReturn("3");
+
+        assertEquals(3, counter.getVelocityState(1L).getReversalsToday());
+    }
+
+    @Test
     @DisplayName("Today's total is read back as money")
     void usedTodayIsReadFromTheReservedUnits() {
         when(values.get("risk:daily:reserved:1:" + TODAY)).thenReturn("25001234");
@@ -192,5 +225,6 @@ class VelocityCounterTest {
 
         assertThrows(RiskUnavailableException.class, () -> counter.reserve(1L, "tx-6", AMOUNT, LIMIT));
         assertThrows(RiskUnavailableException.class, () -> new VelocityCounter().release("tx-6"));
+        assertThrows(RiskUnavailableException.class, () -> counter.recordReversal(1L, "tx-6"));
     }
 }

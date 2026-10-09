@@ -56,14 +56,14 @@ public class TransferSaga {
     private final RiskClient risk;
     private final LedgerClient ledger;
     private final StageEvents events;
-    private final LimitRelease limit;
+    private final RiskOutcomes riskOutcomes;
     private final int captureAttempts;
     private final Duration captureBackoff;
     private final Duration holdRetryWindow;
     private final ObjectMapper objectMapper;
 
     public TransferSaga(SagaRepository sagas, CustomerClient customers, RiskClient risk, LedgerClient ledger,
-            StageEvents events, LimitRelease limit,
+            StageEvents events, RiskOutcomes riskOutcomes,
             @Value("${app.saga.capture-attempts}") int captureAttempts,
             @Value("${app.saga.capture-backoff}") Duration captureBackoff,
             @Value("${app.saga.hold-retry-window:5m}") Duration holdRetryWindow,
@@ -74,7 +74,7 @@ public class TransferSaga {
         this.risk = risk;
         this.ledger = ledger;
         this.events = events;
-        this.limit = limit;
+        this.riskOutcomes = riskOutcomes;
         this.captureAttempts = captureAttempts;
         this.captureBackoff = captureBackoff;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
@@ -207,7 +207,7 @@ public class TransferSaga {
             } catch (OptimisticLockingFailureException cancelledMeanwhile) {
                 // The engine has just reserved the amount for a transfer that a reversal ended
                 // while it was deciding. Nothing will come after this to give it back.
-                limit.release(t.transactionId());
+                riskOutcomes.notPosted(t.transactionId());
                 throw cancelledMeanwhile;
             }
             events.passed(t.transactionId(), t.referenceNo(), Stage.FRAUD_CHECK, score);
@@ -245,7 +245,7 @@ public class TransferSaga {
         } catch (DownstreamException e) {
             if (e.refused()) {
                 fail(saga, t, Stage.FUNDS_CHECK, e.getErrorCode(), null);
-                limit.release(t.transactionId());
+                riskOutcomes.notPosted(t.transactionId());
                 return;
             }
             log.error("Ledger did not answer the hold for transaction {}; saga left at RISK_APPROVED "
@@ -311,12 +311,12 @@ public class TransferSaga {
             save(saga, SagaState.FAILED);
             events.failed(t.transactionId(), t.referenceNo(), Stage.FUNDS_CHECK, saga.getFailureCode(),
                     "hold released");
-            limit.release(t.transactionId());
+            riskOutcomes.notPosted(t.transactionId());
             return;
         }
         save(saga, SagaState.COMPENSATED);
         events.failed(t.transactionId(), t.referenceNo(), Stage.POSTED, saga.getFailureCode(), "hold released");
-        limit.release(t.transactionId());
+        riskOutcomes.notPosted(t.transactionId());
     }
 
     /** Stage 9: the ledger's own event confirms the posting. */

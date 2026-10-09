@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -270,6 +271,22 @@ class RiskEvaluatorTest {
 
         assertFalse(response.isReleased());
         assertEquals(null, response.getReleasedAmount());
+    }
+
+    @Test
+    @DisplayName("R2: a reversed outcome counts the reversal for the customer and gives nothing back")
+    void testReversedOutcomeCountsTheReversal() {
+        when(velocityCounter.recordReversal(1L, "tx-out-003")).thenReturn(2);
+
+        com.group2.fse.risk_engine.dto.RiskOutcomeResponse response = riskEvaluator.recordOutcome(
+                com.group2.fse.risk_engine.dto.RiskOutcomeRequest.builder()
+                        .transactionId("tx-out-003").outcome("REVERSED").customerId(1L).build());
+
+        assertEquals("REVERSED", response.getOutcome());
+        assertEquals(2, response.getReversalsToday());
+        assertFalse(response.isReleased());
+        assertEquals(null, response.getReleasedAmount());
+        verify(velocityCounter, never()).release(anyString());
     }
 
     @Test
