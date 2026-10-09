@@ -91,6 +91,15 @@ $failures = @()
 Write-Host "1. Sending message $messageId for PHP $Amount"
 $first = Send-Inbound $body
 Write-Host "   HTTP $($first.Status): $($first.Answer.status) $($first.Answer.receiverReference) $($first.Answer.reasonCode) $($first.Answer.reasonMessage)"
+# A 5xx is "no answer yet", not a refusal: the ledger was slow (a cold stack) and the credit may or
+# may not have posted. A partner bank sends the same message again, so this does too. However many
+# sends it takes, the balance below must show the amount exactly once.
+for ($retry = 1; $first.Status -ge 500 -and $retry -le 3; $retry++) {
+    Write-Host "   No answer yet (HTTP $($first.Status)); sending the same message again ($retry of 3)" -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
+    $first = Send-Inbound $body
+    Write-Host "   HTTP $($first.Status): $($first.Answer.status) $($first.Answer.receiverReference) $($first.Answer.reasonCode) $($first.Answer.reasonMessage)"
+}
 if ($first.Status -ne 200 -or $first.Answer.status -ne "ACCEPTED") { $failures += "the transfer was not accepted" }
 
 $afterFirst = Get-Balance $token
