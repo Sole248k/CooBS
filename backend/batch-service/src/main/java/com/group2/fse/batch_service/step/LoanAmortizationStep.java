@@ -8,13 +8,16 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Step 4: LOAN_AMORTIZATION
- * Collects scheduled loan principal and interest installments due on or before the business date,
- * debits borrower deposit accounts, credits 9004 GL_LOAN_RECEIVABLE, and marks schedules PAID.
+ * Collects the instalments due on or before the business date: debit the borrower's deposit
+ * account, credit 9004 GL_LOAN_RECEIVABLE, through the ledger (L8). A schedule is marked PAID
+ * only when the ledger says its instalment is in the journal; one it refuses (not enough money,
+ * for one) stays due and is tried again on the next run.
  */
 @Slf4j
 @Component
@@ -23,6 +26,7 @@ public class LoanAmortizationStep implements BatchStepExecutor {
 
     private final LoanScheduleRepository loanScheduleRepository;
     private final LedgerAuditHelper ledgerAuditHelper;
+    private final LedgerPostings ledgerPostings;
 
     private static final Long GL_LOAN_RECEIVABLE = 9004L;
 
@@ -39,86 +43,63 @@ public class LoanAmortizationStep implements BatchStepExecutor {
     @Override
     public BatchStepResult execute(Long batchRunId, LocalDate businessDate) {
         log.info("[BatchRun #{}] Executing Step 4: LOAN_AMORTIZATION for businessDate={}", batchRunId, businessDate);
-        try {
-            Thread.sleep(880);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
 
         List<LoanSchedule> dueSchedules = loanScheduleRepository.findByDueDateLessThanEqualAndStatusIn(
                 businessDate, List.of("PENDING", "DUE", "SCHEDULED"));
-        int processed = 0;
-        BigDecimal totalAmount = BigDecimal.ZERO;
 
-        for (LoanSchedule ls : dueSchedules) {
-            BigDecimal principal = ls.getPrincipalDue() != null ? ls.getPrincipalDue() : BigDecimal.ZERO;
-            BigDecimal interest = ls.getInterestDue() != null ? ls.getInterestDue() : BigDecimal.ZERO;
-            BigDecimal installmentAmount = principal.add(interest);
-
-            if (installmentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        // One reference per schedule, whatever day it is collected on, so an instalment can be
+        // posted once only.
+        List<LoanSchedule> billed = new ArrayList<>();
+        List<LedgerPostings.Posting> postings = new ArrayList<>();
+        for (LoanSchedule schedule : dueSchedules) {
+            BigDecimal principal = schedule.getPrincipalDue() != null ? schedule.getPrincipalDue() : BigDecimal.ZERO;
+            BigDecimal interest = schedule.getInterestDue() != null ? schedule.getInterestDue() : BigDecimal.ZERO;
+            BigDecimal instalment = principal.add(interest);
+            if (instalment.compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
-
-            Long loanAccountId = ls.getLoanAccountId();
-            Long borrowerDepositAccountId = ledgerAuditHelper.getBorrowerDepositAccount(loanAccountId);
-            String dateStr = businessDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-            String refDebit = "EOD-" + dateStr + "-LN-D-" + ls.getScheduleId();
-            String refCredit = "EOD-" + dateStr + "-LN-GL-" + ls.getScheduleId();
-
-            // 1. Debit borrower deposit account
-            BigDecimal borrowerOldBal = ledgerAuditHelper.getLatestBalance(borrowerDepositAccountId);
-            BigDecimal borrowerNewBal = borrowerOldBal.subtract(installmentAmount);
-
-            ledgerAuditHelper.recordMutation(
-                    borrowerDepositAccountId,
-                    refDebit,
-                    "LOAN_REPAYMENT",
-                    installmentAmount,
-                    borrowerOldBal,
-                    borrowerNewBal,
-                    businessDate
-            );
-
-            // 2. Credit GL 9004 (GL_LOAN_RECEIVABLE)
-            BigDecimal glOldBal = ledgerAuditHelper.getLatestBalance(GL_LOAN_RECEIVABLE);
-            BigDecimal glNewBal = glOldBal.add(installmentAmount);
-
-            ledgerAuditHelper.recordMutation(
-                    GL_LOAN_RECEIVABLE,
-                    refCredit,
-                    "LOAN_REPAYMENT",
-                    installmentAmount,
-                    glOldBal,
-                    glNewBal,
-                    businessDate
-            );
-
-            // 3. Mark schedule PAID
-            ls.setStatus("PAID");
-            loanScheduleRepository.save(ls);
-
-            processed++;
-            totalAmount = totalAmount.add(installmentAmount);
-            log.info("Collected loan amortization #{}: ₱{} from Account #{} (Loan #{}) -> Credited GL 9004 (newBal={})",
-                    ls.getScheduleId(), installmentAmount, borrowerDepositAccountId, loanAccountId, glNewBal);
+            billed.add(schedule);
+            postings.add(new LedgerPostings.Posting(referenceOf(schedule),
+                    ledgerAuditHelper.getBorrowerDepositAccount(schedule.getLoanAccountId()),
+                    GL_LOAN_RECEIVABLE, instalment, "Loan instalment, schedule " + schedule.getScheduleId()));
         }
 
-        // Maintain Contract B2 baseline default for isolated unit test parity if empty
-        if (processed == 0 && dueSchedules.isEmpty()) {
-            processed = 1;
-            totalAmount = new BigDecimal("5450.00");
+        Map<String, String> outcomes = ledgerPostings.post(batchRunId, getStepName(), postings);
+
+        int collected = 0;
+        int refused = 0;
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (int i = 0; i < billed.size(); i++) {
+            LoanSchedule schedule = billed.get(i);
+            LedgerPostings.Posting posting = postings.get(i);
+            String errorCode = outcomes.get(posting.referenceNo());
+            if (errorCode != null) {
+                refused++;
+                log.warn("[BatchRun #{}] Instalment #{} from account #{} refused by the ledger: {}; it stays due",
+                        batchRunId, schedule.getScheduleId(), posting.debitAccountId(), errorCode);
+                continue;
+            }
+            schedule.setStatus("PAID");
+            loanScheduleRepository.save(schedule);
+            collected++;
+            totalAmount = totalAmount.add(posting.amount());
         }
 
-        String message = (processed > 0)
-                ? ("Processed " + processed + " amortization deductions (Credited GL 9004)")
-                : "No instalments due";
-
-        log.info("[BatchRun #{}] LOAN_AMORTIZATION completed: {} installments processed, totalAmount={}", batchRunId, processed, totalAmount);
+        String message = collected == 0 && refused == 0
+                ? "No instalments due"
+                : "Collected " + collected + " instalments (credited GL 9004)"
+                        + (refused > 0 ? "; " + refused + " refused by the ledger and still due" : "");
+        log.info("[BatchRun #{}] LOAN_AMORTIZATION completed: {} collected, {} refused, totalAmount={}",
+                batchRunId, collected, refused, totalAmount);
         return BatchStepResult.builder()
                 .success(true)
-                .itemsProcessed(processed)
+                .itemsProcessed(collected)
                 .totalAmount(totalAmount)
                 .message(message)
                 .build();
+    }
+
+    private static String referenceOf(LoanSchedule schedule) {
+        return "EOD-LN-" + schedule.getScheduleId();
     }
 }
