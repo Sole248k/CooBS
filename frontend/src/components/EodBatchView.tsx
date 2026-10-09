@@ -748,7 +748,7 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
         }}>
           <ShieldCheck size={16} style={{ flexShrink: 0 }} />
           <span>
-            <strong>Production Governance (Contract B1):</strong> Triggering is restricted to Bank Administrators (<code style={{ fontFamily: 'JetBrains Mono, monospace' }}>ROLE_ADMIN</code>).
+            <strong>Production Governance (Contract B1):</strong> Triggering is restricted to Branch Managers (<code style={{ fontFamily: 'JetBrains Mono, monospace' }}>ROLE_ADMIN</code>).
             Settlement is restricted to <strong>Today or Past Backlog</strong> dates (future dates rejected). Duplicate concurrent executions are locked with <code style={{ fontFamily: 'JetBrains Mono, monospace' }}>HTTP 409 Conflict</code>.
           </span>
         </div>
@@ -888,7 +888,7 @@ export const EodBatchView: React.FC<EodBatchViewProps> = ({ showToast }) => {
 
           {activeRun && (
             <div style={{ fontSize: '12px', color: '#64748b' }}>
-              Run ID: <strong style={{ color: '#0f172a' }}>#{activeRun.batchRunId}</strong> | Triggered By: Staff Admin #{activeRun.triggeredBy || 1}
+              Run ID: <strong style={{ color: '#0f172a' }}>#{activeRun.batchRunId}</strong> | Triggered By: Branch Manager #{activeRun.triggeredBy || 1}
             </div>
           )}
         </div>

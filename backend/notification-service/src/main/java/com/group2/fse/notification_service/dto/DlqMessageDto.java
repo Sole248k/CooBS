@@ -56,4 +56,9 @@ public class DlqMessageDto {
      * Raw message payload content
      */
     private String payload;
+
+    /**
+     * Timestamp when the message was replayed back to origin topic
+     */
+    private String replayedAt;
 }

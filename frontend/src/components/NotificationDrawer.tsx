@@ -90,7 +90,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>
                 {isCustomer && 'Customer Activity Notices'}
                 {isTeller && 'Branch Teller Alert Feed'}
-                {isAdmin && 'Supervisory Audit Alerts'}
+                {isAdmin && 'Branch Manager Alerts'}
               </div>
               <div style={{ fontSize: '11px', color: '#64748b' }}>
                 {notifications.filter(n => !n.isRead).length} unread notices

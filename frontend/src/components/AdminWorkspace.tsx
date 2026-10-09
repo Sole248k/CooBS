@@ -282,7 +282,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
             <div>
               <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>Account Closure Authorizations</h2>
               <p style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
-                Bank administration approval queue for zero-balance customer accounts requesting closure.
+                Branch management approval queue for zero-balance customer accounts requesting closure.
               </p>
             </div>
             <button type="button" onClick={loadPendingClosures} className="banking-btn-secondary" style={{ fontSize: '13px' }}>
@@ -308,7 +308,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
                         <span style={{ fontSize: '17px', fontWeight: '700', color: '#0f172a', fontFamily: 'var(--font-mono)' }}>
                           {item.accountNumber || `Account #${item.accountId}`}
                         </span>
-                        <span className="badge badge-pending">PENDING ADMIN SIGN-OFF</span>
+                        <span className="badge badge-pending">PENDING MANAGER SIGN-OFF</span>
                       </div>
                       <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
                         Closure Request #{item.closureRequestId} &bull; Requested by {item.customerName || `Customer #${item.customerId}`} &bull; {new Date(item.requestedAt).toLocaleString()}
@@ -563,7 +563,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
                 <h3 style={{ fontSize: '17px', fontWeight: '700', color: '#0f172a' }}>Impose Compliance Hold</h3>
               </div>
               <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
-                Place an administrative hold on an account to immediately freeze all debits and outbound transfers.
+                Place a supervisory managerial hold on an account to immediately freeze all debits and outbound transfers.
               </p>
 
               <form onSubmit={handleImposeFlag} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -585,7 +585,7 @@ export const AdminWorkspace: React.FC<AdminWorkspaceProps> = ({
 
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#334155', marginBottom: '4px' }}>
-                    Administrative / Compliance Reason
+                    Supervisory / Compliance Reason
                   </label>
                   <input
                     type="text"
