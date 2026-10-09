@@ -171,7 +171,7 @@ export const StaffSignIn: React.FC = () => {
                       : 'bg-[#F8FAFC] text-[#64748B] border-[#E2E8F0] hover:bg-[#F1F5F9]'
                   }`}
                 >
-                  Admin
+                  Branch Manager
                 </button>
               </div>
             </div>

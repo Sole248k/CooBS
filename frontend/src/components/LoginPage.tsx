@@ -129,7 +129,7 @@ export const LoginPage: FC<LoginPageProps> = ({
               Staff Authentication
             </h2>
             <p style={{ fontSize: '13px', color: '#64748b' }}>
-              Sign in with your branch teller or system admin credentials.
+              Sign in with your branch teller or branch manager credentials.
             </p>
           </div>
 
@@ -285,7 +285,7 @@ export const LoginPage: FC<LoginPageProps> = ({
                   }}
                 >
                   <div style={{ fontWeight: '700' }}>admin</div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>System Admin</div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>Branch Manager</div>
                 </button>
               </div>
             </div>
