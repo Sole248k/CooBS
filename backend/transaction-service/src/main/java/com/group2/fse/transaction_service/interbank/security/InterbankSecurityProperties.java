@@ -22,15 +22,7 @@ public class InterbankSecurityProperties {
         if (bankCode == null) {
             return null;
         }
-        PartnerConfig config = partners.get(bankCode.toUpperCase());
-        if (config == null) {
-            // Provide fallback configuration for testing / demo partner banks
-            config = new PartnerConfig();
-            config.setBankCode(bankCode.toUpperCase());
-            config.setSharedSecret(defaultSharedSecret);
-            config.setSettlementAccountId(defaultSettlementAccountId);
-        }
-        return config;
+        return partners.get(bankCode.toUpperCase());
     }
 
     @Data

@@ -597,16 +597,22 @@ class ApiClient {
         headers: this.getAuthHeaders()
       });
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
+        let data = await res.json();
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          if (Array.isArray(data.data)) data = data.data;
+          else if (Array.isArray(data.items)) data = data.items;
+          else if (Array.isArray(data.content)) data = data.content;
+          else if (data.accountId || data.accountNumber) data = [data];
+        }
+        if (Array.isArray(data) && data.length > 0) {
           this.localAccounts = data.map((acc: any) => ({
-            accountId: acc.accountId,
-            accountNumber: acc.accountNumber,
+            accountId: Number(acc.accountId) || 1,
+            accountNumber: acc.accountNumber || '',
             accountType: acc.accountType || 'SAVINGS',
             balance: acc.balance !== undefined ? Number(acc.balance) : Number(acc.availableBalance || 0),
             currency: acc.currency || 'PHP',
             status: acc.status || 'ACTIVE',
-            customerId: acc.customerId,
+            customerId: acc.customerId || this.session?.userId || 1,
             customerName: acc.customerName,
             createdAt: acc.createdAt
           }));
@@ -618,7 +624,9 @@ class ApiClient {
     }
 
     if (this.session?.userType === 'CUSTOMER') {
-      return this.localAccounts.filter(a => a.customerId === 1);
+      const targetCid = this.session.userId || 1;
+      const filtered = this.localAccounts.filter(a => a.customerId === targetCid);
+      if (filtered.length > 0) return filtered;
     }
     return [...this.localAccounts];
   }
@@ -1236,11 +1244,20 @@ class ApiClient {
   // --------------------------------------------------------------------------
   public async depositCash(accountId: number, amount: number, referenceNo: string, remarks?: string): Promise<void> {
     try {
-      const res = await fetch('/api/v1/ledger/credits', {
+      const isStaff = this.session?.roles?.includes('ROLE_TELLER') || this.session?.roles?.includes('ROLE_ADMIN') || this.session?.userType === 'TELLER' || this.session?.userType === 'ADMIN';
+      const url = isStaff ? '/api/v1/staff/counter/deposit' : '/api/v1/ledger/credits';
+      let res = await fetch(url, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ accountId, amount, referenceNo, remarks })
       });
+      if (!res.ok && isStaff) {
+        res = await fetch('/api/v1/ledger/credits', {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ accountId, amount, referenceNo, remarks })
+        });
+      }
       if (res.ok) {
         await this.getAccounts();
         return;
@@ -1267,11 +1284,20 @@ class ApiClient {
     }
 
     try {
-      const res = await fetch('/api/v1/ledger/debits', {
+      const isStaff = this.session?.roles?.includes('ROLE_TELLER') || this.session?.roles?.includes('ROLE_ADMIN') || this.session?.userType === 'TELLER' || this.session?.userType === 'ADMIN';
+      const url = isStaff ? '/api/v1/staff/counter/withdraw' : '/api/v1/ledger/debits';
+      let res = await fetch(url, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ accountId, amount, referenceNo, remarks })
       });
+      if (!res.ok && isStaff) {
+        res = await fetch('/api/v1/ledger/debits', {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ accountId, amount, referenceNo, remarks })
+        });
+      }
       if (res.ok) {
         await this.getAccounts();
         return;
@@ -1402,16 +1428,28 @@ class ApiClient {
   // --------------------------------------------------------------------------
   public async getCustomer360(customerId: number): Promise<Customer360Response> {
     try {
-      const res = await fetch(`/api/v1/customers/${customerId}/360`, {
+      const isStaff = this.session?.roles?.includes('ROLE_TELLER') || this.session?.roles?.includes('ROLE_ADMIN') || this.session?.userType === 'TELLER' || this.session?.userType === 'ADMIN';
+      const url = isStaff ? `/api/v1/staff/customers/${customerId}/360` : `/api/v1/customers/${customerId}/360`;
+      let res = await fetch(url, {
         headers: this.getAuthHeaders()
       });
+      if (!res.ok && isStaff) {
+        res = await fetch(`/api/v1/customers/${customerId}/360`, {
+          headers: this.getAuthHeaders()
+        });
+      }
       if (res.ok) {
         const data = await res.json();
-        // Backend Blocker B3 Handling:
-        // customer-service's internal call to account-service may lack authorization credentials,
-        // returning an empty accounts list. Gracefully supplement with known active accounts.
+        // Support both StaffCustomer360Response (from staff-bff) and Customer360Response (from customer-service)
         let accounts: Customer360Account[] = Array.isArray(data.accounts) && data.accounts.length > 0
-          ? data.accounts
+          ? data.accounts.map((a: any) => ({
+              accountId: a.accountId,
+              accountNumber: a.accountNumber,
+              accountType: a.accountType,
+              availableBalance: typeof a.availableBalance === 'string' ? parseFloat(a.availableBalance.replace(/[^0-9.-]/g, '')) || 0 : Number(a.availableBalance) || 0,
+              currency: a.currency || 'PHP',
+              status: a.status || 'ACTIVE'
+            }))
           : this.localAccounts
               .filter(a => a.customerId === customerId)
               .map(a => ({
@@ -1427,19 +1465,26 @@ class ApiClient {
           accounts = SEED_CUSTOMER_360[customerId].accounts;
         }
 
-        const totalDeposits = accounts.reduce((sum, a) => sum + (Number(a.availableBalance) || 0), 0);
+        const computedDeposits = accounts.reduce((sum, a) => sum + (Number(a.availableBalance) || 0), 0);
+        const totalDeposits = data.totals?.totalDeposits
+          ? parseFloat(data.totals.totalDeposits.replace(/[^0-9.-]/g, '')) || 0
+          : (data.totalDeposits && data.totalDeposits > 0 ? Number(data.totalDeposits) : computedDeposits);
+
+        const totalLoans = data.totals?.totalLoans
+          ? parseFloat(data.totals.totalLoans.replace(/[^0-9.-]/g, '')) || 0
+          : Number(data.totalLoans || 0);
 
         return {
           customerId: data.customerId || customerId,
-          fullName: data.fullName || data.customerName || `Customer #${customerId}`,
+          fullName: data.displayName || data.fullName || data.customerName || `Customer #${customerId}`,
           email: data.email || `customer${customerId}@coobs.ph`,
-          phoneNumber: data.phoneNumber || data.mobileNumber || '09170000000',
+          phoneNumber: data.phone || data.phoneNumber || data.mobileNumber || '09170000000',
           civilStatus: data.civilStatus || 'SINGLE',
           address: data.address || 'Metro Manila, Philippines',
           kycStatus: data.kycStatus || 'VERIFIED',
-          riskTier: (data.riskTier as any) || (customerId === 2 ? 'MEDIUM' : 'LOW'),
-          totalDeposits: data.totalDeposits && data.totalDeposits > 0 ? Number(data.totalDeposits) : totalDeposits,
-          totalLoans: Number(data.totalLoans || 0),
+          riskTier: (data.riskTier as any) || (data.riskScore && parseFloat(data.riskScore) > 0.5 ? 'HIGH' : customerId === 2 ? 'MEDIUM' : 'LOW'),
+          totalDeposits,
+          totalLoans,
           accounts
         };
       }

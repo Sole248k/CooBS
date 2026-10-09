@@ -6,6 +6,7 @@ import '../../shell/app_shell.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../auth/auth_screens.dart';
+import '../data/mobile_repo.dart';
 import '../kyc/kyc_intake_screen.dart';
 
 Widget _title(String t) => Padding(
@@ -134,24 +135,90 @@ class KycDetailsPage extends StatefulWidget {
 
 class _KycDetailsPageState extends State<KycDetailsPage> {
   final c = {
-    'First name': TextEditingController(text: 'John'),
-    'M.I.': TextEditingController(text: 'D'),
-    'Last name': TextEditingController(text: 'Doe'),
-    'Address': TextEditingController(text: 'Quezon City, Metro Manila'),
-    'Occupation': TextEditingController(text: 'Software engineer'),
-    'Mobile number': TextEditingController(text: '+63 917 000 0000'),
+    'First name': TextEditingController(),
+    'M.I.': TextEditingController(),
+    'Last name': TextEditingController(),
+    'Address': TextEditingController(),
+    'Occupation': TextEditingController(),
+    'Mobile number': TextEditingController(),
   };
   String? civil = 'Single';
+  bool _loading = false;
 
   @override
-  Widget build(BuildContext context) => Pg('KYC details', [
-        Row(children: [miniTag('Verified'), const SizedBox(width: 8), const Flexible(child: Text('Changes need teller approval.', style: TextStyle(color: kMut, fontSize: 12)))]),
-        const SizedBox(height: 14),
+  void initState() {
+    super.initState();
+    final k = Demo.i.kycData;
+    if (k != null) {
+      _populateFromData(k);
+    } else {
+      _loading = true;
+      MobileRepo.customerProfile().then((p) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            if (p['kyc'] is Map) {
+              _populateFromData(Map<String, dynamic>.from(p['kyc'] as Map));
+            } else {
+              _populateFallback();
+            }
+          });
+        }
+      }).catchError((_) {
+        if (mounted) setState(() { _loading = false; _populateFallback(); });
+      });
+    }
+  }
+
+  void _populateFromData(Map<String, dynamic> k) {
+    c['First name']?.text = '${k['firstName'] ?? ''}';
+    c['M.I.']?.text = '${k['middleInitial'] ?? ''}';
+    c['Last name']?.text = '${k['lastName'] ?? ''}';
+    c['Address']?.text = '${k['address'] ?? ''}';
+    c['Occupation']?.text = '${k['occupation'] ?? ''}';
+    c['Mobile number']?.text = '${k['mobileNumber'] ?? ''}';
+    final cs = k['civilStatus']?.toString().toUpperCase();
+    civil = cs == 'MARRIED' ? 'Married' : 'Single';
+  }
+
+  void _populateFallback() {
+    c['First name']?.text = 'John';
+    c['M.I.']?.text = 'D';
+    c['Last name']?.text = 'Doe';
+    c['Address']?.text = 'Quezon City, Metro Manila';
+    c['Occupation']?.text = 'Software engineer';
+    c['Mobile number']?.text = '+63 917 000 0000';
+    civil = 'Single';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusText = Demo.i.kyc.isNotEmpty ? Demo.i.kyc : 'VERIFIED';
+    return Pg('KYC details', [
+      Row(children: [
+        miniTag(statusText),
+        const SizedBox(width: 8),
+        const Flexible(child: Text('Changes need teller approval.', style: TextStyle(color: kMut, fontSize: 12))),
+      ]),
+      const SizedBox(height: 14),
+      if (_loading)
+        const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+      else ...[
         for (final e in c.entries.take(4)) tf(e.value, e.key),
         dd('Civil status', const ['Single', 'Married'], civil, (x) => civil = x),
         for (final e in c.entries.skip(4)) tf(e.value, e.key),
         bigBtn('Request update', () => snack(context, 'Update request sent for approval.')),
-      ]);
+      ],
+    ]);
+  }
+
+  @override
+  void dispose() {
+    for (final ctrl in c.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
+  }
 }
 
 class SecurityPage extends StatefulWidget {
@@ -183,4 +250,11 @@ class _SecurityPageState extends State<SecurityPage> {
         const SizedBox(height: 10),
         OutlinedButton(onPressed: () => _handleLogout(context), child: const Text('Sign out all devices')),
       ]);
+
+  @override
+  void dispose() {
+    cur.dispose();
+    nw.dispose();
+    super.dispose();
+  }
 }

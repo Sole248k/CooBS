@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../data/mobile_repo.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/models/dashboard_models.dart';
 import '../../core/network/api_client.dart';
 
@@ -30,7 +31,9 @@ class Acct {
 
 class Ben {
   final String name, rel, mobile;
-  const Ben(this.name, this.rel, this.mobile);
+  final String? accountNumber;
+  final String? bankCode;
+  const Ben(this.name, this.rel, this.mobile, {this.accountNumber, this.bankCode});
 }
 
 class Bill {
@@ -105,6 +108,7 @@ class Demo extends ChangeNotifier {
   Loan? loan;
   LoadState state = LoadState.loading;
   String memberName = 'John D.', kyc = 'VERIFIED', primaryNo = '';
+  Map<String, dynamic>? kycData;
   int unread = 0;
   List<String> unavailable = [];
   String? forced; // tester: 'partial' | 'offline'
@@ -119,44 +123,133 @@ class Demo extends ChangeNotifier {
   ];
   void _alert(String m) => alerts.insert(0, [m, 'Just now']);
 
-  /// Loads Customer 360 data from the fixtures (M1, K5, K6, N1).
+  /// Loads Customer 360 data from the fixtures (M1, K5, K6, N1) or live gateway.
   Future<void> load() async {
     state = LoadState.loading;
     notifyListeners();
     try {
       if (forced == 'offline') throw Exception('simulated outage');
-      final m1 = await ApiClient().get('/mobile/dashboard');
+      Map<String, dynamic> m1;
+      if (AppConfig.useFixtures) {
+        m1 = await ApiClient().loadFixtureJson('M1-mobile-dashboard.response.json');
+      } else {
+        try {
+          m1 = await ApiClient().get('/mobile/dashboard');
+        } catch (_) {
+          // Gracefully fallback to composite dashboard fixture if gateway is offline
+          m1 = await ApiClient().loadFixtureJson('M1-mobile-dashboard.response.json');
+        }
+      }
       final k5 = await MobileRepo.myAccounts();
-      final k6 = (await MobileRepo.accountTx())['accounts'] as Map<String, dynamic>;
+      final k6 = (await MobileRepo.accountTx())['accounts'] as Map<String, dynamic>? ?? {};
       final n1 = await MobileRepo.notifications();
-      memberName = m1['member']['displayName'] as String;
-      if (!_kycTouched) kyc = m1['member']['kycStatus'] as String;
-      primaryNo = m1['primaryAccount']['accountNumber'] as String;
-      unread = (m1['unreadNotifications'] as num).toInt();
+      if (m1['member'] is Map) {
+        memberName = (m1['member']['displayName'] as String?) ?? memberName;
+        if (!_kycTouched) kyc = (m1['member']['kycStatus'] as String?) ?? kyc;
+      }
+      if (m1['primaryAccount'] is Map) {
+        primaryNo = (m1['primaryAccount']['accountNumber'] as String?) ?? primaryNo;
+      }
+      unread = (m1['unreadNotifications'] as num?)?.toInt() ?? 0;
       unavailable = [for (final x in (m1['unavailable'] as List? ?? [])) '$x'];
       if (forced == 'partial') unavailable = ['recentTransactions'];
-      accts
-        ..clear()
-        ..addAll([
-          for (final a in k5)
-            Acct(
-              '${a['accountType']}'[0] + '${a['accountType']}'.substring(1).toLowerCase(),
-              a['accountNumber'] as String,
-              (a['availableBalance'] as num).toDouble(),
-              [
-                for (final t in (k6[a['accountNumber']] as List? ?? []))
-                  () {
-                    final d = DateTime.parse(t['createdAt'] as String).toLocal();
-                    final amt = double.parse('${t['amount']}');
-                    return Tx('${t['remarks']}'.isEmpty ? '${t['referenceNo']}' : '${t['remarks']}', '${t['referenceNo']}',
-                        DateTime(d.year, d.month, d.day), t['direction'] == 'OUT' ? -amt : amt);
-                  }()
-              ],
-            )
-        ]);
-      for (final n in (n1['content'] as List).reversed) {
-        alerts.insert(0, ['${n['message']}', fmt(DateTime.parse('${n['createdAt']}').toLocal())]);
+      double parseBal(dynamic val) {
+        if (val is num) return val.toDouble();
+        if (val != null) {
+          final clean = val.toString().replaceAll(RegExp(r'[^0-9.]'), '');
+          return double.tryParse(clean) ?? 0.0;
+        }
+        return 0.0;
       }
+
+      String parseType(dynamic raw) {
+        final s = (raw ?? 'Checking').toString().trim();
+        if (s.isEmpty) return 'Checking';
+        return s[0].toUpperCase() + (s.length > 1 ? s.substring(1).toLowerCase() : '');
+      }
+
+      final parsed = <Acct>[];
+      for (final a in k5) {
+        if (a is! Map) continue;
+        final acctNo = (a['accountNumber'] as String?) ?? '';
+        final acctType = parseType(a['accountType']);
+        final bal = parseBal(a['availableBalance'] ?? a['balance']);
+        final rawTxList = (((k6[acctNo] as List?)?.isNotEmpty == true)
+            ? (k6[acctNo] as List)
+            : (acctNo == primaryNo ? (m1['recentTransactions'] as List? ?? []) : []));
+        final txList = <Tx>[];
+        for (final t in rawTxList) {
+          if (t is! Map) continue;
+          final rawDate = t['createdAt'] as String?;
+          final d = rawDate != null ? DateTime.tryParse(rawDate)?.toLocal() ?? today : today;
+          final amt = parseBal(t['amount']);
+          final label = (t['remarks'] != null && '${t['remarks']}'.isNotEmpty)
+              ? '${t['remarks']}'
+              : (t['counterpartyName'] != null && '${t['counterpartyName']}'.isNotEmpty)
+                  ? 'Transfer ${t['direction'] == 'OUT' ? 'to' : 'from'} ${t['counterpartyName']}'
+                  : '${t['referenceNo'] ?? 'Transaction'}';
+          txList.add(Tx(label, '${t['referenceNo'] ?? ''}', DateTime(d.year, d.month, d.day), t['direction'] == 'OUT' ? -amt : amt));
+        }
+        parsed.add(Acct(acctType, acctNo, bal, txList));
+      }
+
+      if (parsed.isNotEmpty) {
+        accts
+          ..clear()
+          ..addAll(parsed);
+      } else if (m1['primaryAccount'] is Map) {
+        final p = m1['primaryAccount'] as Map;
+        final pNo = (p['accountNumber'] as String?) ?? '';
+        if (pNo.isNotEmpty) {
+          final pType = parseType(p['accountType']);
+          final pBal = parseBal(p['availableBalance'] ?? p['balance']);
+          accts
+            ..clear()
+            ..add(Acct(pType, pNo, pBal, []));
+        }
+      }
+      final notifList = (n1['content'] as List?) ?? (n1['items'] as List?) ?? [];
+      for (final n in notifList.reversed) {
+        final rawCreated = n['createdAt'] as String?;
+        final dt = rawCreated != null ? DateTime.tryParse(rawCreated)?.toLocal() ?? today : today;
+        alerts.insert(0, ['${n['message'] ?? n['title'] ?? 'Alert'}', fmt(dt)]);
+      }
+
+      // Fetch Live Customer Profile & KYC
+      try {
+        final profile = await MobileRepo.customerProfile();
+        if (profile.isNotEmpty) {
+          if (profile['displayName'] != null && '${profile['displayName']}'.isNotEmpty) {
+            memberName = '${profile['displayName']}';
+          }
+          if (profile['kycStatus'] != null && !_kycTouched) {
+            kyc = '${profile['kycStatus']}';
+          }
+          if (profile['kyc'] is Map) {
+            kycData = Map<String, dynamic>.from(profile['kyc'] as Map);
+          }
+        }
+      } catch (_) {}
+
+      // Fetch Live Beneficiaries
+      try {
+        final bList = await MobileRepo.beneficiaries();
+        if (bList.isNotEmpty) {
+          bens
+            ..clear()
+            ..addAll([
+              for (final b in bList)
+                Ben(
+                  (b['nickname'] as String?) ?? (b['beneficiaryName'] as String?) ?? (b['name'] as String?) ?? 'Beneficiary',
+                  '${b['bankCode'] ?? 'COOBS'} · ${b['accountNumber'] ?? ''}',
+                  (b['mobileNumber'] as String?) ?? (b['mobile'] as String?) ?? '',
+                  accountNumber: b['accountNumber'] as String?,
+                  bankCode: b['bankCode'] as String?,
+                )
+            ]);
+        }
+      } catch (_) {}
+
       state = unavailable.isEmpty ? LoadState.ready : LoadState.partial;
     } catch (_) {
       state = LoadState.offline;
@@ -178,27 +271,43 @@ class Demo extends ChangeNotifier {
 
   void toggleHide() { hide = !hide; notifyListeners(); }
   void setCur(int v) { cur = v; notifyListeners(); }
-  List<Tx> get curTx => cur == 2 ? (loan?.tx ?? []) : accts[cur].tx;
+  bool get isLoanPage => cur >= accts.length;
+  List<Tx> get curTx {
+    if (isLoanPage) return loan?.tx ?? [];
+    if (cur >= 0 && cur < accts.length) return accts[cur].tx;
+    return [];
+  }
 
   String? _check(int from, double a) {
+    if (from < 0 || from >= accts.length) return 'Account not found';
     if (a <= 0) return 'Enter an amount above ₱0.00';
     if (a > accts[from].bal) return 'Insufficient funds in ${accts[from].no}';
     return null;
   }
 
-  String? deposit(int from, int to, double a) {
-    final e = _check(from, a);
-    if (e != null) return e;
-    accts[from].bal = r2(accts[from].bal - a);
-    accts[to].bal = r2(accts[to].bal + a);
-    accts[from].tx.insert(0, Tx('Deposit to ${accts[to].no}', 'Just now', today, -a));
-    accts[to].tx.insert(0, Tx('Deposit from ${accts[from].no}', 'Just now', today, a));
-    _alert('${peso(a)} moved from ${accts[from].no} to ${accts[to].no}');
+  String? deposit(int from, int? to, double a) {
+    if (from < 0 || from >= accts.length) return 'Source account not found';
+    if (a <= 0) return 'Enter an amount above ₱0.00';
+    if (to != null && to >= 0 && to < accts.length && to != from) {
+      final e = _check(from, a);
+      if (e != null) return e;
+      accts[from].bal = r2(accts[from].bal - a);
+      accts[to].bal = r2(accts[to].bal + a);
+      accts[from].tx.insert(0, Tx('Deposit to ${accts[to].no}', 'Just now', today, -a));
+      accts[to].tx.insert(0, Tx('Deposit from ${accts[from].no}', 'Just now', today, a));
+      _alert('${peso(a)} moved from ${accts[from].no} to ${accts[to].no}');
+    } else {
+      // Cash/check cash-in directly to account
+      accts[from].bal = r2(accts[from].bal + a);
+      accts[from].tx.insert(0, Tx('Cash deposit', 'Just now', today, a));
+      _alert('${peso(a)} deposited to ${accts[from].no}');
+    }
     notifyListeners();
     return null;
   }
 
   String? send(int from, String bank, String no, double a) {
+    if (from < 0 || from >= accts.length) return 'Source account not found';
     if (no.isEmpty) return 'Enter the recipient account number';
     final e = _check(from, a);
     if (e != null) return e;
@@ -212,10 +321,14 @@ class Demo extends ChangeNotifier {
   void applyLoan(String reason, double amt, int term) {
     final l = Loan(reason, amt, term, monthly(amt, term));
     loan = l;
-    accts[0].bal = r2(accts[0].bal + amt);
-    accts[0].tx.insert(0, Tx('Loan proceeds', l.ref, today, amt));
-    _alert('Loan ${l.ref} approved: ${peso(amt)} credited to Checking');
-    cur = 2;
+    if (accts.isNotEmpty) {
+      accts[0].bal = r2(accts[0].bal + amt);
+      accts[0].tx.insert(0, Tx('Loan proceeds', l.ref, today, amt));
+      _alert('Loan ${l.ref} approved: ${peso(amt)} credited to ${accts[0].type}');
+    } else {
+      _alert('Loan ${l.ref} approved for ${peso(amt)}');
+    }
+    cur = accts.length;
     notifyListeners();
   }
 
@@ -241,6 +354,11 @@ class Demo extends ChangeNotifier {
     loan = null;
     hide = false;
     cur = 0;
+    state = LoadState.loading;
+    _kycTouched = false;
+    primaryNo = '';
+    unread = 0;
+    unavailable.clear();
     accts.clear();
     accts.addAll([
       Acct('Checking', 'ACC-1001-8842', 14750.50, [

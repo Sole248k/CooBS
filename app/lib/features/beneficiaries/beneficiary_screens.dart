@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
+import '../data/mobile_repo.dart';
 
 class BeneficiariesPage extends StatelessWidget {
-  const BeneficiariesPage({super.key});
+  /// Back action when shown as a navbar tab (null = pop the route).
+  final VoidCallback? onBack;
+  const BeneficiariesPage({super.key, this.onBack});
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: Demo.i,
@@ -18,12 +21,14 @@ class BeneficiariesPage extends StatelessWidget {
                   ListTile(
                     leading: const CircleAvatar(backgroundColor: Color(0xFFE4EDFF), child: Icon(Icons.person_outline, color: kNavy)),
                     title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${b.rel} · ${b.mobile.isEmpty ? 'No mobile' : b.mobile}'),
+                    subtitle: Text(b.accountNumber != null && b.accountNumber!.isNotEmpty
+                        ? '${b.bankCode ?? 'COOBS'} · ${b.accountNumber} ${b.rel.isNotEmpty && !b.rel.contains('COOBS') ? '(${b.rel})' : ''}'
+                        : '${b.rel} · ${b.mobile.isEmpty ? 'No mobile' : b.mobile}'),
                   ),
               ]),
             ),
           bigBtn('Add beneficiary', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddBeneficiaryPage()))),
-        ]),
+        ], onBack: onBack),
       );
 }
 
@@ -46,7 +51,17 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
     if (step == 1 && (v['cty'] == null || s('a1').isEmpty)) return snack(context, 'Enter country and address line 1');
     if (step == 2) {
       if (v['dt'] == null || s('dn').isEmpty) return snack(context, 'Choose a document type and enter its number');
-      Demo.i.addBen(Ben('${s('first')} ${s('last')}', v['rel']!, s('mob')));
+      final nickname = '${s('first')} ${s('last')}';
+      final accNum = s('dn').isNotEmpty ? s('dn') : 'ACC_${DateTime.now().millisecondsSinceEpoch % 100000000}';
+      try {
+        MobileRepo.addBeneficiary({
+          'nickname': nickname,
+          'accountNumber': accNum,
+          'bankCode': 'COOBS',
+          'beneficiaryName': nickname,
+        });
+      } catch (_) {}
+      Demo.i.addBen(Ben(nickname, v['rel']!, s('mob'), accountNumber: accNum, bankCode: 'COOBS'));
       Navigator.pop(context);
       return snack(context, 'Beneficiary saved');
     }
@@ -92,5 +107,13 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
     return Pg('Add beneficiary', [...body[step], bigBtn(step == 2 ? 'Save' : 'Next', next)],
         chip: Text('${step + 1} / 3', style: const TextStyle(color: kBlue, fontWeight: FontWeight.w700)),
         onBack: () => step == 0 ? Navigator.pop(context) : setState(() => step--));
+  }
+
+  @override
+  void dispose() {
+    for (final ctrl in c.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
   }
 }

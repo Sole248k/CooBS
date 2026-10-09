@@ -11,7 +11,8 @@ import '../scores/scores_screen.dart';
 import 'demo_store.dart';
 import 'ui.dart';
 
-/// Mobile shell: fixed logo header + dark floating bottom bar.
+/// Mobile shell: fixed logo header + floating pill navbar (icons only).
+/// Tabs: Home, Scores & Habits, Alerts (center), Beneficiaries, Profile.
 class MobileShell extends StatefulWidget {
   const MobileShell({super.key});
   @override
@@ -20,12 +21,9 @@ class MobileShell extends StatefulWidget {
 
 class _MobileShellState extends State<MobileShell> {
   int i = 0;
-  static const _tabs = [
-    [Icons.home_outlined, 'Home'],
-    [Icons.qr_code_scanner, 'Pay QR'],
-    [Icons.notifications_none, 'Alerts'],
-    [Icons.person_outline, 'Profile'],
-  ];
+  static const _home = 0, _scores = 1, _alerts = 2, _bens = 3, _profile = 4;
+
+  void _goHome() => setState(() => i = _home);
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -35,6 +33,7 @@ class _MobileShellState extends State<MobileShell> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: Column(children: [
+                if (i != _scores && i != _bens)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -63,8 +62,9 @@ class _MobileShellState extends State<MobileShell> {
                 Expanded(
                   child: IndexedStack(index: i, children: [
                     const HomeScreen(),
-                    const PayQrScreen(),
+                    ScoresPage(onBack: _goHome),
                     const AlertsScreen(),
+                    BeneficiariesPage(onBack: _goHome),
                     const ProfileScreen(),
                   ]),
                 ),
@@ -78,35 +78,108 @@ class _MobileShellState extends State<MobileShell> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: const Color(0xFF111111), borderRadius: BorderRadius.circular(24)),
-                child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  for (var k = 0; k < _tabs.length; k++)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => setState(() => i = k),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                            color: i == k ? Colors.white12 : null, borderRadius: BorderRadius.circular(14)),
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          ListenableBuilder(
-                            listenable: Demo.i,
-                            builder: (context, _) => Badge(
-                                isLabelVisible: k == 2 && Demo.i.unread > 0,
-                                label: Text('${Demo.i.unread}'),
-                                child: Icon(_tabs[k][0] as IconData, color: i == k ? Colors.white : Colors.white54)),
-                          ),
-                          Text(_tabs[k][1] as String,
-                              style: TextStyle(fontSize: 10, color: i == k ? Colors.white : Colors.white54)),
-                        ]),
-                      ),
-                    ),
+                height: 72,
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(36),
+                  border: Border.all(color: const Color(0xFFE6E9E8), width: 0.5),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  _NavCircle(Icons.home_outlined, 'Home', i == _home, () => setState(() => i = _home)),
+                  _NavCircle(Icons.bar_chart_rounded, 'Scores and habits', i == _scores, () => setState(() => i = _scores)),
+                  ListenableBuilder(
+                    listenable: Demo.i,
+                    builder: (context, _) => _AlertsNavButton(Demo.i.unread, i == _alerts, () => setState(() => i = _alerts)),
+                  ),
+                  _NavCircle(Icons.groups_outlined, 'Beneficiaries', i == _bens, () => setState(() => i = _bens)),
+                  _NavCircle(Icons.person_outline, 'Profile', i == _profile, () => setState(() => i = _profile)),
                 ]),
               ),
             ),
           ),
+        ),
+      );
+}
+
+/// Round, icon-only nav button. Selected = darker shade + small dot below.
+class _NavCircle extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _NavCircle(this.icon, this.label, this.selected, this.onTap);
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+            Material(
+              color: selected ? const Color(0xFFDADDE1) : const Color(0xFFF4F4F5),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onTap,
+                child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 20, color: Colors.black)),
+              ),
+            ),
+            if (selected)
+              Positioned(
+                bottom: -8,
+                child: Container(width: 4, height: 4, decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle)),
+              ),
+          ]),
+        ),
+      );
+}
+
+/// Center alerts button: always navy (same as the @username chip), with unread badge.
+class _AlertsNavButton extends StatelessWidget {
+  final int unread;
+  final bool selected;
+  final VoidCallback onTap;
+  const _AlertsNavButton(this.unread, this.selected, this.onTap);
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: selected,
+        label: unread > 0 ? 'Alerts, $unread unread' : 'Alerts',
+        child: SizedBox(
+          width: 60,
+          height: 60,
+          child: Stack(clipBehavior: Clip.none, children: [
+            Material(
+              color: kNavy,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onTap,
+                child: const SizedBox(width: 60, height: 60, child: Icon(Icons.notifications_none, size: 26, color: Colors.white)),
+              ),
+            ),
+            if (unread > 0)
+              Positioned(
+                top: 2,
+                right: 2,
+                child: IgnorePointer(
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: kRed, borderRadius: BorderRadius.circular(8)),
+                    child: Text(unread > 9 ? '9+' : '$unread',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700, height: 1)),
+                  ),
+                ),
+              ),
+          ]),
         ),
       );
 }
@@ -183,8 +256,10 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
   Widget acctCard(int i) {
+    if (i >= d.accts.length) return const SizedBox.shrink();
     final a = d.accts[i];
-    return shell(i, a.no == d.primaryNo ? '${a.type} · primary' : a.type, 'ACTIVE', [
+    final g = a.type.toUpperCase().contains('SAVINGS') ? 1 : (a.type.toUpperCase().contains('CHECKING') ? 0 : i % grads.length);
+    return shell(g, a.no == d.primaryNo ? '${a.type} · primary' : a.type, 'ACTIVE', [
       const SizedBox(height: 14),
       const Text('Account number', style: TextStyle(fontSize: 11, color: Colors.white70)),
       Text(a.no, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
@@ -227,18 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-  Widget circ(IconData ic, String t, VoidCallback? f) => InkWell(
-        onTap: f,
-        borderRadius: BorderRadius.circular(40),
-        child: SizedBox(
-          width: 100,
-          child: Column(children: [
-            CircleAvatar(radius: 32, backgroundColor: const Color(0xFFCBD3DC), child: Icon(ic, color: kNavy, size: 26)),
-            const SizedBox(height: 8),
-            Text(t, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
-          ]),
-        ),
-      );
+
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -249,21 +313,74 @@ class _HomeScreenState extends State<HomeScreen> {
           final failed = d.state == LoadState.partial && d.unavailable.contains('recentTransactions');
           final tx = d.curTx, l = d.loan;
           final nb = l?.next;
+          final isLoan = d.isLoanPage;
+          final pageCount = d.accts.isEmpty ? 2 : d.accts.length + 1;
           return ListView(padding: const EdgeInsets.only(top: 4, bottom: 16), children: [
             SizedBox(
               height: 262,
-              child: PageView(controller: pc, onPageChanged: d.setCur, children: [acctCard(0), acctCard(1), loanCard()]),
+              child: PageView(
+                controller: pc,
+                onPageChanged: d.setCur,
+                children: [
+                  if (d.accts.isEmpty)
+                    shell(0, 'Checking', 'ACTIVE', [
+                      const SizedBox(height: 14),
+                      const Text('Account number', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                      Text(d.primaryNo.isNotEmpty ? d.primaryNo : 'ACC_10000002', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
+                      const SizedBox(height: 8),
+                      const Text('Available balance', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                      balance(0.0),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        btn('Deposit', () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const MoneySheet(0, false))),
+                        btn('Transfer', () => go(const RemittanceScreen(from: 0))),
+                      ]),
+                    ])
+                  else
+                    for (var i = 0; i < d.accts.length; i++) acctCard(i),
+                  loanCard(),
+                ],
+              ),
             ),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              for (var i = 0; i < 3; i++)
+              for (var i = 0; i < pageCount; i++)
                 Container(
                     margin: const EdgeInsets.fromLTRB(3, 12, 3, 0), width: d.cur == i ? 18 : 7, height: 7,
                     decoration: BoxDecoration(color: d.cur == i ? kInk : const Color(0xFFC3CCC7), borderRadius: BorderRadius.circular(4))),
             ]),
+            if (d.kyc != 'VERIFIED')
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFF59E0B) : const Color(0xFFEF4444), width: 0.8),
+                  ),
+                  child: Row(children: [
+                    Icon(d.kyc == 'PENDING_REVIEW' ? Icons.hourglass_top : Icons.verified_user_outlined,
+                        color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFB45309) : const Color(0xFFB91C1C)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(d.kyc == 'PENDING_REVIEW' ? 'KYC Under Review' : 'Identity Verification Required',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87)),
+                        Text(d.kyc == 'PENDING_REVIEW' ? 'Your verification is being reviewed by a branch teller.' : 'Complete your KYC intake to activate higher transfer limits.',
+                            style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                      ]),
+                    ),
+                    TextButton(
+                      onPressed: () => go(const KycIntakeScreen()),
+                      child: Text(d.kyc == 'PENDING_REVIEW' ? 'Check' : 'Verify', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ]),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (d.cur == 2 && l != null)
+                if (isLoan && l != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
                     child: nb == null
@@ -298,16 +415,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
                         child: Column(children: [
                           const Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF9AA5AD))),
-                          Text(d.cur == 2 ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
+                          Text(isLoan ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
                         ]))
                     : txCard(tx.take(5).toList()),
-                const SizedBox(height: 22),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-                  circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const ScoresPage())),
-                  circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
-                  circ(Icons.credit_card, 'Manage\nCards', () => snack(context, 'Card management coming soon in Phase 2')),
-                ]),
-                if (d.cur == 2 && l != null)
+
+                if (isLoan && l != null)
                   Center(child: TextButton(onPressed: d.resetLoan, child: const Text('Reset loan (tester only)'))),
               ]),
             ),
@@ -330,12 +442,15 @@ class _MoneySheetState extends State<MoneySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final d = Demo.i, a = d.accts[widget.from], to = d.accts[1 - widget.from];
+    final d = Demo.i;
+    final a = widget.from < d.accts.length ? d.accts[widget.from] : (d.accts.isNotEmpty ? d.accts[0] : Acct('Checking', 'ACC-0000', 0, []));
+    final otherIndex = d.accts.length > 1 ? (widget.from == 0 ? 1 : 0) : null;
+    final to = otherIndex != null ? d.accts[otherIndex] : null;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 22, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(widget.transfer ? 'Transfer' : 'Deposit', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-        Text(widget.transfer ? 'From ${a.no} (${peso(a.bal)}) to another bank.' : 'Move money from ${a.no} to your other account.',
+        Text(widget.transfer ? 'From ${a.no} (${peso(a.bal)}) to another bank.' : (to != null ? 'Move money from ${a.no} to your other account.' : 'Cash deposit to ${a.no}.'),
             style: const TextStyle(color: kMut, fontSize: 13)),
         const SizedBox(height: 14),
         if (widget.transfer) ...[
@@ -359,15 +474,18 @@ class _MoneySheetState extends State<MoneySheet> {
           ),
           dd('Destination bank', const ['BDO', 'BPI', 'UnionBank', 'Metrobank', 'Landbank'], bank, (v) => bank = v ?? bank),
           tf(acct, 'Recipient account number', k: TextInputType.number),
-        ] else
+        ] else if (to != null) ...[
           dd('Deposit to', ['${to.type} · ${to.no}'], '${to.type} · ${to.no}', (_) {}),
+        ] else ...[
+          dd('Deposit channel', const ['Cash Deposit (Branch / ATM)', 'Check Deposit', 'Online Bank Transfer'], 'Cash Deposit (Branch / ATM)', (_) {}),
+        ],
         tf(amt, 'Amount (₱)', k: const TextInputType.numberWithOptions(decimal: true)),
         bigBtn(widget.transfer ? 'Transfer' : 'Deposit', () {
           final v = double.tryParse(amt.text) ?? 0;
-          final err = widget.transfer ? d.send(widget.from, bank, acct.text.trim(), v) : d.deposit(widget.from, 1 - widget.from, v);
+          final err = widget.transfer ? d.send(widget.from, bank, acct.text.trim(), v) : d.deposit(widget.from, otherIndex, v);
           if (err != null) { snack(context, err); return; }
           Navigator.pop(context);
-          snack(context, widget.transfer ? 'Sent ${peso(v)} to $bank' : 'Deposited ${peso(v)} to ${to.type}');
+          snack(context, widget.transfer ? 'Sent ${peso(v)} to $bank' : (to != null ? 'Deposited ${peso(v)} to ${to.type}' : 'Deposited ${peso(v)} to ${a.type}'));
         }),
       ]),
     );
@@ -382,12 +500,15 @@ class SeeAllPage extends StatelessWidget {
     final d = Demo.i;
     final g = <DateTime, List<Tx>>{};
     for (final x in d.curTx) { g.putIfAbsent(x.date, () => []).add(x); }
+    final tagLabel = d.isLoanPage
+        ? 'LOAN'
+        : (d.cur < d.accts.length ? d.accts[d.cur].type.toUpperCase() : 'ACCOUNT');
     return Pg('Recent transactions', [
       for (final e in g.entries) ...[
         Padding(padding: const EdgeInsets.only(top: 14, bottom: 8), child: Center(child: Text(fmt(e.key), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)))),
         txCard(e.value),
       ],
-    ], chip: tag(const ['CURRENT', 'SAVINGS', 'LOAN'][d.cur], d.cur));
+    ], chip: tag(tagLabel, d.isLoanPage ? 2 : (d.cur % 2)));
   }
 }
 
