@@ -305,6 +305,17 @@ class ApiClient {
     }
 
     if (response.statusCode == 401) {
+      try {
+        final errorJson = jsonDecode(response.body);
+        if (errorJson is Map<String, dynamic>) {
+          final detail = errorJson['detail'] ?? errorJson['message'] ?? errorJson['title'];
+          if (detail != null && '$detail'.isNotEmpty) {
+            throw UnauthorizedException('$detail');
+          }
+        }
+      } catch (e) {
+        if (e is UnauthorizedException) rethrow;
+      }
       throw UnauthorizedException();
     }
 
@@ -360,11 +371,26 @@ class ApiClient {
     if (lower.contains('login') || lower.contains('/auth/token')) {
       return 'A2-A4-login.response.json';
     }
-    if (lower.contains('/accounts') || lower.contains('/my-accounts')) {
+    if (lower.contains('my-accounts')) {
+      return 'K5-my-accounts.response.json';
+    }
+    if (lower.contains('/accounts')) {
       return 'K3-K4-account.response.json';
+    }
+    if (lower.contains('remittance/options') || lower.contains('remittance-options')) {
+      return 'R1-remittance-options.response.json';
+    }
+    if (lower.contains('kyc/options') || lower.contains('kyc-intake-options')) {
+      return 'K1-kyc-intake-options.response.json';
+    }
+    if (lower.contains('/kyc')) {
+      return 'K2-kyc-intake.response.json';
     }
     if (lower.contains('/mobile/dashboard')) {
       return 'M1-mobile-dashboard.response.json';
+    }
+    if (lower.contains('/mobile/transactions/remittance') || lower.contains('mobile-remittance')) {
+      return 'M3-mobile-remittance.response.json';
     }
     if (lower.contains('/transfers') || lower.contains('/remittance')) {
       return 'T1-transfer.response.json';
@@ -395,7 +421,10 @@ class ApiClient {
     }
     try {
       final jsonString = await rootBundle.loadString('assets/fixtures/$filename');
-      return jsonDecode(jsonString) as Map<String, dynamic>;
+      final decoded = jsonDecode(jsonString);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is List) return {'items': decoded, 'data': decoded};
+      return <String, dynamic>{};
     } catch (_) {
       // In headless unit tests where rootBundle asset manifests may not be initialized,
       // return a verified fallback representation matching the contract fixture.

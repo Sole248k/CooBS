@@ -39,7 +39,7 @@ Widget tag(String t, int g) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
     decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        gradient: LinearGradient(colors: grads[g])),
+        gradient: LinearGradient(colors: grads[g % grads.length])),
     child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)));
 
 Widget statRow(String k, String v) => Padding(

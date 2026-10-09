@@ -88,6 +88,17 @@ class NotificationControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/notifications (root alias) - 200 OK with valid JWT")
+    void shouldReturnCustomerNotificationsFromRootEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header("Authorization", "Bearer " + customerJwtToken)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].notificationId", is(sampleNotification.getId().intValue())));
+    }
+
+    @Test
     @DisplayName("GET /api/v1/notifications/my-notifications - 403 Forbidden without Authorization header")
     void shouldRejectUnauthenticatedRequest() throws Exception {
         mockMvc.perform(get("/api/v1/notifications/my-notifications")

@@ -8,6 +8,7 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
@@ -30,8 +31,10 @@ import lombok.extern.slf4j.Slf4j;
  * was still declined. What it leaves behind are the engine's counters for customer 0, which
  * expire on their own.
  *
- * ponytail: this warms the stack once, when this service starts. If risk-engine or
- * customer-service is restarted on its own later, its first call is cold again.
+ * A warm stack does not stay warm. With no transfers the connections are closed and the first
+ * call after a long quiet spell ran past 150 ms again, so once the start-up warm-up has finished
+ * one more round is sent on a short interval for as long as this service runs. The same rounds
+ * warm risk-engine or customer-service again after either is restarted on its own.
  */
 @Slf4j
 @Component
@@ -48,6 +51,9 @@ public class DownstreamWarmUp {
     private final boolean enabled;
     private final int maxAttempts;
     private final Duration retryDelay;
+    private volatile boolean startUpFinished;
+    // Read and written by the scheduler thread only.
+    private boolean answering = true;
 
     public DownstreamWarmUp(CustomerClient customers, RiskClient risk,
             @Value("${app.warm-up.enabled:true}") boolean enabled,
@@ -88,6 +94,36 @@ public class DownstreamWarmUp {
                     + "with RISK_UNAVAILABLE");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } finally {
+            MDC.remove(InternalApi.CORRELATION_MDC_KEY);
+            startUpFinished = true;
+        }
+    }
+
+    /**
+     * One round on every interval, so that an idle stack does not go cold. It waits for the
+     * start-up warm-up to finish, whether that succeeded or gave up. The interval stays under
+     * the 30 seconds after which the JDK HTTP client closes an idle connection. A round that
+     * gets no answer changes nothing here: the next one is sent on the next interval.
+     */
+    @Scheduled(fixedDelayString = "${app.warm-up.keep-warm-interval:20s}",
+            initialDelayString = "${app.warm-up.keep-warm-interval:20s}")
+    public void keepWarm() {
+        if (!enabled || !startUpFinished) {
+            return;
+        }
+        MDC.put(InternalApi.CORRELATION_MDC_KEY, "warm-up");
+        try {
+            boolean answered = round();
+            if (answered != answering) {
+                if (answered) {
+                    log.info("Risk stage is answering in time again");
+                } else {
+                    log.warn("Risk stage did not answer in time on a keep-warm round; a transfer now may be "
+                            + "declined with RISK_UNAVAILABLE");
+                }
+                answering = answered;
+            }
         } finally {
             MDC.remove(InternalApi.CORRELATION_MDC_KEY);
         }

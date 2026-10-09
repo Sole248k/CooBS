@@ -3,6 +3,7 @@ import 'package:app/core/models/models.dart';
 import 'package:app/core/network/network.dart';
 import 'package:app/core/storage/secure_storage_service.dart';
 import 'package:app/features/accounts/demo_store.dart';
+import 'package:app/features/data/mobile_repo.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -118,8 +119,38 @@ void main() {
 
       store.reset();
       expect(store.loan, isNull);
-      expect(store.accts.first.type, 'Savings');
-      expect(store.accts.first.bal, 31700.00);
+      expect(store.accts.first.type, 'Checking');
+      expect(store.accts.first.bal, 14750.50);
+    });
+
+    test('Demo store safely handles single-account user profile without RangeError', () {
+      final store = Demo.i;
+      store.accts.clear();
+      store.accts.add(Acct('Checking', 'ACC-10000001', 5000.0, []));
+      store.cur = 0;
+
+      // Accessing curTx should succeed
+      expect(store.curTx, isEmpty);
+
+      // Navigating to loan page (index 1 when 1 account exists)
+      store.cur = 1;
+      expect(store.isLoanPage, isTrue);
+      expect(store.curTx, isEmpty);
+
+      // Applying loan to single account
+      store.applyLoan('Personal', 10000, 6);
+      expect(store.loan, isNotNull);
+      expect(store.accts[0].bal, 15000.0);
+      expect(store.accts[0].tx.length, 1);
+      store.cur = 0;
+      expect(store.curTx.length, 1);
+
+      // Single-account deposit
+      final err = store.deposit(0, null, 1000.0);
+      expect(err, isNull);
+      expect(store.accts[0].bal, 16000.0);
+
+      store.reset();
     });
 
     test('ApiClient triggers onSessionExpired callback when session cleared', () async {
@@ -134,5 +165,32 @@ void main() {
       expect(expiredCalled, isFalse);
       ApiClient.onSessionExpired = null;
     });
+
+    test('MobileRepo and Demo.load retrieve KYC profile and beneficiaries', () async {
+      final profile = await MobileRepo.customerProfile();
+      expect(profile['kycStatus'], 'VERIFIED');
+      expect(profile['kyc'], isNotNull);
+
+      final bens = await MobileRepo.beneficiaries();
+      expect(bens, isNotEmpty);
+      expect(bens.first['nickname'], 'Juan Dela Cruz');
+
+      final store = Demo.i;
+      await store.load();
+      expect(store.bens, isNotEmpty);
+      expect(store.kycData, isNotNull);
+      expect(store.kycData!['firstName'], isNotNull);
+    });
+
+    test('Demo store accounts parsing handles string balances and maintains accounts display', () async {
+      final store = Demo.i;
+      await store.load();
+      expect(store.accts, isNotEmpty);
+      expect(store.accts.first.bal, greaterThan(0));
+      expect(store.accts.first.no, isNotEmpty);
+      expect(store.accts.first.type, isNotEmpty);
+      expect(store.state, isNot(LoadState.offline));
+    });
   });
 }
+

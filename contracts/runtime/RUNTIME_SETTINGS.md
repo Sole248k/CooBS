@@ -22,6 +22,7 @@ Inside Compose a service is reached by its container name. From the host, and wh
 | risk-engine | `risk-engine` | 8092 | Cloud | `expansion` |
 | batch-service | `batch-service` | 8093 | On-premises | `expansion` |
 | mobile-bff | `mobile-bff` | 8094 | Cloud | `expansion` |
+| staff-bff | `staff-bff` | 8095 | Cloud | `expansion` |
 
 | Data store | Container name | Port inside Compose | Host port | Compose profile |
 | --- | --- | --- | --- | --- |
@@ -48,18 +49,20 @@ One variable per target service, holding the base URL with no trailing slash and
 | `RISK_ENGINE_URL` | `http://risk-engine:8092` |
 | `BATCH_SERVICE_URL` | `http://batch-service:8093` |
 | `MOBILE_BFF_URL` | `http://mobile-bff:8094` |
+| `STAFF_BFF_URL` | `http://staff-bff:8095` |
 
 Which service receives which URL follows section 3.2 of the API contract, the list of allowed internal calls:
 
 | Service | Receives |
 | --- | --- |
-| api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch, mobile-bff |
+| api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch, mobile-bff, staff-bff |
 | customer-service | `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL` |
 | transaction-service | `ACCOUNT_SERVICE_URL`, `ORCHESTRATION_SERVICE_URL` |
 | orchestration-service | `CUSTOMER_SERVICE_URL`, `RISK_ENGINE_URL`, `LEDGER_SERVICE_URL` |
 | account-service | `LEDGER_SERVICE_URL` |
 | batch-service | `LEDGER_SERVICE_URL` |
 | mobile-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
+| staff-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `LEDGER_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `AUDIT_SERVICE_URL`, `BATCH_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
 
 In `application.properties`, give the local default so the service also runs from an IDE:
 
