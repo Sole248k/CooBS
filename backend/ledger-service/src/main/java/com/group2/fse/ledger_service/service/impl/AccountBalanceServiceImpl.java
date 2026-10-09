@@ -347,16 +347,18 @@ public class AccountBalanceServiceImpl implements AccountBalanceService {
                             .destinationCustomerId(dstCustId)
                             .build())
                     .build();
-            applicationEventPublisher.publishEvent(event);
-            log.debug("Enqueued Spring application event LedgerTransferEvent for ref {}", transferReference);
-
+            // Published once. The outbox row commits with the posting and the relay sends it; the
+            // direct send is only the fallback, because both together put the event on the topic twice.
             if (outboxService != null) {
                 try {
                     outboxService.appendEvent("ledger.transfer.completed.v1", String.valueOf(srcId), event);
+                    return;
                 } catch (Exception ex) {
-                    log.warn("Could not append to outbox in executeTransfer (continuing with Spring event): {}", ex.getMessage());
+                    log.warn("Could not append to outbox in executeTransfer (sending the event directly): {}", ex.getMessage());
                 }
             }
+            applicationEventPublisher.publishEvent(event);
+            log.debug("Enqueued Spring application event LedgerTransferEvent for ref {}", transferReference);
         }
     }
 
