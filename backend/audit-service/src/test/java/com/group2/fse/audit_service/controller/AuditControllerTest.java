@@ -193,4 +193,15 @@ class AuditControllerTest {
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.detail").value("Daily audit seal not found for date: 2026-10-04"));
     }
+
+    @Test
+    @DisplayName("Account data endpoints are staff only: none checks who owns the account")
+    void accountDataEndpoints_doNotAdmitCustomers() {
+        for (String method : java.util.List.of("getAccountStatement", "getTransactionForensics", "verifyChainIntegrity")) {
+            java.lang.reflect.Method endpoint = java.util.Arrays.stream(AuditController.class.getDeclaredMethods())
+                    .filter(m -> m.getName().equals(method)).findFirst().orElseThrow();
+            String rule = endpoint.getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class).value();
+            org.junit.jupiter.api.Assertions.assertFalse(rule.contains("CUSTOMER"), method + " admits customers: " + rule);
+        }
+    }
 }
