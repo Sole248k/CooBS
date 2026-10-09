@@ -131,7 +131,9 @@ class Demo extends ChangeNotifier {
   bool _kycTouched = false;
   bool hide = false;
   int cur = 0;
-  final bens = <Ben>[const Ben('Juan Dela Cruz', 'Brother', '+63 917 000 1111')];
+  final bens = <Ben>[
+    const Ben('Maria Santos', 'COOBS · ACC_10000002', '+63 917 000 1111', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
+  ];
   final alerts = <List<String>>[
     ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
     ['₱150.00 transferred to ACC-1002-9915', 'Ref TXN-9021 · Today'],
