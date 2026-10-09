@@ -206,6 +206,43 @@ class RiskControllerTest {
     }
 
     @Test
+    @DisplayName("R2: a failed outcome from a service is recorded and answered with what was released")
+    void testRecordOutcomeSuccess() throws Exception {
+        String serviceToken = jwtTokenProvider.generateToken(0L, "orchestration-service", List.of("ROLE_SERVICE"));
+        when(riskEvaluator.recordOutcome(any(com.group2.fse.risk_engine.dto.RiskOutcomeRequest.class)))
+                .thenReturn(com.group2.fse.risk_engine.dto.RiskOutcomeResponse.builder()
+                        .transactionId("6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11").outcome("FAILED")
+                        .released(true).releasedAmount("2500.00").build());
+
+        mockMvc.perform(post("/internal/v1/risk/outcomes")
+                        .header("Authorization", "Bearer " + serviceToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transactionId\":\"6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11\",\"outcome\":\"FAILED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.transactionId").value("6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11"))
+                .andExpect(jsonPath("$.outcome").value("FAILED"))
+                .andExpect(jsonPath("$.released").value(true))
+                .andExpect(jsonPath("$.releasedAmount").value("2500.00"));
+    }
+
+    @Test
+    @DisplayName("R2: an outcome other than FAILED, or a call without a service token, is refused")
+    void testRecordOutcomeRefusals() throws Exception {
+        String serviceToken = jwtTokenProvider.generateToken(0L, "orchestration-service", List.of("ROLE_SERVICE"));
+
+        mockMvc.perform(post("/internal/v1/risk/outcomes")
+                        .header("Authorization", "Bearer " + serviceToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transactionId\":\"6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11\",\"outcome\":\"POSTED\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/internal/v1/risk/outcomes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"transactionId\":\"6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11\",\"outcome\":\"FAILED\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("Should return 401 Unauthorized when invalid API secret is provided (FIN-405)")
     void testEvaluateRiskUnauthorizedWithInvalidSecret() throws Exception {
         RiskEvaluationRequest request = RiskEvaluationRequest.builder()

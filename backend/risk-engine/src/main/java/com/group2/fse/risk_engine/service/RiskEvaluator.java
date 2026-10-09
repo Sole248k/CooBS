@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -14,6 +15,8 @@ import com.group2.fse.risk_engine.dto.FraudCheckResult;
 import com.group2.fse.risk_engine.dto.LimitCheckResult;
 import com.group2.fse.risk_engine.dto.RiskEvaluationRequest;
 import com.group2.fse.risk_engine.dto.RiskEvaluationResponse;
+import com.group2.fse.risk_engine.dto.RiskOutcomeRequest;
+import com.group2.fse.risk_engine.dto.RiskOutcomeResponse;
 import com.group2.fse.risk_engine.exception.RiskUnavailableException;
 
 import lombok.RequiredArgsConstructor;
@@ -72,7 +75,11 @@ public class RiskEvaluator {
         BigDecimal usedToday = velocityState.getUsedToday();
 
         // 2. Daily Limit Policy Check
-        boolean withinLimit = limitPolicy.isWithinDailyLimit(request.getAmount(), usedToday, dailyLimit);
+        // A saga that was interrupted asks again about a transfer it already holds a reservation
+        // for. Its own amount is then in today's total, and must not be counted against it twice.
+        boolean alreadyReserved = velocityCounter.holdsReservation(request.getTransactionId());
+        boolean withinLimit = alreadyReserved
+                || limitPolicy.isWithinDailyLimit(request.getAmount(), usedToday, dailyLimit);
         String limitOutcome = withinLimit ? OUTCOME_PASSED : OUTCOME_FAILED;
         if (!withinLimit) {
             reasons.add(REASON_LIMIT_EXCEEDED);
@@ -157,6 +164,18 @@ public class RiskEvaluator {
         }
 
         String decision = withinLimit && OUTCOME_PASSED.equals(fraudOutcome) ? DECISION_APPROVE : DECISION_DECLINE;
+
+        // 5. An approval reserves the amount against today's limit. The reservation is the real
+        // limit check: the read above can be stale when two transfers arrive together, and the
+        // one that no longer fits is refused here.
+        if (DECISION_APPROVE.equals(decision)
+                && !velocityCounter.reserve(request.getCustomerId(), request.getTransactionId(), request.getAmount(), dailyLimit)) {
+            limitOutcome = OUTCOME_FAILED;
+            reasons.add(REASON_LIMIT_EXCEEDED);
+            reasons.add(REASON_TIER_DAILY_CEILING_REACHED);
+            decision = DECISION_DECLINE;
+        }
+
         if (DECISION_APPROVE.equals(decision)) {
             // An approval carries no rule reasons, only the AMLA flag when it applies.
             boolean amlaFlag = reasons.contains(REASON_AMLA_THRESHOLD);
@@ -164,11 +183,6 @@ public class RiskEvaluator {
             if (amlaFlag) {
                 reasons.add(REASON_AMLA_THRESHOLD);
             }
-        }
-
-        // 5. If Approved, update Redis counters
-        if (DECISION_APPROVE.equals(decision)) {
-            velocityCounter.recordApprovedTransfer(request.getCustomerId(), request.getTransactionId(), request.getAmount());
         }
 
         long durationMs = System.currentTimeMillis() - startTime;
@@ -197,6 +211,26 @@ public class RiskEvaluator {
                 .evaluatedInMs(Math.max(1, durationMs))
                 .executionDurationMs(Math.max(1, durationMs))
                 .build();
+    }
+
+    /**
+     * R2. The saga reports that a transfer the engine approved did not post, and the amount it
+     * reserved goes back to the customer's daily limit. Repeating the report changes nothing.
+     */
+    public RiskOutcomeResponse recordOutcome(RiskOutcomeRequest request) {
+        Optional<BigDecimal> released = velocityCounter.release(request.getTransactionId());
+        return RiskOutcomeResponse.builder()
+                .transactionId(request.getTransactionId())
+                .outcome(request.getOutcome())
+                .released(released.isPresent())
+                .releasedAmount(released.map(RiskEvaluator::money).orElse(null))
+                .build();
+    }
+
+    /** Money in the contract is a string with two to four decimals. */
+    private static String money(BigDecimal amount) {
+        BigDecimal exact = amount.stripTrailingZeros();
+        return (exact.scale() < 2 ? exact.setScale(2, RoundingMode.UNNECESSARY) : exact).toPlainString();
     }
 
     private double resolveTierScore(String kycTier) {

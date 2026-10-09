@@ -43,6 +43,8 @@ Dev 7 curates these into `app/assets/fixtures/` (handshake H15). To change one, 
 | `O4-inbound-interbank-saga.response.json` | 8. orchestration-service (8091) — NEW, internal only |
 | `R1-risk-evaluate.request.json` | 9. risk-engine (8092) — NEW, internal only |
 | `R1-risk-evaluate.response.json` | 9. risk-engine (8092) — NEW, internal only |
+| `R2-risk-outcome.request.json` | 9. risk-engine (8092) — NEW, internal only |
+| `R2-risk-outcome.response.json` | 9. risk-engine (8092) — NEW, internal only |
 | `L-S1-balance.response.json` | 10.1 Staff endpoints (existing, staff roles only) |
 | `L1-open-balance.request.json` | 10.2 Internal endpoints (NEW) |
 | `L1-open-balance.response.json` | 10.2 Internal endpoints (NEW) |
