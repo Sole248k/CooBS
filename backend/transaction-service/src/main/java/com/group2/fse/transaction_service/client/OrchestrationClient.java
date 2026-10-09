@@ -199,7 +199,8 @@ public class OrchestrationClient {
             return response;
         } catch (Exception ex) {
             log.error("Failed to execute inbound interbank saga for txId={}: {}", request.getTransactionId(), ex.getMessage());
-            return new InboundInterbankSagaResponse(request.getTransactionId(), "FAILED", request.getReferenceNo());
+            // No answer is not a refusal: the ledger may have posted. The caller keeps the row open.
+            return null;
         }
     }
 

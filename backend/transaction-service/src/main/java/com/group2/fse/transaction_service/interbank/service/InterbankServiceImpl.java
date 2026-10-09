@@ -13,6 +13,9 @@ import com.group2.fse.transaction_service.interbank.security.InterbankSecurityPr
 import com.group2.fse.transaction_service.repository.TxnTransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.group2.fse.transaction_service.exception.TransferRejectedException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,8 +42,13 @@ public class InterbankServiceImpl implements InterbankService {
     private final OrchestrationClient orchestrationClient;
     private final InterbankSecurityProperties properties;
 
+    /**
+     * Not one database transaction on purpose. The row is committed before the saga is called,
+     * so that a second copy of the same message finds it (or is stopped by the unique key)
+     * instead of posting under another reference, and so that a call that got no answer leaves
+     * a PROCESSING row the partner's repeat picks up with the same transaction ID and reference.
+     */
     @Override
-    @Transactional
     public InterbankTransferResponse processInboundTransfer(InterbankTransferRequest request) {
         log.info("Processing inbound interbank transfer: messageId={}, sourceBank={}, amount={}, destAccount={}",
                 request.getMessageId(), request.getSourceBankCode(), request.getAmount(),
@@ -89,9 +97,7 @@ public class InterbankServiceImpl implements InterbankService {
         String idempotencyKey = "IB:" + request.getMessageId();
         Optional<TxnTransaction> existingOpt = transactionRepository.findByIdempotencyKey(idempotencyKey);
         if (existingOpt.isPresent()) {
-            TxnTransaction existing = existingOpt.get();
-            log.info("Replaying response for duplicate messageId={}: status={}", request.getMessageId(), existing.getStatus());
-            return replayResponse(request.getMessageId(), existing, request.getBeneficiary().getName());
+            return answerFromRow(request, existingOpt.get());
         }
 
         // 5. Beneficiary Account Lookup
@@ -160,42 +166,75 @@ public class InterbankServiceImpl implements InterbankService {
                 .status("PROCESSING")
                 .createdAt(Instant.now())
                 .build();
-        transactionRepository.save(txn);
+        try {
+            transactionRepository.saveAndFlush(txn);
+        } catch (DataIntegrityViolationException raced) {
+            // Another copy of this message committed its row first; answer from that one.
+            return answerFromRow(request, transactionRepository.findByIdempotencyKey(idempotencyKey).orElseThrow(() -> raced));
+        }
 
-        // 10. Execute Synchronous Orchestration Inbound Interbank Saga (O4)
-        InboundInterbankSagaRequest sagaRequest = InboundInterbankSagaRequest.builder()
-                .transactionId(transactionId)
-                .referenceNo(receiverRef)
-                .messageId(request.getMessageId())
-                .sourceBankCode(request.getSourceBankCode())
-                .settlementAccountId(settlementAccountId)
-                .destinationAccountId(beneficiaryAccount.getAccountId())
-                .amount(amount)
-                .currency(CURRENCY_PHP)
-                .build();
+        return settle(request, txn, beneficiaryName);
+    }
 
+    /** A repeated message: the stored outcome, or another try at a credit that never got an answer. */
+    private InterbankTransferResponse answerFromRow(InterbankTransferRequest request, TxnTransaction existing) {
+        if ("PROCESSING".equalsIgnoreCase(existing.getStatus())) {
+            log.info("messageId={} was received before with no outcome; asking the saga again", request.getMessageId());
+            return settle(request, existing, maskName(request.getBeneficiary().getName()));
+        }
+        log.info("Replaying response for duplicate messageId={}: status={}", request.getMessageId(), existing.getStatus());
+        return replayResponse(request.getMessageId(), existing, request.getBeneficiary().getName());
+    }
+
+    /**
+     * O4, synchronous. The saga and the ledger recognise the transaction ID and the reference,
+     * so calling again for the same row is one posting. Only an answer from the saga ends the
+     * row: no answer leaves it PROCESSING and tells the partner to send the message again.
+     */
+    private InterbankTransferResponse settle(InterbankTransferRequest request, TxnTransaction txn, String beneficiaryName) {
         InboundInterbankSagaResponse sagaResponse = orchestrationClient.triggerInboundInterbankSaga(
-                sagaRequest, request.getMessageId());
+                InboundInterbankSagaRequest.builder()
+                        .transactionId(txn.getTransactionId())
+                        .referenceNo(txn.getReferenceNo())
+                        .messageId(request.getMessageId())
+                        .sourceBankCode(request.getSourceBankCode())
+                        .settlementAccountId(txn.getSourceAccountId())
+                        .destinationAccountId(txn.getDestinationAccountId())
+                        .amount(txn.getAmount())
+                        .currency(CURRENCY_PHP)
+                        .build(),
+                request.getMessageId());
+        String sagaState = sagaResponse == null ? null : sagaResponse.getSagaState();
 
         Instant now = Instant.now();
-        if (sagaResponse != null && "COMPLETED".equalsIgnoreCase(sagaResponse.getSagaState())) {
+        if ("COMPLETED".equalsIgnoreCase(sagaState)) {
             txn.setStatus("COMPLETED");
             txn.setCompletedAt(now);
             transactionRepository.save(txn);
-            log.info("Inbound transfer {} successfully credited for beneficiary {}", receiverRef, beneficiaryAccount.getAccountNumber());
-            return InterbankTransferResponse.accepted(request.getMessageId(), receiverRef, beneficiaryName, now.toString());
-        } else {
+            log.info("Inbound transfer {} credited", txn.getReferenceNo());
+            return InterbankTransferResponse.accepted(request.getMessageId(), txn.getReferenceNo(), beneficiaryName, now.toString());
+        }
+        if ("FAILED".equalsIgnoreCase(sagaState)) {
             txn.setStatus("FAILED");
             txn.setFailureCode("RECEIVER_ERROR");
             txn.setCompletedAt(now);
             transactionRepository.save(txn);
-            log.warn("Inbound transfer {} failed during saga execution", receiverRef);
+            log.warn("Inbound transfer {} was refused by the ledger", txn.getReferenceNo());
             return InterbankTransferResponse.rejected(
                     request.getMessageId(),
                     "RECEIVER_ERROR",
                     "Ledger credit could not be completed.",
                     now.toString());
         }
+        log.error("Inbound transfer {} got no answer from the saga (state {}); it stays PROCESSING",
+                txn.getReferenceNo(), sagaState);
+        throw outcomeUnknown();
+    }
+
+    /** 503: the credit may or may not have posted. The partner sends the same message again. */
+    private static TransferRejectedException outcomeUnknown() {
+        return new TransferRejectedException(HttpStatus.SERVICE_UNAVAILABLE, "RECEIVER_ERROR", "Outcome Not Known Yet",
+                "The transfer has not been confirmed yet. Send the same message again.");
     }
 
     @Override
@@ -243,9 +282,8 @@ public class InterbankServiceImpl implements InterbankService {
             String code = txn.getFailureCode() != null ? txn.getFailureCode() : "RECEIVER_ERROR";
             return InterbankTransferResponse.rejected(messageId, code, "Transfer failed.", time);
         } else {
-            // Still in progress / processing
-            String time = txn.getCreatedAt().toString();
-            return InterbankTransferResponse.accepted(messageId, txn.getReferenceNo(), name, time);
+            // Still PROCESSING: saying ACCEPTED here would confirm a credit that may not have posted.
+            throw outcomeUnknown();
         }
     }
 

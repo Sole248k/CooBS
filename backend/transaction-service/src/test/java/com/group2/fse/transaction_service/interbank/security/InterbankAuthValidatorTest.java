@@ -21,7 +21,6 @@ class InterbankAuthValidatorTest {
     @BeforeEach
     void setUp() {
         properties = new InterbankSecurityProperties();
-        properties.setDefaultSharedSecret(SECRET);
         InterbankSecurityProperties.PartnerConfig partner = new InterbankSecurityProperties.PartnerConfig();
         partner.setBankCode(BANK_CODE);
         partner.setSharedSecret(SECRET);

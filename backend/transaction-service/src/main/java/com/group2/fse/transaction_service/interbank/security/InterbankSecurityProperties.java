@@ -15,7 +15,6 @@ public class InterbankSecurityProperties {
     private String ownBankCode = "COOBS";
     private int allowedTimestampSkewSeconds = 300; // 5 minutes as per contract Section 4
     private Long defaultSettlementAccountId = 9005L; // GL_SETTLEMENT_BANKB
-    private String defaultSharedSecret = "coobs-bankb-secret-2026";
     private Map<String, PartnerConfig> partners = new HashMap<>();
 
     public PartnerConfig getPartner(String bankCode) {
