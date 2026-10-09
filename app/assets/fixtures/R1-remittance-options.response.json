@@ -16,7 +16,7 @@
       "code": "COOBS",
       "name": "CooBS (same bank)",
       "fee": 0.0,
-      "accountPattern": "^(?i)ACC[-_]?\\d{4,8}$",
+      "accountPattern": "^[aA][cC][cC][-_]?\\d{4,8}$",
       "accountHint": "ACC followed by account digits"
     },
     {
