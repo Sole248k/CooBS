@@ -2,8 +2,8 @@
   "currency": "PHP",
   "scale": 2,
   "limits": {
-    "minAmount": 1.0,
-    "maxAmount": 50000.0
+    "minAmount": 0.01,
+    "maxAmount": 500000.0
   },
   "categories": [
     "TRANSFER",

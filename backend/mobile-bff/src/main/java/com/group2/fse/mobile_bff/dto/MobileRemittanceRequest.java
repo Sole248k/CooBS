@@ -14,6 +14,10 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class MobileRemittanceRequest {
 
+    /** Single-transfer bounds; also published to the app via GET /remittance/options. */
+    public static final String MIN_AMOUNT = "0.01";
+    public static final String MAX_AMOUNT = "500000.00";
+
     @Pattern(regexp = "^[A-Za-z0-9_-]{4,34}$", message = "Invalid source account number format")
     private String sourceAccountNumber;
 
@@ -30,8 +34,8 @@ public class MobileRemittanceRequest {
     private String destinationBankCode = "COOBS";
 
     @NotNull(message = "Amount is required")
-    @DecimalMin(value = "0.01", message = "Amount must be greater than zero")
-    @DecimalMax(value = "500000.00", message = "Amount exceeds regulatory ceiling limit of ₱500,000.00")
+    @DecimalMin(value = MIN_AMOUNT, message = "Amount must be greater than zero")
+    @DecimalMax(value = MAX_AMOUNT, message = "Amount exceeds regulatory ceiling limit of ₱500,000.00")
     @Digits(integer = 12, fraction = 2, message = "Amount cannot have more than 2 decimal places")
     private BigDecimal amount;
 

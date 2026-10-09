@@ -316,4 +316,28 @@ class MobileBffServiceTest {
         MobileRemittanceResponse res = mobileBffService.submitRemittance(request, "idemp-1", 1L, "corr-1", "mock-token");
         assertNotNull(res);
     }
+
+    @Test
+    void testGetRemittanceOptions_PublishesSubmissionBounds() {
+        MobileRemittanceOptionsResponse options = mobileBffService.getRemittanceOptions();
+
+        assertEquals("PHP", options.getCurrency());
+        assertEquals(2, options.getScale());
+        assertEquals(0, new BigDecimal("0.01").compareTo(options.getLimits().getMinAmount()));
+        assertEquals(0, new BigDecimal("500000.00").compareTo(options.getLimits().getMaxAmount()));
+    }
+
+    @Test
+    void testSubmitRemittance_AboveAdvertisedMax_ThrowsBadRequest() {
+        BigDecimal overMax = mobileBffService.getRemittanceOptions().getLimits().getMaxAmount().add(new BigDecimal("0.01"));
+        MobileRemittanceRequest request = MobileRemittanceRequest.builder()
+                .sourceAccountNumber("ACC_10000001")
+                .destinationAccountNumber("ACC_10000002")
+                .amount(overMax)
+                .build();
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> mobileBffService.submitRemittance(request, "idemp-1", 1L, "corr-1", "mock-token"));
+        assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
+    }
 }

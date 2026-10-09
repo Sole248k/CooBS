@@ -183,6 +183,18 @@ public class MobileBffServiceImpl implements MobileBffService {
     }
 
     @Override
+    public MobileRemittanceOptionsResponse getRemittanceOptions() {
+        return MobileRemittanceOptionsResponse.builder()
+                .currency("PHP")
+                .scale(2)
+                .limits(MobileRemittanceOptionsResponse.Limits.builder()
+                        .minAmount(new BigDecimal(MobileRemittanceRequest.MIN_AMOUNT))
+                        .maxAmount(new BigDecimal(MobileRemittanceRequest.MAX_AMOUNT))
+                        .build())
+                .build();
+    }
+
+    @Override
     public MobileRemittanceResponse submitRemittance(MobileRemittanceRequest request, String idempotencyKey, Long customerId, String correlationId, String bearerToken) {
         log.info("Intake remittance for Customer [{}]: dstAccount={}, amount={}",
                 customerId, request.getDestinationAccountNumber(), request.getAmount());
@@ -190,7 +202,7 @@ public class MobileBffServiceImpl implements MobileBffService {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Transfer amount must be greater than zero");
         }
-        if (request.getAmount().compareTo(new BigDecimal("500000.00")) > 0) {
+        if (request.getAmount().compareTo(new BigDecimal(MobileRemittanceRequest.MAX_AMOUNT)) > 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Transfer amount exceeds single-transaction ceiling of ₱500,000.00");
         }
 
