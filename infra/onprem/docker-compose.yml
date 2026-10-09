@@ -1,0 +1,180 @@
+# ==============================================================================
+# The on-premises zone of the Azure demo: the money and the system of record.
+#
+# Runs on the VM in the on-premises VNet (infra/bicep/modules/onprem-vm.bicep), from /opt/coobs.
+# It is started by start.sh, which writes the .env beside this file from Key Vault. Do not
+# start it by hand without that .env.
+#
+#   Here                ledger, account, audit, batch, Oracle, the audit PostgreSQL
+#   In the cloud VNet   Kafka (an internal load balancer in the cluster) and Redis (a private endpoint)
+#
+# The service and container names are the ones docker-compose.yml uses. batch-service falls
+# back to them, so they must not change.
+#
+# Ports 8082, 8083, 8085 and 8093 are published on every interface of the VM. The NSG on the
+# subnet is what limits them to the cluster. The two databases publish nothing.
+#
+# The service images hold a JVM that would take three quarters of the VM's memory each, so
+# JAVA_OPTS is set here.
+# ==============================================================================
+name: coobs-onprem
+
+x-java-opts: &java-opts "-Xmx384m -XX:+ExitOnOutOfMemoryError"
+
+x-cloud-links: &cloud-links
+  KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS is required}
+  REDIS_HOST: ${REDIS_HOST:?REDIS_HOST is required}
+  REDIS_PORT: ${REDIS_PORT:-10000}
+  SPRING_DATA_REDIS_SSL_ENABLED: ${REDIS_SSL_ENABLED:-true}
+  SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+x-oracle: &oracle
+  ORACLE_HOST: oracle-core-db
+  ORACLE_PORT: 1521
+  ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
+  APP_USER: ${APP_USER:-core_user}
+  APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD is required}
+
+x-audit-store: &audit-store
+  POSTGRES_HOST: postgres-audit-db
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: ${POSTGRES_DB:-audit_store}
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+
+x-common: &common
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+  JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+  JAVA_OPTS: *java-opts
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+  SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
+  SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
+
+services:
+  oracle-core-db:
+    image: gvenzl/oracle-free:latest
+    container_name: oracle-core-db
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:?ORACLE_PASSWORD is required}
+      APP_USER: ${APP_USER:-core_user}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD is required}
+      ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
+    volumes:
+      - ./database/oracle:/container-entrypoint-initdb.d:ro
+      - oracle_data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "/opt/oracle/healthcheck.sh"]
+      interval: 20s
+      timeout: 15s
+      retries: 30
+      start_period: 120s
+    restart: unless-stopped
+
+  postgres-audit-db:
+    image: postgres:16-alpine
+    container_name: postgres-audit-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-audit_store}
+    volumes:
+      - ./database/postgres:/docker-entrypoint-initdb.d:ro
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-audit_store}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  ledger-service:
+    image: ${REGISTRY:?REGISTRY is required}/coobs/ledger-service:${IMAGE_TAG:?IMAGE_TAG is required}
+    container_name: ledger-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      oracle-core-db:
+        condition: service_healthy
+      postgres-audit-db:
+        condition: service_healthy
+    environment:
+      <<: [*common, *oracle, *audit-store, *cloud-links]
+      SERVER_PORT: 8083
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/actuator/health/liveness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+  account-service:
+    image: ${REGISTRY:?REGISTRY is required}/coobs/account-service:${IMAGE_TAG:?IMAGE_TAG is required}
+    container_name: account-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      oracle-core-db:
+        condition: service_healthy
+    environment:
+      <<: [*common, *oracle, *cloud-links]
+      SERVER_PORT: 8082
+      LEDGER_SERVICE_URL: http://ledger-service:8083
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health/liveness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+  audit-service:
+    image: ${REGISTRY:?REGISTRY is required}/coobs/audit-service:${IMAGE_TAG:?IMAGE_TAG is required}
+    container_name: audit-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres-audit-db:
+        condition: service_healthy
+    environment:
+      <<: [*common, *audit-store]
+      SERVER_PORT: 8085
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/actuator/health/liveness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+  # batch-service reads the audit store through its datasource and opens its own connection to
+  # Oracle (LedgerAuditHelper). It gets the Oracle settings here; in docker-compose.yml it is
+  # given none and falls back to a password written in its code.
+  batch-service:
+    image: ${REGISTRY:?REGISTRY is required}/coobs/batch-service:${IMAGE_TAG:?IMAGE_TAG is required}
+    container_name: batch-service
+    ports:
+      - "8093:8093"
+    depends_on:
+      oracle-core-db:
+        condition: service_healthy
+      postgres-audit-db:
+        condition: service_healthy
+    environment:
+      <<: [*common, *oracle, *audit-store]
+      SERVER_PORT: 8093
+      POSTGRES_SCHEMA: batch
+      LEDGER_SERVICE_URL: http://ledger-service:8083
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?KAFKA_BOOTSTRAP_SERVERS is required}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8093/actuator/health/liveness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+volumes:
+  oracle_data:
+  postgres_data:
