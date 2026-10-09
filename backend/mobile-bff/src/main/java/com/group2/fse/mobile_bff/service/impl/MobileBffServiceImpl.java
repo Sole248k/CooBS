@@ -109,9 +109,6 @@ public class MobileBffServiceImpl implements MobileBffService {
 
         List<MobileAccountSummary> accounts = safeJoin(accountsFuture, Collections.emptyList());
         MobileAccountSummary primaryAccount = selectPrimaryAccount(accounts);
-        if (accounts.isEmpty()) {
-            unavailable.add("account-service");
-        }
 
         Optional<Integer> unreadOpt = safeJoin(notificationFuture, Optional.empty());
         int unreadNotifications = 0;
@@ -140,12 +137,17 @@ public class MobileBffServiceImpl implements MobileBffService {
 
     @Override
     public MobileTimelineResponse getTimeline(String trackingReference, String correlationId, String bearerToken) {
-        return getTimeline(trackingReference, null, correlationId, bearerToken);
+        return getTimeline(trackingReference, null, null, correlationId, bearerToken);
     }
 
     @Override
     public MobileTimelineResponse getTimeline(String trackingReference, Long customerId, String correlationId, String bearerToken) {
-        log.info("Retrieving mobile timeline for trackingReference [{}] by customer [{}]", trackingReference, customerId);
+        return getTimeline(trackingReference, customerId, null, correlationId, bearerToken);
+    }
+
+    @Override
+    public MobileTimelineResponse getTimeline(String trackingReference, Long customerId, String view, String correlationId, String bearerToken) {
+        log.info("Retrieving mobile timeline for trackingReference [{}] by customer [{}] (view={})", trackingReference, customerId, view);
 
         // Security Guard (Timeline IDOR Prevention):
         // If customerId is provided, verify they are an authorized party (sender or receiver)
@@ -179,6 +181,9 @@ public class MobileBffServiceImpl implements MobileBffService {
             }
         }
 
+        if (view != null && !view.isBlank()) {
+            return transactionServiceClient.fetchTimeline(trackingReference, view, bearerToken, correlationId);
+        }
         return transactionServiceClient.fetchTimeline(trackingReference, bearerToken, correlationId);
     }
 
@@ -214,6 +219,11 @@ public class MobileBffServiceImpl implements MobileBffService {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Source account and destination account cannot be the same");
             }
 
+            String status = accMap.get("status") != null ? accMap.get("status").toString() : "";
+            if (!"ACTIVE".equalsIgnoreCase(status)) {
+                throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Source account is not active (current status: " + status + ")");
+            }
+
             Object ownerIdObj = accMap.get("customerId");
             if (ownerIdObj != null) {
                 Long ownerId = Long.valueOf(ownerIdObj.toString());
@@ -228,6 +238,11 @@ public class MobileBffServiceImpl implements MobileBffService {
             Map<String, Object> accMap = accountServiceClient.fetchAccountByNumber(request.getSourceAccountNumber(), correlationId);
             if (accMap == null) {
                 throw new ApiException(HttpStatus.NOT_FOUND, "Source account not found: " + request.getSourceAccountNumber());
+            }
+
+            String status = accMap.get("status") != null ? accMap.get("status").toString() : "";
+            if (!"ACTIVE".equalsIgnoreCase(status)) {
+                throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Source account is not active (current status: " + status + ")");
             }
 
             Object ownerIdObj = accMap.get("customerId");
@@ -251,6 +266,9 @@ public class MobileBffServiceImpl implements MobileBffService {
             List<MobileAccountSummary> accounts = accountServiceClient.fetchCustomerAccounts(customerId, correlationId);
             MobileAccountSummary primary = selectPrimaryAccount(accounts);
             if (primary.getAccountId() != null && primary.getAccountId() > 0) {
+                if (!"ACTIVE".equalsIgnoreCase(primary.getStatus())) {
+                    throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Source primary account is not active (current status: " + primary.getStatus() + ")");
+                }
                 if (primary.getAccountNumber() != null &&
                         primary.getAccountNumber().trim().equalsIgnoreCase(request.getDestinationAccountNumber().trim())) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "Source account and destination account cannot be the same");

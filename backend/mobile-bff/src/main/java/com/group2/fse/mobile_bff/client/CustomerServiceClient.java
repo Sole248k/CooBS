@@ -67,14 +67,9 @@ public class CustomerServiceClient {
             }
         } catch (Exception ex) {
             log.warn("Failed to fetch customer profile for customer [{}]: {}", customerId, ex.getMessage());
+            throw new RuntimeException("Downstream customer-service unavailable: " + ex.getMessage(), ex);
         }
 
-        // Graceful fallback member
-        return MobileMemberSummary.builder()
-                .customerId(customerId)
-                .displayName("Member")
-                .email("")
-                .kycStatus("VERIFIED")
-                .build();
+        throw new RuntimeException("Unexpected empty response from customer-service for customer: " + customerId);
     }
 }

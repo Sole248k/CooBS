@@ -6,6 +6,7 @@ import '../core/network/network.dart';
 import '../core/router/app_router.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../core/theme/app_theme.dart';
+import '../features/accounts/ui.dart';
 import '../features/remittance/remittance_screen.dart';
 import '../features/resilience/service_unavailable_view.dart';
 import '../features/tracking/tracking.dart';
@@ -232,15 +233,15 @@ class _AppShellState extends State<AppShell> {
                   children: [
                     Text(
                       'Welcome back,',
-                      style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                      style: TextStyle(fontSize: 14, color: kMut),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       dashboard.member.displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.navyPrimary,
+                        color: kInk,
                       ),
                     ),
                   ],
@@ -343,12 +344,12 @@ class _AppShellState extends State<AppShell> {
             ),
             const SizedBox(height: 12),
             if (dashboard.recentTransactions.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Text(
                     'No recent transactions found.',
-                    style: TextStyle(color: AppTheme.textMuted),
+                    style: TextStyle(color: kMut),
                   ),
                 ),
               )
@@ -356,16 +357,16 @@ class _AppShellState extends State<AppShell> {
               ...dashboard.recentTransactions.map((tx) => Card(
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: AppTheme.navyPrimary.withAlpha(20),
-                        child: const Icon(Icons.arrow_upward_rounded, color: AppTheme.navyPrimary),
+                        backgroundColor: kInBg,
+                        child: Icon(Icons.arrow_upward_rounded, color: kNavyFg),
                       ),
                       title: Text(
                         tx.remarks.isNotEmpty ? tx.remarks : 'Transfer Out',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: TextStyle(fontWeight: FontWeight.w600, color: kInk),
                       ),
                       subtitle: Text(
                         tx.trackingReference,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                        style: TextStyle(fontSize: 12, color: kMut),
                       ),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,

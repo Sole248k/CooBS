@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -19,6 +20,8 @@ class ThemeController extends ChangeNotifier {
   ThemeMode get mode => dark ? ThemeMode.dark : ThemeMode.light;
 
   Future<void> load() async {
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (isTest) return;
     try {
       dark = await _storage.read(key: _key) == 'true';
     } catch (_) {
@@ -31,10 +34,13 @@ class ThemeController extends ChangeNotifier {
     if (dark == v) return;
     dark = v;
     notifyListeners();
-    try {
-      await _storage.write(key: _key, value: '$v');
-    } catch (_) {
-      // Storage unavailable (e.g. tests): keep the in-memory value for this run.
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (!kIsWeb && !isTest) {
+      try {
+        await _storage.write(key: _key, value: '$v');
+      } catch (_) {
+        // Storage unavailable (e.g. tests): keep the in-memory value for this run.
+      }
     }
   }
 }

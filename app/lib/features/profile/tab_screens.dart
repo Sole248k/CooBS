@@ -44,8 +44,8 @@ class PayQrScreen extends StatelessWidget {
             child: Column(children: [
               Container(
                   width: 200, height: 200,
-                  decoration: BoxDecoration(border: Border.all(width: 3), borderRadius: BorderRadius.circular(14)),
-                  child: const Icon(Icons.qr_code_scanner, size: 80)),
+                  decoration: BoxDecoration(border: Border.all(color: kLine, width: 3), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(Icons.qr_code_scanner, size: 80, color: kInk)),
               const SizedBox(height: 20),
               Text('Scan a QR code to pay from the selected account.', textAlign: TextAlign.center, style: TextStyle(color: kMut)),
               const SizedBox(height: 6),
@@ -135,55 +135,58 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _loadNotifications,
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          _title('Notifications'),
-          if (_isLoading)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40),
-              child: Center(
-                child: CircularProgressIndicator(color: kNavy),
-              ),
-            )
-          else if (_liveNotifications.isNotEmpty) ...[
-            for (var idx = 0; idx < _liveNotifications.length; idx++)
-              _buildLiveNotificationCard(_liveNotifications[idx], idx),
-          ] else if (Demo.i.alerts.isNotEmpty) ...[
-            for (final a in Demo.i.alerts)
+    return ListenableBuilder(
+      listenable: ThemeController.i,
+      builder: (context, _) => RefreshIndicator(
+        onRefresh: _loadNotifications,
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 24),
+          children: [
+            _title('Notifications'),
+            if (_isLoading)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  child: ListTile(
-                    title: Text(a[0], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    subtitle: Text(a[1], style: TextStyle(color: kMut, fontSize: 12)),
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Center(
+                  child: CircularProgressIndicator(color: kNavy),
+                ),
+              )
+            else if (_liveNotifications.isNotEmpty) ...[
+              for (var idx = 0; idx < _liveNotifications.length; idx++)
+                _buildLiveNotificationCard(_liveNotifications[idx], idx),
+            ] else if (Demo.i.alerts.isNotEmpty) ...[
+              for (final a in Demo.i.alerts)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      title: Text(a[0], style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kInk)),
+                      subtitle: Text(a[1], style: TextStyle(color: kMut, fontSize: 12)),
+                    ),
+                  ),
+                ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.notifications_off_outlined, size: 48, color: kMut.withAlpha(120)),
+                      const SizedBox(height: 12),
+                      Text('No notifications yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kInk)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Transaction alerts and updates will appear here.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: kMut, fontSize: 13),
+                      ),
+                    ],
                   ),
                 ),
               ),
-          ] else
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.notifications_off_outlined, size: 48, color: kMut.withAlpha(120)),
-                    const SizedBox(height: 12),
-                    const Text('No notifications yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Transaction alerts and updates will appear here.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: kMut, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -230,7 +233,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: item.isRead ? FontWeight.w600 : FontWeight.bold,
-                                color: const Color(0xFF1E293B),
+                                color: kInk,
                               ),
                             ),
                           ),
@@ -251,7 +254,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         item.message,
                         style: TextStyle(
                           fontSize: 12,
-                          color: item.isRead ? kMut : const Color(0xFF334155),
+                          color: item.isRead ? kMut : (kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
                           height: 1.3,
                         ),
                       ),
@@ -295,43 +298,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void go(BuildContext c, Widget w) => Navigator.push(c, MaterialPageRoute(builder: (_) => w));
 
   @override
-  Widget build(BuildContext context) => ListView(children: [
-        _title('Profile & settings'),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Card(
-            child: Column(children: [
-              FutureBuilder<String?>(
-                future: _usernameFuture,
-                builder: (context, snapshot) {
-                  final username = snapshot.data ?? 'john_doe';
-                  return ListTile(
-                    leading: CircleAvatar(backgroundColor: kInBg, child: Icon(Icons.person_outline, color: kNavyFg)),
-                    title: Text(username, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: const Text('Customer'),
-                  );
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(title: const Text('KYC details'), subtitle: const Text('Name, address, occupation'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const KycDetailsPage())),
-              ListTile(
-                  title: const Text('Verify identity'),
-                  subtitle: const Text('Submit your details for review'),
-                  trailing: AnimatedBuilder(animation: Demo.i, builder: (context, _) => kycChip(Demo.i.kyc)),
-                  onTap: () => go(context, const KycIntakeScreen())),
-              ListTile(title: const Text('Security & tokens'), subtitle: const Text('Password and active sessions'), trailing: const Icon(Icons.chevron_right), onTap: () => go(context, const SecurityPage())),
-              ListTile(
-                title: const Text('Live Saga & Audit Timeline'),
-                subtitle: const Text('Distributed transfers, timeline & resilience'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => go(context, const AppShell()),
-              ),
-              ListenableBuilder(
-                listenable: ThemeController.i,
-                builder: (context, _) => SwitchListTile(
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: ThemeController.i,
+        builder: (context, _) => ListView(children: [
+          _title('Profile & settings'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Card(
+              child: Column(children: [
+                FutureBuilder<String?>(
+                  future: _usernameFuture,
+                  builder: (context, snapshot) {
+                    final username = snapshot.data ?? 'john_doe';
+                    return ListTile(
+                      leading: CircleAvatar(backgroundColor: kInBg, child: Icon(Icons.person_outline, color: kNavyFg)),
+                      title: Text(username, style: TextStyle(fontWeight: FontWeight.w600, color: kInk)),
+                      subtitle: Text('Customer', style: TextStyle(color: kMut)),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(title: Text('KYC details', style: TextStyle(color: kInk)), subtitle: Text('Name, address, occupation', style: TextStyle(color: kMut)), trailing: Icon(Icons.chevron_right, color: kMut), onTap: () => go(context, const KycDetailsPage())),
+                ListTile(
+                    title: Text('Verify identity', style: TextStyle(color: kInk)),
+                    subtitle: Text('Submit your details for review', style: TextStyle(color: kMut)),
+                    trailing: AnimatedBuilder(animation: Demo.i, builder: (context, _) => kycChip(Demo.i.kyc)),
+                    onTap: () => go(context, const KycIntakeScreen())),
+                ListTile(title: Text('Security & tokens', style: TextStyle(color: kInk)), subtitle: Text('Password and active sessions', style: TextStyle(color: kMut)), trailing: Icon(Icons.chevron_right, color: kMut), onTap: () => go(context, const SecurityPage())),
+                ListTile(
+                  title: Text('Live Saga & Audit Timeline', style: TextStyle(color: kInk)),
+                  subtitle: Text('Distributed transfers, timeline & resilience', style: TextStyle(color: kMut)),
+                  trailing: Icon(Icons.chevron_right, color: kMut),
+                  onTap: () => go(context, const AppShell()),
+                ),
+                SwitchListTile(
                   secondary: const Icon(Icons.dark_mode_outlined),
-                  title: const Text('Dark mode'),
-                  subtitle: Text(ThemeController.i.dark ? 'On' : 'Off'),
+                  title: Text('Dark mode', style: TextStyle(color: kInk)),
+                  subtitle: Text(ThemeController.i.dark ? 'On' : 'Off', style: TextStyle(color: kMut)),
                   value: ThemeController.i.dark,
                   activeThumbColor: Colors.white,
                   activeTrackColor: kBlue,
@@ -340,26 +343,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
                   onChanged: ThemeController.i.setDark,
                 ),
-              ),
-              ListTile(
-                  title: const Text('Log out'),
-                  onTap: () => _handleLogout(context)),
-            ]),
+                ListTile(
+                    title: Text('Log out', style: TextStyle(color: kRed)),
+                    onTap: () => _handleLogout(context)),
+              ]),
+            ),
           ),
-        ),
-        Padding(padding: EdgeInsets.fromLTRB(20, 20, 20, 6), child: Text('Tester tools', style: TextStyle(fontSize: 12, color: kMut))),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-          child: Card(
-            child: Column(children: [
-              ListTile(title: const Text('Reload data'), onTap: () => Demo.i.simulate(null)),
-              ListTile(title: const Text('Simulate partial failure'), subtitle: const Text('Recent transactions unavailable'), onTap: () => Demo.i.simulate('partial')),
-              ListTile(title: const Text('Simulate service unavailable'), onTap: () => Demo.i.simulate('offline')),
-              ListTile(title: const Text('Reset KYC to Unverified'), onTap: () => Demo.i.setKyc('UNVERIFIED')),
-            ]),
+          Padding(padding: const EdgeInsets.fromLTRB(20, 20, 20, 6), child: Text('Tester tools', style: TextStyle(fontSize: 12, color: kMut))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Card(
+              child: Column(children: [
+                ListTile(title: Text('Reload data', style: TextStyle(color: kInk)), onTap: () => Demo.i.simulate(null)),
+                ListTile(title: Text('Simulate partial failure', style: TextStyle(color: kInk)), subtitle: Text('Recent transactions unavailable', style: TextStyle(color: kMut)), onTap: () => Demo.i.simulate('partial')),
+                ListTile(title: Text('Simulate service unavailable', style: TextStyle(color: kInk)), onTap: () => Demo.i.simulate('offline')),
+                ListTile(title: Text('Reset KYC to Unverified', style: TextStyle(color: kInk)), onTap: () => Demo.i.setKyc('UNVERIFIED')),
+              ]),
+            ),
           ),
-        ),
-      ]);
+        ]),
+      );
 }
 
 class KycDetailsPage extends StatefulWidget {

@@ -1,5 +1,7 @@
 package com.group2.fse.api_gateway.config;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +22,7 @@ public class RateLimiterConfig {
     private static final String X_FORWARDED_FOR = "X-Forwarded-For";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /**
      * IP-Based Key Resolver:
@@ -34,7 +37,9 @@ public class RateLimiterConfig {
             String forwardedFor = exchange.getRequest().getHeaders().getFirst(X_FORWARDED_FOR);
             if (forwardedFor != null && !forwardedFor.trim().isEmpty()) {
                 String clientIp = forwardedFor.split(",")[0].trim();
-                return Mono.just("ip_" + clientIp);
+                if (!clientIp.isEmpty() && clientIp.matches("^[a-fA-F0-9.:]+$")) {
+                    return Mono.just("ip_" + clientIp);
+                }
             }
 
             InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
@@ -73,23 +78,19 @@ public class RateLimiterConfig {
      * Helper to derive a compact, deterministic user key from JWT or token.
      */
     private String extractUserOrTokenKey(String token) {
-        // Quick extraction: if JWT (3 parts separated by dots), parse payload base64 sub or use signature snippet
         String[] parts = token.split("\\.");
         if (parts.length >= 2) {
             try {
                 byte[] decoded = java.util.Base64.getUrlDecoder().decode(parts[1]);
-                String payload = new String(decoded, java.nio.charset.StandardCharsets.UTF_8);
-                // Simple fast search for "sub":"..." without pulling heavy JWT library
-                int subIdx = payload.indexOf("\"sub\":\"");
-                if (subIdx != -1) {
-                    int start = subIdx + 7;
-                    int end = payload.indexOf("\"", start);
-                    if (end != -1) {
-                        return payload.substring(start, end);
+                JsonNode payload = OBJECT_MAPPER.readTree(decoded);
+                if (payload != null && payload.hasNonNull("sub")) {
+                    String sub = payload.get("sub").asText().trim();
+                    if (!sub.isEmpty()) {
+                        return sub;
                     }
                 }
             } catch (Exception ignored) {
-                // Fallback to signature hash if payload parsing fails
+                // Fallback to token hash if payload parsing fails
             }
         }
         return Integer.toHexString(token.hashCode());

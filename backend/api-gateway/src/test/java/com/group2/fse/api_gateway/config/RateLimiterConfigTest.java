@@ -75,6 +75,23 @@ class RateLimiterConfigTest {
     }
 
     @Test
+    @DisplayName("userOrIpKeyResolver should resolve user sub from Bearer JWT with formatted spacing")
+    void userOrIpKeyResolver_withSpacedJwtJson_resolvesUserSub() {
+        String header = Base64.getUrlEncoder().withoutPadding().encodeToString("{\"alg\": \"HS256\"}".getBytes(StandardCharsets.UTF_8));
+        String payload = Base64.getUrlEncoder().withoutPadding().encodeToString("{\n  \"sub\": \"sarah_connor\",\n  \"role\": \"CUSTOMER\"\n}".getBytes(StandardCharsets.UTF_8));
+        String mockJwt = header + "." + payload + ".fakesignature";
+
+        MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/ledger/transfers")
+                .header("Authorization", "Bearer " + mockJwt)
+                .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        StepVerifier.create(rateLimiterConfig.userOrIpKeyResolver().resolve(exchange))
+                .expectNext("user_sarah_connor")
+                .verifyComplete();
+    }
+
+    @Test
     @DisplayName("userOrIpKeyResolver should fallback to ipKeyResolver when Authorization header is absent")
     void userOrIpKeyResolver_withoutAuthHeader_fallsBackToIp() {
         MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/accounts")

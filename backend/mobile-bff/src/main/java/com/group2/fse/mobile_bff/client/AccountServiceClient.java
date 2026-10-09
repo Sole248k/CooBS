@@ -87,6 +87,7 @@ public class AccountServiceClient {
             }
         } catch (Exception ex) {
             log.warn("Failed to fetch accounts for customer [{}]: {}", customerId, ex.getMessage());
+            throw new RuntimeException("Downstream account-service unavailable: " + ex.getMessage(), ex);
         }
         return list;
     }

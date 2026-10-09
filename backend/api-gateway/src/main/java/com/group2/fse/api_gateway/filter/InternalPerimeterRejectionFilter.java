@@ -24,12 +24,13 @@ public class InternalPerimeterRejectionFilter implements WebFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String path = exchange.getRequest().getURI().getRawPath();
-        // Routes are matched on the decoded path, so the decoded form is checked as well:
-        // /%69nternal/... is /internal/... to the router.
-        if (path != null && (path.startsWith("/internal/") || decoded(path).startsWith("/internal/"))) {
+        String rawPath = exchange.getRequest().getURI().getRawPath();
+        String normalizedPath = exchange.getRequest().getPath().pathWithinApplication().value();
+
+        if (isInternalPath(rawPath) || isInternalPath(normalizedPath) || isInternalPath(decoded(rawPath))) {
             String correlationId = exchange.getRequest().getHeaders().getFirst(CorrelationIdFilter.CORRELATION_ID_HEADER);
-            log.warn("[PERIMETER-REJECTION] [{}] Blocked external access to internal endpoint: {}", correlationId, path);
+            log.warn("[PERIMETER-REJECTION] [{}] Blocked external access to internal endpoint: raw={}, normalized={}",
+                    correlationId, rawPath, normalizedPath);
             return Mono.error(new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Access to internal microservice endpoints across the external API Gateway perimeter is strictly forbidden."
@@ -38,8 +39,15 @@ public class InternalPerimeterRejectionFilter implements WebFilter, Ordered {
         return chain.filter(exchange);
     }
 
+    private static boolean isInternalPath(String p) {
+        if (p == null) return false;
+        String lower = p.toLowerCase();
+        return lower.equals("/internal") || lower.startsWith("/internal/");
+    }
+
     /** A path whose percent-encoding cannot be decoded matches no route, so it is left as it is. */
     private static String decoded(String rawPath) {
+        if (rawPath == null) return "";
         try {
             return UriUtils.decode(rawPath, StandardCharsets.UTF_8);
         } catch (IllegalArgumentException malformed) {

@@ -63,7 +63,7 @@ Widget statRow(String k, String v) => Padding(
     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       Text(k, style: TextStyle(color: kMut)),
       const SizedBox(width: 12),
-      Flexible(child: Text(v, textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600))),
+      Flexible(child: Text(v, textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w600, color: kInk))),
     ]));
 
 Widget panel(List<Widget> kids) => Card(
@@ -92,8 +92,8 @@ Widget txRow(Tx x) {
       leading: CircleAvatar(
           backgroundColor: out ? kOutBg : kInBg,
           child: Icon(out ? Icons.north_east : Icons.south_west, size: 18, color: out ? kRed : kNavyFg)),
-      title: Text(x.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      subtitle: Text('${x.ref} · ${isToday ? 'Today' : fmt(x.date)}'),
+      title: Text(x.label, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: kInk)),
+      subtitle: Text('${x.ref} · ${isToday ? 'Today' : fmt(x.date)}', style: TextStyle(fontSize: 13, color: kMut)),
       trailing: Text('${out ? '-' : '+'}${peso(x.amt.abs())}',
           style: TextStyle(fontWeight: FontWeight.w600, color: out ? kRed : kNavyFg)),
       onTap: x.ref.isNotEmpty && x.ref != 'TXN' && !x.ref.startsWith('Just now')

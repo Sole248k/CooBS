@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/theme_controller.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 
@@ -70,7 +71,7 @@ class _ScoresPageState extends State<ScoresPage> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Spending habits (₱ thousands per month)', style: TextStyle(fontWeight: FontWeight.w700)),
+          Text('Spending habits (₱ thousands per month)', style: TextStyle(fontWeight: FontWeight.w700, color: kInk)),
           const SizedBox(height: 14),
           SizedBox(
             height: h + 22,
@@ -113,8 +114,8 @@ class _ScoresPageState extends State<ScoresPage> {
     return ListTile(
         isThreeLine: true,
         leading: CircleAvatar(backgroundColor: kOutBg, child: Icon(Icons.north_east, size: 18, color: kRed)),
-        title: Text(d.activity, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        subtitle: Text('To ${d.receiver}\n${d.ref} · $typeName'),
+        title: Text(d.activity, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: kInk)),
+        subtitle: Text('To ${d.receiver}\n${d.ref} · $typeName', style: TextStyle(color: kMut, fontSize: 12)),
         trailing: Text('-${peso(d.amt)}', style: TextStyle(fontWeight: FontWeight.w600, color: kRed)),
       );
   }
@@ -122,15 +123,17 @@ class _ScoresPageState extends State<ScoresPage> {
   @override
   void initState() {
     super.initState();
-    if (Demo.i.state == LoadState.loading) {
-      Demo.i.load();
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && Demo.i.state == LoadState.loading) {
+        Demo.i.load();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Demo.i,
+    return ListenableBuilder(
+      listenable: Listenable.merge([Demo.i, ThemeController.i]),
       builder: (context, _) {
         final safeAcct = Demo.i.accts.isEmpty ? 0 : (acct < Demo.i.accts.length ? acct : 0);
         final all = debitsFor(safeAcct);
@@ -180,7 +183,7 @@ class _ScoresPageState extends State<ScoresPage> {
             )
           else
             for (final e in g.entries) ...[
-              Padding(padding: const EdgeInsets.only(top: 12, bottom: 8), child: Center(child: Text(fmt(e.key), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)))),
+              Padding(padding: const EdgeInsets.only(top: 12, bottom: 8), child: Center(child: Text(fmt(e.key), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kInk)))),
               Card(child: Column(children: [for (final d in e.value) row(d)])),
             ],
           if (all.isNotEmpty)
@@ -188,7 +191,7 @@ class _ScoresPageState extends State<ScoresPage> {
               padding: const EdgeInsets.only(top: 8),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 IconButton(icon: Icon(Icons.arrow_left, size: 38, color: kNavyFg), onPressed: page > 0 ? () => setState(() => page--) : null),
-                Text('${page + 1} / $pages', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text('${page + 1} / $pages', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kInk)),
                 IconButton(icon: Icon(Icons.arrow_right, size: 38, color: kNavyFg), onPressed: page < pages - 1 ? () => setState(() => page++) : null),
               ]),
             ),

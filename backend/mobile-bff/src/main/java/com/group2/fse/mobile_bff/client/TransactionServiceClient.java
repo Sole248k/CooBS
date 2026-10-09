@@ -74,10 +74,15 @@ public class TransactionServiceClient {
     }
 
     public MobileTimelineResponse fetchTimeline(String identifier, String bearerToken, String correlationId) {
+        return fetchTimeline(identifier, null, bearerToken, correlationId);
+    }
+
+    public MobileTimelineResponse fetchTimeline(String identifier, String view, String bearerToken, String correlationId) {
         try {
+            String targetView = (view != null && !view.isBlank()) ? view.trim() : "CUSTOMER";
             String url = org.springframework.web.util.UriComponentsBuilder.fromUriString(transactionServiceBaseUrl)
                     .pathSegment("api", "v1", "transactions", identifier, "timeline")
-                    .queryParam("view", "CUSTOMER")
+                    .queryParam("view", targetView)
                     .build()
                     .encode()
                     .toUriString();
