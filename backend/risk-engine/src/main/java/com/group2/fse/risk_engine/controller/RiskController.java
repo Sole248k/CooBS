@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.group2.fse.risk_engine.dto.RiskEvaluationRequest;
 import com.group2.fse.risk_engine.dto.RiskEvaluationResponse;
+import com.group2.fse.risk_engine.dto.RiskOutcomeRequest;
+import com.group2.fse.risk_engine.dto.RiskOutcomeResponse;
 import com.group2.fse.risk_engine.exception.RiskUnavailableException;
 import com.group2.fse.risk_engine.service.RiskEvaluator;
 
@@ -44,6 +46,20 @@ public class RiskController {
 
         log.info("Risk evaluation completed for transactionId: {}. Decision: {}, Score: {}, Duration: {}ms",
                 request.getTransactionId(), response.getDecision(), response.getScore(), response.getEvaluatedInMs());
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * R2. The saga reports that an approved transfer did not post; the amount it reserved is
+     * given back to the customer's daily limit.
+     */
+    @PostMapping("/outcomes")
+    public ResponseEntity<RiskOutcomeResponse> recordOutcome(@Valid @RequestBody RiskOutcomeRequest request) {
+        RiskOutcomeResponse response = riskEvaluator.recordOutcome(request);
+
+        log.info("Outcome {} recorded for transactionId: {}. Released: {}",
+                request.getOutcome(), request.getTransactionId(), response.isReleased());
 
         return ResponseEntity.ok(response);
     }

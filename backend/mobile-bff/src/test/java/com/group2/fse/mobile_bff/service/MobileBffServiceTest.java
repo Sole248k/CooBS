@@ -340,4 +340,80 @@ class MobileBffServiceTest {
                 () -> mobileBffService.submitRemittance(request, "idemp-1", 1L, "corr-1", "mock-token"));
         assertEquals(org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatus());
     }
+
+    @Test
+    void testSubmitRemittance_InactiveSourceAccount_ThrowsUnprocessableEntity() {
+        MobileRemittanceRequest request = MobileRemittanceRequest.builder()
+                .sourceAccountNumber("ACC_10000001")
+                .destinationAccountNumber("ACC_10000002")
+                .amount(new BigDecimal("100.00"))
+                .build();
+
+        when(accountServiceClient.fetchAccountByNumber(eq("ACC_10000001"), any()))
+                .thenReturn(Map.of("accountId", 1L, "customerId", 1L, "status", "FROZEN"));
+
+        ApiException ex = assertThrows(ApiException.class, () ->
+                mobileBffService.submitRemittance(request, "idemp-1", 1L, "corr-1", "mock-token"));
+        assertEquals(org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY, ex.getStatus());
+        assertTrue(ex.getMessage().contains("not active"));
+    }
+
+    @Test
+    void testGetDashboard_ZeroAccounts_DoesNotMarkAccountServiceUnavailable() {
+        when(customerServiceClient.fetchMemberProfile(eq(1L), any(), any()))
+                .thenReturn(MobileMemberSummary.builder().customerId(1L).displayName("Jane Doe").kycStatus("VERIFIED").build());
+
+        // Clean 200 OK with zero accounts
+        when(accountServiceClient.fetchCustomerAccounts(eq(1L), any()))
+                .thenReturn(Collections.emptyList());
+
+        when(notificationServiceClient.fetchUnreadCount(eq(1L), any(), any()))
+                .thenReturn(Optional.of(0));
+
+        when(transactionServiceClient.fetchRecentTransactions(eq(1L), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        MobileDashboardResponse response = mobileBffService.getDashboard(1L, "corr-1", "mock-token");
+
+        assertNotNull(response);
+        assertFalse(response.getUnavailable().contains("account-service"));
+    }
+
+    @Test
+    void testGetDashboard_AccountServiceDown_MarksAccountServiceUnavailable() {
+        when(customerServiceClient.fetchMemberProfile(eq(1L), any(), any()))
+                .thenReturn(MobileMemberSummary.builder().customerId(1L).displayName("Jane Doe").kycStatus("VERIFIED").build());
+
+        // account-service is down and throws
+        when(accountServiceClient.fetchCustomerAccounts(eq(1L), any()))
+                .thenThrow(new RuntimeException("Connection refused to account-service"));
+
+        when(notificationServiceClient.fetchUnreadCount(eq(1L), any(), any()))
+                .thenReturn(Optional.of(0));
+
+        when(transactionServiceClient.fetchRecentTransactions(eq(1L), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        MobileDashboardResponse response = mobileBffService.getDashboard(1L, "corr-1", "mock-token");
+
+        assertNotNull(response);
+        assertTrue(response.getUnavailable().contains("account-service"));
+    }
+
+    @Test
+    void testGetTimeline_WithViewParameter_ForwardsToClient() {
+        MobileTimelineResponse mockTimeline = MobileTimelineResponse.builder()
+                .trackingReference("TX-999")
+                .view("STAFF")
+                .totalStages(11)
+                .build();
+
+        when(transactionServiceClient.fetchTimeline(eq("TX-999"), eq("STAFF"), any(), any()))
+                .thenReturn(mockTimeline);
+
+        MobileTimelineResponse res = mobileBffService.getTimeline("TX-999", null, "STAFF", "corr-1", "mock-token");
+        assertNotNull(res);
+        assertEquals("STAFF", res.getView());
+        assertEquals(11, res.getTotalStages());
+    }
 }

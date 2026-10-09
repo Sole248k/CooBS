@@ -246,17 +246,28 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF8E1),
+                    color: kDark ? const Color(0xFF2E2413) : const Color(0xFFFFF8E1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFFB300), width: 0.8),
+                    border: Border.all(
+                      color: kDark ? const Color(0xFFB45309) : const Color(0xFFFFB300),
+                      width: 0.8,
+                    ),
                   ),
-                  child: const Row(children: [
-                    Icon(Icons.info_outline, size: 16, color: Color(0xFFB45309)),
-                    SizedBox(width: 8),
+                  child: Row(children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: kDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Interbank clearing is currently limited. For real-time processing, select CooBS (same bank).',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF78350F), fontWeight: FontWeight.w500),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: kDark ? const Color(0xFFFDE68A) : const Color(0xFF78350F),
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ]),
@@ -548,17 +559,17 @@ class _RemittanceFormState extends State<RemittanceForm> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Send Money',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.navyPrimary,
+                            color: kInk,
                           ),
                         ),
                         Text(
                           'Direct bank transfer via CooBS Core Ledger',
-                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 12, color: kMut),
                         ),
                       ],
                     ),
@@ -667,11 +678,11 @@ class _RemittanceFormState extends State<RemittanceForm> {
                             return ActionChip(
                               label: Text('${rec['name']} (${rec['account']})'),
                               backgroundColor: isSelected
-                                  ? AppTheme.navyPrimary.withAlpha(25)
+                                  ? (kDark ? const Color(0xFF2B4C8C) : AppTheme.navyPrimary.withAlpha(25))
                                   : null,
                               labelStyle: TextStyle(
                                 fontSize: 11,
-                                color: isSelected ? AppTheme.navyPrimary : AppTheme.textPrimary,
+                                color: isSelected ? (kDark ? Colors.white : AppTheme.navyPrimary) : kInk,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                               ),
                               onPressed: () {

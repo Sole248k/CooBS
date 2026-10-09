@@ -30,13 +30,15 @@ public class ReversalSaga {
     private final SagaRepository sagas;
     private final LedgerClient ledger;
     private final StageEvents events;
+    private final LimitRelease limit;
     private final ObjectMapper objectMapper;
 
-    public ReversalSaga(SagaRepository sagas, LedgerClient ledger, StageEvents events,
+    public ReversalSaga(SagaRepository sagas, LedgerClient ledger, StageEvents events, LimitRelease limit,
             @Autowired(required = false) ObjectMapper objectMapper) {
         this.sagas = sagas;
         this.ledger = ledger;
         this.events = events;
+        this.limit = limit;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
     }
 
@@ -148,6 +150,8 @@ public class ReversalSaga {
             events.failed(original.getTransactionId(), original.getReferenceNo(), Stage.POSTED, "REVERSED", "Hold released due to reversal");
             events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Hold cancelled and funds released");
             events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
+            // The transfer never posted, so its share of the daily limit goes back.
+            limit.release(original.getTransactionId());
         } catch (DownstreamException e) {
             if (!e.refused()) {
                 // The release may have been applied. Both rows are left as they are for the sweep.
@@ -171,6 +175,8 @@ public class ReversalSaga {
 
         events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Pre-hold transaction cancelled");
         events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
+        // If risk had approved it, the amount it reserved goes back; if not, the engine has nothing to release.
+        limit.release(original.getTransactionId());
     }
 
     private void fail(SagaInstance reversalSaga, StartReversalRequest r, String failureCode, String detail) {

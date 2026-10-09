@@ -59,16 +59,19 @@ public class MobileBffController {
             @PathVariable("trackingReference")
             @Pattern(regexp = "^[A-Za-z0-9_-]{1,64}$", message = "Invalid tracking reference format")
             String trackingReference,
+            @RequestParam(value = "view", required = false) String view,
             Authentication authentication,
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = "X-Correlation-Id", required = false) String correlationId) {
 
         Long customerId = resolveCustomerId(authentication);
         String authHeader = resolveAuthorization(authorization, authentication);
-        log.info("Received M2 Timeline request for reference [{}] by customer [{}] (correlationId={})",
-                sanitizeForLog(trackingReference), customerId, sanitizeForLog(correlationId));
+        log.info("Received M2 Timeline request for reference [{}] by customer [{}] (view={}, correlationId={})",
+                sanitizeForLog(trackingReference), customerId, sanitizeForLog(view), sanitizeForLog(correlationId));
 
-        MobileTimelineResponse response = mobileBffService.getTimeline(trackingReference, customerId, correlationId, authHeader);
+        MobileTimelineResponse response = (view != null && !view.isBlank())
+                ? mobileBffService.getTimeline(trackingReference, customerId, view, correlationId, authHeader)
+                : mobileBffService.getTimeline(trackingReference, customerId, correlationId, authHeader);
         return ResponseEntity.ok(response);
     }
 

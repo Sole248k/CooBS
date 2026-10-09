@@ -229,6 +229,7 @@ Order matters: the gateway must match the more specific KYC route before the gen
 | transaction-service | orchestration-service `/internal/v1/sagas/**` | Start transfer or reversal saga |
 | orchestration-service | customer-service `/internal/v1/customers/{id}/risk-profile` | Score and tier |
 | orchestration-service | risk-engine `/internal/v1/risk/evaluate` | Decision |
+| orchestration-service | risk-engine `/internal/v1/risk/outcomes` | Gives back the daily-limit reservation of a transfer that did not post |
 | orchestration-service | ledger-service `/internal/v1/ledger/**` | Hold, capture, release, reverse |
 | customer-service | account-service `/internal/v1/**` | Accounts lookup for Customer 360 |
 | customer-service | transaction-service `/internal/v1/transactions` | Recent transactions |
@@ -779,9 +780,12 @@ The **Mobile Backend-for-Frontend (BFF)** is an application-level orchestration 
   "amount": "2500.00",
   "currency": "PHP",
   "actorId": 1,
-  "actorType": "CUSTOMER"
+  "actorType": "CUSTOMER",
+  "isNewBeneficiary": false
 }
 ```
+
+`isNewBeneficiary` is optional; a request without it is treated as `false`. transaction-service sets it to `true` when the customer has no earlier transfer to that destination account that reached `POSTED`. The saga passes it to the risk engine unchanged (R1), where it raises the score by a fixed amount.
 
 **O1 response, 202.** Progress comes back as stage events, not in this response.
 
@@ -856,8 +860,9 @@ Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`
 | # | Method and path | Caller |
 | --- | --- | --- |
 | R1 | `POST /internal/v1/risk/evaluate` | orchestration-service |
+| R2 | `POST /internal/v1/risk/outcomes` | orchestration-service |
 
-**Request**
+**R1 request**
 
 <!-- example: R1-risk-evaluate.request.json -->
 ```json
@@ -874,7 +879,7 @@ Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`
 }
 ```
 
-**Response, 200**
+**R1 response, 200**
 
 <!-- example: R1-risk-evaluate.response.json -->
 ```json
@@ -896,6 +901,34 @@ Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`
 | Over daily limit | `DECLINE` | `LIMIT_EXCEEDED` |
 
 The caller times out at 150 ms and treats a timeout as `RISK_UNAVAILABLE`.
+
+**The daily limit is a reservation.** An `APPROVE` reserves the amount against the customer's limit for the business date, which is the date in Manila (`Asia/Manila`), not in UTC. The amount is added and the new total compared with the limit in one step, so two transfers at the same moment cannot both take the last of the room: the one that no longer fits is declined with `LIMIT_EXCEEDED`. A transaction is reserved once, however often R1 is asked about it. `usedToday` is what is reserved for that business date.
+
+**R2** tells the engine what became of a transfer it approved. The only outcome is `FAILED`: the transfer ended without posting (the hold was refused, the capture was refused and the hold released, or it was cancelled before posting), and the amount it reserved is given back. The saga sends it once the transfer has ended. It is safe to repeat, and for a transfer that holds no reservation it changes nothing and answers `released: false`. A transfer that posted keeps its reservation; reversing it later does not give the amount back.
+
+R2 is best effort. If it does not arrive, the customer has less of that day's limit left; no money is affected. Any other outcome is `400 INVALID_REQUEST_PARAMETERS`, and `503 RISK_UNAVAILABLE` means the counter could not be reached.
+
+**R2 request**
+
+<!-- example: R2-risk-outcome.request.json -->
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "outcome": "FAILED"
+}
+```
+
+**R2 response, 200**
+
+<!-- example: R2-risk-outcome.response.json -->
+```json
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "outcome": "FAILED",
+  "released": true,
+  "releasedAmount": "2500.00"
+}
+```
 
 ---
 

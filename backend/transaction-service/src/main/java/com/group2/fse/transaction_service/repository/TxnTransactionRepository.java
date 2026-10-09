@@ -40,4 +40,17 @@ public interface TxnTransactionRepository extends JpaRepository<TxnTransaction, 
                                                         @Param("before") java.time.Instant before);
 
     List<TxnTransaction> findBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(Long sourceAccountId, Long destinationAccountId);
+
+    boolean existsByCustomerIdAndDestinationAccountIdAndStatusAndCreatedAtBefore(
+            Long customerId, Long destinationAccountId, String status, java.time.Instant createdAt);
+
+    /**
+     * True when the customer has no earlier transfer to that account that posted. This is what
+     * the risk engine calls a new beneficiary. Only transfers created before this one count,
+     * so the answer is the same when the saga start is sent again later.
+     */
+    default boolean isFirstPostedTransferTo(TxnTransaction txn) {
+        return !existsByCustomerIdAndDestinationAccountIdAndStatusAndCreatedAtBefore(
+                txn.getCustomerId(), txn.getDestinationAccountId(), "POSTED", txn.getCreatedAt());
+    }
 }

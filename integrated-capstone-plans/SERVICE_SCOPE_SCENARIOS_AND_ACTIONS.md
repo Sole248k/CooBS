@@ -329,11 +329,12 @@ Registration is not available to anyone: members are seeded.
 
 **Not in scope.** No database. No calls to other services. Never sees account balances. Does not block or flag accounts.
 
-**Data it owns.** Redis counters only (amount and count per customer per day).
+**Data it owns.** Redis counters only (amount reserved and count per customer per business date in Manila, and one reservation per approved transaction).
 
 | Action              | Who                     | Endpoint |
 | ------------------- | ----------------------- | -------- |
 | Evaluate a transfer | `orchestration-service` | R1       |
+| Learn that an approved transfer did not post | `orchestration-service` | R2 |
 
 | Scenario                                               | Decision                                                                         |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
@@ -343,8 +344,10 @@ Registration is not available to anyone: members are seeded.
 | Today's total plus this amount exceeds the daily limit | `DECLINE`, `LIMIT_EXCEEDED`                                                      |
 | Many transfers in a short time                         | Score rises with velocity; may cross a threshold                                 |
 | First transfer to a new beneficiary                    | Score rises by a fixed amount                                                    |
-| Redis unavailable                                      | Evaluates without velocity and says so in the reasons; never fails open silently |
-| Transfer is later declined or fails                    | The day's counters are not increased                                             |
+| Two transfers at the same moment near the limit        | The one that no longer fits is declined with`LIMIT_EXCEEDED`; both cannot pass   |
+| Redis unavailable                                      | Refuses to decide: 503`RISK_UNAVAILABLE`, and the saga declines before any hold  |
+| Approved, but the transfer then does not post          | The saga reports it (R2) and the reserved amount goes back to the day's limit    |
+| A posted transfer is reversed later                    | The day's limit is not given back                                                |
 
 Target: under 40 ms at the 95th percentile.
 

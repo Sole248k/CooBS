@@ -29,4 +29,6 @@ public class StartTransferSagaRequest {
     private String currency;
     private Long actorId;
     private String actorType;
+    // A wrapper type on purpose: with a primitive, the JSON name would lose its "is".
+    private Boolean isNewBeneficiary;
 }

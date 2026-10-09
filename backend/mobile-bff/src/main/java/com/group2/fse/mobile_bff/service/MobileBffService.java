@@ -10,10 +10,14 @@ public interface MobileBffService {
 
     MobileDashboardResponse getDashboard(Long customerId, String correlationId, String bearerToken);
 
-    MobileTimelineResponse getTimeline(String trackingReference, Long customerId, String correlationId, String bearerToken);
+    MobileTimelineResponse getTimeline(String trackingReference, Long customerId, String view, String correlationId, String bearerToken);
+
+    default MobileTimelineResponse getTimeline(String trackingReference, Long customerId, String correlationId, String bearerToken) {
+        return getTimeline(trackingReference, customerId, null, correlationId, bearerToken);
+    }
 
     default MobileTimelineResponse getTimeline(String trackingReference, String correlationId, String bearerToken) {
-        return getTimeline(trackingReference, null, correlationId, bearerToken);
+        return getTimeline(trackingReference, null, null, correlationId, bearerToken);
     }
 
     MobileRemittanceOptionsResponse getRemittanceOptions();

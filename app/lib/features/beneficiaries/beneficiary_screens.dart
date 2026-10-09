@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/models.dart';
 import '../../core/network/api_client.dart';
+import '../../core/theme/theme_controller.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 
@@ -78,53 +79,56 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Pg(
-        'Beneficiaries',
-        [
-          if (_isLoading)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40),
-              child: Center(child: CircularProgressIndicator(color: kNavy)),
-            )
-          else if (_beneficiaries.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(40),
-              child: Center(
-                child: Text('No saved beneficiaries yet', style: TextStyle(color: kMut)),
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: ThemeController.i,
+        builder: (context, _) => Pg(
+          'Beneficiaries',
+          [
+            if (_isLoading)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator(color: kNavy)),
+              )
+            else if (_beneficiaries.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(40),
+                child: Center(
+                  child: Text('No saved beneficiaries yet', style: TextStyle(color: kMut)),
+                ),
+              )
+            else
+              Card(
+                child: Column(children: [
+                  for (final b in _beneficiaries)
+                    ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: kInBg,
+                        child: Icon(Icons.person_outline, color: kNavyFg),
+                      ),
+                      title: Text(b.nickname, style: TextStyle(fontWeight: FontWeight.w600, color: kInk)),
+                      subtitle: Text('${b.bankCode} · ${b.accountNumber}', style: TextStyle(color: kMut)),
+                      trailing: IconButton(
+                        icon: Icon(Icons.delete_outline, size: 20, color: kMut),
+                        onPressed: () => _deleteBeneficiary(b),
+                      ),
+                    ),
+                ]),
               ),
-            )
-          else
-            Card(
-              child: Column(children: [
-                for (final b in _beneficiaries)
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: kInBg,
-                      child: Icon(Icons.person_outline, color: kNavyFg),
-                    ),
-                    title: Text(b.nickname, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${b.bankCode} · ${b.accountNumber}'),
-                    trailing: IconButton(
-                      icon: Icon(Icons.delete_outline, size: 20, color: kMut),
-                      onPressed: () => _deleteBeneficiary(b),
-                    ),
-                  ),
-              ]),
+            bigBtn(
+              'Add beneficiary',
+              () async {
+                final added = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddBeneficiaryPage()),
+                );
+                if (added == true) {
+                  _loadBeneficiaries();
+                }
+              },
             ),
-          bigBtn(
-            'Add beneficiary',
-            () async {
-              final added = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(builder: (_) => const AddBeneficiaryPage()),
-              );
-              if (added == true) {
-                _loadBeneficiaries();
-              }
-            },
-          ),
-        ],
-        onBack: widget.onBack,
+          ],
+          onBack: widget.onBack,
+        ),
       );
 }
 
@@ -208,9 +212,9 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
   Widget build(BuildContext context) {
     final body = <List<Widget>>[
       [
-        const Text(
+        Text(
           'Step 1: Account Information',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kInk),
         ),
         const SizedBox(height: 6),
         Text(
@@ -223,9 +227,9 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
         dd('Bank', const ['COOBS', 'BDO', 'BPI', 'Metrobank', 'Maya'], v['bank'] ?? 'COOBS', (x) => v['bank'] = x),
       ],
       [
-        const Text(
+        Text(
           'Step 2: Personal Information',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kInk),
         ),
         const SizedBox(height: 6),
         Text(
@@ -240,9 +244,9 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
         tf(t('mob'), 'Mobile number (optional)', k: TextInputType.phone),
       ],
       [
-        const Text(
+        Text(
           'Step 3: Residence & Review',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kInk),
         ),
         const SizedBox(height: 6),
         Text(
@@ -258,7 +262,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text('Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kInk)),
                 const SizedBox(height: 6),
                 statRow('Nickname', s('nick')),
                 statRow('Account', s('acct')),

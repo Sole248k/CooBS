@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.group2.fse.orchestration_service.saga.SagaInstance;
 import com.group2.fse.orchestration_service.saga.SagaState;
 
@@ -30,7 +31,9 @@ public final class SagaDtos {
             @NotNull @Positive BigDecimal amount,
             @NotBlank String currency,
             @NotNull Long actorId,
-            String actorType) {
+            String actorType,
+            // Optional. A start that does not carry it is read as false.
+            @JsonProperty("isNewBeneficiary") Boolean isNewBeneficiary) {
     }
 
     /** O1 response. */

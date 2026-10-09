@@ -75,8 +75,18 @@ class GatewayRoutingIntegrationTest {
                 "ledger-service-route",
                 "notification-service-route",
                 "audit-service-route",
-                "transaction-service-route",
-                "orchestration-service-route");
+                "transaction-service-route");
+    }
+
+    @Test
+    @DisplayName("The orchestrator has no public route: it has no public endpoint")
+    void shouldHaveNoRouteToTheOrchestrator() {
+        List<RouteDefinition> routes = routeDefinitions.getRouteDefinitions().collectList().block();
+
+        assertThat(routes).extracting(RouteDefinition::getId).doesNotContain("orchestration-service-route");
+        assertThat(routes).allSatisfy(route -> assertThat(route.getUri().toString())
+                .as("target of %s", route.getId())
+                .doesNotContain(":8091"));
     }
 
     @Test
@@ -154,6 +164,15 @@ class GatewayRoutingIntegrationTest {
                 .uri(java.net.URI.create("http://localhost:" + port + "/%69nternal/v1/risk/evaluate"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue("{}")
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("A case-manipulated internal path is rejected across the perimeter")
+    void shouldRejectCaseManipulatedInternalPath() {
+        client.get()
+                .uri("/Internal/v1/risk/evaluate")
                 .exchange()
                 .expectStatus().isForbidden();
     }

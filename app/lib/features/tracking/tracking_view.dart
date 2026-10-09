@@ -6,6 +6,7 @@ import '../../core/models/remittance_models.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../core/theme/app_theme.dart';
+import '../accounts/ui.dart';
 import '../resilience/service_unavailable_view.dart';
 import 'tracking_models.dart';
 
@@ -235,7 +236,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
           body: {'topic': topic},
         );
       } catch (_) {
-        // Mock / client fallback
+        // Zero-backend / test fixture fallback
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -370,10 +371,10 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         children: [
           const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.warningAmber, size: 20),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               'Still processing. Automatic updates paused.',
-              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              style: TextStyle(fontSize: 13, color: kInk),
             ),
           ),
           TextButton(
@@ -413,7 +414,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                 const SizedBox(height: 4),
                 Text(
                   message,
-                  style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                  style: TextStyle(fontSize: 13, color: kInk),
                 ),
               ],
             ),
@@ -521,18 +522,18 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Transaction Milestones',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.navyPrimary,
+                color: kInk,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Tap any milestone checkpoint to inspect service telemetry and execution records.',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: kMut),
             ),
             const SizedBox(height: 24),
             isWide ? _buildHorizontalStepper() : _buildVerticalStepper(),
@@ -583,7 +584,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                    color: isSelected ? AppTheme.navyPrimary : AppTheme.textSecondary,
+                    color: isSelected ? kNavyFg : kMut,
                   ),
                 ),
               ),
@@ -637,7 +638,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: isSelected ? AppTheme.navyPrimary : AppTheme.textPrimary,
+                                color: isSelected ? kNavyFg : kInk,
                               ),
                             ),
                           ),
@@ -648,7 +649,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                       const SizedBox(height: 4),
                       Text(
                         milestone.description,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                        style: TextStyle(fontSize: 12, color: kMut),
                       ),
                       if (milestone.isDlq && milestone.dlqTopic != null) ...[
                         const SizedBox(height: 4),
@@ -1058,18 +1059,18 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '11-Stage Microservice Saga Decomposition',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.navyPrimary,
+                color: kInk,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Complete internal choreography spanning transaction-service, orchestration-service, and ledger.',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: kMut),
             ),
             const Divider(height: 24),
             if (stages.any((s) => s.isDlq)) ...[
@@ -1224,7 +1225,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                           if (stage.details != null && stage.details!.isNotEmpty)
                             Text(
                               stage.details!,
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                              style: TextStyle(fontSize: 11, color: kMut),
                             ),
                           if (stage.isDlq && stage.dlqTopic != null)
                             Padding(

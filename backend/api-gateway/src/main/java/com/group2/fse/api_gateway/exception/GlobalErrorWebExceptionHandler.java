@@ -68,7 +68,7 @@ public class GlobalErrorWebExceptionHandler implements ErrorWebExceptionHandler 
         } else {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
             title = "Gateway Error";
-            detail = ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred in API Gateway.";
+            detail = "An unexpected error occurred while processing your request through the API Gateway.";
         }
 
         response.setStatusCode(status);
