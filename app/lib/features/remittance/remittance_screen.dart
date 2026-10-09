@@ -9,6 +9,7 @@ import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../data/mobile_repo.dart';
 import '../resilience/service_unavailable_view.dart';
+import '../tracking/tracking_view.dart';
 
 /// Parses "1234.5" into centavos (123450) without floating-point math. Null if invalid.
 int? centavos(String t) {
@@ -19,6 +20,10 @@ int? centavos(String t) {
 
 String two(int c) => '${c ~/ 100}.${(c % 100).toString().padLeft(2, '0')}';
 String money(int c) => peso(c / 100);
+
+/// True when a money-movement request may have reached the server without us seeing the reply,
+/// so the same Idempotency-Key must be reused on retry.
+bool isOutcomeUnknown(Object e) => e is NetworkTimeoutException || e is ConnectionException;
 
 /// P2P remittance form (contract M3 request) running on mock data / fixtures.
 class RemittanceScreen extends StatefulWidget {
@@ -41,6 +46,12 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
   Future<Map<String, dynamic>> _init() async {
     if (Demo.i.state == LoadState.loading) await Demo.i.load();
     return MobileRepo.remitOptions();
+  }
+
+  /// New identifiers for the next transfer, once the server has definitively answered this one.
+  void _rotateKeys() {
+    idemKey = const Uuid().v4();
+    corrId = const Uuid().v4();
   }
 
   Future<void> submit(Map o) async {
@@ -111,9 +122,6 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     } else {
       final activeIdemKey = idemKey;
       final activeCorrId = corrId;
-      // Refresh idempotency and correlation identifiers so subsequent transfers never reuse keys
-      idemKey = const Uuid().v4();
-      corrId = const Uuid().v4();
 
       final body = {
         'sourceAccountNumber': a.no,
@@ -126,23 +134,8 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
       };
 
       final Map<String, dynamic> resp;
-      Map<String, dynamic> tl;
       try {
-        resp = await MobileRepo.submitRemittance(body, idempotencyKey: activeIdemKey);
-        final ref = resp['referenceNo'] ?? resp['trackingReference'] ?? '';
-        try {
-          tl = await MobileRepo.timeline(ref.toString());
-        } catch (_) {
-          tl = {
-            'stages': [
-              {
-                'title': 'Transfer submitted',
-                'subtitle': 'Reference: $ref',
-                'outcome': 'PASSED',
-              }
-            ]
-          };
-        }
+        resp = await MobileRepo.submitRemittance(body, idempotencyKey: activeIdemKey, correlationId: activeCorrId);
       } on CircuitBreakerOpenException catch (cbe) {
         if (!mounted) return;
         setState(() => busy = false);
@@ -151,6 +144,7 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
         ));
         return;
       } on ProblemDetailsException catch (pde) {
+        _rotateKeys();
         if (!mounted) return;
         if (pde.statusCode == 503) {
           setState(() => busy = false);
@@ -170,6 +164,9 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
         });
         return;
       } catch (ex) {
+        // A timeout or dropped connection may still have reached the server: keep the same
+        // Idempotency-Key so a retry is deduplicated instead of moving money twice.
+        if (!isOutcomeUnknown(ex)) _rotateKeys();
         if (!mounted) return;
         if (ex is ConnectionException || (ex is ApiException && ex.statusCode == 503)) {
           setState(() => busy = false);
@@ -182,19 +179,20 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
           busy = false;
           problem = {
             'title': 'Submission Failed',
-            'errorCode': 'NETWORK_ERROR',
-            'detail': ex.toString(),
+            'errorCode': ex is ApiException ? 'HTTP_${ex.statusCode ?? 'NETWORK'}' : 'NETWORK_ERROR',
+            'detail': ex is ApiException ? ex.message : ex.toString(),
             'invalidParams': [],
           };
         });
         return;
       }
 
+      _rotateKeys();
       final ref = resp['referenceNo'] ?? resp['trackingReference'] ?? 'TXN-PENDING';
       Demo.i.applyRemittance(safeSrc, cents / 100, fee / 100, b['name'] as String, d, ref.toString());
       if (!mounted) return;
       setState(() => busy = false);
-      await Navigator.push(context, MaterialPageRoute(builder: (_) => RemittanceResultPage(resp, tl, cents, fee, b['name'] as String, d, activeIdemKey, activeCorrId)));
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => RemittanceResultPage(resp, cents, fee, b['name'] as String, d, activeIdemKey, activeCorrId)));
       return;
     }
     if (mounted) setState(() => busy = false);
@@ -324,11 +322,15 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
       );
 }
 
+/// Post-submission receipt with a live status tracker that polls the M2 timeline
+/// until the transfer reaches a terminal state.
 class RemittanceResultPage extends StatelessWidget {
-  final Map<String, dynamic> resp, timeline;
+  final Map<String, dynamic> resp;
   final int cents, fee;
   final String bank, dest, idemKey, corr;
-  const RemittanceResultPage(this.resp, this.timeline, this.cents, this.fee, this.bank, this.dest, this.idemKey, this.corr, {super.key});
+  const RemittanceResultPage(this.resp, this.cents, this.fee, this.bank, this.dest, this.idemKey, this.corr, {super.key});
+
+  String get _trackingRef => '${resp['referenceNo'] ?? resp['trackingReference'] ?? resp['transactionId'] ?? ''}';
 
   @override
   Widget build(BuildContext context) => Pg('Transfer submitted', [
@@ -340,23 +342,18 @@ class RemittanceResultPage extends StatelessWidget {
         ])),
         const SizedBox(height: 12),
         panel([
-          statRow('Reference', '${resp['referenceNo']}'),
-          statRow('Status', '${resp['status']}'),
+          statRow('Reference', _trackingRef),
+          statRow('Submitted as', '${resp['status']}'),
           statRow('Fee', money(fee)),
           statRow('Idempotency-Key', idemKey),
           statRow('Correlation ID', corr),
         ]),
         const Padding(padding: EdgeInsets.only(top: 14, bottom: 4), child: Text('Transfer status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
-        Card(
-          child: Column(children: [
-            for (final s in (timeline['stages'] as List? ?? []))
-              ListTile(
-                leading: Icon(s['outcome'] == 'PASSED' ? Icons.check_circle : Icons.radio_button_unchecked, color: s['outcome'] == 'PASSED' ? kBlue : kMut),
-                title: Text('${s['title']}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                subtitle: Text('${s['subtitle']}'),
-              ),
-          ]),
-        ),
+        if (_trackingRef.isNotEmpty)
+          TrackingView(trackingReference: _trackingRef, embedded: true)
+        else
+          Text('Tracking reference unavailable.', style: TextStyle(color: kMut)),
+        const SizedBox(height: 12),
         bigBtn('Done', () { Navigator.pop(context); Navigator.pop(context); }),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Make another transfer')),
       ], onBack: () { Navigator.pop(context); Navigator.pop(context); });
@@ -392,6 +389,9 @@ class _RemittanceFormState extends State<RemittanceForm> {
 
   String _destinationBank = 'COOBS';
   bool _isSubmitting = false;
+
+  /// Held across retries of the same transfer; replaced once the server definitively answers.
+  String _idempotencyKey = const Uuid().v4();
 
   List<Map<String, String>> get _quickRecipients {
     final src = _sourceController.text.trim();
@@ -475,7 +475,9 @@ class _RemittanceFormState extends State<RemittanceForm> {
         '/mobile/transactions/remittance',
         body: requestBody,
         isMoneyMovement: true,
+        idempotencyKey: _idempotencyKey,
       );
+      _idempotencyKey = const Uuid().v4();
 
       final remittance = RemittanceSubmissionResponse.fromJson(response);
       final ref = remittance.referenceNo.isNotEmpty
@@ -497,6 +499,7 @@ class _RemittanceFormState extends State<RemittanceForm> {
         widget.onSuccess?.call(ref);
       }
     } catch (e) {
+      if (!isOutcomeUnknown(e)) _idempotencyKey = const Uuid().v4();
       if (mounted) {
         if (e is CircuitBreakerOpenException) {
           Navigator.push(context, MaterialPageRoute(

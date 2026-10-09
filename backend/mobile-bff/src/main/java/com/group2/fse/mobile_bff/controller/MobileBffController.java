@@ -1,6 +1,7 @@
 package com.group2.fse.mobile_bff.controller;
 
 import com.group2.fse.mobile_bff.dto.MobileDashboardResponse;
+import com.group2.fse.mobile_bff.dto.MobileRemittanceOptionsResponse;
 import com.group2.fse.mobile_bff.dto.MobileRemittanceRequest;
 import com.group2.fse.mobile_bff.dto.MobileRemittanceResponse;
 import com.group2.fse.mobile_bff.dto.MobileTimelineResponse;
@@ -72,6 +73,16 @@ public class MobileBffController {
                 ? mobileBffService.getTimeline(trackingReference, customerId, view, correlationId, authHeader)
                 : mobileBffService.getTimeline(trackingReference, customerId, correlationId, authHeader);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * R1: Remittance form options. Publishes the same amount bounds M3 enforces,
+     * so the app never validates against a stale local copy.
+     */
+    @GetMapping("/transactions/remittance/options")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('ROLE_CUSTOMER')")
+    public ResponseEntity<MobileRemittanceOptionsResponse> getRemittanceOptions() {
+        return ResponseEntity.ok(mobileBffService.getRemittanceOptions());
     }
 
     /**

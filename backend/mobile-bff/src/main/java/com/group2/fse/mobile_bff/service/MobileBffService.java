@@ -1,6 +1,7 @@
 package com.group2.fse.mobile_bff.service;
 
 import com.group2.fse.mobile_bff.dto.MobileDashboardResponse;
+import com.group2.fse.mobile_bff.dto.MobileRemittanceOptionsResponse;
 import com.group2.fse.mobile_bff.dto.MobileRemittanceRequest;
 import com.group2.fse.mobile_bff.dto.MobileRemittanceResponse;
 import com.group2.fse.mobile_bff.dto.MobileTimelineResponse;
@@ -18,6 +19,8 @@ public interface MobileBffService {
     default MobileTimelineResponse getTimeline(String trackingReference, String correlationId, String bearerToken) {
         return getTimeline(trackingReference, null, null, correlationId, bearerToken);
     }
+
+    MobileRemittanceOptionsResponse getRemittanceOptions();
 
     MobileRemittanceResponse submitRemittance(MobileRemittanceRequest request, String idempotencyKey, Long customerId, String correlationId, String bearerToken);
 }

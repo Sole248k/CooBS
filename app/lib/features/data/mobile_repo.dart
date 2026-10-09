@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show rootBundle;
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
@@ -6,7 +7,10 @@ import '../../core/network/api_client.dart';
 /// Repository for loading contract JSON fixtures for offline / demo mode
 /// and bridging to live gateway endpoints when AppConfig.useFixtures is false.
 class MobileRepo {
-  static final ApiClient _api = ApiClient();
+  static ApiClient _api = ApiClient();
+
+  @visibleForTesting
+  static set apiForTesting(ApiClient client) => _api = client;
 
   static Future<dynamic> _loadJson(String filename) async {
     final raw = await rootBundle.loadString('assets/fixtures/$filename');
@@ -28,8 +32,24 @@ class MobileRepo {
     return Map<String, dynamic>.from(await _loadJson(filename));
   }
 
-  static Future<Map<String, dynamic>> remitOptions() async =>
-      Map<String, dynamic>.from(await _loadJson('R1-remittance-options.response.json'));
+  /// Banks, fees and categories come from the bundled R1 catalog (the backend has none);
+  /// in live mode the amount limits are replaced by the ones mobile-bff actually enforces.
+  /// Falls back to the bundled limits if the options endpoint is unreachable.
+  static Future<Map<String, dynamic>> remitOptions() async {
+    final opts = Map<String, dynamic>.from(await _loadJson('R1-remittance-options.response.json'));
+    if (AppConfig.useFixtures) return opts;
+    try {
+      final live = await _api.get('/mobile/transactions/remittance/options');
+      final limits = live['limits'];
+      if (limits is Map && limits['minAmount'] is num && limits['maxAmount'] is num) {
+        opts['limits'] = {'minAmount': limits['minAmount'], 'maxAmount': limits['maxAmount']};
+        opts['limitsSource'] = 'server';
+      }
+    } catch (_) {
+      // Keep bundled limits; the BFF still rejects anything out of range on submit.
+    }
+    return opts;
+  }
 
   static Future<Map<String, dynamic>> problem(bool insufficient) async {
     final filename = insufficient
@@ -38,11 +58,12 @@ class MobileRepo {
     return Map<String, dynamic>.from(await _loadJson(filename));
   }
 
-  static Future<Map<String, dynamic>> submitRemittance(Map<String, dynamic> body, {String? idempotencyKey}) async {
+  static Future<Map<String, dynamic>> submitRemittance(Map<String, dynamic> body, {String? idempotencyKey, String? correlationId}) async {
     if (AppConfig.useFixtures) {
       return Map<String, dynamic>.from(await _loadJson('M3-mobile-remittance.response.json'));
     }
-    return _api.post('/mobile/transactions/remittance', body: body, isMoneyMovement: true, idempotencyKey: idempotencyKey);
+    return _api.post('/mobile/transactions/remittance',
+        body: body, isMoneyMovement: true, idempotencyKey: idempotencyKey, correlationId: correlationId);
   }
 
   static Future<Map<String, dynamic>> timeline([String? trackingRef]) async {

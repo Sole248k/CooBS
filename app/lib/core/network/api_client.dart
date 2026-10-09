@@ -43,6 +43,7 @@ class ApiClient {
   Future<Map<String, dynamic>> get(
     String path, {
     Map<String, String>? queryParams,
+    String? correlationId,
     bool? useFixtures,
   }) async {
     final effectiveUseFixtures = useFixtures ?? AppConfig.useFixtures;
@@ -54,6 +55,7 @@ class ApiClient {
     return circuitBreaker.execute(() async {
       return _executeWithAuthRefresh(
         path: path,
+        correlationId: correlationId,
         send: (headers) => _httpClient
             .get(_buildUri(path, queryParams), headers: headers)
             .timeout(AppConfig.requestTimeout),
@@ -67,6 +69,7 @@ class ApiClient {
     dynamic body,
     bool isMoneyMovement = false,
     String? idempotencyKey,
+    String? correlationId,
     bool? useFixtures,
   }) async {
     final effectiveUseFixtures = useFixtures ?? AppConfig.useFixtures;
@@ -81,6 +84,7 @@ class ApiClient {
         path: path,
         isMoneyMovement: isMoneyMovement,
         idempotencyKey: idempotencyKey,
+        correlationId: correlationId,
         send: (headers) => _httpClient
             .post(
               _buildUri(path),
@@ -159,11 +163,15 @@ class ApiClient {
     required Future<http.Response> Function(Map<String, String> headers) send,
     bool isMoneyMovement = false,
     String? idempotencyKey,
+    String? correlationId,
   }) async {
     final resolvedIdempotency = idempotencyKey ?? (isMoneyMovement ? _uuid.v4() : null);
+    // Keep one correlation ID across the 401 refresh retry so both attempts trace together
+    final resolvedCorrelation = (correlationId != null && correlationId.isNotEmpty) ? correlationId : _uuid.v4();
     final initialHeaders = await _buildHeaders(
       isMoneyMovement: isMoneyMovement,
       idempotencyKey: resolvedIdempotency,
+      correlationId: resolvedCorrelation,
     );
 
     try {
@@ -176,6 +184,7 @@ class ApiClient {
           final retryHeaders = await _buildHeaders(
             isMoneyMovement: isMoneyMovement,
             idempotencyKey: resolvedIdempotency,
+            correlationId: resolvedCorrelation,
           );
           response = await send(retryHeaders);
         }
@@ -274,11 +283,11 @@ class ApiClient {
   }
 
   /// Injects authentication tokens, tracing correlation IDs, and money movement idempotency keys.
-  Future<Map<String, String>> _buildHeaders({bool isMoneyMovement = false, String? idempotencyKey}) async {
+  Future<Map<String, String>> _buildHeaders({bool isMoneyMovement = false, String? idempotencyKey, String? correlationId}) async {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json, application/problem+json',
-      'X-Correlation-ID': _uuid.v4(),
+      'X-Correlation-ID': (correlationId != null && correlationId.isNotEmpty) ? correlationId : _uuid.v4(),
     };
 
     final token = await _storage.getAccessToken();

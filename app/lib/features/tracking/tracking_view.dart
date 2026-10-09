@@ -22,6 +22,10 @@ class TrackingView extends StatefulWidget {
   final bool animate;
   final bool autoPoll;
 
+  /// Renders inside a parent scroll view (e.g. the post-transfer receipt): no own scrolling
+  /// and no reference search bar, since the reference is fixed to the submitted transfer.
+  final bool embedded;
+
   const TrackingView({
     super.key,
     this.trackingReference,
@@ -29,6 +33,7 @@ class TrackingView extends StatefulWidget {
     this.initialTimeline,
     this.animate = true,
     this.autoPoll = true,
+    this.embedded = false,
   });
 
   @override
@@ -52,6 +57,19 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
   Timer? _pollingTimer;
   bool _userSelectedMilestone = false;
   bool _isPollingInFlight = false;
+
+  /// Poll fast right after submission, back off once the transfer takes a while, then stop,
+  /// so a stuck saga does not hit the gateway every second for as long as the page is open.
+  static const Duration _fastPollInterval = Duration(seconds: 1);
+  static const Duration _slowPollInterval = Duration(seconds: 5);
+  static const Duration _fastPollWindow = Duration(seconds: 30);
+  static const Duration _maxPollDuration = Duration(minutes: 2);
+
+  /// Sum of scheduled poll intervals since the last explicit load (deterministic under fake time).
+  Duration _pollElapsed = Duration.zero;
+  bool _pollingPaused = false;
+
+  bool get _isAutoPolling => _pollingTimer?.isActive == true || _isPollingInFlight;
 
   static final DateFormat _dateFormat = DateFormat('MMM dd, yyyy • HH:mm:ss');
 
@@ -131,16 +149,17 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
   void _managePolling(TransactionTimelineResponse timeline) {
     _pollingTimer?.cancel();
     if (!widget.autoPoll) return;
-    // In accordance with Capstone Roadmap: Poll GET /timeline once a second until reaching terminal state
-    if (!timeline.isTerminalSuccess && !timeline.isTerminalFailure) {
-      _pollingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-        _silentPollTimeline(_searchController.text.trim());
-      });
+    if (timeline.isTerminalSuccess || timeline.isTerminalFailure) return;
+    if (_pollElapsed >= _maxPollDuration) {
+      _pollingPaused = true;
+      return;
     }
+    final interval = _pollElapsed < _fastPollWindow ? _fastPollInterval : _slowPollInterval;
+    _pollingTimer = Timer(interval, () {
+      if (!mounted) return;
+      _pollElapsed += interval;
+      _silentPollTimeline(_searchController.text.trim());
+    });
   }
 
   Future<void> _silentPollTimeline(String reference) async {
@@ -158,7 +177,8 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         setState(() => _applyTimeline(timeline, isAutoPoll: true));
       }
     } catch (_) {
-      // Background poll silently preserves existing UI state
+      // Background poll silently preserves existing UI state; keep the schedule going
+      if (mounted && _rawTimeline != null) setState(() => _managePolling(_rawTimeline!));
     } finally {
       _isPollingInFlight = false;
     }
@@ -166,6 +186,8 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
 
   Future<void> _loadTimeline(String reference) async {
     _pollingTimer?.cancel();
+    _pollElapsed = Duration.zero;
+    _pollingPaused = false;
     _userSelectedMilestone = false;
     setState(() {
       _isLoading = true;
@@ -240,15 +262,21 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         return Material(
           color: Colors.transparent,
           child: CustomScrollView(
+            shrinkWrap: widget.embedded,
+            physics: widget.embedded ? const NeverScrollableScrollPhysics() : null,
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding: widget.embedded
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSearchAndHeader(),
-                      const SizedBox(height: 16),
+                      if (!widget.embedded) ...[
+                        _buildSearchAndHeader(),
+                        const SizedBox(height: 16),
+                      ],
                       if (_isLoading)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 60),
@@ -277,6 +305,10 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                         ],
                         _buildHeaderBadgesAndModeToggle(),
                         const SizedBox(height: 16),
+                        if (_pollingPaused) ...[
+                          _buildPollingPausedNotice(),
+                          const SizedBox(height: 16),
+                        ],
                         if (_isStaffMode && _rawTimeline != null && _rawTimeline!.stages.length >= 11)
                           _build11StageDeepDive()
                         else ...[
@@ -324,6 +356,33 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
           onPressed: () => _loadTimeline(_searchController.text.trim()),
         ),
       ],
+    );
+  }
+
+  Widget _buildPollingPausedNotice() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.warningAmber.withAlpha(25),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.warningAmber.withAlpha(90)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.warningAmber, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Still processing. Automatic updates paused.',
+              style: TextStyle(fontSize: 13, color: kInk),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _loadTimeline(_searchController.text.trim()),
+            child: const Text('Check again'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -415,7 +474,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                 ),
               ),
             ),
-            if (_pollingTimer != null && _pollingTimer!.isActive)
+            if (_isAutoPolling)
               const SizedBox(
                 width: 14,
                 height: 14,
@@ -1209,6 +1268,12 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                 style: const TextStyle(color: AppTheme.errorCarmine, fontWeight: FontWeight.w600),
               ),
             ),
+            if (widget.embedded)
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: AppTheme.errorCarmine),
+                tooltip: 'Retry',
+                onPressed: () => _loadTimeline(_searchController.text.trim()),
+              ),
           ],
         ),
       ),

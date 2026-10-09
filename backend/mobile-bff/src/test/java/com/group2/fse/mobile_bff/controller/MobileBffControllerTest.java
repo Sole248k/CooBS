@@ -200,4 +200,23 @@ class MobileBffControllerTest {
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void testGetRemittanceOptions_Returns200WithLimits() throws Exception {
+        when(mobileBffService.getRemittanceOptions()).thenReturn(MobileRemittanceOptionsResponse.builder()
+                .currency("PHP")
+                .scale(2)
+                .limits(MobileRemittanceOptionsResponse.Limits.builder()
+                        .minAmount(new BigDecimal("0.01"))
+                        .maxAmount(new BigDecimal("500000.00"))
+                        .build())
+                .build());
+
+        mockMvc.perform(get("/api/v1/mobile/transactions/remittance/options")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currency").value("PHP"))
+                .andExpect(jsonPath("$.limits.minAmount").value(0.01))
+                .andExpect(jsonPath("$.limits.maxAmount").value(500000.00));
+    }
 }
