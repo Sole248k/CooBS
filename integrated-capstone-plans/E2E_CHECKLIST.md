@@ -146,6 +146,18 @@ newman run postman/e2e/CooBS_End_To_End.postman_collection.json \
   --reporters cli
 ```
 
+The suite has twelve folders. Folder 12 covers a decline on the member's own risk rating (`andrea_reyes`, `jose_bautista`) and a transfer to another bank (`david_kim` to `BANKB`, which is our own loopback: accepted, refused, and a bank that is not a partner).
+
+### 5.1a The Whole Backend in One Command (Release Check)
+
+On a machine with the stack up, this resets batch state and the risk counters, runs the master suite and the stack checks in `scripts/`, and prints the twelve demo scenarios with what proved each one:
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\run_release_checks.ps1
+```
+
+`-Quick` leaves out the two checks that stop a container (the risk engine, the notification database). `-List` prints what would run. The exit code is 0 only when nothing failed. Scenario 12 (concurrent transfers) is the JMeter plan in `test/` and is not run from there.
+
 ### 5.2 Running the Existing Legacy Collections (Regression Check)
 
 To ensure no backward-incompatible breaks occurred:
