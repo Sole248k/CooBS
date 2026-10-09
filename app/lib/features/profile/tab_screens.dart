@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/models/models.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../shell/app_shell.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../auth/auth_screens.dart';
-import '../data/mobile_repo.dart';
 import '../kyc/kyc_intake_screen.dart';
 
 Widget _title(String t) => Padding(
@@ -54,20 +55,222 @@ class PayQrScreen extends StatelessWidget {
       ]);
 }
 
-class AlertsScreen extends StatelessWidget {
+class AlertsScreen extends StatefulWidget {
   const AlertsScreen({super.key});
+
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: Demo.i,
-        builder: (context, _) => ListView(padding: const EdgeInsets.only(bottom: 16), children: [
+  State<AlertsScreen> createState() => _AlertsScreenState();
+}
+
+class _AlertsScreenState extends State<AlertsScreen> {
+  final ApiClient _apiClient = ApiClient();
+  bool _isLoading = true;
+  List<NotificationItem> _liveNotifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() => _isLoading = true);
+    try {
+      final json = await _apiClient.get('/notifications/my-notifications');
+      final page = NotificationPageResponse.fromJson(json);
+      if (mounted) {
+        setState(() {
+          _liveNotifications = page.content;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _markAsRead(NotificationItem item, int index) async {
+    if (item.isRead) return;
+    try {
+      await _apiClient.patch('/notifications/${item.notificationId}/read');
+      if (mounted) {
+        setState(() {
+          _liveNotifications[index] = item.copyWith(isRead: true);
+        });
+      }
+    } catch (_) {}
+  }
+
+  String _formatTimestamp(DateTime? dt) {
+    if (dt == null) return 'Recently';
+    final diff = DateTime.now().toUtc().difference(dt.toUtc());
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return DateFormat('dd MMM, HH:mm').format(dt.toLocal());
+  }
+
+  IconData _iconFor(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('sent') || t.contains('debited')) return Icons.arrow_upward_rounded;
+    if (t.contains('received') || t.contains('credited')) return Icons.arrow_downward_rounded;
+    if (t.contains('failed') || t.contains('rejected')) return Icons.error_outline_rounded;
+    if (t.contains('kyc') || t.contains('security')) return Icons.shield_outlined;
+    return Icons.notifications_none_rounded;
+  }
+
+  Color _iconColorFor(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('sent') || t.contains('debited')) return const Color(0xFFE11D48);
+    if (t.contains('received') || t.contains('credited')) return const Color(0xFF16A34A);
+    if (t.contains('failed') || t.contains('rejected')) return const Color(0xFFDC2626);
+    return kBlue;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _loadNotifications,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
           _title('Notifications'),
-          for (final a in Demo.i.alerts)
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: CircularProgressIndicator(color: kNavy),
+              ),
+            )
+          else if (_liveNotifications.isNotEmpty) ...[
+            for (var idx = 0; idx < _liveNotifications.length; idx++)
+              _buildLiveNotificationCard(_liveNotifications[idx], idx),
+          ] else if (Demo.i.alerts.isNotEmpty) ...[
+            for (final a in Demo.i.alerts)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    title: Text(a[0], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: Text(a[1], style: const TextStyle(color: kMut, fontSize: 12)),
+                  ),
+                ),
+              ),
+          ] else
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Card(margin: EdgeInsets.zero, child: ListTile(title: Text(a[0], style: const TextStyle(fontSize: 13)), subtitle: Text(a[1]))),
+              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.notifications_off_outlined, size: 48, color: kMut.withAlpha(120)),
+                    const SizedBox(height: 12),
+                    const Text('No notifications yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Transaction alerts and updates will appear here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: kMut, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
             ),
-        ]),
-      );
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveNotificationCard(NotificationItem item, int index) {
+    final icon = _iconFor(item.title);
+    final iconColor = _iconColorFor(item.title);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: Card(
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: item.isRead ? Colors.transparent : kBlue.withAlpha(50),
+            width: 1,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _markAsRead(item, index),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: iconColor.withAlpha(30),
+                  child: Icon(icon, color: iconColor, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.title,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: item.isRead ? FontWeight.w600 : FontWeight.bold,
+                                color: const Color(0xFF1E293B),
+                              ),
+                            ),
+                          ),
+                          if (!item.isRead)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(left: 6),
+                              decoration: const BoxDecoration(
+                                color: kBlue,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.message,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: item.isRead ? kMut : const Color(0xFF334155),
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _formatTimestamp(item.createdAt),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: kMut.withAlpha(180),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class ProfileScreen extends StatelessWidget {
@@ -134,91 +337,136 @@ class KycDetailsPage extends StatefulWidget {
 }
 
 class _KycDetailsPageState extends State<KycDetailsPage> {
-  final c = {
-    'First name': TextEditingController(),
-    'M.I.': TextEditingController(),
-    'Last name': TextEditingController(),
-    'Address': TextEditingController(),
-    'Occupation': TextEditingController(),
-    'Mobile number': TextEditingController(),
-  };
+  final _apiClient = ApiClient();
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  String _kycStatus = 'UNVERIFIED';
+
+  final _firstCtrl = TextEditingController();
+  final _midCtrl = TextEditingController();
+  final _lastCtrl = TextEditingController();
+  final _addrCtrl = TextEditingController();
+  final _occCtrl = TextEditingController();
+  final _mobCtrl = TextEditingController();
   String? civil = 'Single';
-  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    final k = Demo.i.kycData;
-    if (k != null) {
-      _populateFromData(k);
-    } else {
-      _loading = true;
-      MobileRepo.customerProfile().then((p) {
-        if (mounted) {
-          setState(() {
-            _loading = false;
-            if (p['kyc'] is Map) {
-              _populateFromData(Map<String, dynamic>.from(p['kyc'] as Map));
-            } else {
-              _populateFallback();
-            }
-          });
-        }
-      }).catchError((_) {
-        if (mounted) setState(() { _loading = false; _populateFallback(); });
-      });
-    }
-  }
-
-  void _populateFromData(Map<String, dynamic> k) {
-    c['First name']?.text = '${k['firstName'] ?? ''}';
-    c['M.I.']?.text = '${k['middleInitial'] ?? ''}';
-    c['Last name']?.text = '${k['lastName'] ?? ''}';
-    c['Address']?.text = '${k['address'] ?? ''}';
-    c['Occupation']?.text = '${k['occupation'] ?? ''}';
-    c['Mobile number']?.text = '${k['mobileNumber'] ?? ''}';
-    final cs = k['civilStatus']?.toString().toUpperCase();
-    civil = cs == 'MARRIED' ? 'Married' : 'Single';
-  }
-
-  void _populateFallback() {
-    c['First name']?.text = 'John';
-    c['M.I.']?.text = 'D';
-    c['Last name']?.text = 'Doe';
-    c['Address']?.text = 'Quezon City, Metro Manila';
-    c['Occupation']?.text = 'Software engineer';
-    c['Mobile number']?.text = '+63 917 000 0000';
-    civil = 'Single';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final statusText = Demo.i.kyc.isNotEmpty ? Demo.i.kyc : 'VERIFIED';
-    return Pg('KYC details', [
-      Row(children: [
-        miniTag(statusText),
-        const SizedBox(width: 8),
-        const Flexible(child: Text('Changes need teller approval.', style: TextStyle(color: kMut, fontSize: 12))),
-      ]),
-      const SizedBox(height: 14),
-      if (_loading)
-        const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
-      else ...[
-        for (final e in c.entries.take(4)) tf(e.value, e.key),
-        dd('Civil status', const ['Single', 'Married'], civil, (x) => civil = x),
-        for (final e in c.entries.skip(4)) tf(e.value, e.key),
-        bigBtn('Request update', () => snack(context, 'Update request sent for approval.')),
-      ],
-    ]);
+    _loadProfile();
   }
 
   @override
   void dispose() {
-    for (final ctrl in c.values) {
-      ctrl.dispose();
-    }
+    _firstCtrl.dispose();
+    _midCtrl.dispose();
+    _lastCtrl.dispose();
+    _addrCtrl.dispose();
+    _occCtrl.dispose();
+    _mobCtrl.dispose();
     super.dispose();
   }
+
+  Future<void> _loadProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final json = await _apiClient.get('/customers/me');
+      final profile = CustomerProfileData.fromJson(json);
+      if (mounted) {
+        setState(() {
+          _kycStatus = profile.kycStatus;
+          if (profile.kyc != null) {
+            _firstCtrl.text = profile.kyc!.firstName;
+            _midCtrl.text = profile.kyc!.middleInitial;
+            _lastCtrl.text = profile.kyc!.lastName;
+            _addrCtrl.text = profile.kyc!.address;
+            _occCtrl.text = profile.kyc!.occupation;
+            _mobCtrl.text = profile.kyc!.mobileNumber;
+            final rawCivil = profile.kyc!.civilStatus.toUpperCase();
+            if (rawCivil == 'SINGLE') {
+              civil = 'Single';
+            } else if (rawCivil == 'MARRIED') {
+              civil = 'Married';
+            } else if (rawCivil == 'WIDOWED') {
+              civil = 'Widowed';
+            } else if (rawCivil == 'DIVORCED') {
+              civil = 'Divorced';
+            } else {
+              civil = 'Single';
+            }
+          } else {
+            final parts = profile.displayName.split(' ');
+            if (parts.isNotEmpty) _firstCtrl.text = parts.first;
+            if (parts.length > 1) _lastCtrl.text = parts.last;
+            civil = 'Single';
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _submitUpdateRequest() async {
+    setState(() => _isSubmitting = true);
+    try {
+      final payload = {
+        'newFirstName': _firstCtrl.text.trim(),
+        'newMiddleInitial': _midCtrl.text.trim(),
+        'newLastName': _lastCtrl.text.trim(),
+        'newAddress': _addrCtrl.text.trim(),
+        'newOccupation': _occCtrl.text.trim(),
+        'newMobileNumber': _mobCtrl.text.trim(),
+        'newCivilStatus': civil ?? 'Single',
+      };
+
+      await _apiClient.post(
+        '/customers/kyc/update-request',
+        body: payload,
+      );
+
+      if (mounted) {
+        snack(context, 'KYC update request submitted for teller approval');
+        setState(() => _isSubmitting = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        snack(context, 'Failed to submit update: ${e.toString().replaceAll("Exception: ", "")}');
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Pg('KYC details', [
+        if (_isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child: Center(child: CircularProgressIndicator(color: kNavy)),
+          )
+        else ...[
+          Row(children: [
+            miniTag(_kycStatus),
+            const SizedBox(width: 8),
+            const Flexible(child: Text('Changes need teller approval.', style: TextStyle(color: kMut, fontSize: 12))),
+          ]),
+          const SizedBox(height: 14),
+          tf(_firstCtrl, 'First name'),
+          tf(_midCtrl, 'M.I.'),
+          tf(_lastCtrl, 'Last name'),
+          tf(_addrCtrl, 'Address'),
+          dd('Civil status', const ['Single', 'Married', 'Widowed', 'Divorced'], civil, (x) => civil = x),
+          tf(_occCtrl, 'Occupation'),
+          tf(_mobCtrl, 'Mobile number', k: TextInputType.phone),
+          _isSubmitting
+              ? const Padding(
+                  padding: EdgeInsets.only(top: 20),
+                  child: Center(child: CircularProgressIndicator(color: kNavy)),
+                )
+              : bigBtn('Request update', _submitUpdateRequest),
+        ],
+      ]);
 }
 
 class SecurityPage extends StatefulWidget {

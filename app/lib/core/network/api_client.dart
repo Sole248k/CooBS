@@ -92,6 +92,57 @@ class ApiClient {
     });
   }
 
+  /// Executes an HTTP PATCH request with fixture interceptor.
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    dynamic body,
+    bool? useFixtures,
+  }) async {
+    final effectiveUseFixtures = useFixtures ?? AppConfig.useFixtures;
+
+    if (effectiveUseFixtures) {
+      return _interceptWithFixture('PATCH', path, body: body);
+    }
+
+    return circuitBreaker.execute(() async {
+      final encodedBody = body != null ? jsonEncode(body) : null;
+      return _executeWithAuthRefresh(
+        path: path,
+        send: (headers) => _httpClient
+            .patch(
+              _buildUri(path),
+              headers: headers,
+              body: encodedBody,
+            )
+            .timeout(AppConfig.requestTimeout),
+      );
+    });
+  }
+
+  /// Executes an HTTP DELETE request with fixture interceptor.
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    bool? useFixtures,
+  }) async {
+    final effectiveUseFixtures = useFixtures ?? AppConfig.useFixtures;
+
+    if (effectiveUseFixtures) {
+      return _interceptWithFixture('DELETE', path);
+    }
+
+    return circuitBreaker.execute(() async {
+      return _executeWithAuthRefresh(
+        path: path,
+        send: (headers) => _httpClient
+            .delete(
+              _buildUri(path),
+              headers: headers,
+            )
+            .timeout(AppConfig.requestTimeout),
+      );
+    });
+  }
+
   /// Evaluates whether a route is an authentication lifecycle endpoint to prevent refresh recursion.
   bool _isAuthPath(String path) {
     final lower = path.toLowerCase();

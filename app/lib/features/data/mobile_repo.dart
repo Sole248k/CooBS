@@ -68,8 +68,12 @@ class MobileRepo {
     }
   }
 
-  static Future<Map<String, dynamic>> accountTx() async =>
-      Map<String, dynamic>.from(await _loadJson('K6-account-transactions.response.json'));
+  static Future<Map<String, dynamic>> accountTx() async {
+    if (AppConfig.useFixtures) {
+      return Map<String, dynamic>.from(await _loadJson('K6-account-transactions.response.json'));
+    }
+    return {};
+  }
 
   static Future<Map<String, dynamic>> notifications() async {
     if (AppConfig.useFixtures) {

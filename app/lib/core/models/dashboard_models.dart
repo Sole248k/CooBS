@@ -75,6 +75,8 @@ class MobileAccountSummary {
 
 class MobileRecentTransaction {
   final String trackingReference;
+  final String transactionId;
+  final String direction;
   final double amount;
   final String formattedAmount;
   final String currency;
@@ -84,6 +86,8 @@ class MobileRecentTransaction {
 
   MobileRecentTransaction({
     required this.trackingReference,
+    this.transactionId = '',
+    this.direction = 'OUT',
     required this.amount,
     required this.formattedAmount,
     required this.currency,
@@ -94,6 +98,8 @@ class MobileRecentTransaction {
 
   factory MobileRecentTransaction.fromJson(Map<String, dynamic> json) => MobileRecentTransaction(
     trackingReference: json['trackingReference'] as String? ?? json['referenceNo'] as String? ?? '',
+    transactionId: json['transactionId'] as String? ?? '',
+    direction: json['direction'] as String? ?? 'OUT',
     amount: (json['amount'] is num)
         ? (json['amount'] as num).toDouble()
         : double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
@@ -106,6 +112,8 @@ class MobileRecentTransaction {
 
   Map<String, dynamic> toJson() => {
     'trackingReference': trackingReference,
+    'transactionId': transactionId,
+    'direction': direction,
     'amount': amount,
     'formattedAmount': formattedAmount,
     'currency': currency,

@@ -2,8 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:app/core/models/models.dart';
 import 'package:app/core/network/network.dart';
 import 'package:app/core/storage/secure_storage_service.dart';
+import 'package:app/core/config/app_config.dart';
 import 'package:app/features/accounts/demo_store.dart';
 import 'package:app/features/data/mobile_repo.dart';
+import 'package:app/features/scores/scores_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -190,6 +192,41 @@ void main() {
       expect(store.accts.first.no, isNotEmpty);
       expect(store.accts.first.type, isNotEmpty);
       expect(store.state, isNot(LoadState.offline));
+    });
+
+    test('debitsFor exclusively uses real account transactions without mock placeholders', () {
+      final store = Demo.i;
+      store.accts.clear();
+      store.accts.add(Acct('Savings', 'ACC_10000001', 50000.0, [
+        Tx('Mobile Transfer to Maria Santos', 'TX-20261008-E149E824', DateTime(2026, 10, 8), -100.0),
+        Tx('Payroll Deposit', 'TX-20261008-1F839930', DateTime(2026, 10, 8), 25000.0),
+        Tx('Transfer to John Smith', 'TX-20261007-99A8B7C6', DateTime(2026, 10, 7), -2500.0),
+      ]));
+
+      final debits = debitsFor(0);
+      // Only debits (negative amt) should be included: exactly 2 items, no synthetic _mock loop items
+      expect(debits.length, 2);
+      expect(debits[0].ref, 'TX-20261008-E149E824');
+      expect(debits[0].receiver, 'Maria Santos');
+      expect(debits[0].amt, 100.0);
+      expect(debits[1].ref, 'TX-20261007-99A8B7C6');
+      expect(debits[1].receiver, 'John Smith');
+      expect(debits[1].amt, 2500.0);
+
+      // Verify none of the placeholder items exist
+      final allRefs = debits.map((d) => d.ref).toList();
+      expect(allRefs.any((r) => r.startsWith('TXN-88')), isFalse);
+    });
+
+    test('MobileRepo.accountTx returns empty map when useFixtures is false', () async {
+      final orig = AppConfig.useFixtures;
+      try {
+        AppConfig.useFixtures = false;
+        final res = await MobileRepo.accountTx();
+        expect(res, isEmpty);
+      } finally {
+        AppConfig.useFixtures = orig;
+      }
     });
   });
 }

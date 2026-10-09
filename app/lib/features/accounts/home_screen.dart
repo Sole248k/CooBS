@@ -302,7 +302,18 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
-
+  Widget circ(IconData ic, String t, VoidCallback? f) => InkWell(
+        onTap: f,
+        borderRadius: BorderRadius.circular(40),
+        child: SizedBox(
+          width: 100,
+          child: Column(children: [
+            CircleAvatar(radius: 32, backgroundColor: const Color(0xFFCBD3DC), child: Icon(ic, color: kNavy, size: 26)),
+            const SizedBox(height: 8),
+            Text(t, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12)),
+          ]),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -315,115 +326,123 @@ class _HomeScreenState extends State<HomeScreen> {
           final nb = l?.next;
           final isLoan = d.isLoanPage;
           final pageCount = d.accts.isEmpty ? 2 : d.accts.length + 1;
-          return ListView(padding: const EdgeInsets.only(top: 4, bottom: 16), children: [
-            SizedBox(
-              height: 262,
-              child: PageView(
-                controller: pc,
-                onPageChanged: d.setCur,
-                children: [
-                  if (d.accts.isEmpty)
-                    shell(0, 'Checking', 'ACTIVE', [
-                      const SizedBox(height: 14),
-                      const Text('Account number', style: TextStyle(fontSize: 11, color: Colors.white70)),
-                      Text(d.primaryNo.isNotEmpty ? d.primaryNo : 'ACC_10000002', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
-                      const SizedBox(height: 8),
-                      const Text('Available balance', style: TextStyle(fontSize: 11, color: Colors.white70)),
-                      balance(0.0),
-                      const SizedBox(height: 12),
-                      Row(children: [
-                        btn('Deposit', () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const MoneySheet(0, false))),
-                        btn('Transfer', () => go(const RemittanceScreen(from: 0))),
-                      ]),
-                    ])
-                  else
-                    for (var i = 0; i < d.accts.length; i++) acctCard(i),
-                  loanCard(),
-                ],
-              ),
-            ),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              for (var i = 0; i < pageCount; i++)
-                Container(
-                    margin: const EdgeInsets.fromLTRB(3, 12, 3, 0), width: d.cur == i ? 18 : 7, height: 7,
-                    decoration: BoxDecoration(color: d.cur == i ? kInk : const Color(0xFFC3CCC7), borderRadius: BorderRadius.circular(4))),
-            ]),
-            if (d.kyc != 'VERIFIED')
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFF59E0B) : const Color(0xFFEF4444), width: 0.8),
-                  ),
-                  child: Row(children: [
-                    Icon(d.kyc == 'PENDING_REVIEW' ? Icons.hourglass_top : Icons.verified_user_outlined,
-                        color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFB45309) : const Color(0xFFB91C1C)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(d.kyc == 'PENDING_REVIEW' ? 'KYC Under Review' : 'Identity Verification Required',
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87)),
-                        Text(d.kyc == 'PENDING_REVIEW' ? 'Your verification is being reviewed by a branch teller.' : 'Complete your KYC intake to activate higher transfer limits.',
-                            style: const TextStyle(fontSize: 11, color: Colors.black54)),
-                      ]),
-                    ),
-                    TextButton(
-                      onPressed: () => go(const KycIntakeScreen()),
-                      child: Text(d.kyc == 'PENDING_REVIEW' ? 'Check' : 'Verify', style: const TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-                  ]),
+          return RefreshIndicator(
+            onRefresh: () => d.load(),
+            child: ListView(padding: const EdgeInsets.only(top: 4, bottom: 16), children: [
+              SizedBox(
+                height: 262,
+                child: PageView(
+                  controller: pc,
+                  onPageChanged: d.setCur,
+                  children: [
+                    if (d.accts.isEmpty)
+                      shell(0, 'Savings', 'ACTIVE', [
+                        const SizedBox(height: 14),
+                        const Text('Account number', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                        Text(d.primaryNo.isNotEmpty ? d.primaryNo : 'ACC_10000001', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
+                        const SizedBox(height: 8),
+                        const Text('Available balance', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                        balance(0.0),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          btn('Deposit', () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const MoneySheet(0, false))),
+                          btn('Transfer', () => go(const RemittanceScreen(from: 0))),
+                        ]),
+                      ])
+                    else
+                      for (var i = 0; i < d.accts.length; i++) acctCard(i),
+                    loanCard(),
+                  ],
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (isLoan && l != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: nb == null
-                        ? const Text('All bills are fully paid.')
-                        : Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              const Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
-                              Text(peso(r2(nb.amt - nb.paid)), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-                              Text('Due Date on ${fmt(nb.due)}', style: const TextStyle(fontSize: 12, color: kMut)),
-                            ]),
-                            SizedBox(
-                                width: 150,
-                                child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48), backgroundColor: kNavy),
-                                    onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const PayAdvanceSheet()),
-                                    child: const Text('Pay in Advance'))),
-                          ]),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 20, bottom: 6),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Recent transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    if (tx.isNotEmpty)
-                      TextButton(onPressed: () => go(const SeeAllPage()), child: const Text('See all', style: TextStyle(color: kBlue))),
-                  ]),
-                ),
-                failed
-                    ? _Warn(d.load)
-                    : tx.isEmpty
-                    ? Container(
-                        width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 44),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                        child: Column(children: [
-                          const Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF9AA5AD))),
-                          Text(isLoan ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
-                        ]))
-                    : txCard(tx.take(5).toList()),
-
-                if (isLoan && l != null)
-                  Center(child: TextButton(onPressed: d.resetLoan, child: const Text('Reset loan (tester only)'))),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                for (var i = 0; i < pageCount; i++)
+                  Container(
+                      margin: const EdgeInsets.fromLTRB(3, 12, 3, 0), width: d.cur == i ? 18 : 7, height: 7,
+                      decoration: BoxDecoration(color: d.cur == i ? kInk : const Color(0xFFC3CCC7), borderRadius: BorderRadius.circular(4))),
               ]),
-            ),
-          ]);
+              if (d.kyc != 'VERIFIED')
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFF59E0B) : const Color(0xFFEF4444), width: 0.8),
+                    ),
+                    child: Row(children: [
+                      Icon(d.kyc == 'PENDING_REVIEW' ? Icons.hourglass_top : Icons.verified_user_outlined,
+                          color: d.kyc == 'PENDING_REVIEW' ? const Color(0xFFB45309) : const Color(0xFFB91C1C)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(d.kyc == 'PENDING_REVIEW' ? 'KYC Under Review' : 'Identity Verification Required',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87)),
+                          Text(d.kyc == 'PENDING_REVIEW' ? 'Your verification is being reviewed by a branch teller.' : 'Complete your KYC intake to activate higher transfer limits.',
+                              style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                        ]),
+                      ),
+                      TextButton(
+                        onPressed: () => go(const KycIntakeScreen()),
+                        child: Text(d.kyc == 'PENDING_REVIEW' ? 'Check' : 'Verify', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    ]),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (isLoan && l != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: nb == null
+                          ? const Text('All bills are fully paid.')
+                          : Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                const Text('Next Bill to pay', style: TextStyle(fontSize: 12, color: kMut)),
+                                Text(peso(r2(nb.amt - nb.paid)), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                                Text('Due Date on ${fmt(nb.due)}', style: const TextStyle(fontSize: 12, color: kMut)),
+                              ]),
+                              SizedBox(
+                                  width: 150,
+                                  child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48), backgroundColor: kNavy),
+                                      onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, builder: (_) => const PayAdvanceSheet()),
+                                      child: const Text('Pay in Advance'))),
+                            ]),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 20, bottom: 6),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Recent transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      if (tx.isNotEmpty)
+                        TextButton(onPressed: () => go(const SeeAllPage()), child: const Text('See all', style: TextStyle(color: kBlue))),
+                    ]),
+                  ),
+                  failed
+                      ? _Warn(d.load)
+                      : tx.isEmpty
+                      ? Container(
+                          width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 44),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                          child: Column(children: [
+                            const Text('Nothing to Show', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF9AA5AD))),
+                            Text(isLoan ? 'Apply for a loan' : 'No transactions yet', style: const TextStyle(color: Color(0xFF9AA5AD))),
+                          ]))
+                      : txCard(tx.take(5).toList()),
+                  const SizedBox(height: 22),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                    circ(Icons.insights_outlined, 'Show\nScores & Habits', () => go(const ScoresPage())),
+                    circ(Icons.groups_outlined, 'Show\nBeneficiaries', () => go(const BeneficiariesPage())),
+                    circ(Icons.credit_card, 'Manage\nCards', () => snack(context, 'Card management coming soon in Phase 2')),
+                  ]),
+                  if (isLoan && l != null)
+                    Center(child: TextButton(onPressed: d.resetLoan, child: const Text('Reset loan (tester only)'))),
+                ]),
+              ),
+            ]),
+          );
         },
       );
 }
