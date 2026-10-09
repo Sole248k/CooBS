@@ -342,6 +342,7 @@ Registration is not available to anyone: members are seeded.
 | Score below 0.60 and within the limit                  | `APPROVE`                                                                        |
 | Score from 0.60 to 0.85                                | `DECLINE`, `REVIEW_REQUIRED`                                                     |
 | Score above 0.85                                       | `DECLINE`, `HIGH_RISK`                                                           |
+| The member's own risk score is 0.60 or higher          | Declined in that score's band whatever the amount, with`CUSTOMER_RISK_RATING`    |
 | Today's total plus this amount exceeds the daily limit | `DECLINE`, `LIMIT_EXCEEDED`                                                      |
 | Many transfers in a short time                         | Score rises with velocity; may cross a threshold                                 |
 | First transfer to a new beneficiary                    | Score rises by a fixed amount                                                    |

@@ -43,6 +43,7 @@ public class RiskEvaluator {
     public static final String REASON_NEW_BENEFICIARY = "NEW_BENEFICIARY_FLAG";
     public static final String REASON_EXCESSIVE_DAILY_REVERSALS = "RULE_EXCESSIVE_DAILY_REVERSALS";
     public static final String REASON_AMLA_THRESHOLD = "RULE_AMLA_MANDATORY_THRESHOLD";
+    public static final String REASON_CUSTOMER_RISK_RATING = "CUSTOMER_RISK_RATING";
 
     private final LimitPolicy limitPolicy;
     private final VelocityCounter velocityCounter;
@@ -50,6 +51,7 @@ public class RiskEvaluator {
     /**
      * Evaluates transaction risk according to the frozen contracts-v1 scoring model:
      * S = (0.35 * S_amount) + (0.35 * S_velocity) + (0.30 * S_tier) + S_beneficiary_boost + S_reversal_penalty
+     * and the customer's own risk score is a floor under it: the final score is the higher of the two.
      */
     public RiskEvaluationResponse evaluate(RiskEvaluationRequest request) {
         long startTime = System.currentTimeMillis();
@@ -138,6 +140,19 @@ public class RiskEvaluator {
         // Composite calculation
         double compositeScore = (0.35 * sAmount) + (0.35 * sVelocity) + (0.30 * sTier) + sBeneficiary + sReversal;
         compositeScore = Math.min(1.00, Math.max(0.00, compositeScore));
+
+        // 3.6 The customer's own risk rating is a floor. A transfer is never judged safer than
+        // the member who sends it, so a member rated in a decline band is declined whatever
+        // the amount. The reason says so, for staff reading the timeline.
+        double customerRisk = request.getCustomerRiskScore() != null
+                ? Math.min(1.00, Math.max(0.00, request.getCustomerRiskScore().doubleValue()))
+                : 0.00;
+        if (customerRisk > compositeScore) {
+            compositeScore = customerRisk;
+            if (customerRisk >= 0.60) {
+                reasons.add(REASON_CUSTOMER_RISK_RATING);
+            }
+        }
 
         // Format score to 2 decimal places
         String formattedScore = String.format(Locale.US, "%.2f", compositeScore);

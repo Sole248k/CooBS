@@ -900,6 +900,8 @@ Saga states: `STARTED`, `RISK_APPROVED`, `FUNDS_RESERVED`, `POSTED`, `COMPLETED`
 | Above 0.85 | `DECLINE` | `HIGH_RISK` |
 | Over daily limit | `DECLINE` | `LIMIT_EXCEEDED` |
 
+**The customer's own risk score is a floor.** The score is the higher of what the transfer scores on its own and `customerRiskScore`, and the bands above are applied to that. A member rated 0.60 or higher is therefore declined whatever the amount, with `CUSTOMER_RISK_RATING` after the band's reason code; nothing is reserved and no hold is placed. A request with no `customerRiskScore` has no floor.
+
 The caller times out at 150 ms and treats a timeout as `RISK_UNAVAILABLE`.
 
 **The daily limit is a reservation.** An `APPROVE` reserves the amount against the customer's limit for the business date, which is the date in Manila (`Asia/Manila`), not in UTC. The amount is added and the new total compared with the limit in one step, so two transfers at the same moment cannot both take the last of the room: the one that no longer fits is declined with `LIMIT_EXCEEDED`. A transaction is reserved once, however often R1 is asked about it. `usedToday` is what is reserved for that business date.

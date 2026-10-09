@@ -388,4 +388,110 @@ class RiskEvaluatorTest {
         // Then
         assertTrue(response.getFraudCheck().getReasons().contains("RULE_AMLA_MANDATORY_THRESHOLD"));
     }
+
+    // --- the customer's own risk score is a floor under the transfer's score ---
+
+    /** A small, slow transfer by a full-KYC member: on its own it scores about 0.03. */
+    private RiskEvaluationResponse smallTransferBy(Long customerId, String customerRiskScore) {
+        when(velocityCounter.getVelocityState(customerId)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build());
+
+        return riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-floor-" + customerRiskScore)
+                .customerId(customerId)
+                .amount(new BigDecimal("100.00"))
+                .currency("PHP")
+                .channel("APP")
+                .customerRiskScore(customerRiskScore == null ? null : new BigDecimal(customerRiskScore))
+                .kycTier("TIER_3_FULL")
+                .dailyLimit(new BigDecimal("100000.00"))
+                .isNewBeneficiary(false)
+                .build());
+    }
+
+    @Test
+    @DisplayName("A member rated 0.72 is declined REVIEW_REQUIRED even for a small transfer, and nothing is reserved")
+    void testCustomerRatedInTheReviewBandIsDeclined() {
+        RiskEvaluationResponse response = smallTransferBy(6L, "0.72");
+
+        assertEquals("DECLINE", response.getDecision());
+        assertEquals("0.72", response.getScore());
+        assertEquals("FAILED", response.getFraudCheck().getOutcome());
+        assertEquals("REVIEW_REQUIRED", response.getFraudCheck().getReasons().get(0));
+        assertTrue(response.getFraudCheck().getReasons().contains("CUSTOMER_RISK_RATING"));
+        // It is a fraud decline, not a limit one.
+        assertEquals("PASSED", response.getLimitCheck().getOutcome());
+        verify(velocityCounter, never()).reserve(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("A member rated 0.92 is declined HIGH_RISK")
+    void testCustomerRatedHighRiskIsDeclined() {
+        RiskEvaluationResponse response = smallTransferBy(5L, "0.92");
+
+        assertEquals("DECLINE", response.getDecision());
+        assertEquals("0.92", response.getScore());
+        assertEquals("HIGH_RISK", response.getFraudCheck().getReasons().get(0));
+        assertTrue(response.getFraudCheck().getReasons().contains("CUSTOMER_RISK_RATING"));
+    }
+
+    @Test
+    @DisplayName("The floor uses the same bands as the score: 0.59 passes, 0.60 and 0.85 are review, 0.86 is high risk")
+    void testFloorBandEdges() {
+        assertEquals("APPROVE", smallTransferBy(1L, "0.59").getDecision());
+        assertEquals("REVIEW_REQUIRED", smallTransferBy(1L, "0.60").getFraudCheck().getReasons().get(0));
+        assertEquals("REVIEW_REQUIRED", smallTransferBy(1L, "0.85").getFraudCheck().getReasons().get(0));
+        assertEquals("HIGH_RISK", smallTransferBy(1L, "0.86").getFraudCheck().getReasons().get(0));
+    }
+
+    @Test
+    @DisplayName("A low-rated member is approved as before; the score is never below the member's own")
+    void testLowRatedCustomerIsUnaffected() {
+        RiskEvaluationResponse response = smallTransferBy(1L, "0.15");
+
+        assertEquals("APPROVE", response.getDecision());
+        assertEquals("0.15", response.getScore());
+        assertTrue(response.getFraudCheck().getReasons().isEmpty());
+    }
+
+    @Test
+    @DisplayName("No customer score, or one below the transfer's own score, changes nothing")
+    void testFloorDoesNotLowerOrInventAScore() {
+        assertEquals("0.03", smallTransferBy(1L, null).getScore());
+        assertEquals("0.03", smallTransferBy(1L, "0.01").getScore());
+    }
+
+    @Test
+    @DisplayName("A transfer that scores above its member's rating is declined for its own reasons, not the rating")
+    void testTransferRiskierThanItsCustomerKeepsItsOwnScore() {
+        // TIER_1 (0.30) with four transfers in ten minutes (0.35): 0.65, above the member's 0.22.
+        when(velocityCounter.getVelocityState(9L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(4)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build());
+
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-floor-burst")
+                .customerId(9L)
+                .amount(new BigDecimal("10.00"))
+                .currency("PHP")
+                .channel("APP")
+                .customerRiskScore(new BigDecimal("0.22"))
+                .kycTier("TIER_1_BASIC")
+                .dailyLimit(new BigDecimal("5000.00"))
+                .isNewBeneficiary(false)
+                .build());
+
+        assertEquals("DECLINE", response.getDecision());
+        assertTrue(Double.parseDouble(response.getScore()) >= 0.65);
+        assertFalse(response.getFraudCheck().getReasons().contains("CUSTOMER_RISK_RATING"));
+    }
 }
