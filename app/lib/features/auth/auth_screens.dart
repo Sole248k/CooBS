@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/models/auth_models.dart';
@@ -182,15 +184,19 @@ class _LoginScreenState extends State<LoginScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Backend Gateway URL', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text('Backend Gateway URL', style: TextStyle(fontFamily: 'Poppins', fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            Text('Configure the Spring Cloud Gateway address running in Docker.', style: TextStyle(color: kMut, fontSize: 13)),
+            const Text('Configure the Spring Cloud Gateway address running in Docker.', style: TextStyle(fontFamily: 'Poppins', color: Color(0xFF64748B), fontSize: 13)),
             const SizedBox(height: 14),
             tf(c, 'Gateway Base URL (e.g. http://192.168.254.126:8080)'),
             const SizedBox(height: 8),
@@ -199,14 +205,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => c.text = 'http://10.0.2.2:8080',
-                    child: const Text('Emulator (10.0.2.2)'),
+                    child: const Text('Emulator (10.0.2.2)', style: TextStyle(fontFamily: 'Poppins')),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => c.text = 'http://localhost:8080',
-                    child: const Text('Localhost:8080'),
+                    child: const Text('Localhost:8080', style: TextStyle(fontFamily: 'Poppins')),
                   ),
                 ),
               ],
@@ -227,48 +233,330 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: kBg,
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: ListView(padding: const EdgeInsets.fromLTRB(22, 30, 22, 30), children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    logoBox(),
-                    IconButton(
-                      tooltip: 'Server Connection',
-                      icon: Icon(Icons.dns_outlined, color: kNavy),
-                      onPressed: _showServerSettings,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-                Text(_bioUser == null ? 'Welcome back' : 'Welcome back, $_bioUser', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                Padding(
-                    padding: EdgeInsets.only(top: 4, bottom: 20),
-                    child: Text(_bioUser == null ? 'Log in to see your accounts.' : 'Use your fingerprint or password to log in.', style: TextStyle(color: kMut))),
-                tf(u, 'Username'),
-                tf(p, 'Password', obscure: true),
-                const SizedBox(height: 12),
-                _isLoading
-                    ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator()))
-                    : bigBtn('Log in', _handleLogin),
-                if (_bioUser != null && !_isLoading)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: OutlinedButton.icon(
-                      onPressed: _handleBiometricLogin,
-                      icon: const Icon(Icons.fingerprint),
-                      label: const Text('Log in with fingerprint'),
-                    ),
-                  ),
-              ]),
-            ),
+  bool _obscurePassword = true;
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData prefixIcon,
+    bool obscure = false,
+    Widget? suffixIcon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        key: ValueKey(label),
+        controller: controller,
+        obscureText: obscure,
+        style: const TextStyle(
+          fontFamily: 'Poppins',
+          color: Color(0xFF000107),
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(
+            fontFamily: 'Poppins',
+            color: Color(0xFF64748B),
+            fontSize: 14,
+          ),
+          floatingLabelStyle: const TextStyle(
+            fontFamily: 'Poppins',
+            color: Color(0xFF0091AE),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+          prefixIcon: Icon(prefixIcon, color: const Color(0xFF0091AE), size: 20),
+          suffixIcon: suffixIcon,
+          filled: true,
+          fillColor: Colors.white.withAlpha(210),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFF0091AE), width: 1.8),
           ),
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildPrimaryButton(String text, VoidCallback onPressed) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0091AE), // Pacific Cyan
+            Color(0xFF00A2C2), // Bright Cyan
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0091AE).withAlpha(80),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlassBiometricButton() {
+    return OutlinedButton.icon(
+      onPressed: _handleBiometricLogin,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: const Color(0xFF0091AE).withAlpha(16),
+        side: const BorderSide(color: Color(0xFF0091AE), width: 1.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+      icon: const Icon(Icons.fingerprint, color: Color(0xFF0091AE), size: 22),
+      label: const Text(
+        'Log in with fingerprint',
+        style: TextStyle(
+          fontFamily: 'Poppins',
+          color: Color(0xFF0091AE),
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: const Color(0xFFF8FAFC),
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8FAFC),
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Soft ambient light gradients for frosted glass refraction (Light Pearl & Cyan)
+            Positioned(
+              top: -110,
+              right: -70,
+              child: Container(
+                width: 340,
+                height: 340,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF0091AE).withAlpha(35),
+                      const Color(0xFFE0F4F8).withAlpha(25),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -90,
+              left: -70,
+              child: Container(
+                width: 320,
+                height: 320,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFFBAE6FD).withAlpha(45),
+                      const Color(0xFFF1F5F9).withAlpha(20),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Foreground Content
+            SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // 1. Top Bar: Seamless Logo & Frosted Glass Server settings button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            logoBox(height: 36, forceDark: false),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withAlpha(210),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withAlpha(8),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: IconButton(
+                                    tooltip: 'Server Connection',
+                                    icon: const Icon(Icons.dns_outlined, color: Color(0xFF000107), size: 20),
+                                    onPressed: _showServerSettings,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 2. Welcome Title & Subtitle (Poppins - refined, not overly bold)
+                        Text(
+                          _bioUser == null ? 'Welcome back' : 'Welcome back, $_bioUser',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            color: Color(0xFF000107),
+                            fontSize: 28,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.3,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _bioUser == null
+                              ? 'Log in to see your accounts.'
+                              : 'Use your fingerprint or password to log in.',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            color: Color(0xFF64748B),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 3. Frosted Glassmorphism Card (Light luxury glass)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                            child: Container(
+                              padding: const EdgeInsets.all(22),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white.withAlpha(235),
+                                    Colors.white.withAlpha(185),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0091AE).withAlpha(18),
+                                    blurRadius: 28,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.black.withAlpha(10),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildField(
+                                    controller: u,
+                                    label: 'Username',
+                                    prefixIcon: Icons.person_outline_rounded,
+                                  ),
+                                  _buildField(
+                                    controller: p,
+                                    label: 'Password',
+                                    prefixIcon: Icons.lock_outline_rounded,
+                                    obscure: _obscurePassword,
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                        color: const Color(0xFF64748B),
+                                        size: 20,
+                                      ),
+                                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  _isLoading
+                                      ? const Center(
+                                          child: Padding(
+                                            padding: EdgeInsets.all(12),
+                                            child: CircularProgressIndicator(color: Color(0xFF0091AE)),
+                                          ),
+                                        )
+                                      : _buildPrimaryButton('Log in', _handleLogin),
+                                  if (_bioUser != null && !_isLoading) ...[
+                                    const SizedBox(height: 12),
+                                    _buildGlassBiometricButton(),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/accounts/home_screen.dart';
 import '../../features/auth/auth_screens.dart';
+import '../../features/auth/splash_screen.dart';
 import '../../features/resilience/service_unavailable_view.dart';
 import '../../shell/app_shell.dart';
 
@@ -20,6 +21,10 @@ class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case initial:
+        return MaterialPageRoute(
+          builder: (_) => const SplashScreen(),
+          settings: settings,
+        );
       case login:
         return MaterialPageRoute(
           builder: (_) => const LoginScreen(),

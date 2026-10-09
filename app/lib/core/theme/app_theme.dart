@@ -3,34 +3,36 @@ import 'package:flutter/material.dart';
 /// CooBS Banking Design System Theme Tokens.
 /// Follows high-contrast, clean-editorial fintech aesthetic (Navy, Emerald, Slate).
 class AppTheme {
-  // Primary Color Tokens
-  static const Color navyPrimary = Color(0xFF0A2540);
-  static const Color navyDark = Color(0xFF05192D);
-  static const Color emeraldAccent = Color(0xFF00D4B2);
-  static const Color emeraldDark = Color(0xFF00A389);
+  // Primary CooBS Brand Tokens: Deep Obsidian Black (#000107) & Vibrant Cyan-Teal (#0091AE)
+  static const Color navyPrimary = Color(0xFF000107);
+  static const Color navyDark = Color(0xFF000107);
+  static const Color emeraldAccent = Color(0xFF0091AE);
+  static const Color emeraldDark = Color(0xFF006B82);
+  static const Color brandCyan = Color(0xFF0091AE);
+  static const Color brandCyanLight = Color(0xFF00B4D8);
   
   // Neutral & Surface Tokens
-  static const Color backgroundLight = Color(0xFFF7FAFC);
+  static const Color backgroundLight = Color(0xFFF8FAFC);
   static const Color surfaceWhite = Color(0xFFFFFFFF);
-  static const Color textPrimary = Color(0xFF1A1F36);
-  static const Color textSecondary = Color(0xFF4F566B);
-  static const Color textMuted = Color(0xFF8792A2);
-  static const Color borderSubtle = Color(0xFFE3E8EE);
+  static const Color textPrimary = Color(0xFF000107);
+  static const Color textSecondary = Color(0xFF475569);
+  static const Color textMuted = Color(0xFF94A3B8);
+  static const Color borderSubtle = Color(0xFFE2E8F0);
   
   // Status Indicator Tokens
-  static const Color successGreen = Color(0xFF00875A);
-  static const Color warningAmber = Color(0xFFF5A623);
-  static const Color errorCarmine = Color(0xFFDF1B41);
-  static const Color infoBlue = Color(0xFF0066CC);
+  static const Color successGreen = Color(0xFF059669);
+  static const Color warningAmber = Color(0xFFD97706);
+  static const Color errorCarmine = Color(0xFFDC2626);
+  static const Color infoBlue = Color(0xFF0091AE);
 
   // Dark mode tokens (mobile app)
-  static const Color darkBackground = Color(0xFF0E1420);
-  static const Color darkSurface = Color(0xFF182131);
-  static const Color darkBorder = Color(0xFF243044);
-  static const Color darkTextPrimary = Color(0xFFE6EAF0);
-  static const Color darkTextSecondary = Color(0xFF8C98A8);
-  static const Color darkAccent = Color(0xFF6E9BFF);
-  static const Color darkButton = Color(0xFF2B4C8C);
+  static const Color darkBackground = Color(0xFF000107);
+  static const Color darkSurface = Color(0xFF0C141F);
+  static const Color darkBorder = Color(0xFF1E293B);
+  static const Color darkTextPrimary = Color(0xFFF1F5F9);
+  static const Color darkTextSecondary = Color(0xFF94A3B8);
+  static const Color darkAccent = Color(0xFF00B4D8);
+  static const Color darkButton = Color(0xFF0091AE);
 
   /// Dark theme for the CooBS Mobile Application (toggled from Profile).
   static ThemeData get darkTheme {
@@ -46,14 +48,14 @@ class AppTheme {
       canvasColor: darkSurface,
       colorScheme: const ColorScheme.dark(
         primary: darkAccent,
-        onPrimary: navyDark,
-        secondary: emeraldAccent,
-        onSecondary: navyDark,
+        onPrimary: Colors.black,
+        secondary: brandCyan,
+        onSecondary: Colors.white,
         surface: darkSurface,
         onSurface: darkTextPrimary,
         onSurfaceVariant: darkTextSecondary,
         error: Color(0xFFFF7A6B),
-        onError: navyDark,
+        onError: Colors.black,
       ),
       textTheme: base.textTheme.apply(bodyColor: darkTextPrimary, displayColor: darkTextPrimary),
       listTileTheme: const ListTileThemeData(
@@ -109,14 +111,15 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      fontFamily: 'Poppins',
       brightness: Brightness.light,
-      primaryColor: navyPrimary,
+      primaryColor: brandCyan,
       scaffoldBackgroundColor: backgroundLight,
       colorScheme: const ColorScheme.light(
-        primary: navyPrimary,
+        primary: brandCyan,
         onPrimary: surfaceWhite,
-        secondary: emeraldAccent,
-        onSecondary: navyDark,
+        secondary: navyPrimary,
+        onSecondary: surfaceWhite,
         surface: surfaceWhite,
         onSurface: textPrimary,
         error: errorCarmine,
@@ -145,7 +148,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: navyPrimary,
+          backgroundColor: brandCyan,
           foregroundColor: surfaceWhite,
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
@@ -161,9 +164,9 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: navyPrimary,
+          foregroundColor: brandCyan,
           minimumSize: const Size.fromHeight(52),
-          side: const BorderSide(color: navyPrimary, width: 1.5),
+          side: const BorderSide(color: brandCyan, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -187,7 +190,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: navyPrimary, width: 2),
+          borderSide: const BorderSide(color: brandCyan, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
