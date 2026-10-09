@@ -43,8 +43,13 @@ public class LedgerServiceClient {
 
     public Map<String, Object> executeCashDeposit(Map<String, Object> requestPayload, String idempotencyKey, String bearerToken, String correlationId) {
         String url = ledgerServiceBaseUrl + "/api/v1/ledger/credits";
-        HttpHeaders headers = createHeaders(bearerToken, correlationId, idempotencyKey);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestPayload, headers);
+        String effectiveIdempotencyKey = (idempotencyKey != null && !idempotencyKey.isBlank()) ? idempotencyKey : java.util.UUID.randomUUID().toString();
+        HttpHeaders headers = createHeaders(bearerToken, correlationId, effectiveIdempotencyKey);
+        Map<String, Object> payloadWithRef = new java.util.HashMap<>(requestPayload);
+        if (!payloadWithRef.containsKey("referenceNo") || payloadWithRef.get("referenceNo") == null || payloadWithRef.get("referenceNo").toString().isBlank()) {
+            payloadWithRef.put("referenceNo", "DEP-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 10000));
+        }
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payloadWithRef, headers);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
@@ -53,8 +58,13 @@ public class LedgerServiceClient {
 
     public Map<String, Object> executeCashWithdrawal(Map<String, Object> requestPayload, String idempotencyKey, String bearerToken, String correlationId) {
         String url = ledgerServiceBaseUrl + "/api/v1/ledger/debits";
-        HttpHeaders headers = createHeaders(bearerToken, correlationId, idempotencyKey);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestPayload, headers);
+        String effectiveIdempotencyKey = (idempotencyKey != null && !idempotencyKey.isBlank()) ? idempotencyKey : java.util.UUID.randomUUID().toString();
+        HttpHeaders headers = createHeaders(bearerToken, correlationId, effectiveIdempotencyKey);
+        Map<String, Object> payloadWithRef = new java.util.HashMap<>(requestPayload);
+        if (!payloadWithRef.containsKey("referenceNo") || payloadWithRef.get("referenceNo") == null || payloadWithRef.get("referenceNo").toString().isBlank()) {
+            payloadWithRef.put("referenceNo", "WDL-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 10000));
+        }
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payloadWithRef, headers);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});

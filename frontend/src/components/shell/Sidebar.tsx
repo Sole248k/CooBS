@@ -36,7 +36,7 @@ export const Sidebar: React.FC = () => {
   const { isAdmin } = useAuth();
 
   return (
-    <aside className="w-16 bg-[#1E3A5F] flex flex-col items-center py-4 rounded-r-2xl shadow-xl z-30 select-none">
+    <aside className="w-16 shrink-0 h-full bg-[#1E3A5F] flex flex-col items-center py-4 rounded-r-2xl shadow-xl z-30 select-none">
       {/* Brand Icon top */}
       <div className="mb-6">
         <div className="w-10 h-10 rounded-xl bg-blue-600/30 flex items-center justify-center text-white border border-blue-400/20 shadow-inner">

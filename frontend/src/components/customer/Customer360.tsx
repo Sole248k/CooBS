@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { staffApi } from '../../services/api';
 import type { StaffCustomer360Response, StaffAccountSummary } from '../../types/staff-bff';
-import { formatCurrency, formatTimestamp, getStatusClass } from '../../lib/utils';
+import { formatCurrency, formatTimestamp, getStatusClass, truncateHash } from '../../lib/utils';
 import {
   Search,
   Copy,
@@ -607,52 +607,138 @@ export const Customer360: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#E2E8F0]">
-                      {recentTransfersList.map((tx: any, idx: number) => {
-                        const isCredit = tx.amount.startsWith('+');
-                        return (
-                          <tr key={idx} className="hover:bg-[#F8FAFC]/80 transition-colors">
-                            <td className="py-3.5 px-5 font-mono text-xs text-[#64748B]">
-                              {tx.timestamp}
-                            </td>
-                            <td className="py-3.5 px-5 font-mono text-xs font-semibold text-[#1E3A5F]">
-                              {tx.refId}
-                            </td>
-                            <td className="py-3.5 px-5 text-sm font-medium text-[#1E3A5F]">
-                              {tx.counterparty}
-                            </td>
-                            <td className="py-3.5 px-5 text-xs text-[#64748B]">
-                              {tx.type}
-                            </td>
-                            <td
-                              className={`py-3.5 px-5 text-right font-mono font-bold tabular-nums ${
-                                isCredit ? 'text-emerald-600' : 'text-[#1E3A5F]'
-                              }`}
-                            >
-                              {tx.amount}
-                            </td>
-                            <td className="py-3.5 px-5">
-                              {tx.status === 'POSTED' && (
-                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0]">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
-                                  <span>POSTED</span>
-                                </span>
-                              )}
-                              {tx.status === 'PROCESSING' && (
-                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FEF3C7] text-amber-700 border border-[#FDE68A]">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
-                                  <span>PROCESSING</span>
-                                </span>
-                              )}
-                              {tx.status === 'FAILED' && (
-                                <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FEE2E2] text-rose-700 border border-[#FECACA]">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
-                                  <span>FAILED</span>
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {recentTransfersList.length > 0 ? (
+                        recentTransfersList.map((tx: any, idx: number) => {
+                          const rawTimestamp = tx.createdAt || tx.timestamp;
+                          const formattedTime = rawTimestamp ? formatTimestamp(rawTimestamp) : '—';
+
+                          const displayRef =
+                            tx.referenceNo ||
+                            tx.refId ||
+                            (tx.transactionId ? truncateHash(tx.transactionId, 8, 4) : '—');
+
+                          let displayCounterparty =
+                            tx.counterpartyName ||
+                            tx.counterparty ||
+                            tx.counterpartyAccountNumber;
+                          if (!displayCounterparty) {
+                            if (tx.category === 'DEPOSIT') displayCounterparty = 'Counter Deposit';
+                            else if (tx.category === 'WITHDRAWAL') displayCounterparty = 'Counter Withdrawal';
+                            else if (tx.category === 'TRANSFER') displayCounterparty = 'Internal Transfer';
+                            else displayCounterparty = 'Counter Desk';
+                          }
+
+                          let displayType = tx.type;
+                          if (!displayType) {
+                            if (tx.category === 'DEPOSIT') {
+                              displayType = 'Cash Deposit';
+                            } else if (tx.category === 'WITHDRAWAL') {
+                              displayType = 'Cash Withdrawal';
+                            } else if (tx.category === 'TRANSFER') {
+                              displayType = tx.direction === 'IN' ? 'Transfer In' : 'Transfer Out';
+                            } else if (tx.category) {
+                              displayType = tx.category.charAt(0) + tx.category.slice(1).toLowerCase();
+                            } else if (tx.direction) {
+                              displayType = tx.direction === 'IN' ? 'Transfer In' : 'Transfer Out';
+                            } else {
+                              displayType = 'Transfer';
+                            }
+                          }
+
+                          const isCredit =
+                            tx.direction === 'IN' ||
+                            (typeof tx.amount === 'string' && tx.amount.trim().startsWith('+'));
+                          const isDebit =
+                            tx.direction === 'OUT' ||
+                            (typeof tx.amount === 'string' && tx.amount.trim().startsWith('-'));
+
+                          let rawNum = 0;
+                          if (typeof tx.amount === 'number') {
+                            rawNum = tx.amount;
+                          } else if (typeof tx.amount === 'string') {
+                            rawNum = parseFloat(tx.amount.replace(/[^0-9.-]/g, '')) || 0;
+                          }
+                          const formattedNum = formatCurrency(Math.abs(rawNum));
+                          const displayAmount = isCredit
+                            ? `+${formattedNum}`
+                            : isDebit
+                            ? `-${formattedNum}`
+                            : formattedNum;
+
+                          const statusUpper = (tx.status || 'POSTED').toUpperCase();
+
+                          return (
+                            <tr key={tx.transactionId || tx.referenceNo || idx} className="hover:bg-[#F8FAFC]/80 transition-colors">
+                              <td className="py-3.5 px-5 font-mono text-xs text-[#64748B]">
+                                {formattedTime}
+                              </td>
+                              <td className="py-3.5 px-5 font-mono text-xs font-semibold text-[#1E3A5F]">
+                                <div className="inline-flex items-center space-x-1.5">
+                                  <span>{displayRef}</span>
+                                  {displayRef !== '—' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => copyToClipboard(displayRef, `ref-${idx}-${displayRef}`)}
+                                      className="p-1 rounded hover:bg-[#F1F5F9] text-[#94A3B8] hover:text-[#2563EB] transition-colors"
+                                      title="Copy Ref ID"
+                                    >
+                                      {copiedItem === `ref-${idx}-${displayRef}` ? (
+                                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                      ) : (
+                                        <Copy className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-5 text-sm font-medium text-[#1E3A5F]">
+                                {displayCounterparty}
+                              </td>
+                              <td className="py-3.5 px-5 text-xs text-[#64748B]">
+                                {displayType}
+                              </td>
+                              <td
+                                className={`py-3.5 px-5 text-right font-mono font-bold tabular-nums ${
+                                  isCredit ? 'text-emerald-600' : isDebit ? 'text-rose-600' : 'text-[#1E3A5F]'
+                                }`}
+                              >
+                                {displayAmount}
+                              </td>
+                              <td className="py-3.5 px-5">
+                                {['POSTED', 'COMPLETED', 'SUCCESS', 'SETTLED'].includes(statusUpper) && (
+                                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
+                                    <span>POSTED</span>
+                                  </span>
+                                )}
+                                {['PROCESSING', 'IN_REVIEW', 'RUNNING', 'PENDING', 'INITIATED'].includes(statusUpper) && (
+                                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FEF3C7] text-amber-700 border border-[#FDE68A]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+                                    <span>{statusUpper}</span>
+                                  </span>
+                                )}
+                                {['FAILED', 'REJECTED', 'HALTED', 'CANCELLED'].includes(statusUpper) && (
+                                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FEE2E2] text-rose-700 border border-[#FECACA]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                                    <span>FAILED</span>
+                                  </span>
+                                )}
+                                {!['POSTED', 'COMPLETED', 'SUCCESS', 'SETTLED', 'PROCESSING', 'IN_REVIEW', 'RUNNING', 'PENDING', 'INITIATED', 'FAILED', 'REJECTED', 'HALTED', 'CANCELLED'].includes(statusUpper) && (
+                                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]">
+                                    <span>{statusUpper}</span>
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-xs text-[#64748B]">
+                            No recent transactions found for this customer.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

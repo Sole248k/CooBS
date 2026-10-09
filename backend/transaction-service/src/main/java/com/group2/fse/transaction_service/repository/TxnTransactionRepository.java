@@ -66,4 +66,14 @@ public interface TxnTransactionRepository extends JpaRepository<TxnTransaction, 
         return !existsByCustomerIdAndDestinationAccountIdAndStatusAndCreatedAtBefore(
                 txn.getCustomerId(), txn.getDestinationAccountId(), "POSTED", txn.getCreatedAt());
     }
+
+    @Query("SELECT t FROM TxnTransaction t WHERE t.customerId = :customerId "
+            + "OR t.sourceAccountId IN :accountIds "
+            + "OR t.destinationAccountId IN :accountIds "
+            + "OR t.destinationAccountNumber IN :accountNumbers "
+            + "ORDER BY t.createdAt DESC")
+    List<TxnTransaction> findByCustomerOrAccountDetails(
+            @Param("customerId") Long customerId,
+            @Param("accountIds") java.util.Collection<Long> accountIds,
+            @Param("accountNumbers") java.util.Collection<String> accountNumbers);
 }

@@ -6,7 +6,7 @@ import { X, PlusCircle, AlertCircle, CheckCircle2 } from 'lucide-react';
 interface OpenAccountDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (createdAccount?: any) => void;
   initialCustomerId?: string;
 }
 
@@ -36,12 +36,12 @@ export const OpenAccountDrawer: React.FC<OpenAccountDrawerProps> = ({
     }
 
     try {
-      await staffApi.openAccount({
+      const created = await staffApi.openAccount({
         customerId: parsedCustomerId,
         accountType,
         currency: 'PHP',
       });
-      onSuccess();
+      onSuccess(created);
       onClose();
     } catch (err: any) {
       if (err.message?.includes('KYC') || err.message?.includes('unverified')) {

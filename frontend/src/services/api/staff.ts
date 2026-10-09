@@ -137,6 +137,19 @@ export async function updateStaffAccountStatus(accountId: number, status: string
   return await res.json();
 }
 
+export async function requestStaffAccountClosure(accountId: number, reason: string): Promise<any> {
+  const res = await fetch(`/api/v1/staff/accounts/${accountId}/closure-request`, {
+    method: 'POST',
+    headers: coreClient.getAuthHeaders(),
+    body: JSON.stringify({ reason })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || err.message || `Failed to submit closure request: HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
 export async function addStaffAccountFlag(accountId: number, reason: string): Promise<any> {
   const res = await fetch(`/api/v1/staff/accounts/${accountId}/flags`, {
     method: 'POST', headers: coreClient.getAuthHeaders(), body: JSON.stringify({ reason })
@@ -159,7 +172,31 @@ export async function removeStaffAccountFlag(accountId: number, flagId: number):
 export async function getStaffBffTimeline(transactionId: string): Promise<TimelineResponse> {
   const res = await fetch(`/api/v1/staff/transactions/${transactionId}/timeline`, { headers: coreClient.getAuthHeaders() });
   if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `Failed to fetch timeline: HTTP ${res.status}`); }
-  return await res.json();
+  const data = await res.json();
+
+  if (!data.transaction && !data.amount) {
+    try {
+      const txRes = await fetch(`/api/v1/transactions/${transactionId}`, { headers: coreClient.getAuthHeaders() });
+      if (txRes.ok) {
+        const txData = await txRes.json();
+        data.transaction = txData;
+        data.amount = txData.amount;
+        data.currency = txData.currency;
+        data.channel = txData.channel;
+        data.sourceAccountId = txData.sourceAccountId;
+        data.sourceAccountNumber = txData.sourceAccountNumber;
+        data.destinationAccountId = txData.destinationAccountId;
+        data.destinationAccountNumber = txData.destinationAccountNumber;
+        data.createdAt = txData.createdAt;
+        data.completedAt = txData.completedAt;
+        data.reversedByTransactionId = txData.reversedByTransactionId;
+      }
+    } catch {
+      // Non-critical enrichment failure
+    }
+  }
+
+  return data;
 }
 
 export async function requestStaffReversal(transactionId: string, reason: string, idempotencyKey?: string): Promise<any> {

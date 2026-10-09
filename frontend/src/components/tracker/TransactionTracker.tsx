@@ -104,20 +104,49 @@ export const TransactionTracker: React.FC = () => {
 
   const txSummary: TransactionSummary | null = React.useMemo(() => {
     if (!timelineData) return null;
-    if (timelineData.transaction) return timelineData.transaction;
+    const tx = timelineData.transaction;
+    if (tx) {
+      return {
+        transactionId: tx.transactionId || timelineData.trackingReference || timelineData.trackingRef || searchQuery,
+        referenceNo: tx.referenceNo || timelineData.trackingReference || timelineData.trackingRef || searchQuery,
+        status: (tx.status || timelineData.status || timelineData.currentStatus || 'POSTED') as any,
+        channel: tx.channel || timelineData.channel || 'COUNTER_DESK',
+        sourceAccount:
+          tx.sourceAccountNumber ||
+          tx.sourceAccount ||
+          (tx.sourceAccountId ? `ACC_${10000000 + Number(tx.sourceAccountId)}` : '') ||
+          String(timelineData.sourceAccountNumber || (timelineData.sourceAccountId ? `ACC_${10000000 + Number(timelineData.sourceAccountId)}` : 'ACC_10000001')),
+        destinationAccount:
+          tx.destinationAccountNumber ||
+          tx.destinationAccount ||
+          (tx.destinationAccountId ? `ACC_${10000000 + Number(tx.destinationAccountId)}` : '') ||
+          String(timelineData.destinationAccountNumber || (timelineData.destinationAccountId ? `ACC_${10000000 + Number(timelineData.destinationAccountId)}` : 'ACC_10000002')),
+        amount: String(tx.amount ?? timelineData.amount ?? '0.00'),
+        currency: tx.currency || timelineData.currency || 'PHP',
+        createdAt: tx.createdAt || timelineData.createdAt || timelineData.lastUpdated || new Date().toISOString(),
+        completedAt: tx.completedAt || timelineData.completedAt || timelineData.lastUpdated || new Date().toISOString(),
+        reversedByTransactionId: tx.reversedByTransactionId || timelineData.reversedByTransactionId,
+        failureCode: tx.failureCode || timelineData.failureMessage,
+        failureReason: tx.failureReason,
+      };
+    }
     return {
-      transactionId: timelineData.trackingRef || searchQuery,
-      referenceNo: timelineData.trackingRef || searchQuery,
-      status: (timelineData.currentStatus || 'POSTED') as any,
-      channel: 'COUNTER_DESK',
-      sourceAccount: String(timelineData.sourceAccountId || 'ACC_10000001'),
+      transactionId: timelineData.transactionId || timelineData.trackingReference || timelineData.trackingRef || searchQuery,
+      referenceNo: timelineData.trackingReference || timelineData.trackingRef || searchQuery,
+      status: (timelineData.status || timelineData.currentStatus || 'POSTED') as any,
+      channel: timelineData.channel || 'COUNTER_DESK',
+      sourceAccount:
+        timelineData.sourceAccountNumber ||
+        String(timelineData.sourceAccountId ? `ACC_${10000000 + Number(timelineData.sourceAccountId)}` : 'ACC_10000001'),
       destinationAccount:
         timelineData.destinationAccountNumber ||
-        String(timelineData.destinationAccountId || 'ACC_10000002'),
-      amount: String(timelineData.amount || '0.00'),
+        String(timelineData.destinationAccountId ? `ACC_${10000000 + Number(timelineData.destinationAccountId)}` : 'ACC_10000002'),
+      amount: String(timelineData.amount ?? '0.00'),
       currency: timelineData.currency || 'PHP',
-      createdAt: timelineData.lastUpdated || new Date().toISOString(),
-      completedAt: timelineData.lastUpdated || new Date().toISOString(),
+      createdAt: timelineData.createdAt || timelineData.lastUpdated || new Date().toISOString(),
+      completedAt: timelineData.completedAt || timelineData.lastUpdated || new Date().toISOString(),
+      reversedByTransactionId: timelineData.reversedByTransactionId,
+      failureCode: timelineData.failureMessage,
     };
   }, [timelineData, searchQuery]);
 
@@ -180,7 +209,8 @@ export const TransactionTracker: React.FC = () => {
 
   const canReverse =
     txSummary?.status === 'POSTED' &&
-    !txSummary.reversedByTransactionId;
+    !txSummary.reversedByTransactionId &&
+    !txSummary.referenceNo?.startsWith('RV-');
 
   return (
     <div className="space-y-6">

@@ -1,5 +1,7 @@
 package com.group2.fse.transaction_service.service.impl;
 
+import com.group2.fse.transaction_service.client.OrchestrationClient;
+import com.group2.fse.transaction_service.client.dto.AccountLookupResponse;
 import com.group2.fse.transaction_service.dto.SpendingBreakdownDto;
 import com.group2.fse.transaction_service.dto.TransactionSummaryDto;
 import com.group2.fse.transaction_service.entity.TxnTransaction;
@@ -22,17 +24,49 @@ import java.util.stream.Collectors;
 public class TransactionHistoryServiceImpl implements TransactionHistoryService {
 
     private final TxnTransactionRepository transactionRepository;
+    private final OrchestrationClient orchestrationClient;
 
     @Override
     @Transactional(readOnly = true)
     public List<TransactionSummaryDto> getRecentTransactions(Long customerId, int limit) {
         log.info("Fetching recent transactions for customerId={}, limit={}", customerId, limit);
-        List<TxnTransaction> transactions = transactionRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+
+        Set<Long> accountIds = Collections.emptySet();
+        Set<String> accountNumbers = Collections.emptySet();
+
+        if (orchestrationClient != null) {
+            try {
+                List<AccountLookupResponse> accounts = orchestrationClient.findAccountsByCustomerId(customerId);
+                if (accounts != null && !accounts.isEmpty()) {
+                    accountIds = accounts.stream()
+                            .map(AccountLookupResponse::getAccountId)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toSet());
+                    accountNumbers = accounts.stream()
+                            .map(AccountLookupResponse::getAccountNumber)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toSet());
+                }
+            } catch (Exception ex) {
+                log.warn("Could not retrieve accounts for customer {} during recent transactions lookup: {}", customerId, ex.getMessage());
+            }
+        }
+
+        List<TxnTransaction> transactions;
+        if (accountIds.isEmpty() && accountNumbers.isEmpty()) {
+            transactions = transactionRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+        } else {
+            Set<Long> safeAccountIds = accountIds.isEmpty() ? Set.of(-1L) : accountIds;
+            Set<String> safeAccountNumbers = accountNumbers.isEmpty() ? Set.of("__NONE__") : accountNumbers;
+            transactions = transactionRepository.findByCustomerOrAccountDetails(customerId, safeAccountIds, safeAccountNumbers);
+        }
 
         int max = limit > 0 ? limit : 5;
+        final Set<Long> finalAccountIds = accountIds;
+        final Set<String> finalAccountNumbers = accountNumbers;
         return transactions.stream()
                 .limit(max)
-                .map(this::mapToSummary)
+                .map(txn -> mapToSummary(txn, customerId, finalAccountIds, finalAccountNumbers))
                 .collect(Collectors.toList());
     }
 
@@ -73,16 +107,40 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
                 .build();
     }
 
-    private TransactionSummaryDto mapToSummary(TxnTransaction txn) {
+    private TransactionSummaryDto mapToSummary(TxnTransaction txn, Long customerId, Set<Long> customerAccountIds, Set<String> customerAccountNumbers) {
         String amountStr = txn.getAmount() != null ? txn.getAmount().setScale(2).toString() : "0.00";
         String createdAtStr = txn.getCreatedAt() != null ? txn.getCreatedAt().toString() : Instant.now().toString();
+
+        boolean isDestination = (txn.getDestinationAccountId() != null && customerAccountIds.contains(txn.getDestinationAccountId()))
+                || (txn.getDestinationAccountNumber() != null && customerAccountNumbers.contains(txn.getDestinationAccountNumber()));
+
+        boolean isSource = (txn.getSourceAccountId() != null && customerAccountIds.contains(txn.getSourceAccountId()))
+                || (txn.getCustomerId() != null && txn.getCustomerId().equals(customerId));
+
+        String direction;
+        String counterpartyName;
+        String counterpartyAccountNumber;
+
+        if (isDestination && !isSource) {
+            direction = "IN";
+            counterpartyName = txn.getRemarks() != null && !txn.getRemarks().isBlank() ? txn.getRemarks() : "Account Transfer";
+            counterpartyAccountNumber = txn.getSourceAccountId() != null ? "ACC_" + txn.getSourceAccountId() : "External";
+        } else if ("DEPOSIT".equalsIgnoreCase(txn.getCategory())) {
+            direction = "IN";
+            counterpartyName = txn.getRemarks() != null && !txn.getRemarks().isBlank() ? txn.getRemarks() : "Cash Deposit";
+            counterpartyAccountNumber = txn.getDestinationAccountNumber();
+        } else {
+            direction = "OUT";
+            counterpartyName = txn.getRemarks();
+            counterpartyAccountNumber = txn.getDestinationAccountNumber();
+        }
 
         return TransactionSummaryDto.builder()
                 .transactionId(txn.getTransactionId())
                 .referenceNo(txn.getReferenceNo())
-                .direction("OUT")
-                .counterpartyName(txn.getRemarks())
-                .counterpartyAccountNumber(txn.getDestinationAccountNumber())
+                .direction(direction)
+                .counterpartyName(counterpartyName)
+                .counterpartyAccountNumber(counterpartyAccountNumber)
                 .amount(amountStr)
                 .currency(txn.getCurrency() != null ? txn.getCurrency() : "PHP")
                 .category(txn.getCategory() != null ? txn.getCategory() : "TRANSFER")

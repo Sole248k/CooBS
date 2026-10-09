@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
@@ -73,6 +74,20 @@ public class OrchestrationClient {
     /** K6. Empty when account-service says the account does not exist. */
     public Optional<AccountLookupResponse> findAccountById(Long accountId) {
         return findAccount("/internal/v1/accounts/{accountId}", accountId);
+    }
+
+    /** K8. Lookup all accounts belonging to a customer from account-service. */
+    public List<AccountLookupResponse> findAccountsByCustomerId(Long customerId) {
+        try {
+            return accountRestClient.get()
+                    .uri("/internal/v1/customers/{customerId}/accounts", customerId)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + getServiceToken())
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<AccountLookupResponse>>() {});
+        } catch (Exception ex) {
+            log.warn("Failed to lookup accounts for customer {}: {}", customerId, ex.getMessage());
+            return java.util.Collections.emptyList();
+        }
     }
 
     /**

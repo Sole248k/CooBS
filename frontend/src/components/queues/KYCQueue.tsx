@@ -5,12 +5,22 @@ import { ShieldCheck, Check, X, AlertCircle } from 'lucide-react';
 
 interface KYCQueueProps {
   requests: Array<{
-    requestId: number;
+    requestId?: number;
+    kycRequestId?: number;
+    kycId?: number;
     customerId: number;
     customerName?: string;
     requestedFields?: Record<string, string>;
     status: string;
-    submittedAt: string;
+    submittedAt?: string;
+    requestedAt?: string;
+    newFirstName?: string;
+    newMiddleInitial?: string;
+    newLastName?: string;
+    newAddress?: string;
+    newMobileNumber?: string;
+    newCivilStatus?: string;
+    newOccupation?: string;
   }>;
   onRefresh: () => void;
 }
@@ -22,6 +32,10 @@ export const KYCQueue: React.FC<KYCQueueProps> = ({ requests, onRefresh }) => {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const handleApprove = async (id: number) => {
+    if (!id) {
+      setActionError('Cannot approve request: missing Request ID.');
+      return;
+    }
     setSubmitting(true);
     setActionError(null);
     try {
@@ -78,61 +92,84 @@ export const KYCQueue: React.FC<KYCQueueProps> = ({ requests, onRefresh }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0]">
-                {requests.map((req) => (
-                  <tr key={req.requestId} className="hover:bg-[#F8FAFC]/70 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-medium text-[#1E3A5F]">
-                      #KYC-{req.requestId}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-[#1E3A5F]">
-                        {req.customerName || `Customer #${req.customerId}`}
-                      </div>
-                      <div className="text-xs text-[#64748B] font-mono">ID: {req.customerId}</div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {req.requestedFields && Object.keys(req.requestedFields).length > 0 ? (
-                        <div className="space-y-1">
-                          {Object.entries(req.requestedFields).map(([k, v]) => (
-                            <div key={k} className="text-xs">
-                              <span className="font-medium text-[#64748B] uppercase text-[10px] mr-1">
-                                {k}:
-                              </span>
-                              <span className="font-mono text-[#1E3A5F]">{v}</span>
-                            </div>
-                          ))}
+                {requests.map((req, index) => {
+                  const reqId = req.kycRequestId ?? req.requestId ?? req.kycId ?? (req as any).id ?? index + 1;
+                  const submittedTime = req.requestedAt || req.submittedAt;
+
+                  // Extract human-friendly updates to display
+                  const updates: { label: string; value: string }[] = [];
+                  if (req.newAddress) updates.push({ label: 'Address', value: req.newAddress });
+                  if (req.newMobileNumber) updates.push({ label: 'Mobile', value: req.newMobileNumber });
+                  if (req.newFirstName || req.newLastName) {
+                    updates.push({
+                      label: 'Name',
+                      value: `${req.newFirstName || ''} ${req.newMiddleInitial ? req.newMiddleInitial + '. ' : ''}${req.newLastName || ''}`.trim(),
+                    });
+                  }
+                  if (req.newCivilStatus) updates.push({ label: 'Civil Status', value: req.newCivilStatus });
+                  if (req.newOccupation) updates.push({ label: 'Occupation', value: req.newOccupation });
+                  if (req.requestedFields && Object.keys(req.requestedFields).length > 0) {
+                    Object.entries(req.requestedFields).forEach(([k, v]) =>
+                      updates.push({ label: k, value: String(v) })
+                    );
+                  }
+
+                  return (
+                    <tr key={reqId} className="hover:bg-[#F8FAFC]/70 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-medium text-[#1E3A5F]">
+                        #KYC-{reqId}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-semibold text-[#1E3A5F]">
+                          {req.customerName || `Customer #${req.customerId}`}
                         </div>
-                      ) : (
-                        <span className="text-xs text-[#64748B]">Personal Details Verification</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs text-[#64748B]">
-                      {formatTimestamp(req.submittedAt)}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button
-                          onClick={() => handleApprove(req.requestId)}
-                          disabled={submitting}
-                          className="px-3 py-1.5 rounded-lg bg-[#D1FAE5] text-[#065F46] hover:bg-[#A7F3D0] text-xs font-semibold transition-colors flex items-center space-x-1"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Approve</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            setRejectingId(req.requestId);
-                            setRejectReason('Insufficient proof of documentation');
-                          }}
-                          disabled={submitting}
-                          className="px-3 py-1.5 rounded-lg bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] text-xs font-semibold transition-colors flex items-center space-x-1"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          <span>Reject</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        <div className="text-xs text-[#64748B] font-mono">ID: {req.customerId}</div>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {updates.length > 0 ? (
+                          <div className="space-y-1">
+                            {updates.map((u, i) => (
+                              <div key={i} className="text-xs">
+                                <span className="font-medium text-[#64748B] uppercase text-[10px] mr-1">
+                                  {u.label}:
+                                </span>
+                                <span className="font-mono text-[#1E3A5F]">{u.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[#64748B]">Personal Details Verification</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs text-[#64748B]">
+                        {formatTimestamp(submittedTime)}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleApprove(reqId)}
+                            disabled={submitting}
+                            className="px-3 py-1.5 rounded-lg bg-[#D1FAE5] text-[#065F46] hover:bg-[#A7F3D0] text-xs font-semibold transition-colors flex items-center space-x-1"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setRejectingId(reqId);
+                              setRejectReason('Insufficient proof of documentation');
+                            }}
+                            disabled={submitting}
+                            className="px-3 py-1.5 rounded-lg bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] text-xs font-semibold transition-colors flex items-center space-x-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

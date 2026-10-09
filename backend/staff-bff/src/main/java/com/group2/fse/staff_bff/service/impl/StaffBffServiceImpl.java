@@ -317,6 +317,11 @@ public class StaffBffServiceImpl implements StaffBffService {
     }
 
     @Override
+    public Map<String, Object> requestAccountClosure(Long accountId, String reason, String correlationId, String bearerToken) {
+        return accountClient.requestAccountClosure(accountId, reason, bearerToken, correlationId);
+    }
+
+    @Override
     public List<Map<String, Object>> getAllAccounts(String correlationId, String bearerToken) {
         return accountClient.fetchAllAccounts(bearerToken, correlationId);
     }
@@ -343,7 +348,46 @@ public class StaffBffServiceImpl implements StaffBffService {
 
     @Override
     public Map<String, Object> getTransactionTimeline(String transactionId, String correlationId, String bearerToken) {
-        return transactionClient.fetchStaffTimeline(transactionId, bearerToken, correlationId);
+        Map<String, Object> timeline = new HashMap<>(transactionClient.fetchStaffTimeline(transactionId, bearerToken, correlationId));
+        Map<String, Object> summary = transactionClient.fetchTransactionSummary(transactionId, bearerToken, correlationId);
+        if ((summary == null || summary.isEmpty()) && timeline.get("transactionId") != null) {
+            summary = transactionClient.fetchTransactionSummary(timeline.get("transactionId").toString(), bearerToken, correlationId);
+        }
+
+        if (summary != null && !summary.isEmpty()) {
+            timeline.put("transaction", summary);
+            if (summary.containsKey("amount")) {
+                timeline.put("amount", summary.get("amount"));
+            }
+            if (summary.containsKey("currency")) {
+                timeline.put("currency", summary.get("currency"));
+            }
+            if (summary.containsKey("sourceAccountId")) {
+                timeline.put("sourceAccountId", summary.get("sourceAccountId"));
+            }
+            if (summary.containsKey("sourceAccountNumber")) {
+                timeline.put("sourceAccountNumber", summary.get("sourceAccountNumber"));
+            }
+            if (summary.containsKey("destinationAccountId")) {
+                timeline.put("destinationAccountId", summary.get("destinationAccountId"));
+            }
+            if (summary.containsKey("destinationAccountNumber")) {
+                timeline.put("destinationAccountNumber", summary.get("destinationAccountNumber"));
+            }
+            if (summary.containsKey("channel")) {
+                timeline.put("channel", summary.get("channel"));
+            }
+            if (summary.containsKey("createdAt")) {
+                timeline.put("createdAt", summary.get("createdAt"));
+            }
+            if (summary.containsKey("completedAt")) {
+                timeline.put("completedAt", summary.get("completedAt"));
+            }
+            if (summary.containsKey("reversedByTransactionId")) {
+                timeline.put("reversedByTransactionId", summary.get("reversedByTransactionId"));
+            }
+        }
+        return timeline;
     }
 
     @Override
