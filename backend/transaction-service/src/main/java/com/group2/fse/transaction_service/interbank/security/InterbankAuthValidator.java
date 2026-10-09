@@ -72,8 +72,8 @@ public class InterbankAuthValidator {
             if (!MessageDigest.isEqual(
                     expectedSignature.toLowerCase().getBytes(StandardCharsets.UTF_8),
                     signature.toLowerCase().trim().getBytes(StandardCharsets.UTF_8))) {
-                log.warn("Interbank signature mismatch for bank {}: expected={}, received={}",
-                        bankCode, expectedSignature, signature);
+                // Neither signature is logged: the expected one would let a log reader forge the request.
+                log.warn("Interbank signature mismatch for bank {}", bankCode);
                 throw new InterbankAuthException("INVALID_SIGNATURE", "Signature does not match.");
             }
             return;

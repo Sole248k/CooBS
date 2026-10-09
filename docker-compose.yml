@@ -564,6 +564,7 @@ services:
       KAFKA_CONSUMER_GROUP: transaction-service-group
       ACCOUNT_SERVICE_URL: http://account-service:8082
       ORCHESTRATION_SERVICE_URL: http://orchestration-service:8091
+      INTERBANK_BANKB_SECRET: ${INTERBANK_BANKB_SECRET:?INTERBANK_BANKB_SECRET is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}

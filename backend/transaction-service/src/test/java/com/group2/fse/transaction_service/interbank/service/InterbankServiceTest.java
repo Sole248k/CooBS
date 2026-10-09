@@ -166,7 +166,97 @@ class InterbankServiceTest {
         assertThat(response.getBeneficiaryName()).isEqualTo("J*** D*** C***");
         assertThat(response.getCreditedAt()).isNotNull();
 
-        verify(transactionRepository, times(2)).save(any(TxnTransaction.class));
+        // Committed before the saga is called, then once more with the outcome.
+        verify(transactionRepository).saveAndFlush(any(TxnTransaction.class));
+        verify(transactionRepository).save(any(TxnTransaction.class));
+    }
+
+    private AccountLookupResponse activeBeneficiary() {
+        return AccountLookupResponse.builder()
+                .accountId(4L).customerId(10L).accountNumber("ACC_10000004").status("ACTIVE").build();
+    }
+
+    @Test
+    @DisplayName("No answer from the saga is not a rejection: 503, and the row stays open")
+    void noAnswerFromSaga_leavesTheRowOpen() {
+        InterbankTransferRequest request = sampleRequest();
+        when(orchestrationClient.findAccountByNumber("ACC_10000004")).thenReturn(Optional.of(activeBeneficiary()));
+        when(orchestrationClient.triggerInboundInterbankSaga(any(InboundInterbankSagaRequest.class), anyString()))
+                .thenReturn(null);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interbankService.processInboundTransfer(request))
+                .isInstanceOf(com.group2.fse.transaction_service.exception.TransferRejectedException.class)
+                .hasMessageContaining("Send the same message again");
+
+        // The ledger may have posted, so nothing records FAILED.
+        verify(transactionRepository).saveAndFlush(any(TxnTransaction.class));
+        verify(transactionRepository, never()).save(any(TxnTransaction.class));
+    }
+
+    @Test
+    @DisplayName("A repeat of a message with no outcome asks the saga again with the same transaction and reference")
+    void repeatOfOpenMessage_settlesTheSameTransaction() {
+        InterbankTransferRequest request = sampleRequest();
+        TxnTransaction open = TxnTransaction.builder()
+                .transactionId(UUID.randomUUID())
+                .referenceNo("IB-20261008-123456")
+                .idempotencyKey("IB:" + request.getMessageId())
+                .sourceAccountId(9005L)
+                .destinationAccountId(4L)
+                .amount(new java.math.BigDecimal("2500.00"))
+                .status("PROCESSING")
+                .createdAt(Instant.now())
+                .build();
+        when(transactionRepository.findByIdempotencyKey("IB:" + request.getMessageId())).thenReturn(Optional.of(open));
+        org.mockito.ArgumentCaptor<InboundInterbankSagaRequest> sent =
+                org.mockito.ArgumentCaptor.forClass(InboundInterbankSagaRequest.class);
+        when(orchestrationClient.triggerInboundInterbankSaga(sent.capture(), anyString()))
+                .thenReturn(new InboundInterbankSagaResponse(open.getTransactionId(), "COMPLETED", open.getReferenceNo()));
+
+        InterbankTransferResponse response = interbankService.processInboundTransfer(request);
+
+        assertThat(response.getStatus()).isEqualTo("ACCEPTED");
+        assertThat(response.getReceiverReference()).isEqualTo("IB-20261008-123456");
+        assertThat(sent.getValue().getTransactionId()).isEqualTo(open.getTransactionId());
+        assertThat(sent.getValue().getReferenceNo()).isEqualTo("IB-20261008-123456");
+        assertThat(open.getStatus()).isEqualTo("COMPLETED");
+        verify(transactionRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Two copies at once: the one that loses the unique key answers from the winner's row")
+    void secondCopyArrivingTogether_doesNotPostUnderAnotherReference() {
+        InterbankTransferRequest request = sampleRequest();
+        TxnTransaction winner = TxnTransaction.builder()
+                .transactionId(UUID.randomUUID())
+                .referenceNo("IB-20261008-654321")
+                .idempotencyKey("IB:" + request.getMessageId())
+                .status("COMPLETED")
+                .completedAt(Instant.now())
+                .build();
+        when(transactionRepository.findByIdempotencyKey("IB:" + request.getMessageId()))
+                .thenReturn(Optional.empty(), Optional.of(winner));
+        when(orchestrationClient.findAccountByNumber("ACC_10000004")).thenReturn(Optional.of(activeBeneficiary()));
+        when(transactionRepository.saveAndFlush(any(TxnTransaction.class)))
+                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("uq idempotency_key"));
+
+        InterbankTransferResponse response = interbankService.processInboundTransfer(request);
+
+        assertThat(response.getStatus()).isEqualTo("ACCEPTED");
+        assertThat(response.getReceiverReference()).isEqualTo("IB-20261008-654321");
+        verify(orchestrationClient, never()).triggerInboundInterbankSaga(any(), any());
+    }
+
+    @Test
+    @DisplayName("Status of a message with no outcome is 503, never ACCEPTED")
+    void statusOfOpenMessage_isNotAccepted() {
+        TxnTransaction open = TxnTransaction.builder()
+                .transactionId(UUID.randomUUID()).referenceNo("IB-20261008-123456")
+                .status("PROCESSING").createdAt(Instant.now()).build();
+        when(transactionRepository.findByIdempotencyKey("IB:open-id")).thenReturn(Optional.of(open));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> interbankService.getTransferStatus("open-id"))
+                .isInstanceOf(com.group2.fse.transaction_service.exception.TransferRejectedException.class);
     }
 
     @Test

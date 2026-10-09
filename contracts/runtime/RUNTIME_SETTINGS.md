@@ -171,7 +171,7 @@ Whether `batch-service` publishes its step event itself or through the ledger ou
 
 | Variable | Rule |
 | --- | --- |
-| `INTERBANK_SHARED_SECRET`, `INTERBANK_BANKB_SECRET` | The secret shared with a partner bank: checks the signature on what it sends us (I1 to I3) and signs what we send it (I4) |
+| `INTERBANK_BANKB_SECRET` | Required, no default. The secret shared with partner bank `BANKB`: checks the signature on what it sends us (I1 to I3) and signs what we send it (I4) |
 | `INTERBANK_BANKB_URL` | Optional. The address of the partner's inter-bank endpoints, for example `http://partner-host:8090`. Empty by default, which makes `BANKB` our own loopback: no network call is made |
 
 ## 6. Changing a setting
