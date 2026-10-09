@@ -12,9 +12,8 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.azure-sql.yml --profile app --profile expansion up -d --build sqlserver-cloud-init orchestration-service
 #
-# postgres-cloud-db still starts and is left alone: batch-service writes notification_db over
-# its own PostgreSQL connection, so with this file those rows go to a database that
-# notification-service no longer reads.
+# postgres-cloud-db still starts, because the five services' depends_on in docker-compose.yml
+# name it. With this file nothing reads or writes it.
 #
 # The loader runs once per data volume. To load again: down -v, or remove sqlserver_cloud_data.
 # When all five services run on it, Dev 8 moves this into docker-compose.yml in place of

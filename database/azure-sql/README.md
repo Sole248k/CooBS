@@ -66,6 +66,6 @@ Create each database with `Latin1_General_100_CI_AS_SC_UTF8`. `01_create_databas
 
 ## What still has to change elsewhere
 
-- Each of the five services needs the SQL Server JDBC driver in its `pom.xml`. The Kubernetes manifests already supply the connection settings.
-- Compose still starts PostgreSQL for these databases, and the pipeline's seed check loads the PostgreSQL scripts.
-- `batch-service` opens its own PostgreSQL connection to `notification_db`; that step breaks once the database is SQL Server.
+- Done: the five services carry the SQL Server JDBC driver in their `pom.xml`. The Kubernetes manifests supply the connection settings.
+- Compose still starts PostgreSQL for these databases by default; `docker-compose.azure-sql.yml` is the opt-in SQL Server path. The pipeline's seed check loads the PostgreSQL scripts.
+- `batch-service` no longer connects to `notification_db`: its interest notification goes through Kafka (`ledger.mutation.completed.v1`), which notification-service already consumes.
