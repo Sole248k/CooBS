@@ -31,8 +31,6 @@ Dev 7 curates these into `app/assets/fixtures/` (handshake H15). To change one, 
 | `T3-timeline-customer.response.json` | 7. transaction-service (8090) — NEW |
 | `T5-reversal.request.json` | 7. transaction-service (8090) — NEW |
 | `T5-reversal.response.json` | 7. transaction-service (8090) — NEW |
-| `T6-dlq-item.json` | 7. transaction-service (8090) — NEW |
-| `T7-dlq-replay.response.json` | 7. transaction-service (8090) — NEW |
 | `M1-mobile-dashboard.response.json` | 7.1 mobile-bff (8094) — NEW, mobile backend-for-frontend |
 | `M2-mobile-timeline.response.json` | 7.1 mobile-bff (8094) — NEW, mobile backend-for-frontend |
 | `M3-mobile-remittance.request.json` | 7.1 mobile-bff (8094) — NEW, mobile backend-for-frontend |
@@ -65,6 +63,8 @@ Dev 7 curates these into `app/assets/fixtures/` (handshake H15). To change one, 
 | `N1-notifications.response.json` | 12. notification-service (8084) and audit-service (8085) |
 | `N2-mark-read.response.json` | 12. notification-service (8084) and audit-service (8085) |
 | `N3-unread-count.response.json` | 12. notification-service (8084) and audit-service (8085) |
+| `N4-dlq-item.json` | 12. notification-service (8084) and audit-service (8085) |
+| `N5-dlq-replay.response.json` | 12. notification-service (8084) and audit-service (8085) |
 | `U1-statement-row.json` | 12. notification-service (8084) and audit-service (8085) |
 | `U3-verify-chain.response.json` | 12. notification-service (8084) and audit-service (8085) |
 | `U4-daily-seal.response.json` | 12. notification-service (8084) and audit-service (8085) |

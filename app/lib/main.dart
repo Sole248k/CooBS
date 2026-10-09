@@ -4,16 +4,20 @@ import 'core/config/app_config.dart';
 import 'core/network/api_client.dart';
 import 'core/router/app_router.dart';
 import 'core/session/inactivity_watcher.dart';
+import 'core/storage/secure_storage_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Override fixture mode to false for live gateway execution unless explicitly enabled via --dart-define
-  AppConfig.useFixtures = const bool.fromEnvironment(
-    'USE_FIXTURES',
-    defaultValue: false,
-  );
+  AppConfig.useFixtures = const bool.fromEnvironment('USE_FIXTURES', defaultValue: false);
+  try {
+    final savedGateway = await SecureStorageService().getGatewayUrl();
+    if (savedGateway != null && savedGateway.isNotEmpty) {
+      AppConfig.customRuntimeGatewayUrl = savedGateway;
+    }
+  } catch (_) {}
   ApiClient.onSessionExpired = () {
     AppRouter.navigatorKey.currentState?.pushNamedAndRemoveUntil(
       AppRouter.login,

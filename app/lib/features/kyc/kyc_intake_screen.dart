@@ -132,4 +132,13 @@ class _KycIntakeScreenState extends State<KycIntakeScreen> {
           },
         ),
       );
+
+  @override
+  void dispose() {
+    for (final ctrl in c.values) {
+      ctrl.dispose();
+    }
+    c.clear();
+    super.dispose();
+  }
 }

@@ -24,7 +24,9 @@ What changes, and why:
   column                   PostgreSQL allows many.
   CREATE ... IF NOT EXISTS a guard on OBJECT_ID, sys.schemas or sys.indexes
   \\connect <db>            dropped. Azure SQL has no USE across databases: connect to the database.
-  TEXT                     kept. SagaInstance declares columnDefinition = "TEXT" and validate compares names.
+  TEXT                     VARCHAR(MAX). SQL Server refuses TEXT under a UTF-8 collation (error 4188).
+                           SagaInstance declares columnDefinition = "TEXT", but validate compares the
+                           JDBC type and takes any character type for a String.
 """
 import os
 import re
@@ -167,6 +169,7 @@ def table(name, body, cfg, identity):
         rest = re.sub(r"^TIMESTAMPTZ\b", cfg["ts"], rest)
         rest = re.sub(r"^BOOLEAN\b", "BIT", rest)
         rest = re.sub(r"^UUID\b", "UNIQUEIDENTIFIER", rest)
+        rest = re.sub(r"^TEXT\b", "VARCHAR(MAX)", rest)
         rest = rest.replace("DEFAULT now()", "DEFAULT " + cfg["clock"])
         rest = rest.replace("DEFAULT TRUE", "DEFAULT 1").replace("DEFAULT FALSE", "DEFAULT 0")
         if "now()" in rest or "::" in rest:

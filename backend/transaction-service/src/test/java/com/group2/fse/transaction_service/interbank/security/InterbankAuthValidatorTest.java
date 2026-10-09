@@ -95,4 +95,13 @@ class InterbankAuthValidatorTest {
                 .isInstanceOf(InterbankAuthException.class)
                 .hasFieldOrPropertyWithValue("reasonCode", "INVALID_SIGNATURE");
     }
+
+    @Test
+    @DisplayName("Unknown partner bank code throws UNKNOWN_BANK")
+    void unknownBankCodeThrows() {
+        String timestamp = Instant.now().toString();
+        assertThatThrownBy(() -> validator.validate("UNKNOWN_BANK", timestamp, "sig", null, "{}"))
+                .isInstanceOf(InterbankAuthException.class)
+                .hasFieldOrPropertyWithValue("reasonCode", "UNKNOWN_BANK");
+    }
 }

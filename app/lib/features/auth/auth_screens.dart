@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/models/auth_models.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../accounts/demo_store.dart';
 import '../accounts/home_screen.dart';
 import '../accounts/ui.dart';
 
@@ -62,6 +64,8 @@ class _LoginScreenState extends State<LoginScreen> {
         userId: token.userId > 0 ? token.userId : 1,
         username: username,
       );
+      // Immediately load live Customer 360 data from Docker for this newly authenticated user
+      await Demo.i.load();
       if (mounted) {
         toApp(context, 'Welcome back, $username');
       }
@@ -82,6 +86,56 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _showServerSettings() {
+    final c = TextEditingController(text: AppConfig.gatewayBaseUrl);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Backend Gateway URL', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text('Configure the Spring Cloud Gateway address running in Docker.', style: TextStyle(color: kMut, fontSize: 13)),
+            const SizedBox(height: 14),
+            tf(c, 'Gateway Base URL (e.g. http://192.168.254.126:8080)'),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => c.text = 'http://10.0.2.2:8080',
+                    child: const Text('Emulator (10.0.2.2)'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => c.text = 'http://localhost:8080',
+                    child: const Text('Localhost:8080'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            bigBtn('Save & Apply', () async {
+              final newUrl = c.text.trim();
+              if (newUrl.isNotEmpty) {
+                AppConfig.customRuntimeGatewayUrl = newUrl;
+                await _storage.saveGatewayUrl(newUrl);
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) snack(context, 'Gateway updated to $newUrl');
+              }
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: kBg,
@@ -90,7 +144,17 @@ class _LoginScreenState extends State<LoginScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: ListView(padding: const EdgeInsets.fromLTRB(22, 30, 22, 30), children: [
-                Align(alignment: Alignment.centerLeft, child: logoBox()),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    logoBox(),
+                    IconButton(
+                      tooltip: 'Server Connection',
+                      icon: Icon(Icons.dns_outlined, color: kNavy),
+                      onPressed: _showServerSettings,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 30),
                 const Text('Welcome back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
                 Padding(padding: EdgeInsets.only(top: 4, bottom: 20), child: Text('Log in to see your accounts.', style: TextStyle(color: kMut))),

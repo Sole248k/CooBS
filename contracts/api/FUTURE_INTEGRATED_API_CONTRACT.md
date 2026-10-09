@@ -528,8 +528,7 @@ All 20 existing endpoints keep their paths and payloads, with these exceptions.
 | T3 | `GET /api/v1/transactions/{transactionId}/timeline` | Owner, Teller, Admin | Customers get three stages, staff eleven |
 | T4 | `GET /api/v1/transactions` | Customer (own), Teller, Admin | Filters: `accountId`, `status`, `from`, `to`, paging. Alias: `/my-transactions` |
 | T5 | `POST /api/v1/transactions/{transactionId}/reversal` | Teller, Admin | Needs `Idempotency-Key` |
-| T6 | `GET /api/v1/transactions/admin/dlq` | Admin | Dead-letter records |
-| T7 | `POST /api/v1/transactions/admin/dlq/{recordId}/replay` | Admin | |
+| T6, T7 | Moved | | The dead-letter list and replay are served by notification-service: N4 and N5 in section 12 |
 | T8 | `GET /internal/v1/transactions?customerId=&limit=` | Service | For Customer 360 |
 | T9 | `GET /internal/v1/transactions/spending?customerId=&days=` | Service | For Customer 360 |
 | T10 | `POST /api/v1/interbank/transfers` and related | Partner bank | See section 14 |
@@ -701,32 +700,6 @@ Customers never see internal technical details or raw risk scores; `failureMessa
   "createdAt": "2026-10-03T11:55:00Z",
   "timelineUrl": "/api/v1/transactions/c4b7e2d9-5a13-4f86-b0c2-7d9e1a3f5b64/timeline",
   "reversesTransactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11"
-}
-```
-
-**T6 item**
-
-<!-- example: T6-dlq-item.json -->
-```json
-{
-  "recordId": "ledger.transfer.completed.v1.DLT-0-42",
-  "topic": "ledger.transfer.completed.v1.DLT",
-  "originalTopic": "ledger.transfer.completed.v1",
-  "key": "1",
-  "errorMessage": "Could not deserialize payload",
-  "attempts": 3,
-  "failedAt": "2026-10-03T11:41:00Z"
-}
-```
-
-**T7 response, 200**
-
-<!-- example: T7-dlq-replay.response.json -->
-```json
-{
-  "recordId": "ledger.transfer.completed.v1.DLT-0-42",
-  "replayed": true,
-  "replayedAt": "2026-10-03T11:50:00Z"
 }
 ```
 
@@ -1204,6 +1177,9 @@ If step 5 finds a variance, its status is `FAILED`, step 6 is `SKIPPED`, and the
 | N1 | `GET /api/v1/notifications/my-notifications` | SAME |
 | N2 | `PATCH /api/v1/notifications/{id}/read` | SAME |
 | N3 | `GET /api/v1/notifications/unread-count` | SAME |
+| N4 | `GET /api/v1/notifications/admin/dlq` | NEW. Admin. Dead-letter records |
+| N5 | `POST /api/v1/notifications/admin/dlq/{recordId}/replay` | NEW. Admin. Replays one record |
+| N6 | `POST /api/v1/notifications/admin/dlq/replay` | NEW. Admin. Replays every record in the list |
 | U1 | `GET /api/v1/audit/accounts/{accountId}/statement` | SAME |
 | U2 | `GET /api/v1/audit/transactions/{transactionId}` | SAME |
 | U3 | `GET /api/v1/audit/verify-chain/{accountId}` | SAME |
@@ -1285,6 +1261,35 @@ If step 5 finds a variance, its status is `FAILED`, step 6 is `SKIPPED`, and the
 { "businessDate": "2026-10-03", "lastAuditId": 9040, "sealHash": "c7d1e2…", "sealedAt": "2026-10-03T17:00:06Z", "batchRunId": 31 }
 ```
 
+**N4 response, 200:** a JSON array of the item below, not paged. `recordId` is `<topic>-<partition>-<offset>`, and `payload` is the parked record as text.
+
+<!-- example: N4-dlq-item.json -->
+```json
+{
+  "recordId": "notification.events.DLT-0-42",
+  "topic": "notification.events.DLT",
+  "originalTopic": "ledger.transfer.completed.v1",
+  "key": "1",
+  "errorMessage": "Listener failed",
+  "attempts": 3,
+  "failedAt": "2026-10-03T11:41:00Z",
+  "payload": "{\"eventId\":\"evt_3c892f6a\",\"eventType\":\"LEDGER_TRANSFER_COMPLETED\"}"
+}
+```
+
+**N5 response, 200.** The record is sent back to `originalTopic` with its original key and consumed again. N6 answers with an array of these.
+
+<!-- example: N5-dlq-replay.response.json -->
+```json
+{
+  "recordId": "notification.events.DLT-0-42",
+  "replayed": true,
+  "replayedAt": "2026-10-03T11:50:00Z"
+}
+```
+
+A replayed record stays in the list, because the dead-letter topic is only ever added to. Replaying it again is safe: the consumer skips an event ID it has already stored.
+
 ---
 
 ## 13. Events (Kafka)
@@ -1315,7 +1320,8 @@ All events share one envelope, the one the ledger uses today:
 | `transaction.stage.changed.v1` | transactionId | transaction-service (1–3), orchestration-service (4–11) | transaction-service | NEW |
 | `notification.dispatched.v1` | transactionId | notification-service | orchestration-service | NEW |
 | `batch.eod.step.completed.v1` | batchRunId | batch-service | notification-service (optional) | NEW |
-| `<topic>.DLT` | as original | any consumer after 3 attempts | transaction-service (replay) | NEW |
+| `notification.events.DLT` | as original | notification-service, for every topic it consumes, after the retries | notification-service (replay, N4 to N6) | NEW |
+| `<topic>.DLT` | as original | orchestration-service and transaction-service, after the retries | none: there is no replay endpoint | NEW |
 
 **`transaction.stage.changed.v1` payload**
 
@@ -1381,7 +1387,7 @@ Amounts in the three existing ledger events stay JSON numbers so the current con
 }
 ```
 
-**Dead-letter rule:** exponential backoff of 1 s, 2 s, 4 s; after the third failure the record goes to `<topic>.DLT` with the original key and headers `x-original-topic`, `x-exception-message`, `x-attempts`.
+**Dead-letter rule:** retries with an exponential backoff of 1 s, 2 s, 4 s; when the last one fails the record is parked with its original key. notification-service parks every topic it consumes on one topic, `notification.events.DLT`, with headers `x-original-topic`, `x-exception-message`, `x-attempts` and `x-failed-at`, and parks a record it cannot read as JSON at once, without retries. orchestration-service and transaction-service park on `<topic>.DLT`.
 
 ---
 

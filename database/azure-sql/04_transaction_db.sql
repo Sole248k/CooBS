@@ -83,7 +83,7 @@ CREATE TABLE saga.saga_instance (
     hold_id BIGINT,
     risk_decision VARCHAR(20),
     failure_code VARCHAR(60),
-    payload TEXT,
+    payload VARCHAR(MAX),
     updated_at DATETIMEOFFSET(6) NOT NULL DEFAULT SYSDATETIMEOFFSET(),
     version BIGINT NOT NULL DEFAULT 0
 );

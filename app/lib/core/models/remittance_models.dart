@@ -73,6 +73,9 @@ class TimelineStage {
   final String status; // COMPLETED, IN_PROGRESS, PENDING, FAILED, REJECTED
   final DateTime? timestamp;
   final String? details;
+  final bool isDlq;
+  final int? retryAttempts;
+  final String? dlqTopic;
 
   TimelineStage({
     required this.stageNumber,
@@ -83,25 +86,68 @@ class TimelineStage {
     required this.status,
     this.timestamp,
     this.details,
+    this.isDlq = false,
+    this.retryAttempts,
+    this.dlqTopic,
   });
 
   bool get isCompleted => status == 'COMPLETED' || status == 'PASSED';
   bool get isInProgress => status == 'IN_PROGRESS' || status == 'PROCESSING';
-  bool get isFailed => status == 'FAILED' || status == 'REJECTED';
+  bool get isFailed => status == 'FAILED' || status == 'REJECTED' || isDlq;
   bool get isPending => status == 'PENDING';
 
   factory TimelineStage.fromJson(Map<String, dynamic> json) {
     final rawKey = (json['stageKey'] ?? json['stageName'] ?? 'UNKNOWN').toString();
     final defaultTitle = _friendlyStageTitle(rawKey);
+    final detailsStr = json['details']?.toString() ?? json['detail']?.toString();
+    final subtitleStr = json['subtitle']?.toString();
+    final rawKeyUpper = rawKey.toUpperCase();
+    final bool parsedIsDlq = json['isDlq'] == true ||
+        json['dlq'] == true ||
+        (detailsStr != null && (detailsStr.contains('.DLT') || detailsStr.contains('DLQ'))) ||
+        (subtitleStr != null && (subtitleStr.contains('.DLT') || subtitleStr.contains('DLQ'))) ||
+        rawKeyUpper.contains('DLQ') ||
+        rawKeyUpper.contains('DLT');
+    final String? parsedDlqTopic = json['dlqTopic']?.toString() ??
+        json['topic']?.toString() ??
+        (parsedIsDlq && detailsStr != null
+            ? (RegExp(r'[\w\.-]+(\.DLT|\.dlq[\.\w]*)', caseSensitive: false).firstMatch(detailsStr)?.group(0) ??
+               (detailsStr.contains('.DLT') ? RegExp(r'[\w\.]+\.DLT').firstMatch(detailsStr)?.group(0) : null))
+            : null) ??
+        (parsedIsDlq ? 'notification.events.DLT' : null);
+
+    int parsedAttempts = parsedIsDlq ? 3 : 0;
+    if (json['retryAttempts'] is num) {
+      parsedAttempts = (json['retryAttempts'] as num).toInt();
+    } else if (json['attempts'] is num) {
+      parsedAttempts = (json['attempts'] as num).toInt();
+    } else if (json['retryAttempts'] != null) {
+      parsedAttempts = int.tryParse(json['retryAttempts'].toString()) ?? parsedAttempts;
+    } else if (json['attempts'] != null) {
+      parsedAttempts = int.tryParse(json['attempts'].toString()) ?? parsedAttempts;
+    }
+
+    int stageNum = 1;
+    if (json['stageNumber'] is num) {
+      stageNum = (json['stageNumber'] as num).toInt();
+    } else if (json['stageNo'] is num) {
+      stageNum = (json['stageNo'] as num).toInt();
+    } else {
+      stageNum = int.tryParse(json['stageNumber']?.toString() ?? json['stageNo']?.toString() ?? '1') ?? 1;
+    }
+
     return TimelineStage(
-      stageNumber: (json['stageNumber'] ?? json['stageNo'] ?? 1) as int,
+      stageNumber: stageNum,
       stageKey: rawKey,
-      title: json['title'] as String? ?? defaultTitle,
-      subtitle: json['subtitle'] as String?,
-      service: json['service'] as String? ?? _defaultServiceForStage(rawKey),
+      title: json['title']?.toString() ?? defaultTitle,
+      subtitle: subtitleStr,
+      service: json['service']?.toString() ?? _defaultServiceForStage(rawKey),
       status: (json['status'] ?? json['outcome'] ?? 'PENDING').toString(),
       timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? json['occurredAt']?.toString() ?? ''),
-      details: (json['details'] ?? json['detail']) as String?,
+      details: detailsStr,
+      isDlq: parsedIsDlq,
+      retryAttempts: parsedIsDlq ? parsedAttempts : (json['retryAttempts'] != null ? parsedAttempts : null),
+      dlqTopic: parsedDlqTopic,
     );
   }
 
@@ -179,6 +225,9 @@ class TimelineStage {
     'status': status,
     'timestamp': timestamp?.toIso8601String(),
     'details': details,
+    'isDlq': isDlq,
+    if (retryAttempts != null) 'retryAttempts': retryAttempts,
+    if (dlqTopic != null) 'dlqTopic': dlqTopic,
   };
 }
 
@@ -206,14 +255,31 @@ class TransactionTimelineResponse {
 
   factory TransactionTimelineResponse.fromJson(Map<String, dynamic> json) {
     final rawStages = json['stages'] as List<dynamic>? ?? [];
+    int parsedCurrent = 1;
+    if (json['currentStage'] is num) {
+      parsedCurrent = (json['currentStage'] as num).toInt();
+    } else if (json['currentStage'] != null) {
+      parsedCurrent = int.tryParse(json['currentStage'].toString()) ?? 1;
+    }
+
+    int parsedTotal = rawStages.length;
+    if (json['totalStages'] is num) {
+      parsedTotal = (json['totalStages'] as num).toInt();
+    } else if (json['totalStages'] != null) {
+      parsedTotal = int.tryParse(json['totalStages'].toString()) ?? rawStages.length;
+    }
+
     return TransactionTimelineResponse(
-      trackingReference: json['trackingReference'] as String? ?? json['referenceNo'] as String? ?? json['transactionId'] as String? ?? '',
-      view: json['view'] as String? ?? 'CUSTOMER',
-      currentStage: json['currentStage'] as int? ?? 1,
-      totalStages: json['totalStages'] as int? ?? rawStages.length,
-      overallStatus: json['overallStatus'] as String? ?? json['status'] as String? ?? 'PROCESSING',
-      stages: rawStages.map((e) => TimelineStage.fromJson(e as Map<String, dynamic>)).toList(),
-      failureMessage: json['failureMessage'] as String?,
+      trackingReference: json['trackingReference']?.toString() ?? json['referenceNo']?.toString() ?? json['transactionId']?.toString() ?? '',
+      view: json['view']?.toString() ?? 'CUSTOMER',
+      currentStage: parsedCurrent,
+      totalStages: parsedTotal,
+      overallStatus: json['overallStatus']?.toString() ?? json['status']?.toString() ?? 'PROCESSING',
+      stages: rawStages
+          .whereType<Map>()
+          .map((e) => TimelineStage.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      failureMessage: json['failureMessage']?.toString(),
     );
   }
 

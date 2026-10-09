@@ -7,9 +7,20 @@ class AppConfig {
   /// Set to true by default for zero-backend unit tests; overridden to false in main.dart for live gateway runtime.
   static bool useFixtures = const bool.fromEnvironment('USE_FIXTURES', defaultValue: true);
 
+  /// Dynamic runtime override for gateway URL (configurable from app UI or persistent storage).
+  static String? _customRuntimeGatewayUrl;
+
+  static String get customRuntimeGatewayUrl => _customRuntimeGatewayUrl ?? '';
+  static set customRuntimeGatewayUrl(String value) {
+    _customRuntimeGatewayUrl = value.trim().isEmpty ? null : value.trim();
+  }
+
   /// Spring Cloud Gateway base host.
   /// Android Emulator uses 10.0.2.2 to reach host localhost; Web/Desktop uses localhost.
   static String get gatewayBaseUrl {
+    if (_customRuntimeGatewayUrl != null && _customRuntimeGatewayUrl!.isNotEmpty) {
+      return _customRuntimeGatewayUrl!;
+    }
     const customGateway = String.fromEnvironment('GATEWAY_URL');
     if (customGateway.isNotEmpty) return customGateway;
     if (kIsWeb) {

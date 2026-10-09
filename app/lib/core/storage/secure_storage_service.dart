@@ -9,6 +9,7 @@ class SecureStorageService {
   static const String _keyRefreshToken = 'coobs_refresh_token';
   static const String _keyUserId = 'coobs_user_id';
   static const String _keyUsername = 'coobs_username';
+  static const String _keyGatewayUrl = 'coobs_gateway_url';
 
   final FlutterSecureStorage _storage;
   final Map<String, String> _memoryFallback = {};
@@ -49,6 +50,9 @@ class SecureStorageService {
   }
   Future<String?> getUsername() => read(_keyUsername);
 
+  Future<void> saveGatewayUrl(String url) => write(_keyGatewayUrl, url);
+  Future<String?> getGatewayUrl() => read(_keyGatewayUrl);
+
   Future<bool> hasValidSession() async {
     final token = await getAccessToken();
     return token != null && token.isNotEmpty;
@@ -56,16 +60,24 @@ class SecureStorageService {
 
   Future<void> clearSession() async {
     if (kIsWeb) {
-      _memoryFallback.clear();
+      _memoryFallback.remove(_keyAccessToken);
+      _memoryFallback.remove(_keyRefreshToken);
+      _memoryFallback.remove(_keyUserId);
+      _memoryFallback.remove(_keyUsername);
       return;
     }
     // Delete only session keys so device preferences (e.g. dark mode) survive logout.
-    _memoryFallback.clear();
     try {
-      for (final key in [_keyAccessToken, _keyRefreshToken, _keyUserId, _keyUsername]) {
-        await _storage.delete(key: key);
-      }
-    } catch (_) {}
+      await _storage.delete(key: _keyAccessToken);
+      await _storage.delete(key: _keyRefreshToken);
+      await _storage.delete(key: _keyUserId);
+      await _storage.delete(key: _keyUsername);
+    } catch (_) {
+      _memoryFallback.remove(_keyAccessToken);
+      _memoryFallback.remove(_keyRefreshToken);
+      _memoryFallback.remove(_keyUserId);
+      _memoryFallback.remove(_keyUsername);
+    }
   }
 
   @visibleForTesting

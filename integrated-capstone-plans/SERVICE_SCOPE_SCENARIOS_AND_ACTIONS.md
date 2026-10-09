@@ -67,12 +67,12 @@ Read this first. It says, for every capability, whether we actually build it. Th
 | auth-service          | Move to`identity_db`; same login, refresh, revoke                                              | Token issue and blacklist                                   | Logins and roles seeded                                               | Registration, MFA by default, password reset                         |
 | customer-service      | Profile, Customer 360, beneficiaries, KYC update submission & review, risk profile lookup      | —                                                           | Scores, tier, membership number, KYC seeded                           | External ID document scanning/OCR                                    |
 | account-service       | Balance through the ledger; loan and current types; internal lookups                           | Open account, status, flags, closure requests               | Accounts and balances seeded                                          | Loan origination, KYC verification (handled in `customer-service`)    |
-| transaction-service   | Transfer ingress, timeline, history, reversal request, DLQ replay, inter-bank endpoints        | —                                                           | —                                                                     | Scheduled or recurring transfers created by the customer             |
+| transaction-service   | Transfer ingress, timeline, history, reversal request, inter-bank endpoints                    | —                                                           | —                                                                     | Scheduled or recurring transfers created by the customer             |
 | orchestration-service | Transfer and reversal sagas, stage events, compensation                                        | —                                                           | —                                                                     | Manual intervention screens; sagas for anything other than transfers |
 | risk-engine           | Score thresholds, daily limit, velocity counter                                                | —                                                           | Deterministic rules stand in for real fraud detection (**SIMULATED**) | Machine learning, AML lists, case management                         |
 | ledger-service        | Holds, capture, release, reversal, batch posting, outbox, GL legs                              | Debit, credit, transfer, balance, locking, audit dual-write | GL accounts seeded                                                    | Multi-currency; interest calculation inside the ledger               |
 | batch-service         | Six-step pipeline on demand; run and step log                                                  | —                                                           | Standing instructions and loan schedules seeded                       | Scheduler, re-run of a single step, report files                     |
-| notification-service  | Move to`notification_db`; retry and dead-letter; dispatched event                              | In-app inbox, read flag, unread count                       | —                                                                     | Email, SMS, push, user preferences                                   |
+| notification-service  | Move to`notification_db`; retry, dead-letter list and replay; dispatched event                 | In-app inbox, read flag, unread count                       | —                                                                     | Email, SMS, push, user preferences                                   |
 | audit-service         | Daily seal read                                                                                | Statement, forensic record, chain verification              | —                                                                     | Any write; export to file                                            |
 | api-gateway           | New routes; ledger route for staff only; Flutter origin                                        | Rate limits, correlation ID, CORS                           | —                                                                     | Token validation at the gateway; API Management                      |
 | Flutter app           | Sign-in, Customer 360, accounts, transfer, tracker, beneficiaries, notifications, batch screen | —                                                           | KYC screen (**SIMULATED**)                                            | Registration, staff back-office screens, iOS                         |
@@ -256,7 +256,7 @@ Registration is not available to anyone: members are seeded.
 
 ## 6. transaction-service (8090, cloud)
 
-**Scope.** The front door for moving money. Accepts a transfer, checks the request, records it, hands it to the saga, and keeps the timeline that the app shows. Also hosts the inter-bank endpoints and the dead-letter replay.
+**Scope.** The front door for moving money. Accepts a transfer, checks the request, records it, hands it to the saga, and keeps the timeline that the app shows. Also hosts the inter-bank endpoints.
 
 **Not in scope.** Does not decide risk. Does not touch balances. Does not call the ledger.
 
@@ -269,8 +269,6 @@ Registration is not available to anyone: members are seeded.
 | Track a transaction                                          | Owner (3 stages), Teller and Admin (11 stages) | T3         |
 | List transactions                                            | Customer (own), Teller, Admin                  | T4         |
 | Reverse a posted transfer                                    | Teller, Admin                                  | T5         |
-| List dead-letter records                                     | Admin                                          | T6         |
-| Replay a dead-letter record                                  | Admin                                          | T7         |
 | Receive an inter-bank transfer, report status, account check | Partner bank                                   | I1, I2, I3 |
 
 | Scenario                                                           | What happens                                                                             |
@@ -288,7 +286,6 @@ Registration is not available to anyone: members are seeded.
 | Customer asks about someone else's transaction                     | HTTP 403                                                                                 |
 | Teller reverses a posted transfer                                  | A new reversal transaction is created and sent to the saga                               |
 | Teller reverses a transfer that is not posted, or already reversed | Rejected                                                                                 |
-| Admin replays a dead-letter record                                 | The record is sent back to its original topic and processed again                        |
 | Stage events arrive out of order or twice                          | The timeline keeps one row per stage; a repeat changes nothing                           |
 
 ---
@@ -430,7 +427,7 @@ Target: under 40 ms at the 95th percentile.
 
 ## 11. notification-service (8084, cloud)
 
-**Scope.** Listens to events and turns them into in-app notifications. Serves the customer's inbox.
+**Scope.** Listens to events and turns them into in-app notifications. Serves the customer's inbox, and the dead-letter list and replay for the events it could not process.
 
 **Not in scope.** Does not send transfers or change any business data. Does not call other services.
 
@@ -441,6 +438,8 @@ Target: under 40 ms at the 95th percentile.
 | View own notifications | Customer | N1       |
 | Mark one as read       | Customer | N2       |
 | Unread count           | Customer | N3       |
+| List dead-letter records | Admin  | N4       |
+| Replay a dead-letter record, or all of them | Admin | N5, N6 |
 
 | Scenario                                         | What happens                                                                             |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
@@ -449,7 +448,8 @@ Target: under 40 ms at the 95th percentile.
 | Deposit or withdrawal                            | One notification for the account owner                                                   |
 | Account closed, KYC request submitted or decided | One notification for the customer                                                        |
 | The same event arrives twice                     | The second is ignored; the event ID is unique                                            |
-| An event cannot be processed                     | Retried after 1 s, 2 s, 4 s; then sent to the`.DLT` topic                                |
+| An event cannot be processed                     | Retried after 1 s, 2 s, 4 s; then parked on`notification.events.DLT`                     |
+| Admin replays a dead-letter record               | The record is sent back to its original topic and processed again                        |
 | Customer marks another customer's notification   | HTTP 404                                                                                 |
 
 ---
@@ -500,7 +500,7 @@ Neither client holds business rules. A button hidden in the app is not security;
 | 5   | Transfer with not enough money               | transaction, orchestration, ledger                     | Fails at Funds Check; balance unchanged                                                    |
 | 6   | Double tap on Send                           | transaction                                            | One transfer only                                                                          |
 | 7   | Teller reverses a transfer                   | transaction, orchestration, ledger, audit              | Balances return; statement shows four entries; chain still verifies                        |
-| 8   | Notification consumer breaks, then is fixed  | notification, transaction                              | Record appears in the dead-letter list; admin replays it; notification arrives             |
+| 8   | Notification consumer breaks, then is fixed  | notification                                           | Record appears in the dead-letter list; admin replays it; notification arrives             |
 | 9   | Admin runs end of day                        | batch, ledger, audit                                   | Six steps tick through; balances change; debits equal credits; seal shown                  |
 | 10  | Transfer to another group's bank             | transaction, orchestration, ledger, partner            | Posted on our side; partner shows the credit                                               |
 | 11  | Transfer from another group's bank           | transaction, ledger, notification                      | Our customer's balance rises and they get a notification                                   |
