@@ -201,6 +201,15 @@ class AppTheme {
         thickness: 1,
         space: 24,
       ),
+      listTileTheme: const ListTileThemeData(
+        textColor: textPrimary,
+        iconColor: textSecondary,
+        subtitleTextStyle: TextStyle(color: textSecondary, fontSize: 13),
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        backgroundColor: navyPrimary,
+        contentTextStyle: TextStyle(color: surfaceWhite),
+      ),
     );
   }
 }
