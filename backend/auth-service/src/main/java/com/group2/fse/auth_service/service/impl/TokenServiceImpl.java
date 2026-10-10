@@ -35,6 +35,17 @@ public class TokenServiceImpl implements TokenService {
         RefreshTokenData data = refreshTokenService.getRefreshTokenData(refreshToken)
                 .orElseThrow(() -> new InvalidTokenException("Invalid or expired refresh token"));
 
+        // A refresh token lives seven days. The user is read again here, so that one who was
+        // deactivated since signing in gets no new access token, and the token is spent.
+        boolean stillActive = appUserRepository.findByUsername(data.getUsername())
+                .map(user -> "ACTIVE".equalsIgnoreCase(user.getStatus()))
+                .orElse(false);
+        if (!stillActive) {
+            refreshTokenService.revokeRefreshToken(refreshToken);
+            log.warn("Refresh refused: user {} is no longer active", data.getUsername());
+            throw new InvalidTokenException("Invalid or expired refresh token");
+        }
+
         // Rotate: revoke the old refresh token, issue a new one
         refreshTokenService.revokeRefreshToken(refreshToken);
         String newRefreshToken = refreshTokenService.createRefreshToken(
