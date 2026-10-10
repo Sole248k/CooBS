@@ -87,7 +87,7 @@ public class BatchServiceImpl implements BatchService {
         batchRunRepository.save(savedRun);
         log.info("EOD batch run initialized with ID={}", savedRun.getBatchRunId());
 
-        // Kick off background EOD pipeline execution (5-8 seconds)
+        // Kick off background EOD pipeline execution
         eodPipeline.executePipeline(savedRun.getBatchRunId(), businessDate);
 
         return EodTriggerResponseDto.builder()
@@ -119,114 +119,18 @@ public class BatchServiceImpl implements BatchService {
     }
 
     private BatchRunDetailsResponseDto mapToDetailsDto(BatchRun run) {
+        // The total and the message are the ones the step reported when it ran (EodPipelineImpl).
         List<BatchStepResponseDto> stepDtos = run.getSteps().stream()
                 .sorted(Comparator.comparing(BatchStep::getStepNo))
-                .map(s -> {
-                    String totalAmount = null;
-                    String message = null;
-
-                    if ("COMPLETED".equals(s.getStatus())) {
-                        int count = s.getItemsProcessed() != null ? s.getItemsProcessed() : 0;
-                        switch (s.getStepName()) {
-                            case "INTEREST_ACCRUAL" -> {
-                                boolean isEom = run.getBusinessDate() != null &&
-                                        run.getBusinessDate().equals(run.getBusinessDate().with(java.time.temporal.TemporalAdjusters.lastDayOfMonth()));
-                                if (isEom) {
-                                    if (count > 0) {
-                                        int days = run.getBusinessDate().lengthOfMonth();
-                                        totalAmount = java.math.BigDecimal.valueOf(count)
-                                                .multiply(new java.math.BigDecimal("2.42"))
-                                                .multiply(java.math.BigDecimal.valueOf(days))
-                                                .setScale(2, java.math.RoundingMode.HALF_UP)
-                                                .toPlainString();
-                                    } else {
-                                        totalAmount = "0.00";
-                                    }
-                                    message = "Month-end interest capitalization credited across " + count + " accounts";
-                                } else {
-                                    if (count == 1) {
-                                        totalAmount = "11.64";
-                                    } else if (count == 3) {
-                                        totalAmount = "12.24";
-                                    } else if (count > 0) {
-                                        totalAmount = java.math.BigDecimal.valueOf(count)
-                                                .multiply(new java.math.BigDecimal("2.42"))
-                                                .setScale(2, java.math.RoundingMode.HALF_UP)
-                                                .toPlainString();
-                                    } else {
-                                        totalAmount = "0.00";
-                                    }
-                                    message = "Daily interest accrued across " + count + " accounts (Booked to GL 9002)";
-                                }
-                            }
-                            case "SERVICE_FEES" -> {
-                                totalAmount = java.math.BigDecimal.valueOf(count)
-                                        .multiply(new java.math.BigDecimal("50.00"))
-                                        .setScale(2)
-                                        .toPlainString();
-                                message = (count > 0)
-                                        ? ("Applied maintenance fees across " + count + " accounts")
-                                        : "No accounts subject to fees";
-                            }
-                            case "STANDING_INSTRUCTIONS" -> {
-                                if (count == 0) {
-                                    totalAmount = "0.00";
-                                    message = "No instructions due";
-                                } else if (count == 1) {
-                                    totalAmount = "1000.00";
-                                    message = "Executed recurring transfer";
-                                } else if (count == 2) {
-                                    totalAmount = "2500.00";
-                                    message = "Executed 2 recurring transfers";
-                                } else {
-                                    totalAmount = java.math.BigDecimal.valueOf(count)
-                                            .multiply(new java.math.BigDecimal("1000.00"))
-                                            .setScale(2)
-                                            .toPlainString();
-                                    message = "Executed " + count + " recurring transfers";
-                                }
-                            }
-                            case "LOAN_AMORTIZATION" -> {
-                                if (count == 0) {
-                                    totalAmount = "0.00";
-                                    message = "No instalments due";
-                                } else if (count == 1) {
-                                    totalAmount = "5450.00";
-                                    message = "Processed amortization deduction";
-                                } else if (count == 2) {
-                                    totalAmount = "8200.00";
-                                    message = "Processed 2 amortization deductions";
-                                } else {
-                                    totalAmount = java.math.BigDecimal.valueOf(count)
-                                            .multiply(new java.math.BigDecimal("4100.00"))
-                                            .setScale(2)
-                                            .toPlainString();
-                                    message = "Processed " + count + " amortization deductions";
-                                }
-                            }
-                            case "GL_RECONCILIATION" -> {
-                                totalAmount = "0.00";
-                                message = "Debits equal credits";
-                            }
-                            case "AUDIT_SEAL" -> {
-                                totalAmount = "0.00";
-                                message = "Seal verified";
-                            }
-                        }
-                    } else if ("FAILED".equals(s.getStatus()) && "GL_RECONCILIATION".equals(s.getStepName())) {
-                        message = "Trial balance mismatch detected";
-                    }
-
-                    return BatchStepResponseDto.builder()
-                            .stepNo(s.getStepNo())
-                            .stepName(s.getStepName())
-                            .status(s.getStatus())
-                            .itemsProcessed(s.getItemsProcessed())
-                            .totalAmount(totalAmount)
-                            .durationMs(s.getDurationMs())
-                            .message(message)
-                            .build();
-                })
+                .map(s -> BatchStepResponseDto.builder()
+                        .stepNo(s.getStepNo())
+                        .stepName(s.getStepName())
+                        .status(s.getStatus())
+                        .itemsProcessed(s.getItemsProcessed())
+                        .totalAmount(s.totalAmountText())
+                        .durationMs(s.getDurationMs())
+                        .message(s.getMessage())
+                        .build())
                 .toList();
 
         return BatchRunDetailsResponseDto.builder()

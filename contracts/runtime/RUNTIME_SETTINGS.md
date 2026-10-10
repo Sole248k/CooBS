@@ -136,7 +136,7 @@ In Azure the four cloud databases are Azure SQL. `docker-compose.azure-sql.yml` 
 
 | Store | Variables | Used by |
 | --- | --- | --- |
-| Oracle | `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_DATABASE`, `APP_USER`, `APP_USER_PASSWORD` | ledger-service, account-service; auth-service until it moves |
+| Oracle | `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_DATABASE`, `APP_USER`, `APP_USER_PASSWORD` | ledger-service, account-service; batch-service, read only (the owner of an account, and the journal for GL reconciliation); auth-service until it moves |
 | PostgreSQL `audit_store` database | `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | ledger-service, audit-service, batch-service |
 | Schema within it | `POSTGRES_SCHEMA` = `batch` | batch-service |
 
@@ -165,7 +165,7 @@ Whether `batch-service` publishes its step event itself or through the ledger ou
 | `INTERNAL_SERVICE_SECRET` | risk-engine only: the value it accepts in the `X-Internal-Secret` header. No fallback: a missing value fails at startup. Compose takes it from `.env` |
 | Database passwords (`POSTGRES_CLOUD_PASSWORD`, `POSTGRES_PASSWORD`, `APP_USER_PASSWORD`, `DATABASE_PASSWORD`) | No fallback in any `application.properties`: a missing password fails at startup |
 | `JWT_EXPIRATION_MS` | Default 86400000 |
-| `CORS_ALLOWED_ORIGINS` | Default `http://localhost:3000,http://localhost:5173,http://localhost:8088,http://127.0.0.1:8088`. Fixed port `8088` handles Flutter web development (H14). Native Android (`10.0.2.2:8080`) uses direct OS sockets, bypassing browser SOP with zero CORS friction |
+| `CORS_ALLOWED_ORIGINS` | Read by the gateway as well as the services: a hosted console's origin goes here, comma-separated. The gateway also allows any port on `localhost` and `127.0.0.1`. Default `http://localhost:3000,http://localhost:5173,http://localhost:8088,http://127.0.0.1:8088`. Fixed port `8088` handles Flutter web development (H14). Native Android (`10.0.2.2:8080`) uses direct OS sockets, bypassing browser SOP with zero CORS friction |
 
 ### Inter-bank partners (transaction-service)
 

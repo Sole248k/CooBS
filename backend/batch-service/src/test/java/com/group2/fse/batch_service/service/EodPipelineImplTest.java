@@ -110,11 +110,46 @@ class EodPipelineImplTest {
         assertThat(step2.getItemsProcessed()).isEqualTo(1);
         assertThat(step2.getDurationMs()).isNotNull();
 
+        // The report reads these back, so the step's own total is what is stored.
+        assertThat(step1.totalAmountText()).isEqualTo("12.24");
+        assertThat(step2.totalAmountText()).isEqualTo("50.00");
+
         assertThat(sampleRun.getStatus()).isEqualTo("COMPLETED");
         assertThat(sampleRun.getFinishedAt()).isNotNull();
 
         verify(batchRunRepository).saveAndFlush(sampleRun);
         verify(batchEventPublisher, times(2)).publishStepCompleted(any());
+    }
+
+    @Test
+    @DisplayName("executePipeline closes the run as HALTED when something outside a step fails")
+    void executePipeline_ClosesTheRunWhenTheLoopBreaks() {
+        when(batchRunRepository.findById(50L)).thenReturn(Optional.of(sampleRun));
+        when(batchStepRepository.findByBatchRun_BatchRunIdOrderByStepNoAsc(50L))
+                .thenThrow(new IllegalStateException("audit store unreachable"));
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> eodPipeline.executePipeline(50L, LocalDate.of(2026, 10, 3)));
+
+        // Left RUNNING, this run would refuse every later trigger.
+        assertThat(sampleRun.getStatus()).isEqualTo("HALTED");
+        verify(batchRunRepository).saveAndFlush(sampleRun);
+    }
+
+    @Test
+    @DisplayName("At start-up a run still RUNNING is halted, its running step failed and the rest skipped")
+    void startUp_HaltsARunCutOffByARestart() {
+        step1.setStatus("RUNNING");
+        when(batchRunRepository.findByStatus("RUNNING")).thenReturn(List.of(sampleRun));
+        when(batchStepRepository.findByBatchRun_BatchRunIdOrderByStepNoAsc(50L)).thenReturn(List.of(step1, step2));
+
+        eodPipeline.haltRunsCutOffByARestart();
+
+        assertThat(sampleRun.getStatus()).isEqualTo("HALTED");
+        assertThat(sampleRun.getFinishedAt()).isNotNull();
+        assertThat(step1.getStatus()).isEqualTo("FAILED");
+        assertThat(step2.getStatus()).isEqualTo("SKIPPED");
+        verify(batchRunRepository).save(sampleRun);
     }
 
     @Test

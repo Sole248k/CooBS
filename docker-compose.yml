@@ -444,6 +444,7 @@ services:
       SWAGGER_UI_URL: http://swagger-ui:8080
       REDIS_HOST: redis-cache
       REDIS_PORT: 6379
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
       SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/app/application.yml"
     volumes:
       - ./backend/api-gateway/src/main/resources/application.yml:/app/application.yml:ro
@@ -682,6 +683,12 @@ services:
       POSTGRES_SCHEMA: batch
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      # Read only: the owner of an account for the interest notice, and the journal for GL reconciliation.
+      ORACLE_HOST: oracle-core-db
+      ORACLE_PORT: 1521
+      ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
+      APP_USER: ${APP_USER:-core_user}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD is required}
       LEDGER_SERVICE_URL: http://ledger-service:8083
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}

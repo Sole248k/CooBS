@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS batch.batch_step (
     status VARCHAR(20) NOT NULL,
     items_processed INT NOT NULL DEFAULT 0,
     duration_ms INT,
+    total_amount NUMERIC(18, 4),
+    message VARCHAR(255),
     UNIQUE (batch_run_id, step_no)
 );
 

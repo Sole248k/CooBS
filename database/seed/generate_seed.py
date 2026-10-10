@@ -994,6 +994,8 @@ CREATE TABLE IF NOT EXISTS batch.batch_step (
     status VARCHAR(20) NOT NULL,
     items_processed INT NOT NULL DEFAULT 0,
     duration_ms INT,
+    total_amount NUMERIC(18, 4),
+    message VARCHAR(255),
     UNIQUE (batch_run_id, step_no)
 );
 
@@ -1040,9 +1042,9 @@ done = [("COMPLETED", 1, "11.6400", 820, None), ("COMPLETED", 1, "50.0000", 640,
         ("COMPLETED", 0, "0.0000", 1200, "Debits equal credits"), ("COMPLETED", 1, "0.0000", 700, "Seal written")]
 sid = 1
 for run, steps in ((1, halted), (2, done)):
-    for i, (st, items, _total, dur, _msg) in enumerate(steps, 1):
-        b.append("INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms)\n"
-                 f"VALUES ({sid}, {run}, {i}, {q(STEP_NAMES[i - 1])}, {q(st)}, {items}, {n(dur)});\n")
+    for i, (st, items, total, dur, msg) in enumerate(steps, 1):
+        b.append("INSERT INTO batch.batch_step (batch_step_id, batch_run_id, step_no, step_name, status, items_processed, duration_ms, total_amount, message)\n"
+                 f"VALUES ({sid}, {run}, {i}, {q(STEP_NAMES[i - 1])}, {q(st)}, {items}, {n(dur)}, {total}, {q(msg)});\n")
         sid += 1
 b.append("\n-- Standing instructions")
 for s in STANDING:

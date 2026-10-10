@@ -38,4 +38,16 @@ public class BatchStep {
 
     @Column(name = "duration_ms")
     private Integer durationMs;
+
+    // What the step itself reported. Null until the step has run.
+    @Column(name = "total_amount", precision = 18, scale = 4)
+    private java.math.BigDecimal totalAmount;
+
+    @Column(name = "message", length = 255)
+    private String message;
+
+    /** The total as the contract carries money: a string with two decimals. */
+    public String totalAmountText() {
+        return totalAmount == null ? null : totalAmount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+    }
 }

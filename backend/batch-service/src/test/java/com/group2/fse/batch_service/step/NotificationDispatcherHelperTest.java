@@ -42,8 +42,9 @@ class NotificationDispatcherHelperTest {
         verify(kafkaTemplate).send(eq("ledger.mutation.completed.v1"), eq("7"), sent.capture());
 
         Map<String, Object> event = (Map<String, Object>) sent.getValue();
-        // notification-service skips an event whose eventId it has already stored.
-        assertThat((String) event.get("eventId")).startsWith("evt_int_INT-202610-7_");
+        // notification-service skips an event whose eventId it has already stored, so a step
+        // that is run again must send the same one.
+        assertThat(event.get("eventId")).isEqualTo("evt_int_INT-202610-7");
         assertThat(event).containsKeys("eventType", "timestamp", "version");
 
         Map<String, Object> payload = (Map<String, Object>) event.get("payload");
