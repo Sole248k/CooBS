@@ -2,16 +2,18 @@
 # CooBS - Azure Pipelines
 #
 # Stages
-#   1. Validate   config, scripts, SQL files               (every run)
-#   2. Infra      audit-store triggers, Redis, Kafka       (every run)
-#   3. Test       all backend services against real infra  (every run)
-#   4. Package    container images                         (main, release/*, v* tags)
-#   5. Publish    push images to a registry                (only when publishImages = true)
-#   6. Deploy     placeholder for dev / prod environments  (only when deployEnabled = true)
+#   1. Validate   config, scripts, SQL files, Bicep, manifests  (every run)
+#   2. Infra      audit-store triggers, seed, Redis, Kafka      (every run)
+#   3. Test       backend services, staff console, mobile app   (every run)
+#   4. Package    container images, pushed when publishImages   (main, release/*, v* tags)
+#   5. Deploy     placeholder for dev / prod environments       (only when deployEnabled = true)
 #
 # A pull request build runs only what its changes can affect: stage 2 when database/,
-# scripts/ or Compose change, and in stage 3 the tests of the services it touches.
+# scripts/ or Compose change, and in stage 3 the tests of the services and clients it touches.
 # scripts/ci_scope.py decides. A build of dev, main, release/* or a tag runs everything.
+#
+# Stages 1 and 2 are one job each on purpose. There is one hosted agent, every job waits
+# for an agent of its own, and that wait was longer than the checks themselves.
 #
 # Pull requests: Azure Repos ignores a `pr:` block in YAML. PR validation is
 # switched on by a Build Validation branch policy that points at this pipeline.
@@ -38,6 +40,10 @@ trigger:
       - integrated-capstone-plans/*
       - contracts/*
       - '*.md'
+      # The two clients are checked by pull request builds. A push that changes nothing else
+      # starts no run, so it does not hold the one agent for a full backend run.
+      - frontend/*
+      - app/*
 
 parameters:
   # needsInfra records which test suites talk to Oracle / PostgreSQL / Redis / Kafka.
@@ -83,6 +89,8 @@ parameters:
 
 variables:
   vmImage: ubuntu-latest
+  # The Flutter release app/ was created with (app/.metadata).
+  flutterVersion: 3.44.8
   MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
   MAVEN_ARGS: -B --no-transfer-progress -Dmaven.repo.local=$(Pipeline.Workspace)/.m2/repository
   isMain: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
@@ -104,14 +112,17 @@ stages:
     displayName: 1. Validate configuration
     jobs:
       - job: config
-        displayName: Compose, scripts and service layout
+        displayName: Compose, scripts, SQL files, Bicep and manifests
         steps:
           # Depth 2: the scope step reads the two parents of a pull request's merge commit.
           - checkout: self
             fetchDepth: 2
 
-          # Stage 2 reads RUN_INFRA_CHECKS from this step.
-          - script: python3 scripts/ci_scope.py --stage-output
+          # Stages 2 and 3 read the RUN_ variables from this step.
+          - script: |
+              set -e
+              python3 scripts/ci_scope.py --self-test
+              python3 scripts/ci_scope.py --stage-output
             name: scope
             displayName: Work out what this build has to run
             env:
@@ -132,12 +143,23 @@ stages:
 
           - script: |
               set -e
-              for script in scripts/*.sh; do
+              for script in scripts/*.sh infra/onprem/*.sh; do
                 [ -f "$script" ] || continue
                 bash -n "$script"
                 echo "  [VALID] $script"
               done
             displayName: Validate shell script syntax
+
+          - pwsh: |
+              $failed = $false
+              foreach ($file in Get-ChildItem scripts, infra/scripts -Filter *.ps1) {
+                $errors = $null
+                [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors)
+                if ($errors) { $failed = $true; Write-Host ("  [INVALID] " + $file.Name + ": " + $errors[0].Message) }
+                else { Write-Host ("  [VALID] " + $file.Name) }
+              }
+              if ($failed) { exit 1 }
+            displayName: Validate PowerShell script syntax
 
           - ${{ each svc in parameters.services }}:
               - script: |
@@ -148,11 +170,6 @@ stages:
                   grep -q "<module>${{ svc.name }}</module>" backend/pom.xml || { echo "not listed in backend/pom.xml"; exit 1; }
                 displayName: Check layout of ${{ svc.name }}
 
-      - job: sql
-        displayName: SQL files present
-        steps:
-          - checkout: self
-            fetchDepth: 1
           - script: |
               set -e
               test -f database/oracle/01_init_user.sql
@@ -170,11 +187,6 @@ stages:
               done
             displayName: Validate Oracle and PostgreSQL DDL files
 
-      - job: bicep
-        displayName: Bicep IaC validation (Indonesia Central)
-        steps:
-          - checkout: self
-            fetchDepth: 1
           - script: |
               set -e
               if ! command -v bicep &> /dev/null; then
@@ -183,6 +195,12 @@ stages:
               az bicep build --file infra/bicep/main.bicep
               echo "PASS: Bicep IaC compiled and validated for Indonesia Central."
             displayName: Compile and validate Bicep templates
+
+          - script: |
+              set -e
+              kubectl kustomize infra/k8s > /dev/null
+              echo "PASS: infra/k8s renders."
+            displayName: Render the Kubernetes manifests
 
   # ============================================================================
   # 2. INFRASTRUCTURE CHECKS
@@ -193,8 +211,8 @@ stages:
     # Skipped for a pull request that changes nothing these checks look at.
     condition: and(succeeded(), eq(dependencies.Validate.outputs['config.scope.RUN_INFRA_CHECKS'], 'true'))
     jobs:
-      - job: audit_store
-        displayName: PostgreSQL audit store and hash chain
+      - job: checks
+        displayName: Audit store, seed scripts, Redis and Kafka
         steps:
           - checkout: self
             fetchDepth: 1
@@ -234,11 +252,6 @@ stages:
               echo "PASS: audit table is append-only."
             displayName: Verify immutability trigger
 
-      - job: seed
-        displayName: Seed scripts are in sync and load cleanly
-        steps:
-          - checkout: self
-            fetchDepth: 1
           - script: |
               set -e
               python3 database/seed/generate_seed.py
@@ -257,11 +270,6 @@ stages:
               echo "PASS: cloud and on-premises PostgreSQL seeds load without errors."
             displayName: Load cloud and target PostgreSQL seeds
 
-      - job: redis_kafka
-        displayName: Redis idempotency and Kafka round trip
-        steps:
-          - checkout: self
-            fetchDepth: 1
           - script: cp .env.example .env
             displayName: Prepare .env
           - script: |
@@ -315,6 +323,8 @@ stages:
       - job: backend
         displayName: Backend services (Java 21)
         timeoutInMinutes: 60
+        # Skipped only when the scope step said no service is touched. Any other answer runs it.
+        condition: and(succeeded(), ne(stageDependencies.Validate.config.outputs['scope.RUN_BACKEND_TESTS'], 'false'))
         steps:
           - checkout: self
             fetchDepth: 2
@@ -399,19 +409,50 @@ stages:
             displayName: Dump infrastructure diagnostics
             condition: failed()
 
-      # Flutter app (Dev 6). Enable once app/ exists.
-      # - job: flutter
-      #   displayName: Flutter app (web and Android)
-      #   steps:
-      #     - script: |
-      #         cd app
-      #         flutter pub get
-      #         flutter analyze
-      #         flutter test
-      #         flutter build web --dart-define=USE_FIXTURES=true
+      # One job for both clients, so a run waits for one more agent and not two.
+      - job: clients
+        displayName: Staff console and mobile app
+        timeoutInMinutes: 30
+        condition: and(succeeded(), or(ne(stageDependencies.Validate.config.outputs['scope.RUN_CONSOLE'], 'false'), ne(stageDependencies.Validate.config.outputs['scope.RUN_APP'], 'false')))
+        variables:
+          runConsole: $[ stageDependencies.Validate.config.outputs['scope.RUN_CONSOLE'] ]
+          runApp: $[ stageDependencies.Validate.config.outputs['scope.RUN_APP'] ]
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          # The version frontend/Dockerfile builds with.
+          - task: UseNode@1
+            displayName: Use Node 22
+            condition: and(succeeded(), ne(variables['runConsole'], 'false'))
+            inputs:
+              version: '22.x'
+
+          - script: |
+              set -e
+              cd frontend
+              npm ci --no-audit --no-fund
+              npm run lint
+              npm run build
+            displayName: Install, lint and build the staff console
+            condition: and(succeeded(), ne(variables['runConsole'], 'false'))
+
+          # shortcut: a failure here marks the run orange and does not stop it, because these
+          # tests have never run on an agent. Remove continueOnError after the first green run.
+          - script: |
+              set -e
+              git clone --quiet --depth 1 --branch $(flutterVersion) https://github.com/flutter/flutter.git "$(Agent.TempDirectory)/flutter"
+              export PATH="$(Agent.TempDirectory)/flutter/bin:$PATH"
+              cd app
+              flutter pub get
+              flutter test
+            displayName: Test the mobile app
+            condition: and(succeededOrFailed(), ne(variables['runApp'], 'false'))
+            continueOnError: true
 
   # ============================================================================
-  # 4. PACKAGE - build images to prove every Dockerfile works. No push.
+  # 4. PACKAGE - build every image once, which proves every Dockerfile works.
+  # Each image is pushed as it is built when publishImages is true.
   # ============================================================================
   - stage: Package
     displayName: 4. Build container images
@@ -425,35 +466,7 @@ stages:
           - checkout: self
             fetchDepth: 1
           - ${{ each svc in parameters.services }}:
-              - script: |
-                  set -e
-                  export DOCKER_BUILDKIT=1
-                  docker build \
-                    --build-arg BUILDKIT_INLINE_CACHE=1 \
-                    --cache-from ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:latest \
-                    -t ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:$(imageTag) \
-                    -t ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:latest \
-                    --label org.opencontainers.image.revision=$(Build.SourceVersion) \
-                    --label org.opencontainers.image.version=$(imageTag) \
-                    backend/${{ svc.name }}
-                displayName: Build image ${{ svc.name }} (BuildKit cached)
-
-  # ============================================================================
-  # 5. PUBLISH - push images. Emitted only when publishImages is true.
-  # ============================================================================
-  - ${{ if eq(parameters.publishImages, true) }}:
-      - stage: Publish
-        displayName: 5. Push images to registry
-        dependsOn: Package
-        condition: and(succeeded(), or(eq(variables.isMain, 'True'), eq(variables.isRelease, 'True')))
-        jobs:
-          - job: push
-            displayName: Push images
-            timeoutInMinutes: 60
-            steps:
-              - checkout: self
-                fetchDepth: 1
-              - ${{ each svc in parameters.services }}:
+              - ${{ if eq(parameters.publishImages, true) }}:
                   - task: Docker@2
                     displayName: Build and push ${{ svc.name }}
                     inputs:
@@ -465,19 +478,28 @@ stages:
                       tags: |
                         $(imageTag)
                         $(Build.SourceVersion)
+              - ${{ else }}:
+                  - script: |
+                      set -e
+                      export DOCKER_BUILDKIT=1
+                      docker build \
+                        -t ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:$(imageTag) \
+                        --label org.opencontainers.image.revision=$(Build.SourceVersion) \
+                        --label org.opencontainers.image.version=$(imageTag) \
+                        backend/${{ svc.name }}
+                    displayName: Build image ${{ svc.name }}
 
   # ============================================================================
-  # 6. DEPLOY - emitted only when deployEnabled is true.
+  # 5. DEPLOY - emitted only when deployEnabled is true.
   # Each environment is an Azure DevOps Environment; add approvals and checks
   # on the environment itself, not in this file.
+  # Both stages wait on Package only. A tag build skips the dev deployment, and a
+  # stage that waits on a skipped one never runs.
   # ============================================================================
   - ${{ if eq(parameters.deployEnabled, true) }}:
       - stage: Deploy_Dev
-        displayName: 6a. Deploy to dev
-        ${{ if eq(parameters.publishImages, true) }}:
-          dependsOn: Publish
-        ${{ else }}:
-          dependsOn: Package
+        displayName: 5a. Deploy to dev
+        dependsOn: Package
         condition: and(succeeded(), eq(variables.isMain, 'True'))
         jobs:
           - deployment: dev
@@ -497,8 +519,8 @@ stages:
                       displayName: Smoke test (placeholder)
 
       - stage: Deploy_Prod
-        displayName: 6b. Deploy release
-        dependsOn: Deploy_Dev
+        displayName: 5b. Deploy release
+        dependsOn: Package
         condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
         jobs:
           - deployment: prod
