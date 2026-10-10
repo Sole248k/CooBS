@@ -88,18 +88,21 @@ if ($deleteStr -match "COMPLIANCE VIOLATION" -or $deleteStr -match "55000") {
 
 # 5. Daily Audit Seal & Foreign Key Verification (ERD: 5 columns)
 Write-Host "`n[Check 5/5] Batch Schema & Daily Audit Seal Foreign Key..." -ForegroundColor Yellow
+# Every seal, however many end-of-day runs have added one: a 64-character hash, and a last audit
+# row that exists and is dated on or before the seal's own business date.
 $sealSql = @"
-SELECT s.seal_id, s.business_date, s.last_audit_id, length(s.seal_hash), a.transaction_id
+SELECT COUNT(*), COUNT(*) FILTER (WHERE length(s.seal_hash) = 64 AND a.audit_id IS NOT NULL AND DATE(a.event_timestamp) <= s.business_date)
 FROM audit_store.daily_audit_seal s
-JOIN audit_store.ledger_mutation_audit a ON s.last_audit_id = a.audit_id;
+LEFT JOIN audit_store.ledger_mutation_audit a ON s.last_audit_id = a.audit_id;
 "@
 $sealRes = docker exec postgres-audit-db psql -U postgres -d audit_store -t -A -c "$sealSql"
 $sealParts = ($sealRes -join "").Trim().Split("|")
-if ($sealParts.Count -ge 5 -and $sealParts[2] -eq "48" -and $sealParts[3] -eq "64") {
-    Write-Host "  [PASS] Daily audit seal valid: links seal_id=1 to last_audit_id=48 (64-char hash)." -ForegroundColor Green
+if ($sealParts.Count -eq 2 -and [int]$sealParts[0] -ge 1 -and $sealParts[0] -eq $sealParts[1]) {
+    Write-Host "  [PASS] $($sealParts[0]) daily seal(s): each has a 64-character hash and seals an audit row of its own date or earlier." -ForegroundColor Green
     $passed++
 } else {
-    Write-Host "  [FAIL] Daily audit seal check failed: $sealRes" -ForegroundColor Red
+    Write-Host "  [FAIL] Daily audit seal check failed: $($sealParts[1]) of $($sealParts[0]) seal(s) are sound. List them with:" -ForegroundColor Red
+    Write-Host "         SELECT s.*, a.event_timestamp FROM audit_store.daily_audit_seal s LEFT JOIN audit_store.ledger_mutation_audit a ON s.last_audit_id = a.audit_id;" -ForegroundColor Red
 }
 
 Write-Host "`n=================================================================" -ForegroundColor Cyan
