@@ -23,6 +23,8 @@
 .EXAMPLE
     .\infra\scripts\deploy-cloud.ps1 -ImageTag 20261010.1
 .EXAMPLE
+    .\infra\scripts\deploy-cloud.ps1 -ImageTag 20261010.1 -SkipSchemaLoad -DnsLabel coobs-demo -AcmeEmail someone@example.com
+.EXAMPLE
     .\infra\scripts\deploy-cloud.ps1 -ImageTag t -RenderOnly rendered.yaml -SqlServerFqdn s.database.windows.net -SqlAdminLogin coobsadmin -RedisHost r.redis.azure.net
 #>
 
@@ -32,6 +34,12 @@ param(
     [string]$ResourceGroup = "CooBS-rsg",
     [string]$DeploymentName = "coobs-demo",
     [switch]$SkipSchemaLoad,
+    # HTTPS at the public entry without Front Door (infra/k8s-https): the address gets the host
+    # name <label>.<location>.cloudapp.azure.com and a TLS proxy that fetches a certificate for it.
+    [ValidatePattern('^[a-z][a-z0-9-]{1,61}[a-z0-9]$')] [string]$DnsLabel,
+    # The certificate issuer's contact address. Needed with -DnsLabel.
+    [string]$AcmeEmail,
+    [string]$Location = "indonesiacentral",
     # Writes the manifests that would be applied to this file and stops, without calling Azure or the cluster.
     # Needs the three values below, which otherwise come from the Bicep outputs.
     [string]$RenderOnly,
@@ -70,18 +78,26 @@ function New-Hex([int]$bytes) {
 
 # Renders infra/k8s and puts the deployment's values in place of the placeholders.
 function Get-Manifests([string]$sqlFqdn, [string]$sqlLogin, [string]$redis, [string]$frontDoor) {
+    if ($DnsLabel -and $frontDoor) { throw "-DnsLabel puts HTTPS at the cluster's own entry; Front Door is on in this deployment. Use one or the other." }
+    if ($DnsLabel -and -not $AcmeEmail) { throw "-DnsLabel needs -AcmeEmail" }
+    $folder = if ($DnsLabel) { "infra\k8s-https" } else { "infra\k8s" }
     $rendered = Join-Path $work "rendered.yaml"
-    Invoke-Native "kubectl kustomize" { kubectl kustomize (Join-Path $repo "infra\k8s") --output $rendered } | Out-Null
+    Invoke-Native "kubectl kustomize" { kubectl kustomize (Join-Path $repo $folder) --output $rendered } | Out-Null
     $text = [System.IO.File]::ReadAllText($rendered)
     $text = $text.Replace("REPLACE-server-name.database.windows.net", $sqlFqdn)
     $text = $text.Replace("REPLACE-sql-admin-login", $sqlLogin)
     $text = $text.Replace("REPLACE-cache-name.indonesiacentral.redis.azure.net", $redis)
     $text = $text.Replace(":CHANGE_ME", ":$ImageTag")
-    if ($frontDoor) {
-        # Behind Front Door the browser's origin is the HTTPS host name, which the gateway must allow.
+    $httpsHost = $frontDoor
+    if ($DnsLabel) {
+        $httpsHost = "$DnsLabel.$Location.cloudapp.azure.com"
+        $text = $text.Replace("REPLACE-dns-label", $DnsLabel).Replace("REPLACE-public-host", $httpsHost).Replace("REPLACE-acme-email", $AcmeEmail)
+    }
+    if ($httpsHost) {
+        # Behind HTTPS the browser's origin is the HTTPS host name, which the gateway must allow.
         $listed = "http://localhost:3000,http://localhost:5173"
-        if (-not $text.Contains($listed)) { throw "CORS_ALLOWED_ORIGINS in infra/k8s/config.yaml is no longer the list this script adds the Front Door origin to" }
-        $text = $text.Replace($listed, "$listed,https://$frontDoor")
+        if (-not $text.Contains($listed)) { throw "CORS_ALLOWED_ORIGINS in infra/k8s/config.yaml is no longer the list this script adds the HTTPS origin to" }
+        $text = $text.Replace($listed, "$listed,https://$httpsHost")
     }
     if ($text -match "REPLACE-|CHANGE_ME") { throw "A placeholder is still in the rendered manifests: $($Matches[0])" }
     return $text
@@ -228,7 +244,9 @@ try {
     }
 
     $base = "http://$address"
-    if ($frontDoor) {
+    if ($DnsLabel) {
+        $base = "https://$DnsLabel.$Location.cloudapp.azure.com"
+    } elseif ($frontDoor) {
         # From now on the load balancer takes calls from Front Door only, so everything is HTTPS.
         # To open it again: kubectl annotate service coobs-public -n coobs service.beta.kubernetes.io/azure-allowed-service-tags-
         Invoke-Native "kubectl annotate service" {
@@ -240,7 +258,10 @@ try {
     Write-Host ""
     Write-Host "Staff console: $base" -ForegroundColor Green
     Write-Host "API (the app's gateway address, and baseUrl for Postman): $base" -ForegroundColor Green
-    if (-not $frontDoor) {
+    if ($DnsLabel) {
+        Write-Host "The certificate is fetched in the first minute or two. If the page does not open by then, the reason is in:"
+        Write-Host "  kubectl logs deployment/tls-proxy --namespace $namespace --tail 40"
+    } elseif (-not $frontDoor) {
         Write-Host "This is plain HTTP. For HTTPS, deploy the Bicep again with COOBS_FRONT_DOOR=true and COOBS_PUBLIC_ADDRESS=$address, then run this script again."
     }
     Write-Host "Staff sign-ins (admin, tellers) use the generated password, not the seeded one. Read it with:"

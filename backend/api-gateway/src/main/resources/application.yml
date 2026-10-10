@@ -26,6 +26,11 @@ spring:
       filter:
         request-rate-limiter:
           deny-empty-key: false
+      # The browser's origin is judged here, once (globalcors below), and not passed on. Every
+      # service has a CORS list of its own, and in Azure the on-premises ones answered
+      # "Invalid CORS request" to calls from the console's address that this gateway had allowed.
+      default-filters:
+        - RemoveRequestHeader=Origin
       globalcors:
         cors-configurations:
           '[/**]':
