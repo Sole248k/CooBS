@@ -2,7 +2,7 @@
 
 **Area:** `/infra`. Dev 8 (Jared) leads; Dev 1 (Carl) supports.
 
-**Status: compiles with Bicep 0.48.1 and passes Azure's what-if against the real subscription (9 October 2026: 33 resources to create, the registry untouched); never deployed.** Nothing in `infra/bicep` has created a resource yet. `infra/k8s` has its own README and status.
+**Status: deployed on 10 October 2026 and proven by the E2E suite (143 of 143) over HTTPS at `https://coobs.indonesiacentral.cloudapp.azure.com`.** Everything in "What is created" exists except Front Door, which a free trial may not create. The section "Proven and not proven" at the end says what the deployment showed. The record of that deployment, with the commands as they were run, is `integrated-capstone-plans/AZURE_DEPLOYMENT_AS_BUILT.md`. `infra/k8s` has its own README.
 
 This is the in-depth architecture cut to what an Azure free trial allows. It is drawn in `docs/architecture-diagrams/demo-deployment.eraserdiagram`.
 
@@ -172,7 +172,7 @@ Azure refuses Front Door on a free trial ("Free Trial and Student account is for
 - The script adds `https://<that name>` to the origins the gateway allows. Plain HTTP is answered with a redirect, and the bare IP address no longer serves anything.
 - The certificate comes from Let's Encrypt, or from ZeroSSL when Let's Encrypt refuses. That can happen: names under `cloudapp.azure.com` share one weekly allowance with every Azure customer. The e-mail address is what makes the second issuer available.
 - If the page does not open after two minutes, read `kubectl logs deployment/tls-proxy --namespace coobs --tail 40`.
-- To go back to plain HTTP, run the script again without `-DnsLabel` and `-AcmeEmail`, then remove what is left: `kubectl delete deployment/tls-proxy service/frontend configmap/tls-proxy-config pvc/tls-proxy-data --namespace coobs`.
+- Once HTTPS is on, a later run of the script keeps it without being told; it reads the label and the address from the cluster. To go back to plain HTTP, run the script with `-PlainHttp`, then remove what is left: `kubectl delete deployment/tls-proxy service/frontend configmap/tls-proxy-config pvc/tls-proxy-data --namespace coobs`.
 
 HTTPS ends at the proxy. Inside the cluster and across the link to the on-premises VM the calls are plain HTTP on private addresses, as before.
 
@@ -220,18 +220,26 @@ Admin and the tellers sign in with the generated staff password, not the seeded 
 
 Delete what the deployment created but keep the registry, or delete the whole resource group and lose the pushed images too. Key Vault keeps a deleted vault for 7 days under the same name; purge it before deploying again with `az keyvault purge`.
 
-## Not verified
+## Proven and not proven
 
-The what-if checks the templates, names, API versions and the Kubernetes version. It does not prove the points below.
+Proven by the deployment of 10 October 2026 (free trial, Indonesia Central) and an E2E run of 143 of 143 against the HTTPS address:
 
-- That a free trial may create Azure Managed Redis, and that `highAvailability: 'Disabled'` is accepted at B0.
-- That the services connect to Azure SQL and Azure Managed Redis in Azure. Locally the five database services pass E2E on SQL Server 2022.
-- That first boot installs Docker on the VM through the NAT gateway.
-- `deploy-onprem.ps1` and `start.sh` on a real VM. Checked here: the generated script and archive are well formed, the shell syntax is valid, and the Compose file passes `docker compose config`.
-- That 8 GB is enough for Oracle, PostgreSQL and four JVMs.
-- `deploy-cloud.ps1` against a real vault and cluster, and the schema Job against Azure SQL. Checked here: the render-only mode produces 10 Deployments (nine services and the console), Kafka and the on-premises endpoints with every placeholder filled, and the Job's shell script is valid. The same scripts load into SQL Server 2022 locally.
+- The Bicep creates everything except Front Door. A free trial may create Azure Managed Redis at B0.
+- The services connect to Azure SQL and Azure Managed Redis, and the schema job loads the four databases and sets the staff password.
+- First boot installs Docker on the VM through the NAT gateway, and `deploy-onprem.ps1` with `start.sh` starts the on-premises zone on it.
+- `deploy-cloud.ps1` against the real vault and cluster, including the console's nginx pod as the public entry.
+- The TLS proxy: Let's Encrypt issued a certificate for the Azure host name on the first attempt, plain HTTP is redirected, and the console, the app and the E2E suite work through it.
+
+Three things the deployment taught, all now in this folder:
+
+- The provider `Microsoft.OperationsManagement` must be registered before the cluster is created (step 2).
+- The node gives 1900m of CPU to reserve and AKS's own pods take about 1160m, so each service reserves 50m. At 100m four pods found no room.
+- Each service has a CORS list of its own, and the on-premises ones refused browser calls from the public address. The gateway now judges the origin once and does not pass it on.
+
+Not proven:
+
+- Front Door. Azure refuses it on a free trial, so the module has never created anything, and whether `service.beta.kubernetes.io/azure-allowed-service-tags` closes the load balancer as intended is unknown.
+- The link-down check (a Deny rule on the NSG) against this deployment.
+- Load: nothing heavier than the E2E suite has run. Eight GB on the VM and two vCPUs on the node were enough for that and no more is known.
+- Certificate renewal, which the proxy does by itself after about two months.
 - The NAT gateway price.
-- Front Door: the module compiles and passes what-if against the subscription, off (no Front Door resource) and on (five to create), and `Microsoft.Cdn` is registered (10 October 2026). **A free trial may not create it: Azure refused on 10 October 2026.** Whether `service.beta.kubernetes.io/azure-allowed-service-tags` closes the load balancer as intended is unproven.
-- The TLS proxy (`infra/k8s-https`). Checked: the overlay renders, the cluster accepts it in a server-side dry run, and Caddy 2.10.0 parses the rendered configuration with both issuers. Never applied: that a certificate is issued for the Azure host name, and that the console and the app work through it, are unproven.
-- The console's nginx pod on the cluster. It is the image the local stack runs, but here it runs without a mounted configuration and behind a load balancer.
-- The staff password step of the schema job (`htpasswd` in an `httpd` image, then one `UPDATE`). The shell logic and the hash prefix are checked; the job has never run.
