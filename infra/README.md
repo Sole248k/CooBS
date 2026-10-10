@@ -156,6 +156,41 @@ Add `-SaveScriptTo <file>` to see exactly what would run on the VM without calli
 
 One thing differs from the local stack on purpose. Each service gets `JAVA_OPTS=-Xmx384m`, because the images default to three quarters of the machine's memory per JVM.
 
+## Updating a running deployment
+
+`deploy-cloud.ps1` puts all ten cloud images on the one tag it is given, and the VM's Compose file does the same for its four. So the rule is: **one new tag, built for every image.**
+
+### The normal way, also when one service changed
+
+On the machine with Docker, from an up-to-date `dev`:
+
+```
+az acr login --name CooBS
+.\infra\scripts\publish-images.ps1 -ImageTag <a tag not used before>
+.\infra\scripts\deploy-cloud.ps1 -ImageTag <the same tag> -SkipSchemaLoad
+```
+
+- No `-Services` on the first line. Images whose code did not change come from Docker's cache, so only the changed ones are really rebuilt.
+- The second line refuses to start if the registry lacks the tag for any image, keeps HTTPS on by itself, and fails if a rollout does not finish.
+- `-SkipSchemaLoad` leaves the databases alone. They are loaded once, at the first deployment.
+
+If one of ledger, account, audit or batch changed, also update the VM with the same tag:
+
+```
+.\infra\scripts\deploy-onprem.ps1 -KeyVaultName <vault> -ImageTag <the same tag> -RedisHost <redis host name>
+```
+
+### The shortcut: one cloud service only
+
+```
+.\infra\scripts\publish-images.ps1 -ImageTag <new tag> -Services transaction-service
+kubectl set image deployment/transaction-service transaction-service=coobs-asfagkfjadgsgfcf.azurecr.io/coobs/transaction-service:<new tag> --namespace coobs
+kubectl rollout status deployment/transaction-service --namespace coobs
+```
+
+Put the service's name in all four places; the container in each Deployment has the Deployment's name. This touches nothing else, HTTPS included.
+
+It leaves that service on a tag the others do not have. Never give `deploy-cloud.ps1` a tag that was built for one service only: on 10 October 2026 that left nine services with a new pod waiting for a missing image, and, with the script as it was then, switched HTTPS off. The next full update builds everything under one tag again.
 ## Switching on HTTPS
 
 The first deployment answers on plain HTTP, so the address must not be given to anyone outside the team. There are two ways to put HTTPS in front of it. Do either once E2E has passed on the plain address.

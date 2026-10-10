@@ -311,7 +311,7 @@ kubectl logs deployment/tls-proxy --namespace coobs --tail 40
 .\infra\scripts\deploy-onprem.ps1 -StatusOnly
 ```
 
-To put a new version on the cluster: build all images under one new tag (`publish-images.ps1 -ImageTag <tag>`, with no `-Services`), then run `deploy-cloud.ps1 -ImageTag <tag> -SkipSchemaLoad`. The script applies a single tag to all ten images. Since problem 11 it refuses to start when the registry lacks that tag for any of them, keeps HTTPS on by itself, and fails if a rollout does not finish.
+To put a new version on the cluster: build all images under one new tag (`publish-images.ps1 -ImageTag <tag>`, with no `-Services`), then run `deploy-cloud.ps1 -ImageTag <tag> -SkipSchemaLoad`. The script applies a single tag to all ten images. Since problem 11 it refuses to start when the registry lacks that tag for any of them, keeps HTTPS on by itself, and fails if a rollout does not finish. The full steps, the shortcut for a single service and the VM are in `infra/README.md`, "Updating a running deployment".
 
 To remove everything after the presentation, follow "Removing it" in `infra/README.md`. Key Vault keeps a deleted vault for seven days under the same name.
 
