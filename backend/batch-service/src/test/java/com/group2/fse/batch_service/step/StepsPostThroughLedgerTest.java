@@ -79,7 +79,7 @@ class StepsPostThroughLedgerTest {
         when(ledgerPostings.post(eq(7L), eq("SERVICE_FEES"), anyList()))
                 .thenReturn(outcomes("EOD-202609-FEE-000004", "INSUFFICIENT_FUNDS", "EOD-202609-FEE-000013", null));
 
-        BatchStepResult result = new ServiceFeesStep(jdbcTemplate, ledgerPostings).execute(7L, MONTH_END);
+        BatchStepResult result = new ServiceFeesStep(jdbcTemplate, accounts, ledgerPostings).execute(7L, MONTH_END);
 
         assertThat(sent()).containsExactly(
                 new LedgerPostings.Posting("EOD-202609-FEE-000004", 4L, 9003L, new BigDecimal("50.00"), "Monthly maintenance fee"),
@@ -97,7 +97,7 @@ class StepsPostThroughLedgerTest {
         when(ledgerPostings.post(eq(7L), eq("SERVICE_FEES"), anyList()))
                 .thenThrow(new IllegalStateException("read timed out"));
 
-        assertThatThrownBy(() -> new ServiceFeesStep(jdbcTemplate, ledgerPostings).execute(7L, MONTH_END))
+        assertThatThrownBy(() -> new ServiceFeesStep(jdbcTemplate, accounts, ledgerPostings).execute(7L, MONTH_END))
                 .hasMessageContaining("read timed out");
     }
 
@@ -134,6 +134,7 @@ class StepsPostThroughLedgerTest {
         when(ledgerPostings.post(eq(7L), eq("INTEREST_ACCRUAL"), anyList()))
                 .thenReturn(outcomes("EOD-202609-INT-000001", null, "EOD-202609-INT-000002", "ACCOUNT_NOT_ACTIVE"));
 
+        when(accounts.accountTypes()).thenReturn(Map.of(1L, "SAVINGS", 2L, "SAVINGS"));
         when(accounts.getAccountInfo(1L)).thenReturn(new LedgerAuditHelper.AccountInfo("ACC_10000001", 1L));
 
         BatchStepResult result = new InterestAccrualStep(jdbcTemplate, notifications, accounts, ledgerPostings)
@@ -153,6 +154,7 @@ class StepsPostThroughLedgerTest {
         candidates(new Object[]{19L, new BigDecimal("16.44")});
         when(ledgerPostings.post(eq(7L), eq("INTEREST_ACCRUAL"), anyList()))
                 .thenReturn(outcomes("EOD-202609-INT-000019", null));
+        when(accounts.accountTypes()).thenReturn(Map.of(19L, "SAVINGS"));
         when(accounts.getAccountInfo(19L)).thenReturn(null);
 
         BatchStepResult result = new InterestAccrualStep(jdbcTemplate, notifications, accounts, ledgerPostings)
@@ -160,6 +162,49 @@ class StepsPostThroughLedgerTest {
 
         assertThat(result.getItemsProcessed()).isEqualTo(1);
         verify(notifications, never()).dispatchInterestNotification(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Month-end interest is for savings accounts only: a loan, a checking and an unknown account get none")
+    void interest_isPaidToSavingsAccountsOnly() {
+        // Account 6 is a loan: its "balance" is what the member still owes.
+        candidates(new Object[]{1L, new BigDecimal("82.19")}, new Object[]{6L, new BigDecimal("197.26")},
+                new Object[]{2L, new BigDecimal("41.10")}, new Object[]{77L, new BigDecimal("5.00")});
+        when(accounts.accountTypes()).thenReturn(Map.of(1L, "SAVINGS", 6L, "LOAN", 2L, "CHECKING"));
+        when(ledgerPostings.post(eq(7L), eq("INTEREST_ACCRUAL"), anyList()))
+                .thenReturn(outcomes("EOD-202609-INT-000001", null));
+
+        BatchStepResult result = new InterestAccrualStep(jdbcTemplate, notifications, accounts, ledgerPostings)
+                .execute(7L, MONTH_END);
+
+        assertThat(sent()).extracting(LedgerPostings.Posting::creditAccountId).containsExactly(1L);
+        assertThat(result.getItemsProcessed()).isEqualTo(1);
+        assertThat(result.getTotalAmount()).isEqualByComparingTo("82.19");
+    }
+
+    @Test
+    @DisplayName("Month-end interest: when the account types cannot be read the step fails and pays nobody")
+    void interest_withoutAccountTypes_failsTheStep() {
+        when(accounts.accountTypes()).thenThrow(new IllegalStateException("The account types could not be read"));
+
+        assertThatThrownBy(() -> new InterestAccrualStep(jdbcTemplate, notifications, accounts, ledgerPostings)
+                .execute(7L, MONTH_END)).hasMessageContaining("account types");
+
+        verify(ledgerPostings, never()).post(any(), anyString(), anyList());
+    }
+
+    @Test
+    @DisplayName("Fee: a loan account is never charged, however low its balance reads")
+    void fee_isNotChargedToALoanAccount() {
+        candidates(new Object[]{10L, new BigDecimal("120.00")}, new Object[]{13L, new BigDecimal("30.00")});
+        when(accounts.accountTypes()).thenReturn(Map.of(10L, "LOAN", 13L, "SAVINGS"));
+        when(ledgerPostings.post(eq(7L), eq("SERVICE_FEES"), anyList()))
+                .thenReturn(outcomes("EOD-202609-FEE-000013", null));
+
+        BatchStepResult result = new ServiceFeesStep(jdbcTemplate, accounts, ledgerPostings).execute(7L, MONTH_END);
+
+        assertThat(sent()).extracting(LedgerPostings.Posting::debitAccountId).containsExactly(13L);
+        assertThat(result.getItemsProcessed()).isEqualTo(1);
     }
 
     @Test
