@@ -9,10 +9,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.math.RoundingMode;
+import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.channels.UnresolvedAddressException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -42,9 +45,12 @@ public class ProposalPartnerAdapter implements PartnerAdapter {
             @Value("${app.interbank.outbound.partner-timeout-ms:5000}") long timeoutMs) {
         this.objectMapper = objectMapper;
         this.timeout = Duration.ofMillis(timeoutMs);
+        // Shorter than the request timeout, so that a partner that cannot be reached at all
+        // (nothing was sent) is told apart from one that was reached and is slow to answer
+        // (the message may be with it).
         this.http = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(this.timeout)
+                .connectTimeout(Duration.ofMillis(Math.min(2000, timeoutMs / 2)))
                 .build();
     }
 
@@ -115,6 +121,11 @@ public class ProposalPartnerAdapter implements PartnerAdapter {
             Thread.currentThread().interrupt();
             return PartnerAnswer.unknown();
         } catch (Exception e) {
+            if (neverConnected(e)) {
+                log.warn("{} could not be reached for the {} of message {}; nothing was sent: {}",
+                        bank, what, t.messageId(), e.toString());
+                return PartnerAnswer.unreachable();
+            }
             log.warn("{} did not answer the {} of message {}: {}", bank, what, t.messageId(), e.toString());
             return PartnerAnswer.unknown();
         }
@@ -141,6 +152,21 @@ public class ProposalPartnerAdapter implements PartnerAdapter {
                 yield PartnerAnswer.unknown();
             }
         };
+    }
+
+    /**
+     * True when the failure happened before any connection existed: the address does not
+     * resolve, the port refuses, or the connection attempt timed out. Not one byte of the
+     * request left this service. A timeout or a reset after connecting is not this.
+     */
+    private static boolean neverConnected(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ConnectException || cause instanceof HttpConnectTimeoutException
+                    || cause instanceof UnresolvedAddressException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String base(OutboundTransfer t) {

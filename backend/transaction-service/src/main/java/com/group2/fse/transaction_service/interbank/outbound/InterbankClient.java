@@ -12,7 +12,9 @@ import org.springframework.stereotype.Component;
  *   <li>send, with our transaction ID as the message ID;</li>
  *   <li>no answer: ask the partner's status endpoint, up to three times, a little apart;</li>
  *   <li>status says it was never received: it is safe to send the same message once more;</li>
- *   <li>still nothing: the outcome is unknown, and stays unknown until a later call.</li>
+ *   <li>still nothing: the outcome is unknown, and stays unknown until a later call;</li>
+ *   <li>the partner cannot be reached at all for a message it does not have: nothing was sent,
+ *       which is an answer (UNREACHABLE), not an unknown.</li>
  * </ul>
  *
  * A partner with no address configured is our own loopback.
@@ -47,7 +49,8 @@ public class InterbankClient {
         if (mayHaveBeenSent) {
             PartnerAnswer earlier = partner.status(transfer);
             if (earlier.outcome() != PartnerAnswer.Outcome.NOT_FOUND) {
-                return earlier;
+                // Not reaching the partner now says nothing about a message it may already have.
+                return earlier.decided() ? earlier : PartnerAnswer.unknown();
             }
             // The partner never received it: this is the one repeat the proposal allows.
             resendAllowed = false;
@@ -58,6 +61,12 @@ public class InterbankClient {
         }
 
         PartnerAnswer answer = partner.send(transfer);
+        if (answer.outcome() == PartnerAnswer.Outcome.UNREACHABLE && !mayHaveBeenSent) {
+            // This is the first time the message is sent, and the send never connected. So it
+            // was never sent, and the caller may give the sender's money back. A message that an
+            // earlier call may have sent stays unknown instead: that request could still arrive.
+            return answer;
+        }
         for (int attempt = 1; !answer.decided() && attempt <= statusAttempts; attempt++) {
             if (!pause()) {
                 return PartnerAnswer.unknown();

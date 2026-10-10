@@ -319,9 +319,11 @@ Registration is not available to anyone: members are seeded.
 | Outbound inter-bank: partner accepts             | Hold captured against the partner's settlement account                                                                          | `POSTED`                          |
 | Outbound inter-bank: partner rejects             | Hold released                                                                                                                   | `FAILED`, `INTERBANK_REJECTED`    |
 | Outbound inter-bank: partner silent              | Status asked up to three times; the hold is kept and staff are alerted                                                          | `PROCESSING`                      |
+| Outbound inter-bank: partner cannot be reached at all on the first send | Nothing was sent, so the hold is released | `FAILED`, `INTERBANK_REJECTED` (reason `PARTNER_UNREACHABLE`) |
 | Outbound inter-bank: ledger refuses the capture after the partner accepted | The hold is kept, not released; staff resolve it | `PROCESSING` |
 | Reversal asked for a transfer that is with, or has posted to, a partner bank | Refused; the money comes back only as a transfer from that bank | Reversal `FAILED`, `REVERSAL_NOT_ALLOWED` |
 | Reversal requested                               | Ledger posts the compensating entries                                                                                           | Original becomes`REVERSED`        |
+| Reversal asked while the transfer is still waiting for its hold | The reversal waits and is run again by the sweep, because the hold may exist; it then releases the hold, reverses the posting, or finds the transfer failed | Reversal `PROCESSING` until the transfer settles |
 
 ---
 

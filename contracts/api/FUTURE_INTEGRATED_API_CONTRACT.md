@@ -1538,13 +1538,14 @@ The gateway reads the beneficiary's account number, name and the remarks from it
 | `partnerStatus` | Meaning | `reasonCode` |
 | --- | --- | --- |
 | `ACCEPTED` | The partner has credited its customer. `partnerReference` is the partner's own reference | `null` |
-| `REJECTED` | The partner refused. Nothing was credited | The partner's reason code |
+| `REJECTED` | The partner refused, or could not be reached at all on the first send. Nothing was credited | The partner's reason code, or `PARTNER_UNREACHABLE` |
 | `PENDING` | Not an answer from the partner: the gateway sent the message, asked for its status, and still does not know | `null` |
 
 - **Safe to repeat.** The gateway sends one message per `transactionId`. Called again, it answers with what the partner said before, or asks the partner's status endpoint; it never sends a second transfer.
 - **A 4xx means nothing was sent** (`404 TRANSACTION_NOT_FOUND`, `422 INTERBANK_REJECTED` for a bank that is not a configured partner, `400` when the bank or amount does not match the transaction). The saga releases the hold and fails the transfer.
 - **A 5xx or no answer means the outcome is unknown.** The saga treats it as `PENDING`. `503 ACCOUNT_UNAVAILABLE` is the one 5xx the gateway chooses: the sender's account could not be read, nothing was sent, and the saga asks again.
 - **Once a message may have left, I4 never answers with an error.** The message is marked `PENDING` before the partner is called. From then on anything that goes wrong is answered `PENDING`, and the next call asks the partner's status endpoint before anything is sent again.
+- **A partner that cannot be reached was never sent to.** When the first send opens no connection (the address does not resolve, the port refuses, the connection attempt times out), nothing left the gateway. That is answered `REJECTED` with `PARTNER_UNREACHABLE`, so the hold is released; otherwise a wrong partner address would hold the sender's money with no way to free it. A partner that was reached and then went silent is different: the message may be with it, and the answer stays `PENDING`.
 - **A partner with no address is our own loopback.** `app.interbank.partners.<CODE>.base-url` says where a partner's I1 and I2 are. When it is empty there is no real bank behind the code: the gateway accepts the transfer itself, except to an account number beginning `0000`, which it refuses with `ACCOUNT_NOT_FOUND` so that a refusal can be shown. `BANKB` is seeded this way.
 - If the ledger refuses the capture after the partner has accepted, the hold is **not** released: the partner holds the money, so the transfer stays at `FUNDS_RESERVED` for staff.
 - A transfer that is with a partner bank, or has posted to one, cannot be reversed through T5: the reversal ends `FAILED` with `REVERSAL_NOT_ALLOWED`. The money comes back only as a transfer from that bank (I1).
