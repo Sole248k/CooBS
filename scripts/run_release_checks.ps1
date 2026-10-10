@@ -205,7 +205,8 @@ foreach ($step in $steps) {
 }
 
 # ---------------------------------------------------------------------------- the twelve scenarios
-Write-Host "`n{0,3}  {1,-46} {2,-34} {3}" -f "#", "Demo scenario", "Proved by", "Result"
+# In brackets: without them PowerShell reads -f as Write-Host's -ForegroundColor.
+Write-Host ("`n{0,3}  {1,-46} {2,-34} {3}" -f "#", "Demo scenario", "Proved by", "Result")
 Write-Host ("-" * 100)
 $anyFailure = $false
 foreach ($scenario in $scenarios) {

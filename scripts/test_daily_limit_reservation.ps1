@@ -46,7 +46,14 @@ function Get-Token([string]$path, [string]$username, [string]$password) {
 function Get-Account([string]$token) {
     $accounts = Invoke-RestMethod -Uri "$baseUrl/api/v1/accounts/my-accounts" -Headers @{ Authorization = "Bearer $token" }
     if ($accounts.content) { $accounts = $accounts.content }
-    return @($accounts)[0]
+    # A member can also hold a loan account, which has no balance to send from, and the list
+    # comes in no promised order. Take the deposit account.
+    $deposit = @($accounts) | Where-Object { $_.accountType -ne "LOAN" -and $null -ne $_.availableBalance } |
+        Select-Object -First 1
+    if (-not $deposit) {
+        throw "No deposit account with a balance came back from /api/v1/accounts/my-accounts for this member."
+    }
+    return $deposit
 }
 
 function Get-CustomerId([string]$token) {
