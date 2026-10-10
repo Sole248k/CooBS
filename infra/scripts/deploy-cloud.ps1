@@ -34,6 +34,10 @@ param(
     [string]$ResourceGroup = "CooBS-rsg",
     [string]$DeploymentName = "coobs-demo",
     [switch]$SkipSchemaLoad,
+    # Puts the cloud data back to the seed: stops the services, empties Redis, removes every table
+    # from the four databases and loads them again. Everything made since the first load is lost.
+    # The on-premises data is reset by deploy-onprem.ps1 -ResetData; do both, that one first.
+    [switch]$ResetData,
     # HTTPS at the public entry without Front Door (infra/k8s-https): the address gets the host
     # name <label>.<location>.cloudapp.azure.com and a TLS proxy that fetches a certificate for it.
     [ValidatePattern('^[a-z][a-z0-9-]{1,61}[a-z0-9]$')] [string]$DnsLabel,
@@ -84,6 +88,7 @@ function New-Hex([int]$bytes) {
 function Get-Manifests([string]$sqlFqdn, [string]$sqlLogin, [string]$redis, [string]$frontDoor) {
     if ($DnsLabel -and $frontDoor) { throw "-DnsLabel puts HTTPS at the cluster's own entry; Front Door is on in this deployment. Use one or the other." }
     if ($DnsLabel -and -not $AcmeEmail) { throw "-DnsLabel needs -AcmeEmail" }
+    if ($ResetData -and $SkipSchemaLoad) { throw "-ResetData loads the databases again, so it cannot be used with -SkipSchemaLoad" }
     $folder = if ($DnsLabel) { "infra\k8s-https" } else { "infra\k8s" }
     $rendered = Join-Path $work "rendered.yaml"
     Invoke-Native "kubectl kustomize" { kubectl kustomize (Join-Path $repo $folder) --output $rendered } | Out-Null
@@ -225,7 +230,18 @@ try {
     if ($SkipSchemaLoad) {
         Write-Host "4. Schema load skipped" -ForegroundColor Yellow
     } else {
-        Write-Host "4. Loading the four databases on $sqlFqdn (the first run pulls a large image)" -ForegroundColor Cyan
+        if ($ResetData) {
+            Write-Host "4. RESET: stopping the services, then emptying Redis and the four databases on $sqlFqdn" -ForegroundColor Yellow
+            # A service that writes while the seed is being loaded breaks the load. Step 5 starts
+            # them again, because the manifests say one replica each.
+            $running = kubectl get deployments --namespace $namespace --output "jsonpath={.items[*].metadata.name}"
+            Invoke-Native "kubectl scale" { kubectl scale deployment --all --replicas=0 --namespace $namespace } | Out-Null
+            foreach ($name in ($running -split " ")) {
+                if ($name) { kubectl wait --for=delete pod --selector "app.kubernetes.io/name=$name" --namespace $namespace --timeout=120s 2>$null | Out-Null }
+            }
+        } else {
+            Write-Host "4. Loading the four databases on $sqlFqdn (the first run pulls a large image)" -ForegroundColor Cyan
+        }
         $sql = Join-Path $repo "database\azure-sql"
         kubectl delete job coobs-load-schemas --namespace $namespace --ignore-not-found | Out-Null
         kubectl delete configmap coobs-sql-scripts coobs-sql-target --namespace $namespace --ignore-not-found | Out-Null
@@ -236,7 +252,8 @@ try {
         } | Out-Null
         Invoke-Native "kubectl create configmap coobs-sql-target" {
             kubectl create configmap coobs-sql-target --namespace $namespace `
-                "--from-literal=SQL_SERVER_FQDN=$sqlFqdn" "--from-literal=CLOUD_DB_USER=$sqlLogin"
+                "--from-literal=SQL_SERVER_FQDN=$sqlFqdn" "--from-literal=CLOUD_DB_USER=$sqlLogin" `
+                "--from-literal=RESET_DATA=$("$ResetData".ToLower())"
         } | Out-Null
         Invoke-Native "kubectl apply job" { kubectl apply -f (Join-Path $repo "infra\k8s\jobs\load-schemas.yaml") } | Out-Null
         # Polled, so that a failed job ends the wait at once instead of running into the timeout.
@@ -246,8 +263,12 @@ try {
             $state = kubectl get job coobs-load-schemas --namespace $namespace --output "jsonpath={.status.succeeded}/{.status.failed}"
         } while ($state -eq "/" -and (Get-Date) -lt $deadline)
         $loaded = $state.StartsWith("1")
+        if ($ResetData) { kubectl logs --namespace $namespace job/coobs-load-schemas --container flush-redis --tail=5 }
         kubectl logs --namespace $namespace job/coobs-load-schemas --tail=40
-        if (-not $loaded) { throw "The schema load did not complete. The log above says which database stopped it." }
+        if (-not $loaded) {
+            if ($ResetData) { Write-Host "The services are stopped. Run this script again with -ResetData once the cause is fixed; it starts from an empty state each time." -ForegroundColor Red }
+            throw "The schema load did not complete. The log above says which database stopped it."
+        }
     }
 
     # -------------------------------------------------------------------------

@@ -16,6 +16,10 @@
 # for the members of a demo and not for admin and the tellers on a public address, so the last
 # step replaces the staff hashes with the hash of STAFF_PASSWORD, on every run. The hash is made
 # by htpasswd in the first container (bcrypt, cost 10, the form auth-service reads).
+#
+# With RESET_DATA=true (deploy-cloud.ps1 -ResetData) it first empties Redis and removes every
+# table from the four databases, so the load that follows puts the seed back. The script stops
+# the services before it runs this, because a service that writes during the load breaks it.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -55,6 +59,49 @@ spec:
               memory: 16Mi
             limits:
               memory: 64Mi
+        # Only on a reset. The risk engine's counters, the idempotency keys and the sessions in
+        # Redis belong to the data that is about to be removed. The two settings are optional
+        # because on the very first deployment coobs-config does not exist yet.
+        - name: flush-redis
+          image: redis:7-alpine
+          env:
+            - name: RESET_DATA
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-sql-target
+                  key: RESET_DATA
+                  optional: true
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: REDIS_HOST
+                  optional: true
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: REDIS_PORT
+                  optional: true
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: REDIS_PASSWORD
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              if [ "$RESET_DATA" != "true" ]; then echo "No reset asked for; Redis is left alone."; exit 0; fi
+              # -e: an error answer from Redis fails this container, and with it the job, before
+              # any database is touched.
+              redis-cli -e -h "$REDIS_HOST" -p "$REDIS_PORT" --tls --no-auth-warning FLUSHALL
+              echo "Redis is empty."
+          resources:
+            requests:
+              memory: 16Mi
+            limits:
+              memory: 64Mi
       containers:
         - name: sqlcmd
           image: mcr.microsoft.com/mssql/server:2022-latest
@@ -74,6 +121,12 @@ spec:
                 secretKeyRef:
                   name: coobs-app-secrets
                   key: CLOUD_DB_PASSWORD
+            - name: RESET_DATA
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-sql-target
+                  key: RESET_DATA
+                  optional: true
           command:
             - /bin/bash
             - -ec
@@ -96,6 +149,20 @@ spec:
                   echo "$db: loaded"
                 fi
               }
+              # The scripts create tables and indexes only, so a database with its foreign keys,
+              # tables and the mark removed is as good as new.
+              wipe() {
+                echo "$1: removing every table"
+                run -d "$1" -Q "SET NOCOUNT ON;
+                  DECLARE @keys NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(N'ALTER TABLE ' + QUOTENAME(SCHEMA_NAME(t.schema_id)) + N'.' + QUOTENAME(t.name) + N' DROP CONSTRAINT ' + QUOTENAME(f.name) AS NVARCHAR(MAX)), N'; ') FROM sys.foreign_keys f JOIN sys.tables t ON t.object_id = f.parent_object_id);
+                  DECLARE @tables NVARCHAR(MAX) = (SELECT STRING_AGG(CAST(N'DROP TABLE ' + QUOTENAME(SCHEMA_NAME(schema_id)) + N'.' + QUOTENAME(name) AS NVARCHAR(MAX)), N'; ') FROM sys.tables);
+                  IF @keys IS NOT NULL EXEC sys.sp_executesql @keys;
+                  IF @tables IS NOT NULL EXEC sys.sp_executesql @tables;
+                  IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE class = 0 AND name = N'coobs_seed') EXEC sys.sp_dropextendedproperty @name = N'coobs_seed';"
+              }
+              if [ "$RESET_DATA" = "true" ]; then
+                for db in identity_db customer_db transaction_db notification_db; do wipe "$db"; done
+              fi
               load identity_db     02_identity_db.sql
               load customer_db     03_customer_db.sql
               load transaction_db  04_transaction_db.sql

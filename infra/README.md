@@ -191,6 +191,35 @@ kubectl rollout status deployment/transaction-service --namespace coobs
 Put the service's name in all four places; the container in each Deployment has the Deployment's name. This touches nothing else, HTTPS included.
 
 It leaves that service on a tag the others do not have. Never give `deploy-cloud.ps1` a tag that was built for one service only: on 10 October 2026 that left nine services with a new pod waiting for a missing image, and, with the script as it was then, switched HTTPS off. The next full update builds everything under one tag again.
+## Putting the data back to the seed
+
+Testing changes the data: transfers, holds, balances, audit rows, notifications, end-of-day runs, the risk engine's daily counters. Two commands put all of it back to what the first deployment loaded. **Everything made since then is lost, on purpose.** Allow about fifteen minutes, during which the system is down.
+
+Find the tag that is running, then reset the on-premises zone first (Oracle takes the longest), then the cloud zone:
+
+```
+kubectl get deployment api-gateway --namespace coobs --output "jsonpath={.spec.template.spec.containers[0].image}"
+.\infra\scripts\deploy-onprem.ps1 -KeyVaultName <vault> -ImageTag <the tag the VM runs> -RedisHost <redis host name> -ResetData
+.\infra\scripts\deploy-onprem.ps1 -StatusOnly
+.\infra\scripts\deploy-cloud.ps1 -ImageTag <the tag the cluster runs> -ResetData
+```
+
+Run the third line until all six containers are healthy before the fourth. Then run the E2E suite once to see that the seed is back.
+
+| What | How it is reset |
+| --- | --- |
+| Oracle and the audit store on the VM | `deploy-onprem.ps1 -ResetData` removes both data volumes, so the init scripts load the seed again when the containers start |
+| The four Azure SQL databases | `deploy-cloud.ps1 -ResetData` stops the services, then the load job removes every table and loads the seed again |
+| Redis | The same job empties it first: risk counters, idempotency keys, sessions. Everyone signs in again |
+| Staff password | Unchanged: the job sets the one from Key Vault on every run |
+| HTTPS and the certificate | Untouched |
+| Kafka | Not emptied. The old events stay in the topics and have already been consumed, so nothing is replayed |
+
+Both zones must be reset together. The ledger on the VM and the transfer records in the cloud describe the same transfers; resetting one side alone leaves them disagreeing.
+
+If the cloud command stops half way, the services stay stopped. Run it again with `-ResetData`; it starts from an empty state each time.
+
+On the local stack the same is done by removing the volumes (`docker compose down -v`) and starting again. `scripts/reset_demo_data.ps1` is smaller: it clears the end-of-day state and the risk counters only.
 ## Switching on HTTPS
 
 The first deployment answers on plain HTTP, so the address must not be given to anyone outside the team. There are two ways to put HTTPS in front of it. Do either once E2E has passed on the plain address.
@@ -277,4 +306,5 @@ Not proven:
 - The link-down check (a Deny rule on the NSG) against this deployment.
 - Load: nothing heavier than the E2E suite has run. Eight GB on the VM and two vCPUs on the node were enough for that and no more is known.
 - Certificate renewal, which the proxy does by itself after about two months.
+- The data reset (`-ResetData` on both scripts). Checked: both scripts parse, the on-premises dry run shows the volume removal before the start, the cluster accepts the changed job, and its shell runs in the right order against a stand-in. Never run for real, and the SQL that removes the tables has not run against any SQL Server.
 - The NAT gateway price.
