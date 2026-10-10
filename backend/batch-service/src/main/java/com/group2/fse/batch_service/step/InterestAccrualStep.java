@@ -31,6 +31,7 @@ public class InterestAccrualStep implements BatchStepExecutor {
     private final LedgerPostings ledgerPostings;
 
     private static final Long GL_INTEREST_EXPENSE = 9002L;
+    private static final String SAVINGS = "SAVINGS";
 
     @Override
     public int getStepNo() {
@@ -57,21 +58,7 @@ public class InterestAccrualStep implements BatchStepExecutor {
             log.info("[BatchRun #{}] End-of-Month detected for {}. Executing Monthly Interest Capitalization ({} days).",
                     batchRunId, businessDate, daysInMonth);
 
-            // Candidates come from the last audited balance; the ledger posts on the live one.
-            List<Object[]> eligibleAccounts = jdbcTemplate.query(
-                    "SELECT a.account_id, ROUND(a.new_balance * 0.02 * ? / 365.0, 2) AS month_interest " +
-                    "FROM audit_store.ledger_mutation_audit a " +
-                    "INNER JOIN (" +
-                    "    SELECT account_id, MAX(audit_id) AS max_id " +
-                    "    FROM audit_store.ledger_mutation_audit " +
-                    "    WHERE account_id < 9000 AND DATE(event_timestamp) <= ? " +
-                    "    GROUP BY account_id" +
-                    ") m ON a.audit_id = m.max_id " +
-                    "WHERE a.new_balance >= 1000",
-                    (rs, rowNum) -> new Object[]{rs.getLong(1), rs.getBigDecimal(2)},
-                    daysInMonth,
-                    java.sql.Date.valueOf(businessDate)
-            );
+            List<Object[]> eligibleAccounts = savingsInterest(daysInMonth, businessDate);
 
             // One reference per account and month: debit 9002 GL_INTEREST_EXPENSE, credit the
             // member. A second run in the same month is answered from the journal and pays nothing more.
@@ -133,22 +120,9 @@ public class InterestAccrualStep implements BatchStepExecutor {
             // REGULAR DAY ACCRUAL (Daily GL liability booking, no cash payout)
             // =========================================================================
             try {
-                var rows = jdbcTemplate.query(
-                        "SELECT COUNT(*), COALESCE(SUM(ROUND(a.new_balance * 0.02 / 365.0, 2)), 0) " +
-                        "FROM audit_store.ledger_mutation_audit a " +
-                        "INNER JOIN (" +
-                        "    SELECT account_id, MAX(audit_id) AS max_id " +
-                        "    FROM audit_store.ledger_mutation_audit " +
-                        "    WHERE account_id < 9000 AND DATE(event_timestamp) <= ? " +
-                        "    GROUP BY account_id" +
-                        ") m ON a.audit_id = m.max_id " +
-                        "WHERE a.new_balance >= 1000",
-                        (rs, rowNum) -> new Object[]{rs.getInt(1), rs.getBigDecimal(2)},
-                        java.sql.Date.valueOf(businessDate)
-                );
-                if (!rows.isEmpty() && ((Integer) rows.get(0)[0]) > 0) {
-                    processed = (Integer) rows.get(0)[0];
-                    totalInterest = (BigDecimal) rows.get(0)[1];
+                for (Object[] account : savingsInterest(1, businessDate)) {
+                    processed++;
+                    totalInterest = totalInterest.add((BigDecimal) account[1]);
                 }
             } catch (Exception ex) {
                 log.warn("Could not query live ledger balances for daily interest accrual: {}", ex.getMessage());
@@ -163,5 +137,33 @@ public class InterestAccrualStep implements BatchStepExecutor {
                     .message("Daily interest accrued across " + processed + " accounts (Booked to GL 9002 Expense)")
                     .build();
         }
+    }
+
+    /**
+     * The savings accounts that earn interest for the date, each with its interest for the given
+     * number of days. Candidates come from the last audited balance; the ledger posts on the live
+     * one. The audit store does not know what kind of account a balance belongs to, so the types
+     * are read from the system of record: interest is for savings accounts only. Without that, a
+     * loan account, whose "balance" is what the member still owes, was paid interest too.
+     */
+    private List<Object[]> savingsInterest(int days, LocalDate businessDate) {
+        Map<Long, String> accountTypes = ledgerAuditHelper.accountTypes();
+        List<Object[]> candidates = jdbcTemplate.query(
+                "SELECT a.account_id, ROUND(a.new_balance * 0.02 * ? / 365.0, 2) AS interest " +
+                "FROM audit_store.ledger_mutation_audit a " +
+                "INNER JOIN (" +
+                "    SELECT account_id, MAX(audit_id) AS max_id " +
+                "    FROM audit_store.ledger_mutation_audit " +
+                "    WHERE account_id < 9000 AND DATE(event_timestamp) <= ? " +
+                "    GROUP BY account_id" +
+                ") m ON a.audit_id = m.max_id " +
+                "WHERE a.new_balance >= 1000",
+                (rs, rowNum) -> new Object[]{rs.getLong(1), rs.getBigDecimal(2)},
+                days,
+                java.sql.Date.valueOf(businessDate)
+        );
+        return candidates.stream()
+                .filter(candidate -> SAVINGS.equalsIgnoreCase(accountTypes.get((Long) candidate[0])))
+                .toList();
     }
 }

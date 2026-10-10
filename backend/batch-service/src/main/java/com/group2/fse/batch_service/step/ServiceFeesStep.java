@@ -24,6 +24,7 @@ import java.util.Map;
 public class ServiceFeesStep implements BatchStepExecutor {
 
     private final JdbcTemplate jdbcTemplate;
+    private final LedgerAuditHelper ledgerAuditHelper;
     private final LedgerPostings ledgerPostings;
 
     private static final BigDecimal FEE_AMOUNT = new BigDecimal("50.00");
@@ -63,9 +64,15 @@ public class ServiceFeesStep implements BatchStepExecutor {
         // One reference per account and month: a second run in the same month is answered from
         // the journal and charges nothing more.
         String month = businessDate.format(DateTimeFormatter.ofPattern("yyyyMM"));
+        // The audit store does not know an account's type. A loan account's "balance" is what the
+        // member still owes, so a nearly repaid loan would look like a low balance and be charged.
+        Map<Long, String> accountTypes = ledgerAuditHelper.accountTypes();
         List<LedgerPostings.Posting> postings = new ArrayList<>();
         for (Object[] row : lowBalanceAccounts) {
             Long accountId = (Long) row[0];
+            if ("LOAN".equalsIgnoreCase(accountTypes.get(accountId))) {
+                continue;
+            }
             BigDecimal balance = (BigDecimal) row[1];
             BigDecimal fee = balance.compareTo(FEE_AMOUNT) >= 0 ? FEE_AMOUNT : balance;
             postings.add(new LedgerPostings.Posting("EOD-" + month + "-FEE-" + String.format("%06d", accountId),

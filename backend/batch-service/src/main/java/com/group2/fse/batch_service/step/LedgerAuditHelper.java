@@ -12,6 +12,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -54,6 +56,28 @@ public class LedgerAuditHelper {
             log.warn("Could not read account #{} from the system of record: {}", accountId, ex.getMessage());
         }
         return null;
+    }
+
+    /**
+     * The type of every account (SAVINGS, CHECKING, CURRENT, LOAN), by account ID, read from
+     * Oracle. The audit store, where the steps find their candidates, does not know what kind of
+     * account a balance belongs to.
+     *
+     * @throws IllegalStateException when the accounts cannot be read. The step then fails: on a
+     *         guess it would pay savings interest into a loan account.
+     */
+    public Map<Long, String> accountTypes() {
+        Map<Long, String> types = new HashMap<>();
+        try (Connection conn = connect();
+             PreparedStatement stmt = conn.prepareStatement("SELECT account_id, account_type FROM CORE_USER.ACCOUNT");
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                types.put(rs.getLong(1), rs.getString(2));
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("The account types could not be read: " + ex.getMessage(), ex);
+        }
+        return types;
     }
 
     /** One day of the journal, added up for GL reconciliation. */
