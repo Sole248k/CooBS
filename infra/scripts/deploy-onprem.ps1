@@ -26,6 +26,10 @@ param(
     [Parameter(Mandatory, ParameterSetName = "Deploy")] [string]$RedisHost,
     [Parameter(ParameterSetName = "Deploy")] [string]$Registry = "coobs-asfagkfjadgsgfcf.azurecr.io",
     [Parameter(ParameterSetName = "Deploy")] [string]$KafkaBootstrap = "10.240.15.200:9094",
+    # Puts Oracle and the audit store back to the seed: removes both data volumes before the
+    # start, so the init scripts run again. Everything posted since the first start is lost.
+    # Oracle then needs several minutes. Reset the cloud data too (deploy-cloud.ps1 -ResetData).
+    [Parameter(ParameterSetName = "Deploy")] [switch]$ResetData,
     [Parameter(Mandatory, ParameterSetName = "Status")] [switch]$StatusOnly,
     [string]$ResourceGroup = "CooBS-rsg",
     [string]$VmName = "vm-coobs-onprem",
@@ -57,6 +61,10 @@ if ($StatusOnly) {
     if ($LASTEXITCODE -ne 0) { throw "tar failed" }
     $encoded = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($archive), "InsertLineBreaks") -replace "`r", ""
 
+    # Without an .env from an earlier start there is nothing to remove, and Compose could not
+    # read its file anyway.
+    $reset = if ($ResetData) { "if [ -f .env ]; then docker compose down --volumes; echo COOBS_DATA_REMOVED; fi" } else { "" }
+
     # Line endings are fixed on the VM as well, in case this checkout has Windows ones.
     $script = @"
 set -eu
@@ -69,6 +77,7 @@ tar -xzf bundle.tgz
 rm bundle.tgz
 sed -i 's/\r`$//' start.sh docker-compose.yml
 chmod +x start.sh
+$reset
 ./start.sh '$KeyVaultName' '$Registry' '$ImageTag' '$RedisHost' '$KafkaBootstrap'
 echo COOBS_STARTED
 "@ -replace "`r", ""
