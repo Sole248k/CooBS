@@ -1,0 +1,141 @@
+# Screen aggregation for the React staff console.
+# Values mirror the staff-bff block in docker-compose.yml; names are in contracts/runtime/RUNTIME_SETTINGS.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: staff-bff
+  labels:
+    app.kubernetes.io/name: staff-bff
+    app.kubernetes.io/part-of: coobs
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: staff-bff
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: staff-bff
+        app.kubernetes.io/part-of: coobs
+    spec:
+      automountServiceAccountToken: false
+      # No service-link variables (<NAME>_SERVICE_HOST, <NAME>_PORT): every address comes from coobs-config.
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: staff-bff
+          image: coobs/staff-bff
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8095
+          env:
+            - name: SERVER_PORT
+              value: "8095"
+            - name: JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: JAVA_OPTS
+            - name: CUSTOMER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: CUSTOMER_SERVICE_URL
+            - name: TRANSACTION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: TRANSACTION_SERVICE_URL
+            - name: NOTIFICATION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: NOTIFICATION_SERVICE_URL
+            # These four cross the link
+            - name: ACCOUNT_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: ACCOUNT_SERVICE_URL
+            - name: LEDGER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: LEDGER_SERVICE_URL
+            - name: AUDIT_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: AUDIT_SERVICE_URL
+            - name: BATCH_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: BATCH_SERVICE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: JWT_SECRET
+            - name: JWT_EXPIRATION_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: JWT_EXPIRATION_MS
+            - name: CORS_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: CORS_ALLOWED_ORIGINS
+          # Nine JVMs start together on two vCPUs, so the first start is allowed six minutes.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 72
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 384Mi
+            limits:
+              memory: 640Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: staff-bff
+  labels:
+    app.kubernetes.io/name: staff-bff
+    app.kubernetes.io/part-of: coobs
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: staff-bff
+  ports:
+    - name: http
+      port: 8095
+      targetPort: http

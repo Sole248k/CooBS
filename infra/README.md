@@ -108,7 +108,7 @@ Each command below creates or changes resources and costs money. Run them yourse
 
 4. Publish the images and note the tag. There are two ways:
 
-   - **From a machine with Docker**, while the pipeline is switched off. Sign in to the registry, then build and push the twelve deployed services from a clean checkout of the commit to deploy. `-DryRun` prints the commands without running them.
+   - **From a machine with Docker**, while the pipeline is switched off. Sign in to the registry, then build and push the thirteen deployed services from a clean checkout of the commit to deploy. `-DryRun` prints the commands without running them.
 
      ```
      az acr login --name CooBS
@@ -152,7 +152,24 @@ The VM has no public address, so nothing is copied to it over SSH. `infra/script
 
 Add `-SaveScriptTo <file>` to see exactly what would run on the VM without calling Azure.
 
-Two things differ from the local stack on purpose. Each service gets `JAVA_OPTS=-Xmx384m`, because the images default to three quarters of the machine's memory per JVM. And batch-service is given the Oracle settings; locally it is given none and falls back to a password written in its code, which would not match a generated one.
+One thing differs from the local stack on purpose. Each service gets `JAVA_OPTS=-Xmx384m`, because the images default to three quarters of the machine's memory per JVM.
+
+## The mobile app
+
+The Flutter app is not hosted anywhere: it is an Android package installed on the demo phones by hand. Build it against the gateway's address once `deploy-cloud.ps1` has printed it:
+
+```
+cd app
+flutter build apk --release --dart-define=GATEWAY_URL=http://<gateway address>
+```
+
+The package is `app/build/app/outputs/flutter-apk/app-release.apk`. Three things to know:
+
+- The address can also be changed on the phone, from the sign-in screen, so one package serves the local stack and Azure.
+- The release build is signed with the debug key (`app/android/app/build.gradle.kts`). That is fine for installing by hand and not for a store.
+- The Android manifest allows plain HTTP, and it has to while the gateway has no TLS. Remove that when Front Door is in front.
+
+The React staff console has no place in the deployment yet; `staff-bff`, which it calls, is deployed.
 
 ## Removing it
 
@@ -167,5 +184,5 @@ The what-if checks the templates, names, API versions and the Kubernetes version
 - That first boot installs Docker on the VM through the NAT gateway.
 - `deploy-onprem.ps1` and `start.sh` on a real VM. Checked here: the generated script and archive are well formed, the shell syntax is valid, and the Compose file passes `docker compose config`.
 - That 8 GB is enough for Oracle, PostgreSQL and four JVMs.
-- `deploy-cloud.ps1` against a real vault and cluster, and the schema Job against Azure SQL. Checked here: the render-only mode produces 8 Deployments, Kafka and the on-premises endpoints with every placeholder filled, and the Job's shell script is valid. The same scripts load into SQL Server 2022 locally.
+- `deploy-cloud.ps1` against a real vault and cluster, and the schema Job against Azure SQL. Checked here: the render-only mode produces 9 Deployments, Kafka and the on-premises endpoints with every placeholder filled, and the Job's shell script is valid. The same scripts load into SQL Server 2022 locally.
 - The NAT gateway price.

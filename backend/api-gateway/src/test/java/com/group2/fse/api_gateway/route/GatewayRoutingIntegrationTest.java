@@ -18,7 +18,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"management.health.redis.enabled=false"})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+        "management.health.redis.enabled=false",
+        // What a deployment sets through CORS_ALLOWED_ORIGINS: where the hosted console is served from.
+        "CORS_ALLOWED_ORIGINS=https://console.example.test,http://203.0.113.7:3000"})
 class GatewayRoutingIntegrationTest {
 
     @LocalServerPort
@@ -137,6 +140,28 @@ class GatewayRoutingIntegrationTest {
                 .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000")
                 .expectHeader().value(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, methods ->
                         assertThat(methods).contains("POST"));
+    }
+
+    @Test
+    @DisplayName("CORS: an origin named in CORS_ALLOWED_ORIGINS is allowed, any other is refused")
+    void shouldTakeCorsOriginsFromTheEnvironment() {
+        for (String hosted : List.of("https://console.example.test", "http://203.0.113.7:3000")) {
+            client.options()
+                    .uri("/api/v1/auth/staff/login")
+                    .header(HttpHeaders.ORIGIN, hosted)
+                    .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, hosted);
+        }
+
+        client.options()
+                .uri("/api/v1/auth/staff/login")
+                .header(HttpHeaders.ORIGIN, "https://elsewhere.example.test")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.POST.name())
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectHeader().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN);
     }
 
     @Test

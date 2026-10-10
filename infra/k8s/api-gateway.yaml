@@ -67,6 +67,11 @@ spec:
                 configMapKeyRef:
                   name: coobs-config
                   key: MOBILE_BFF_URL
+            - name: STAFF_BFF_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: STAFF_BFF_URL
             # Routes that cross the link to the on-premises services
             - name: ACCOUNT_SERVICE_URL
               valueFrom:
@@ -88,6 +93,12 @@ spec:
                 configMapKeyRef:
                   name: coobs-config
                   key: BATCH_SERVICE_URL
+            # Origins a browser client may call from. Set this to where the console is served.
+            - name: CORS_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: CORS_ALLOWED_ORIGINS
             # Redis. The key and TLS switch are Spring's own names; no service reads them from a custom variable.
             - name: REDIS_HOST
               valueFrom:
