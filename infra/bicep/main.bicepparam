@@ -12,3 +12,8 @@ param sqlAdminLogin = 'coobsadmin'
 param sqlAdminPassword = readEnvironmentVariable('COOBS_SQL_ADMIN_PASSWORD', '')
 param onPremAdminSshPublicKey = readEnvironmentVariable('COOBS_VM_SSH_PUBLIC_KEY', '')
 param keyVaultAdminObjectId = readEnvironmentVariable('COOBS_KEYVAULT_ADMIN_OBJECT_ID', '')
+
+// Front Door is off unless COOBS_FRONT_DOOR is 'true'. Switching it on also needs the public
+// address that deploy-cloud.ps1 printed, in COOBS_PUBLIC_ADDRESS.
+param deployFrontDoor = bool(readEnvironmentVariable('COOBS_FRONT_DOOR', 'false'))
+param frontDoorOriginHost = readEnvironmentVariable('COOBS_PUBLIC_ADDRESS', '')

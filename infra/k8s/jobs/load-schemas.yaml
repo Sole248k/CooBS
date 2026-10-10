@@ -6,11 +6,16 @@
 #
 #   coobs-sql-scripts   the four script files, from database/azure-sql/
 #   coobs-sql-target    SQL_SERVER_FQDN and CLOUD_DB_USER
-#   coobs-app-secrets   CLOUD_DB_PASSWORD
+#   coobs-app-secrets   CLOUD_DB_PASSWORD and STAFF_PASSWORD
 #
 # The scripts cannot run twice, so a database is loaded only when it has no tables, and a
 # finished load is marked with the extended property coobs_seed. Tables without the mark mean
 # a load stopped half way: the job fails and says so. Recreate that database and run it again.
+#
+# The seed gives every sign-in one password that is written in this repository. That is fine
+# for the members of a demo and not for admin and the tellers on a public address, so the last
+# step replaces the staff hashes with the hash of STAFF_PASSWORD, on every run. The hash is made
+# by htpasswd in the first container (bcrypt, cost 10, the form auth-service reads).
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -27,6 +32,29 @@ spec:
         app.kubernetes.io/part-of: coobs
     spec:
       restartPolicy: Never
+      initContainers:
+        - name: hash-staff-password
+          image: httpd:2.4-alpine
+          env:
+            - name: STAFF_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: STAFF_PASSWORD
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              # htpasswd prints ":<hash>" and a blank line; only the hash is kept.
+              printf '%s' "$STAFF_PASSWORD" | htpasswd -inBC 10 "" | tr -d ':\n' > /work/staff.hash
+          volumeMounts:
+            - name: work
+              mountPath: /work
+          resources:
+            requests:
+              memory: 16Mi
+            limits:
+              memory: 64Mi
       containers:
         - name: sqlcmd
           image: mcr.microsoft.com/mssql/server:2022-latest
@@ -73,9 +101,22 @@ spec:
               load transaction_db  04_transaction_db.sql
               load notification_db 05_notification_db.sql
               echo "Cloud databases are loaded."
+
+              hash=$(cat /work/staff.hash)
+              case "$hash" in
+                '$2'?'$10$'*) ;;
+                *) echo "The staff password hash was not produced; the staff sign-ins were not changed." >&2; exit 1 ;;
+              esac
+              # A bcrypt hash holds letters, digits, dots, slashes and dollar signs only, and sqlcmd
+              # runs with -x, so it is safe inside the quotes.
+              run -d identity_db -Q "SET NOCOUNT ON; UPDATE app_user SET password_hash = '$hash' WHERE user_type = 'STAFF'"
+              echo "Staff sign-ins use the password from Key Vault."
           volumeMounts:
             - name: scripts
               mountPath: /scripts
+              readOnly: true
+            - name: work
+              mountPath: /work
               readOnly: true
           resources:
             requests:
@@ -86,3 +127,6 @@ spec:
         - name: scripts
           configMap:
             name: coobs-sql-scripts
+        - name: work
+          emptyDir:
+            medium: Memory

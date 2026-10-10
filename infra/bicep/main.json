@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "12360471729899697002"
+      "templateHash": "2261541607818607995"
     }
   },
   "parameters": {
@@ -79,6 +79,20 @@
       "defaultValue": true,
       "metadata": {
         "description": "Send container logs to Log Analytics"
+      }
+    },
+    "deployFrontDoor": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Put Front Door (HTTPS) in front of the public address. Leave false for the first deployment: the address does not exist yet"
+      }
+    },
+    "frontDoorOriginHost": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Public address of the coobs-public load balancer, as printed by infra/scripts/deploy-cloud.ps1. Needed only when deployFrontDoor is true"
       }
     },
     "uniqueSuffix": {
@@ -1591,6 +1605,167 @@
         "[resourceId('Microsoft.Resources/deployments', 'deploy-keyvault')]",
         "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]"
       ]
+    },
+    {
+      "condition": "[parameters('deployFrontDoor')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-frontdoor",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "profileName": {
+            "value": "[format('afd-{0}-{1}', parameters('baseName'), parameters('environmentName'))]"
+          },
+          "endpointName": {
+            "value": "[format('{0}-{1}', parameters('baseName'), variables('cleanUniqueSuffix'))]"
+          },
+          "originHost": {
+            "value": "[parameters('frontDoorOriginHost')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "14293777016285489130"
+            }
+          },
+          "parameters": {
+            "profileName": {
+              "type": "string",
+              "metadata": {
+                "description": "Front Door profile name"
+              }
+            },
+            "endpointName": {
+              "type": "string",
+              "metadata": {
+                "description": "Endpoint name. The public host name is <this>-<hash>.<zone>.azurefd.net"
+              }
+            },
+            "originHost": {
+              "type": "string",
+              "metadata": {
+                "description": "Public address of the coobs-public load balancer, as printed by deploy-cloud.ps1"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Cdn/profiles",
+              "apiVersion": "2024-02-01",
+              "name": "[parameters('profileName')]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard_AzureFrontDoor"
+              }
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/afdEndpoints",
+              "apiVersion": "2024-02-01",
+              "name": "[format('{0}/{1}', parameters('profileName'), parameters('endpointName'))]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "enabledState": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles', parameters('profileName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/originGroups",
+              "apiVersion": "2024-02-01",
+              "name": "[format('{0}/{1}', parameters('profileName'), 'coobs-public')]",
+              "properties": {
+                "loadBalancingSettings": {
+                  "sampleSize": 4,
+                  "successfulSamplesRequired": 3,
+                  "additionalLatencyInMilliseconds": 50
+                },
+                "healthProbeSettings": {
+                  "probePath": "/",
+                  "probeRequestType": "HEAD",
+                  "probeProtocol": "Http",
+                  "probeIntervalInSeconds": 120
+                },
+                "sessionAffinityState": "Disabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles', parameters('profileName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/originGroups/origins",
+              "apiVersion": "2024-02-01",
+              "name": "[format('{0}/{1}/{2}', parameters('profileName'), 'coobs-public', 'cluster-load-balancer')]",
+              "properties": {
+                "hostName": "[parameters('originHost')]",
+                "originHostHeader": "[parameters('originHost')]",
+                "httpPort": 80,
+                "httpsPort": 443,
+                "priority": 1,
+                "weight": 1000,
+                "enabledState": "Enabled",
+                "enforceCertificateNameCheck": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles/originGroups', parameters('profileName'), 'coobs-public')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/afdEndpoints/routes",
+              "apiVersion": "2024-02-01",
+              "name": "[format('{0}/{1}/{2}', parameters('profileName'), parameters('endpointName'), 'everything')]",
+              "properties": {
+                "originGroup": {
+                  "id": "[resourceId('Microsoft.Cdn/profiles/originGroups', parameters('profileName'), 'coobs-public')]"
+                },
+                "supportedProtocols": [
+                  "Http",
+                  "Https"
+                ],
+                "patternsToMatch": [
+                  "/*"
+                ],
+                "forwardingProtocol": "HttpOnly",
+                "httpsRedirect": "Enabled",
+                "linkToDefaultDomain": "Enabled",
+                "enabledState": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles/afdEndpoints', parameters('profileName'), parameters('endpointName'))]",
+                "[resourceId('Microsoft.Cdn/profiles/originGroups/origins', parameters('profileName'), 'coobs-public', 'cluster-load-balancer')]",
+                "[resourceId('Microsoft.Cdn/profiles/originGroups', parameters('profileName'), 'coobs-public')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "hostName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Cdn/profiles/afdEndpoints', parameters('profileName'), parameters('endpointName')), '2024-02-01').hostName]"
+            }
+          }
+        }
+      }
     }
   ],
   "outputs": {
@@ -1637,6 +1812,10 @@
     "logAnalyticsWorkspaceId": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-monitoring'), '2025-04-01').outputs.workspaceId.value]"
+    },
+    "frontDoorHostName": {
+      "type": "string",
+      "value": "[if(parameters('deployFrontDoor'), reference(resourceId('Microsoft.Resources/deployments', 'deploy-frontdoor'), '2025-04-01').outputs.hostName.value, '')]"
     }
   }
 }

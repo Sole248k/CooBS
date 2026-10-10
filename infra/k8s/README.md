@@ -1,6 +1,6 @@
 # Kubernetes manifests: the cloud zone
 
-These manifests run the nine cloud services and Kafka on one AKS cluster, in the `coobs` namespace. The four on-premises services (ledger, account, audit, batch) are not here: they run on the on-premises VM, and the cluster reaches them through `onprem-services.yaml`.
+These manifests run the nine cloud services, the staff console and Kafka on one AKS cluster, in the `coobs` namespace. The four on-premises services (ledger, account, audit, batch) are not here: they run on the on-premises VM, and the cluster reaches them through `onprem-services.yaml`.
 
 **Status: rendered with `kubectl kustomize`, never applied to a cluster.** Nothing in this folder has started a pod yet.
 
@@ -11,7 +11,8 @@ These manifests run the nine cloud services and Kafka on one AKS cluster, in the
 | `kustomization.yaml` | The list of what is applied, the registry and image tag, and the two address substitutions |
 | `namespace.yaml` | The `coobs` namespace |
 | `config.yaml` | `coobs-config`: every non-secret setting, including the values to replace |
-| `<service>.yaml` (nine) | A Deployment and a ClusterIP Service each. `api-gateway.yaml` also has the public load balancer |
+| `<service>.yaml` (nine) | A Deployment and a ClusterIP Service each |
+| `frontend.yaml` | The staff console (nginx) and `coobs-public`, the one public load balancer. nginx serves the console and passes `/api` and `/actuator` to the gateway, so the console, the app, a partner bank and Postman all use one address |
 | `onprem-services.yaml` | Services with no selector, pointing at the on-premises VM |
 | `kafka.yaml` | One Kafka broker, its internal load balancer for the VM, and the job that creates the topics |
 | `secret.template.yaml` | The keys the Secret must have. Not applied |
@@ -33,7 +34,7 @@ These manifests run the nine cloud services and Kafka on one AKS cluster, in the
    | `REDIS_HOST` | The Azure Managed Redis host name |
 
 2. In `kustomization.yaml`, set every `newTag` to the tag the pipeline pushed.
-3. Create the Secret `coobs-app-secrets` in the `coobs` namespace with the six keys listed in `secret.template.yaml`. The values come from Key Vault at deploy time; they are never written to a file in this repository. Create the namespace first:
+3. Create the Secret `coobs-app-secrets` in the `coobs` namespace with the seven keys listed in `secret.template.yaml`. The values come from Key Vault at deploy time; they are never written to a file in this repository. Create the namespace first:
 
    ```
    kubectl apply -f infra/k8s/namespace.yaml
@@ -47,10 +48,10 @@ These manifests run the nine cloud services and Kafka on one AKS cluster, in the
 kubectl kustomize infra/k8s
 kubectl apply -k infra/k8s
 kubectl -n coobs get pods
-kubectl -n coobs get service api-gateway-public
+kubectl -n coobs get service coobs-public
 ```
 
-The first command renders everything locally and needs no cluster. The last one shows the public address once Azure has assigned it; the gateway answers on port 80.
+The first command renders everything locally and needs no cluster. The last one shows the public address once Azure has assigned it. On port 80 it serves the console, and the API under `/api`.
 
 All nine JVMs start together on two vCPUs, so the first start is slow. Each pod is allowed six minutes before it is restarted.
 
@@ -60,7 +61,9 @@ All nine JVMs start together on two vCPUs, so the first start is slow. Each pod 
 - **Redis.** Azure Managed Redis, with TLS and an access key supplied as `SPRING_DATA_REDIS_SSL_ENABLED` and `SPRING_DATA_REDIS_PASSWORD`.
 - **Heap.** `JAVA_OPTS` is `-Xmx256m` for all nine. Compose sets that for most of them; the gateway, auth and notification use a percentage of memory there.
 - **Health.** Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, not `/actuator/health`, so a Redis or database outage does not restart every pod.
-- **Not deployed.** The React staff console has no manifest yet. `staff-bff`, which it calls through `/api/v1/staff/**`, is deployed.
+- **One public address.** Locally the gateway is published on 8080 and the console on 3000. Here only the console's nginx is public, and every API call passes through it. The gateway then sees all calls arrive from that pod: rate limits per signed-in user are unchanged, but calls with no token (sign-in above all) share one bucket of 10 a second for everybody.
+- **Token life.** `JWT_EXPIRATION_MS` is two hours, not the local 24, because neither client can refresh a token yet.
+- **Staff password.** The schema job replaces the seeded staff password hashes with the hash of `staff-password` from Key Vault. Members keep the seeded demo password.
 
 ## Not verified
 

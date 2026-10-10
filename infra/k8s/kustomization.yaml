@@ -1,4 +1,4 @@
-# The CooBS cloud zone: nine services and Kafka on one AKS cluster.
+# The CooBS cloud zone: nine services, the staff console and Kafka on one AKS cluster.
 #
 #   kubectl kustomize infra/k8s          render and check, needs no cluster
 #   kubectl apply -k infra/k8s           apply
@@ -15,6 +15,7 @@ resources:
   - config.yaml
   - onprem-services.yaml
   - kafka.yaml
+  - frontend.yaml
   - api-gateway.yaml
   - mobile-bff.yaml
   - staff-bff.yaml
@@ -28,6 +29,9 @@ resources:
 # The registry is the one that already exists in CooBS-rsg. Set newTag to the tag the pipeline
 # pushed (its build number); CHANGE_ME is deliberate so a forgotten tag fails loudly.
 images:
+  - name: coobs/frontend
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/frontend
+    newTag: CHANGE_ME
   - name: coobs/api-gateway
     newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/api-gateway
     newTag: CHANGE_ME

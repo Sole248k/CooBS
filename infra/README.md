@@ -13,7 +13,7 @@ Read from the subscription on 8 and 9 October 2026:
 | Limit | Value | What it forces |
 | --- | --- | --- |
 | vCPUs in the region | 4 in total | One 2 vCPU AKS node and one 2 vCPU VM, with nothing to spare. No autoscaling, no node upgrade |
-| Public IP addresses | 3 | Exactly three are used: AKS outbound, the public gateway, the on-premises NAT gateway |
+| Public IP addresses | 3 | Exactly three are used: AKS outbound, the one public entry (console and API), the on-premises NAT gateway |
 | VM sizes | `Standard_E2as_v5` and `Standard_B2as_v2` only in zone 3 | Indonesia Central, zone 3. Southeast Asia offers no usable size |
 | Kubernetes | 1.34 to 1.36 on the Free tier (1.31 to 1.33 are long-term-support only) | 1.35 |
 
@@ -30,13 +30,14 @@ Everything goes into the resource group `CooBS-rsg` in Indonesia Central. The co
 | `redis.bicep` | Azure Managed Redis `Balanced_B0`, one node, TLS on port 10000, access keys on. A private endpoint and a private DNS zone linked to both VNets. The secret `redis-key` |
 | `aks.bicep` | AKS, Free tier, one `Standard_E2as_v5` node in zone 3. AcrPull on the registry, Network Contributor on the cloud VNet |
 | `onprem-vm.bicep` | One `Standard_B2as_v2` VM in zone 3 at `10.250.0.4`, no public address, Ubuntu 24.04, Docker installed on first boot. AcrPull on the registry and Key Vault Secrets User on the vault |
+| `frontdoor.bicep` | Front Door Standard with one endpoint and one route to the public address. **Off by default**; see "Switching on HTTPS" |
 
-Not created: Event Hubs (Kafka runs in the cluster), a VPN gateway (peering stands in for it), Front Door (added by hand once E2E passes), an ingress controller.
+Not created: Event Hubs (Kafka runs in the cluster), a VPN gateway (peering stands in for it), an ingress controller.
 
 ## Choices worth knowing
 
 - **The NSG is the firewall.** The cluster subnet may reach ports 8082, 8083, 8085 and 8093 on the on-premises subnet and nothing else. Without the deny rule, peering would open every port, Oracle included. For the link-down check, add a Deny rule above priority 100.
-- **`snet-aks` has no NSG of its own.** AKS keeps one on the node interfaces and opens it for each LoadBalancer Service. A second one would block the public gateway.
+- **`snet-aks` has no NSG of its own.** AKS keeps one on the node interfaces and opens it for each LoadBalancer Service. A second one would block the public entry.
 - **The VM reaches the internet through a NAT gateway.** It has no public address, and a new subnet has no outbound route by default. It needs one to pull images.
 - **Azure SQL uses a service endpoint, not a private endpoint.** Only `snet-aks` can connect. The schemas are therefore loaded from inside the cluster, not from a laptop.
 - **Redis is reached privately by both sides.** ledger-service and account-service on the VM read the token blacklist and idempotency keys, so the private DNS zone is linked to the on-premises VNet as well.
@@ -108,7 +109,7 @@ Each command below creates or changes resources and costs money. Run them yourse
 
 4. Publish the images and note the tag. There are two ways:
 
-   - **From a machine with Docker**, while the pipeline is switched off. Sign in to the registry, then build and push the thirteen deployed services from a clean checkout of the commit to deploy. `-DryRun` prints the commands without running them.
+   - **From a machine with Docker**, while the pipeline is switched off. Sign in to the registry, then build and push the thirteen deployed services and the staff console from a clean checkout of the commit to deploy. `-DryRun` prints the commands without running them.
 
      ```
      az acr login --name CooBS
@@ -119,7 +120,7 @@ Each command below creates or changes resources and costs money. Run them yourse
 
    Building inside the registry (`az acr build`) is not an option to plan on: the subscription is a free trial, and registry build tasks are not expected to be allowed on one. Not tried.
 
-5. Deploy the cloud zone. This generates the application secrets into Key Vault, creates the Kubernetes Secret, loads the four databases with a Job in the cluster, and applies `infra/k8s`. It prints the gateway's public address and the exact command for step 6.
+5. Deploy the cloud zone. This generates the application secrets into Key Vault, creates the Kubernetes Secret, loads the four databases with a Job in the cluster, gives the staff sign-ins a generated password in place of the seeded one, and applies `infra/k8s`. It prints the public address, how to read the staff password, and the exact command for step 6.
 
    ```
    ./infra/scripts/deploy-cloud.ps1 -ImageTag <tag>
@@ -129,10 +130,10 @@ Each command below creates or changes resources and costs money. Run them yourse
 
 6. Start the on-premises zone (next section). It comes after step 5 because the VM reads secrets that step creates and connects to the Kafka broker that step starts.
 
-7. Run the E2E suite against the gateway's public address. There is no separate Postman environment for Azure: the seed, and so the sign-in names, are the same as locally, and only the address differs. `deploy-cloud.ps1` prints this command with the address filled in.
+7. Run the E2E suite against the public address. There is no separate Postman environment for Azure: the seed, and so the sign-in names, are the same as locally. Two things differ, the address and the staff password, and both are passed on the command line. `deploy-cloud.ps1` prints this command with the address filled in; read the password from Key Vault (`az keyvault secret show --vault-name <vault> --name staff-password --query value --output tsv`).
 
    ```
-   npx --yes newman run postman/e2e/CooBS_End_To_End.postman_collection.json -e postman/CooBS_Local.postman_environment.json --env-var baseUrl=http://<gateway address> --delay-request 150 --reporters cli
+   npx --yes newman run postman/e2e/CooBS_End_To_End.postman_collection.json -e postman/CooBS_Local.postman_environment.json --env-var baseUrl=http://<public address> --env-var staffPassword=<staff password> --env-var tellerPassword=<staff password> --delay-request 150 --reporters cli
    ```
 
    One assertion depends on the network: step 1.1 expects the gateway's health answer within 500 ms. The scripts under `scripts/test_*.ps1` reach containers through `docker exec` and run against the local stack only.
@@ -154,22 +155,43 @@ Add `-SaveScriptTo <file>` to see exactly what would run on the VM without calli
 
 One thing differs from the local stack on purpose. Each service gets `JAVA_OPTS=-Xmx384m`, because the images default to three quarters of the machine's memory per JVM.
 
+## Switching on HTTPS
+
+The first deployment answers on plain HTTP, so the address must not be given to anyone outside the team. Front Door puts HTTPS in front of it. It cannot be in the first deployment, because its origin is the public address, which exists only after step 5. Do this once E2E has passed on the plain address:
+
+1. Deploy the Bicep again with Front Door on and the address `deploy-cloud.ps1` printed. This adds four Front Door resources and changes nothing else; run what-if first to see that.
+
+   ```n   $env:COOBS_FRONT_DOOR = "true"
+   $env:COOBS_PUBLIC_ADDRESS = "<public address>"
+   az deployment group create --resource-group CooBS-rsg --name coobs-demo --parameters infra/bicep/main.bicepparam
+   ```n
+2. Run `deploy-cloud.ps1` again with the same image tag. It reads the Front Door host name from the outputs, adds `https://<that name>` to the origins the gateway allows, and closes the load balancer to everything except Front Door. It then prints the HTTPS address.
+3. Use the HTTPS address everywhere: the console, `GATEWAY_URL` for the app, `baseUrl` for Postman. The plain address no longer answers.
+
+To go back, open the load balancer again (`kubectl annotate service coobs-public -n coobs service.beta.kubernetes.io/azure-allowed-service-tags-`) and deploy the Bicep with `COOBS_FRONT_DOOR` unset or `false`; a normal deployment does not remove the Front Door resources, so delete the profile `afd-coobs-dev` by hand.
+
+Front Door Standard has a base fee of about USD 35 a month before traffic. That figure is from memory, not read from the price API; check it before switching on. Behind Front Door every caller reaches the cluster from Front Door's addresses, which changes nothing for rate limits: calls without a token already share one bucket (`infra/k8s/README.md`).
+
 ## The mobile app
 
 The Flutter app is not hosted anywhere: it is an Android package installed on the demo phones by hand. Build it against the gateway's address once `deploy-cloud.ps1` has printed it:
 
 ```
 cd app
-flutter build apk --release --dart-define=GATEWAY_URL=http://<gateway address>
+flutter build apk --release --dart-define=GATEWAY_URL=http://<public address>
 ```
 
 The package is `app/build/app/outputs/flutter-apk/app-release.apk`. Three things to know:
 
 - The address can also be changed on the phone, from the sign-in screen, so one package serves the local stack and Azure.
 - The release build is signed with the debug key (`app/android/app/build.gradle.kts`). That is fine for installing by hand and not for a store.
-- The Android manifest allows plain HTTP, and it has to while the gateway has no TLS. Remove that when Front Door is in front.
+- The Android manifest allows plain HTTP, and it has to while there is no HTTPS address. Once Front Door is on, build the app with the HTTPS address and have the mobile developers remove that allowance.
 
-The React staff console has no place in the deployment yet; `staff-bff`, which it calls, is deployed.
+## The staff console
+
+The console runs in the cluster as one nginx pod (`infra/k8s/frontend.yaml`) and is the public entry of the whole deployment: `http://<public address>` serves the console, and the same nginx passes `/api` and `/actuator` on to the gateway. So the console, the app, a partner bank and Postman all use that one address. This is how the console already works locally, where its nginx passes `/api` to the gateway container.
+
+Admin and the tellers sign in with the generated staff password, not the seeded one. The sign-in page still pre-fills the seeded password, which is then wrong for staff: type the real one.
 
 ## Removing it
 
@@ -184,5 +206,8 @@ The what-if checks the templates, names, API versions and the Kubernetes version
 - That first boot installs Docker on the VM through the NAT gateway.
 - `deploy-onprem.ps1` and `start.sh` on a real VM. Checked here: the generated script and archive are well formed, the shell syntax is valid, and the Compose file passes `docker compose config`.
 - That 8 GB is enough for Oracle, PostgreSQL and four JVMs.
-- `deploy-cloud.ps1` against a real vault and cluster, and the schema Job against Azure SQL. Checked here: the render-only mode produces 9 Deployments, Kafka and the on-premises endpoints with every placeholder filled, and the Job's shell script is valid. The same scripts load into SQL Server 2022 locally.
+- `deploy-cloud.ps1` against a real vault and cluster, and the schema Job against Azure SQL. Checked here: the render-only mode produces 10 Deployments (nine services and the console), Kafka and the on-premises endpoints with every placeholder filled, and the Job's shell script is valid. The same scripts load into SQL Server 2022 locally.
 - The NAT gateway price.
+- Front Door: the module compiles, and nothing more. Not run through what-if, never deployed. Whether the `Microsoft.Cdn` provider is registered on the subscription, whether a free trial may create Front Door Standard, and whether `service.beta.kubernetes.io/azure-allowed-service-tags` closes the load balancer as intended are all unproven.
+- The console's nginx pod on the cluster. It is the image the local stack runs, but here it runs without a mounted configuration and behind a load balancer.
+- The staff password step of the schema job (`htpasswd` in an `httpd` image, then one `UPDATE`). The shell logic and the hash prefix are checked; the job has never run.

@@ -1,0 +1,86 @@
+# The React staff console, served by nginx, and the one public address of the deployment.
+#
+# The image is built from frontend/ and holds the built console and frontend/nginx.conf. That
+# file serves the console on port 3000 and passes /api and /actuator on to api-gateway:8080,
+# which in this namespace is the gateway's Service. So the console, the mobile app, a partner
+# bank and the E2E suite all use one address: pages come from here, API calls go through here.
+#
+# The gateway therefore sees every call arrive from this pod. Its per-user rate limits are
+# unchanged; calls without a token (sign-in above all) share one bucket for all callers.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: coobs
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/part-of: coobs
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: frontend
+          image: coobs/frontend
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          # nginx will not start until the name api-gateway resolves, which it does as soon as
+          # that Service exists. If this pod is first, it is restarted and then starts.
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          # The stock nginx image starts as root and hands its workers to the nginx user, which
+          # needs the default capabilities. So they are not dropped here as they are for the JVMs.
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+# The one public entry point. Front Door, when it is switched on, uses this address as its origin.
+apiVersion: v1
+kind: Service
+metadata:
+  name: coobs-public
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: coobs
+spec:
+  type: LoadBalancer
+  # Keeps the caller's address in nginx's access log and in X-Forwarded-For.
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
