@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,8 +12,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,6 +24,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.group2.fse.ledger_service.exception.DualWriteAuditException;
 
@@ -136,5 +142,73 @@ class DualWriteLedgerAuditServiceTest {
         );
 
         assertEquals("Audit record insertion affected 0 rows, expected 1.", ex.getMessage());
+    }
+
+    private void record(long transactionId, long accountId, String type) {
+        auditService.recordMutationAudit(transactionId, accountId, type, new BigDecimal("100.0000"),
+                new BigDecimal("300.0000"), new BigDecimal("200.0000"), 3L, "127.0.0.1");
+    }
+
+    /** Runs the body as if inside a ledger transaction, and hands it the one callback the service registered. */
+    private void insideALedgerTransaction(java.util.function.Consumer<java.util.function.Supplier<TransactionSynchronization>> body) {
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            body.accept(() -> {
+                assertEquals(1, TransactionSynchronizationManager.getSynchronizations().size());
+                return TransactionSynchronizationManager.getSynchronizations().get(0);
+            });
+        } finally {
+            TransactionSynchronizationManager.unbindResourceIfPossible(auditService);
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    @DisplayName("Inside a ledger transaction nothing is written until it is about to commit; then every row, in order")
+    void rowsAreWrittenOnlyWhenTheLedgerTransactionCommits() {
+        when(auditJdbcTemplate.update(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(1);
+
+        insideALedgerTransaction(registered -> {
+            record(201L, 1L, "DEBIT");
+            record(202L, 2L, "CREDIT");
+            verify(auditJdbcTemplate, never()).update(any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+            registered.get().beforeCommit(false);
+
+            InOrder written = inOrder(auditJdbcTemplate);
+            written.verify(auditJdbcTemplate).update(any(), eq(201L), eq(1L), eq("DEBIT"), any(), any(), any(), any(), any());
+            written.verify(auditJdbcTemplate).update(any(), eq(202L), eq(2L), eq("CREDIT"), any(), any(), any(), any(), any());
+
+            registered.get().afterCompletion(TransactionSynchronization.STATUS_COMMITTED);
+            assertNull(TransactionSynchronizationManager.getResource(auditService));
+        });
+    }
+
+    @Test
+    @DisplayName("A posting that rolls back leaves no audit row: the table is append-only and could never lose it again")
+    void rolledBackPostingWritesNothing() {
+        insideALedgerTransaction(registered -> {
+            record(301L, 1L, "DEBIT");
+            record(302L, 2L, "CREDIT");
+
+            // A rollback never reaches beforeCommit.
+            registered.get().afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+
+            verify(auditJdbcTemplate, never()).update(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            assertNull(TransactionSynchronizationManager.getResource(auditService));
+        });
+    }
+
+    @Test
+    @DisplayName("FSE-305 still holds at commit: an audit store that refuses the rows fails the commit, so Oracle rolls back")
+    void auditFailureAtCommitStopsTheCommit() {
+        when(auditJdbcTemplate.update(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenThrow(new CannotGetJdbcConnectionException("audit store is down"));
+
+        insideALedgerTransaction(registered -> {
+            record(401L, 1L, "DEBIT");
+
+            assertThrows(DualWriteAuditException.class, () -> registered.get().beforeCommit(false));
+        });
     }
 }
