@@ -42,7 +42,9 @@ function Get-Token([string]$path, [string]$username, [string]$password) {
 
 function Get-Account([string]$token) {
     $accounts = Invoke-RestMethod -Uri "$baseUrl/api/v1/accounts/my-accounts" -Headers @{ Authorization = "Bearer $token" }
-    if ($accounts.content) { $accounts = $accounts.content }
+    # A page keeps its rows in "content"; a plain list has none. Asked of a list of two, .content
+    # gives two nulls, which PowerShell counts as true, so a list is never asked.
+    if ($accounts -isnot [array] -and $accounts.content) { $accounts = $accounts.content }
     return @($accounts)[0]
 }
 
