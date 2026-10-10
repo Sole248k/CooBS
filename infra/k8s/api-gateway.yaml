@@ -1,4 +1,5 @@
-# Spring Cloud Gateway. The only workload with a public address.
+# Spring Cloud Gateway. Every API call passes through it. It has no public address of its own:
+# the public Service is in frontend.yaml, whose nginx passes /api and /actuator on to this one.
 # Values mirror the api-gateway block in docker-compose.yml; names are in contracts/runtime/RUNTIME_SETTINGS.md.
 apiVersion: apps/v1
 kind: Deployment
@@ -166,24 +167,4 @@ spec:
   ports:
     - name: http
       port: 8080
-      targetPort: http
----
-# The one public entry point. Front Door, when added, uses this address as its origin.
-apiVersion: v1
-kind: Service
-metadata:
-  name: api-gateway-public
-  labels:
-    app.kubernetes.io/name: api-gateway
-    app.kubernetes.io/part-of: coobs
-spec:
-  type: LoadBalancer
-  # Keeps the caller's address. With the default (Cluster) every request arrives from the
-  # node's address, and the gateway's per-IP rate limits would put all callers in one bucket.
-  externalTrafficPolicy: Local
-  selector:
-    app.kubernetes.io/name: api-gateway
-  ports:
-    - name: http
-      port: 80
       targetPort: http

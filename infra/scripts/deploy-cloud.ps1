@@ -7,7 +7,9 @@
       1. Reads the Bicep outputs (cluster, Key Vault, Azure SQL, Redis).
       2. Generates the application secrets into Key Vault. A secret that already exists is kept.
       3. Creates the Kubernetes Secret coobs-app-secrets from Key Vault.
-      4. Loads the four databases from database/azure-sql/ with a Job in the cluster.
+      4. Loads the four databases from database/azure-sql/ with a Job in the cluster, and
+         gives the staff sign-ins (admin and the tellers) the password it generated in step 2,
+         in place of the seeded one that is written in this repository.
       5. Renders infra/k8s with the real values and applies it.
 
     No secret is written to the repository or printed. Each one is held in a temporary file
@@ -35,7 +37,9 @@ param(
     [string]$RenderOnly,
     [string]$SqlServerFqdn,
     [string]$SqlAdminLogin,
-    [string]$RedisHost
+    [string]$RedisHost,
+    # With -RenderOnly: render as if Front Door were on with this host name. Otherwise it is read from the Bicep outputs.
+    [string]$FrontDoorHost
 )
 
 $ErrorActionPreference = "Stop"
@@ -65,7 +69,7 @@ function New-Hex([int]$bytes) {
 }
 
 # Renders infra/k8s and puts the deployment's values in place of the placeholders.
-function Get-Manifests([string]$sqlFqdn, [string]$sqlLogin, [string]$redis) {
+function Get-Manifests([string]$sqlFqdn, [string]$sqlLogin, [string]$redis, [string]$frontDoor) {
     $rendered = Join-Path $work "rendered.yaml"
     Invoke-Native "kubectl kustomize" { kubectl kustomize (Join-Path $repo "infra\k8s") --output $rendered } | Out-Null
     $text = [System.IO.File]::ReadAllText($rendered)
@@ -73,6 +77,12 @@ function Get-Manifests([string]$sqlFqdn, [string]$sqlLogin, [string]$redis) {
     $text = $text.Replace("REPLACE-sql-admin-login", $sqlLogin)
     $text = $text.Replace("REPLACE-cache-name.indonesiacentral.redis.azure.net", $redis)
     $text = $text.Replace(":CHANGE_ME", ":$ImageTag")
+    if ($frontDoor) {
+        # Behind Front Door the browser's origin is the HTTPS host name, which the gateway must allow.
+        $listed = "http://localhost:3000,http://localhost:5173"
+        if (-not $text.Contains($listed)) { throw "CORS_ALLOWED_ORIGINS in infra/k8s/config.yaml is no longer the list this script adds the Front Door origin to" }
+        $text = $text.Replace($listed, "$listed,https://$frontDoor")
+    }
     if ($text -match "REPLACE-|CHANGE_ME") { throw "A placeholder is still in the rendered manifests: $($Matches[0])" }
     return $text
 }
@@ -82,7 +92,7 @@ try {
         foreach ($name in "SqlServerFqdn", "SqlAdminLogin", "RedisHost") {
             if (-not (Get-Variable $name -ValueOnly)) { throw "-RenderOnly needs -$name" }
         }
-        [System.IO.File]::WriteAllText($RenderOnly, (Get-Manifests $SqlServerFqdn $SqlAdminLogin $RedisHost), $noBom)
+        [System.IO.File]::WriteAllText($RenderOnly, (Get-Manifests $SqlServerFqdn $SqlAdminLogin $RedisHost $FrontDoorHost), $noBom)
         Write-Host "Rendered the manifests to $RenderOnly. Nothing was sent to Azure or the cluster."
         return
     }
@@ -98,6 +108,8 @@ try {
     $sqlFqdn = $outputs.sqlServerFqdn.value
     $sqlLogin = $outputs.sqlAdminLogin.value
     $redis = $outputs.redisHostName.value
+    # Empty until the Bicep is deployed again with Front Door switched on (infra/README.md).
+    $frontDoor = if ($outputs.PSObject.Properties.Name -contains "frontDoorHostName") { $outputs.frontDoorHostName.value } else { "" }
     if (-not $redis) {
         throw "Azure Managed Redis was not deployed. Apply infra/k8s/optional/redis-in-cluster.yaml and set the Redis settings by hand; this script covers the managed path only."
     }
@@ -115,6 +127,8 @@ try {
         "oracle-password"          = { "Cb" + (New-Hex 12).ToLower() }
         "app-user-password"        = { "Cb" + (New-Hex 12).ToLower() }
         "audit-db-password"        = { "Cb" + (New-Hex 12).ToLower() }
+        # For admin and the tellers. Letters and digits only, so it can be typed and passed to Newman unquoted.
+        "staff-password"           = { "St" + (New-Hex 8).ToLower() }
     }
     foreach ($name in $generated.Keys) {
         if (Test-Native { az keyvault secret show --vault-name $vault --name $name --query id --output tsv }) {
@@ -142,6 +156,8 @@ try {
         REDIS_PASSWORD          = "redis-key"
         INTERBANK_SHARED_SECRET = "interbank-shared-secret"
         INTERBANK_BANKB_SECRET  = "interbank-bankb-secret"
+        # Read only by the schema job, which stores its hash for the staff sign-ins.
+        STAFF_PASSWORD          = "staff-password"
     }
     $fromFile = @()
     foreach ($key in $secretMap.Keys) {
@@ -193,10 +209,10 @@ try {
     # -------------------------------------------------------------------------
     Write-Host "5. Applying infra/k8s with image tag $ImageTag" -ForegroundColor Cyan
     $manifests = Join-Path $work "apply.yaml"
-    [System.IO.File]::WriteAllText($manifests, (Get-Manifests $sqlFqdn $sqlLogin $redis), $noBom)
+    [System.IO.File]::WriteAllText($manifests, (Get-Manifests $sqlFqdn $sqlLogin $redis $frontDoor), $noBom)
     Invoke-Native "kubectl apply" { kubectl apply -f $manifests } | Out-Null
 
-    Write-Host "   Waiting for the nine services (they start together on two vCPUs, so this is slow)"
+    Write-Host "   Waiting for the nine services and the console (they start together on two vCPUs, so this is slow)"
     kubectl wait --namespace $namespace --for=condition=available --timeout=900s deployment --all | Out-Null
     $rolledOut = ($LASTEXITCODE -eq 0)
     kubectl get pods --namespace $namespace
@@ -204,19 +220,36 @@ try {
     # Azure can take a minute or two to give the load balancer its address after the pods are up.
     $deadline = (Get-Date).AddMinutes(3)
     do {
-        $address = kubectl get service api-gateway-public --namespace $namespace --output "jsonpath={.status.loadBalancer.ingress[0].ip}"
+        $address = kubectl get service coobs-public --namespace $namespace --output "jsonpath={.status.loadBalancer.ingress[0].ip}"
         if (-not $address) { Start-Sleep -Seconds 5 }
     } while (-not $address -and (Get-Date) -lt $deadline)
     if (-not $address) {
-        throw "The gateway has no public address yet. Look again with: kubectl get service api-gateway-public --namespace $namespace"
+        throw "There is no public address yet. Look again with: kubectl get service coobs-public --namespace $namespace"
+    }
+
+    $base = "http://$address"
+    if ($frontDoor) {
+        # From now on the load balancer takes calls from Front Door only, so everything is HTTPS.
+        # To open it again: kubectl annotate service coobs-public -n coobs service.beta.kubernetes.io/azure-allowed-service-tags-
+        Invoke-Native "kubectl annotate service" {
+            kubectl annotate service coobs-public --namespace $namespace "service.beta.kubernetes.io/azure-allowed-service-tags=AzureFrontDoor.Backend" --overwrite
+        } | Out-Null
+        $base = "https://$frontDoor"
     }
 
     Write-Host ""
-    Write-Host "Gateway: http://$address" -ForegroundColor Green
+    Write-Host "Staff console: $base" -ForegroundColor Green
+    Write-Host "API (the app's gateway address, and baseUrl for Postman): $base" -ForegroundColor Green
+    if (-not $frontDoor) {
+        Write-Host "This is plain HTTP. For HTTPS, deploy the Bicep again with COOBS_FRONT_DOOR=true and COOBS_PUBLIC_ADDRESS=$address, then run this script again."
+    }
+    Write-Host "Staff sign-ins (admin, tellers) use the generated password, not the seeded one. Read it with:"
+    Write-Host "  az keyvault secret show --vault-name $vault --name staff-password --query value --output tsv"
+    Write-Host "Members keep the seeded demo password."
     Write-Host "Next, the on-premises zone:"
     Write-Host "  .\infra\scripts\deploy-onprem.ps1 -KeyVaultName $vault -ImageTag $ImageTag -RedisHost $redis"
-    Write-Host "Then the E2E suite against this address (the local environment file, with only the address replaced):"
-    Write-Host "  npx --yes newman run postman/e2e/CooBS_End_To_End.postman_collection.json -e postman/CooBS_Local.postman_environment.json --env-var baseUrl=http://$address --delay-request 150 --reporters cli"
+    Write-Host "Then the E2E suite against this address (the local environment file, with the address and the staff password replaced):"
+    Write-Host "  npx --yes newman run postman/e2e/CooBS_End_To_End.postman_collection.json -e postman/CooBS_Local.postman_environment.json --env-var baseUrl=$base --env-var staffPassword=<staff password> --env-var tellerPassword=<staff password> --delay-request 150 --reporters cli"
 } finally {
     Get-ChildItem $work -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { [System.IO.File]::Delete($_.FullName) }
 }

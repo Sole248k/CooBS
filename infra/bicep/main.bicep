@@ -1,7 +1,7 @@
 // CooBS demo deployment: the in-depth architecture cut to what an Azure free trial allows.
 // Drawn in docs/architecture-diagrams/demo-deployment.eraserdiagram; explained in infra/README.md.
 //
-//   Cloud VNet        one AKS node (eight services and Kafka), Azure SQL, Azure Managed Redis
+//   Cloud VNet        one AKS node (nine services, the staff console and Kafka), Azure SQL, Azure Managed Redis
 //   On-premises VNet  one VM running Docker Compose (ledger, account, audit, batch, Oracle, audit store)
 //   Link              VNet peering, with an NSG on the on-premises subnet as the firewall
 //
@@ -43,6 +43,12 @@ param deployManagedRedis bool = true
 
 @description('Send container logs to Log Analytics')
 param enableContainerInsights bool = true
+
+@description('Put Front Door (HTTPS) in front of the public address. Leave false for the first deployment: the address does not exist yet')
+param deployFrontDoor bool = false
+
+@description('Public address of the coobs-public load balancer, as printed by infra/scripts/deploy-cloud.ps1. Needed only when deployFrontDoor is true')
+param frontDoorOriginHost string = ''
 
 @description('Unique suffix for globally unique resources (SQL, Key Vault, Redis)')
 param uniqueSuffix string = uniqueString(resourceGroup().id)
@@ -169,6 +175,19 @@ module onPremVm './modules/onprem-vm.bicep' = {
 }
 
 // =============================================================================
+// 8. Front Door: HTTPS in front of the one public address. Off until E2E has passed.
+// =============================================================================
+module frontDoor './modules/frontdoor.bicep' = if (deployFrontDoor) {
+  name: 'deploy-frontdoor'
+  params: {
+    profileName: 'afd-${baseName}-${environmentName}'
+    endpointName: '${baseName}-${cleanUniqueSuffix}'
+    originHost: frontDoorOriginHost
+    tags: tags
+  }
+}
+
+// =============================================================================
 // Outputs: the values infra/k8s/config.yaml and the on-premises Compose file need
 // =============================================================================
 output aksClusterName string = aks.outputs.clusterName
@@ -183,3 +202,7 @@ output onPremVmPrivateIp string = onPremVmPrivateIp
 output kafkaInternalLoadBalancerIp string = kafkaInternalLoadBalancerIp
 output onPremOutboundPublicIp string = network.outputs.natPublicIpAddress
 output logAnalyticsWorkspaceId string = monitoring.outputs.workspaceId
+// Empty while Front Door is off. deploy-cloud.ps1 reads it to allow the HTTPS origin and to
+// close the load balancer to everything but Front Door.
+#disable-next-line BCP318
+output frontDoorHostName string = deployFrontDoor ? frontDoor.outputs.hostName : ''

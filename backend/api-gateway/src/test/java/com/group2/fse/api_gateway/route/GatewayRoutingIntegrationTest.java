@@ -165,6 +165,32 @@ class GatewayRoutingIntegrationTest {
     }
 
     @Test
+    @DisplayName("CORS: a call passed on by the console's nginx is same-origin, whatever the public address is")
+    void shouldNotRefuseACallThatComesThroughTheConsoleProxy() {
+        // In the cluster the browser loads the console from http://<public address> and nginx
+        // passes /api on with that address as Host (frontend/nginx.conf). The address is not
+        // known when CORS_ALLOWED_ORIGINS is set, so this must pass without being listed.
+        client.post()
+                .uri("/api/v1/auth/staff/login")
+                .header(HttpHeaders.HOST, "203.0.113.9")
+                .header(HttpHeaders.ORIGIN, "http://203.0.113.9")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().value(status -> assertThat(status).isNotEqualTo(403));
+
+        // The same call from a page served somewhere else is still refused.
+        client.post()
+                .uri("/api/v1/auth/staff/login")
+                .header(HttpHeaders.HOST, "203.0.113.9")
+                .header(HttpHeaders.ORIGIN, "http://198.51.100.7")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
     @DisplayName("Internal route across perimeter should be rejected with 403 Forbidden")
     void shouldRejectInternalPerimeterRoute() {
         client.get()

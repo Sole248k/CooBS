@@ -44,7 +44,9 @@ x-audit-store: &audit-store
 
 x-common: &common
   JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-  JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+  # Same value as JWT_EXPIRATION_MS in infra/k8s/config.yaml. Only auth-service, in the cluster,
+  # decides how long a member's token lasts; here it sets the life of batch-service's own tokens.
+  JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-7200000}
   JAVA_OPTS: *java-opts
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
   SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5

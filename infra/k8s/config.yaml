@@ -44,7 +44,9 @@ data:
   REDIS_SSL_ENABLED: "true"
 
   # --- Common ---
-  JWT_EXPIRATION_MS: "86400000"
+  # Two hours. The console and the app cannot refresh a token yet, so this is how long a
+  # sign-in lasts, and how long a signed-out or stolen token still works. Locally it is 24 hours.
+  JWT_EXPIRATION_MS: "7200000"
   # Origins of browser clients, comma-separated, read by the gateway and the services. Add the
   # address the console is served from (the Front Door name, once there is one).
   CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"

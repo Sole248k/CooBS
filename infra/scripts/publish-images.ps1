@@ -3,12 +3,12 @@
     Builds the service images with the Docker on this machine and pushes them to the registry.
 .DESCRIPTION
     The route for publishing images while the pipeline is switched off. It builds each service
-    from its own folder (backend/<service>, the same context and Dockerfile that Compose and the
-    pipeline use) and pushes it as <registry>/coobs/<service>:<tag>, which is the name the cluster
+    from its own folder (backend/<service>, or frontend/ for the staff console: the same context
+    and Dockerfile that Compose and the pipeline use) and pushes it as <registry>/coobs/<service>:<tag>, which is the name the cluster
     manifests (infra/k8s/kustomization.yaml) and the on-premises Compose file expect.
 
-    The default list is the thirteen services that are deployed: nine on the cluster and four on
-    the VM.
+    The default list is everything that is deployed: nine services and the staff console on the
+    cluster, and four services on the VM.
 
     Run it on a machine with Docker, from a clean checkout of the commit to deploy. Sign in to
     the registry first; this script does not handle credentials:
@@ -34,7 +34,7 @@ param(
     [string]$Registry = "coobs-asfagkfjadgsgfcf.azurecr.io",
     [string[]]$Services = @(
         # the cluster
-        "api-gateway", "mobile-bff", "staff-bff", "auth-service", "customer-service", "transaction-service",
+        "frontend", "api-gateway", "mobile-bff", "staff-bff", "auth-service", "customer-service", "transaction-service",
         "orchestration-service", "risk-engine", "notification-service",
         # the on-premises VM
         "ledger-service", "account-service", "audit-service", "batch-service"
@@ -46,25 +46,31 @@ param(
 $ErrorActionPreference = "Stop"
 $repo = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 
+# The staff console is the one image that is not built from backend/.
+function Get-BuildContext([string]$service) {
+    if ($service -eq "frontend") { return Join-Path $repo "frontend" }
+    return Join-Path $repo "backend\$service"
+}
+
 foreach ($service in $Services) {
-    if (-not (Test-Path (Join-Path $repo "backend\$service\Dockerfile"))) {
-        throw "backend\$service has no Dockerfile. Check the service name."
+    if (-not (Test-Path (Join-Path (Get-BuildContext $service) "Dockerfile"))) {
+        throw "$(Get-BuildContext $service) has no Dockerfile. Check the service name."
     }
 }
 
 # What is being published: the commit, and whether the checkout has changes that are not in it.
 $commit = (git -C $repo rev-parse --short HEAD)
 $branch = (git -C $repo rev-parse --abbrev-ref HEAD)
-$uncommitted = @(git -C $repo status --porcelain -- backend).Count
+$uncommitted = @(git -C $repo status --porcelain -- backend frontend).Count
 Write-Host "Publishing $($Services.Count) images from commit $commit ($branch) as tag $ImageTag to $Registry" -ForegroundColor Cyan
 if ($uncommitted) {
-    Write-Host "WARNING: backend/ has $uncommitted uncommitted change(s). The images will contain them, and the commit above will not." -ForegroundColor Yellow
+    Write-Host "WARNING: backend/ or frontend/ has $uncommitted uncommitted change(s). The images will contain them, and the commit above will not." -ForegroundColor Yellow
 }
 
 $published = @()
 foreach ($service in $Services) {
     $image = "$Registry/coobs/${service}:$ImageTag"
-    $context = Join-Path $repo "backend\$service"
+    $context = Get-BuildContext $service
     # linux/amd64 is what the cluster node and the VM run, whatever this machine is.
     $build = @("build", "--platform", "linux/amd64", "--label", "org.opencontainers.image.revision=$commit",
         "--tag", $image, $context)
