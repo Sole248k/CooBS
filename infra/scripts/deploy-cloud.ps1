@@ -254,7 +254,19 @@ try {
     Write-Host "5. Applying infra/k8s with image tag $ImageTag" -ForegroundColor Cyan
     $manifests = Join-Path $work "apply.yaml"
     [System.IO.File]::WriteAllText($manifests, (Get-Manifests $sqlFqdn $sqlLogin $redis $frontDoor), $noBom)
-    Invoke-Native "kubectl apply" { kubectl apply -f $manifests } | Out-Null
+    $applied = Invoke-Native "kubectl apply" { kubectl apply -f $manifests }
+
+    # A pod reads the ConfigMap once, when it starts, and a changed ConfigMap restarts nothing
+    # by itself. On 10 October 2026 the gateway kept an old list of allowed origins that way
+    # and refused every sign-in from the console. The TLS proxy does not read it and is left alone.
+    if ($applied -match "configmap/coobs-config configured") {
+        Write-Host "   The settings changed, so the services are restarted to read them"
+        foreach ($deployment in (kubectl get deployments --namespace $namespace --output name)) {
+            if ($deployment -notmatch "tls-proxy") {
+                Invoke-Native "kubectl rollout restart $deployment" { kubectl rollout restart $deployment --namespace $namespace } | Out-Null
+            }
+        }
+    }
 
     Write-Host "   Waiting for the nine services and the console (they start together on two vCPUs, so this is slow)"
     # The rollout, not "available": a Deployment whose new pod cannot start stays available on
