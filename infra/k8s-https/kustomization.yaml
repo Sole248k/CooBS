@@ -1,0 +1,17 @@
+# The cloud zone with HTTPS at the public entry: everything in infra/k8s, plus a TLS proxy in
+# front of the console. deploy-cloud.ps1 renders this folder when it is given -DnsLabel.
+# It is beside infra/k8s and not inside it because kustomize refuses a base that contains
+# the overlay.
+#
+#   kubectl kustomize infra/k8s-https    render and check, needs no cluster
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: coobs
+
+resources:
+  - ../k8s
+  - tls-proxy.yaml
+
+patches:
+  - path: public-service.yaml

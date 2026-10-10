@@ -30,7 +30,7 @@ Everything goes into the resource group `CooBS-rsg` in Indonesia Central. The co
 | `redis.bicep` | Azure Managed Redis `Balanced_B0`, one node, TLS on port 10000, access keys on. A private endpoint and a private DNS zone linked to both VNets. The secret `redis-key` |
 | `aks.bicep` | AKS, Free tier, one `Standard_E2as_v5` node in zone 3. AcrPull on the registry, Network Contributor on the cloud VNet |
 | `onprem-vm.bicep` | One `Standard_B2as_v2` VM in zone 3 at `10.250.0.4`, no public address, Ubuntu 24.04, Docker installed on first boot. AcrPull on the registry and Key Vault Secrets User on the vault |
-| `frontdoor.bicep` | Front Door Standard with one endpoint and one route to the public address. **Off by default**; see "Switching on HTTPS" |
+| `frontdoor.bicep` | Front Door Standard with one endpoint and one route to the public address. **Off by default, and refused by Azure on a free trial**; see "Switching on HTTPS" |
 
 Not created: Event Hubs (Kafka runs in the cluster), a VPN gateway (peering stands in for it), an ingress controller.
 
@@ -158,7 +158,27 @@ One thing differs from the local stack on purpose. Each service gets `JAVA_OPTS=
 
 ## Switching on HTTPS
 
-The first deployment answers on plain HTTP, so the address must not be given to anyone outside the team. Front Door puts HTTPS in front of it. It cannot be in the first deployment, because its origin is the public address, which exists only after step 5. Do this once E2E has passed on the plain address:
+The first deployment answers on plain HTTP, so the address must not be given to anyone outside the team. There are two ways to put HTTPS in front of it. Do either once E2E has passed on the plain address.
+
+### On a free trial: a TLS proxy in the cluster
+
+Azure refuses Front Door on a free trial ("Free Trial and Student account is forbidden for Azure Frontdoor resources", 10 October 2026). `infra/k8s-https` does without it: one Caddy pod takes ports 80 and 443 of the same public address, fetches a certificate by itself, and passes everything on to the console's nginx. It costs nothing and needs no new address.
+
+```
+.\infra\scripts\deploy-cloud.ps1 -ImageTag <tag> -SkipSchemaLoad -DnsLabel <label> -AcmeEmail <an address you read>
+```
+
+- The address gets the host name `<label>.indonesiacentral.cloudapp.azure.com`. The label must be free in the region; the script's output is the HTTPS address.
+- The script adds `https://<that name>` to the origins the gateway allows. Plain HTTP is answered with a redirect, and the bare IP address no longer serves anything.
+- The certificate comes from Let's Encrypt, or from ZeroSSL when Let's Encrypt refuses. That can happen: names under `cloudapp.azure.com` share one weekly allowance with every Azure customer. The e-mail address is what makes the second issuer available.
+- If the page does not open after two minutes, read `kubectl logs deployment/tls-proxy --namespace coobs --tail 40`.
+- To go back to plain HTTP, run the script again without `-DnsLabel` and `-AcmeEmail`, then remove what is left: `kubectl delete deployment/tls-proxy service/frontend configmap/tls-proxy-config pvc/tls-proxy-data --namespace coobs`.
+
+HTTPS ends at the proxy. Inside the cluster and across the link to the on-premises VM the calls are plain HTTP on private addresses, as before.
+
+### On a paid subscription: Front Door
+
+It cannot be in the first deployment, because its origin is the public address, which exists only after step 5. Not usable together with `-DnsLabel`.
 
 1. Deploy the Bicep again with Front Door on and the address `deploy-cloud.ps1` printed. This adds five Front Door resources (the profile, an endpoint, a route, an origin group and an origin) and changes nothing else; run what-if first to see that. The address must be the real one: Azure refuses a documentation-range address such as 203.0.113.9 as an origin.
 
@@ -211,6 +231,7 @@ The what-if checks the templates, names, API versions and the Kubernetes version
 - That 8 GB is enough for Oracle, PostgreSQL and four JVMs.
 - `deploy-cloud.ps1` against a real vault and cluster, and the schema Job against Azure SQL. Checked here: the render-only mode produces 10 Deployments (nine services and the console), Kafka and the on-premises endpoints with every placeholder filled, and the Job's shell script is valid. The same scripts load into SQL Server 2022 locally.
 - The NAT gateway price.
-- Front Door: the module compiles and passes what-if against the subscription, off (no Front Door resource) and on (five to create), and `Microsoft.Cdn` is registered (10 October 2026). Never deployed. Whether a free trial may create Front Door Standard, and whether `service.beta.kubernetes.io/azure-allowed-service-tags` closes the load balancer as intended are all unproven.
+- Front Door: the module compiles and passes what-if against the subscription, off (no Front Door resource) and on (five to create), and `Microsoft.Cdn` is registered (10 October 2026). **A free trial may not create it: Azure refused on 10 October 2026.** Whether `service.beta.kubernetes.io/azure-allowed-service-tags` closes the load balancer as intended is unproven.
+- The TLS proxy (`infra/k8s-https`). Checked: the overlay renders, the cluster accepts it in a server-side dry run, and Caddy 2.10.0 parses the rendered configuration with both issuers. Never applied: that a certificate is issued for the Azure host name, and that the console and the app work through it, are unproven.
 - The console's nginx pod on the cluster. It is the image the local stack runs, but here it runs without a mounted configuration and behind a load balancer.
 - The staff password step of the schema job (`htpasswd` in an `httpd` image, then one `UPDATE`). The shell logic and the hash prefix are checked; the job has never run.

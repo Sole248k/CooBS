@@ -1,6 +1,7 @@
 package com.group2.fse.api_gateway.route;
 
 import com.group2.fse.api_gateway.filter.CorrelationIdFilter;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,9 +13,15 @@ import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,6 +40,30 @@ class GatewayRoutingIntegrationTest {
     private org.springframework.cloud.gateway.config.HttpClientProperties httpClientProperties;
 
     private WebTestClient client;
+
+    // Stands in for account-service and remembers the Origin header of the last call it received.
+    private static final AtomicReference<String> originSeenByService = new AtomicReference<>("never called");
+    private static final HttpServer accountService = startAccountService();
+
+    private static HttpServer startAccountService() {
+        try {
+            HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+            server.createContext("/", exchange -> {
+                originSeenByService.set(String.valueOf(exchange.getRequestHeaders().getFirst(HttpHeaders.ORIGIN)));
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+            });
+            server.start();
+            return server;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @DynamicPropertySource
+    static void accountServiceUrl(DynamicPropertyRegistry registry) {
+        registry.add("ACCOUNT_SERVICE_URL", () -> "http://localhost:" + accountService.getAddress().getPort());
+    }
 
     @BeforeEach
     void setUp() {
@@ -188,6 +219,21 @@ class GatewayRoutingIntegrationTest {
                 .bodyValue("{}")
                 .exchange()
                 .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("CORS: the browser's origin is judged here and not passed on to the service")
+    void shouldNotPassTheOriginOnToAService() {
+        client.post()
+                .uri("/api/v1/accounts/1/status")
+                .header(HttpHeaders.ORIGIN, "https://console.example.test")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().isNoContent()
+                .expectHeader().valueEquals(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "https://console.example.test");
+
+        assertThat(originSeenByService.get()).isEqualTo("null");
     }
 
     @Test
