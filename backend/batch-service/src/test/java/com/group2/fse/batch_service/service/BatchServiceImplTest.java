@@ -67,6 +67,8 @@ class BatchServiceImplTest {
                 .status("COMPLETED")
                 .itemsProcessed(3)
                 .durationMs(820)
+                .totalAmount(new java.math.BigDecimal("112.3000"))
+                .message("Month-end interest capitalization credited across 3 accounts")
                 .build();
         sampleRun.getSteps().add(step1);
     }
@@ -138,6 +140,9 @@ class BatchServiceImplTest {
         assertThat(response.getTriggeredBy()).isEqualTo(3L);
         assertThat(response.getSteps()).hasSize(1);
         assertThat(response.getSteps().get(0).getStepName()).isEqualTo("INTEREST_ACCRUAL");
+        // What the step stored, not a figure worked out from the count.
+        assertThat(response.getSteps().get(0).getTotalAmount()).isEqualTo("112.30");
+        assertThat(response.getSteps().get(0).getMessage()).isEqualTo("Month-end interest capitalization credited across 3 accounts");
     }
 
     @Test

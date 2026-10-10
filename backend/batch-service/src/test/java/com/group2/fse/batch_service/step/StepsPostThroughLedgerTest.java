@@ -1,6 +1,8 @@
 package com.group2.fse.batch_service.step;
 
+import com.group2.fse.batch_service.entity.DailyAuditSeal;
 import com.group2.fse.batch_service.entity.LoanSchedule;
+import com.group2.fse.batch_service.repository.DailyAuditSealRepository;
 import com.group2.fse.batch_service.repository.LoanScheduleRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,10 @@ class StepsPostThroughLedgerTest {
     private LoanScheduleRepository loanScheduleRepository;
     @Mock
     private NotificationDispatcherHelper notifications;
+    @Mock
+    private LedgerAuditHelper accounts;
+    @Mock
+    private DailyAuditSealRepository seals;
 
     @SuppressWarnings("unchecked")
     private void candidates(Object[]... rows) {
@@ -128,14 +134,93 @@ class StepsPostThroughLedgerTest {
         when(ledgerPostings.post(eq(7L), eq("INTEREST_ACCRUAL"), anyList()))
                 .thenReturn(outcomes("EOD-202609-INT-000001", null, "EOD-202609-INT-000002", "ACCOUNT_NOT_ACTIVE"));
 
-        BatchStepResult result = new InterestAccrualStep(jdbcTemplate, notifications, new LedgerAuditHelper(), ledgerPostings)
+        when(accounts.getAccountInfo(1L)).thenReturn(new LedgerAuditHelper.AccountInfo("ACC_10000001", 1L));
+
+        BatchStepResult result = new InterestAccrualStep(jdbcTemplate, notifications, accounts, ledgerPostings)
                 .execute(7L, MONTH_END);
 
         assertThat(sent()).first().isEqualTo(new LedgerPostings.Posting(
                 "EOD-202609-INT-000001", 9002L, 1L, new BigDecimal("82.19"), "Monthly savings interest"));
         assertThat(result.getItemsProcessed()).isEqualTo(1);
         assertThat(result.getTotalAmount()).isEqualByComparingTo("82.19");
-        verify(notifications).dispatchInterestNotification(any(), eq(1L), any(), eq(new BigDecimal("82.19")), eq("EOD-202609-INT-000001"));
+        verify(notifications).dispatchInterestNotification(eq(1L), eq(1L), eq("ACC_10000001"), eq(new BigDecimal("82.19")), eq("EOD-202609-INT-000001"));
         verify(notifications, never()).dispatchInterestNotification(any(), eq(2L), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Month-end interest: when the owner cannot be read the credit counts and nobody is notified")
+    void interest_unknownOwner_notifiesNobody() {
+        candidates(new Object[]{19L, new BigDecimal("16.44")});
+        when(ledgerPostings.post(eq(7L), eq("INTEREST_ACCRUAL"), anyList()))
+                .thenReturn(outcomes("EOD-202609-INT-000019", null));
+        when(accounts.getAccountInfo(19L)).thenReturn(null);
+
+        BatchStepResult result = new InterestAccrualStep(jdbcTemplate, notifications, accounts, ledgerPostings)
+                .execute(7L, MONTH_END);
+
+        assertThat(result.getItemsProcessed()).isEqualTo(1);
+        verify(notifications, never()).dispatchInterestNotification(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Reconciliation: equal debits and credits pass, and counter cash is reported beside them")
+    void reconciliation_balancedDayPasses() {
+        when(accounts.journalTotals(MONTH_END)).thenReturn(new LedgerAuditHelper.JournalTotals(
+                5, new BigDecimal("3000.0000"), new BigDecimal("3000.0000"), new BigDecimal("500.0000"), BigDecimal.ZERO));
+
+        BatchStepResult result = new GlReconciliationStep(accounts).execute(7L, MONTH_END);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getItemsProcessed()).isEqualTo(5);
+        assertThat(result.getMessage()).isEqualTo("Debits equal credits (5 journal entries; counter cash in 500.00, out 0.00)");
+    }
+
+    @Test
+    @DisplayName("Reconciliation: a posting whose legs differ fails the step")
+    void reconciliation_varianceFailsTheStep() {
+        when(accounts.journalTotals(MONTH_END)).thenReturn(new LedgerAuditHelper.JournalTotals(
+                4, new BigDecimal("2062.2400"), new BigDecimal("2012.2400"), BigDecimal.ZERO, BigDecimal.ZERO));
+
+        BatchStepResult result = new GlReconciliationStep(accounts).execute(7L, MONTH_END);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.getTotalAmount()).isEqualByComparingTo("50.00");
+        assertThat(result.getMessage()).isEqualTo("Variance detected: debits 2062.24, credits 2012.24");
+    }
+
+    @Test
+    @DisplayName("Seal: a day that is over is sealed from its own last audit row, once")
+    void seal_pastDayIsSealedOnceFromItsOwnRows() {
+        candidates(new Object[]{120L, "ab".repeat(32)});
+        when(seals.findByBusinessDate(MONTH_END)).thenReturn(java.util.Optional.empty());
+
+        BatchStepResult first = new AuditSealStep(seals, jdbcTemplate).execute(7L, MONTH_END);
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sql.capture(), any(RowMapper.class), eq(java.sql.Date.valueOf(MONTH_END)));
+        assertThat(sql.getValue()).contains("DATE(event_timestamp) <= ?");
+        ArgumentCaptor<DailyAuditSeal> saved = ArgumentCaptor.forClass(DailyAuditSeal.class);
+        verify(seals).save(saved.capture());
+        assertThat(saved.getValue().getLastAuditId()).isEqualTo(120L);
+        assertThat(first.isSuccess()).isTrue();
+
+        // The same day again: the stored seal is reported and nothing is written.
+        when(seals.findByBusinessDate(MONTH_END)).thenReturn(java.util.Optional.of(saved.getValue()));
+        BatchStepResult again = new AuditSealStep(seals, jdbcTemplate).execute(8L, MONTH_END);
+
+        assertThat(again.getMessage()).contains(saved.getValue().getSealHash().substring(0, 8)).contains("already sealed");
+        verify(seals).save(any());
+    }
+
+    @Test
+    @DisplayName("Seal: no audit row to seal fails the step instead of sealing a made-up one")
+    void seal_withoutAuditRowsFails() {
+        candidates();
+        when(seals.findByBusinessDate(MONTH_END)).thenReturn(java.util.Optional.empty());
+
+        BatchStepResult result = new AuditSealStep(seals, jdbcTemplate).execute(7L, MONTH_END);
+
+        assertThat(result.isSuccess()).isFalse();
+        verify(seals, never()).save(any());
     }
 }

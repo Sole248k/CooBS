@@ -104,6 +104,11 @@ public class InterestAccrualStep implements BatchStepExecutor {
 
                 // Resolve official account number (e.g. ACC_10000001) and customer ID
                 LedgerAuditHelper.AccountInfo accountInfo = ledgerAuditHelper.getAccountInfo(posting.creditAccountId());
+                if (accountInfo == null) {
+                    log.warn("[BatchRun #{}] Interest {} is credited, but its owner could not be read; no notification sent",
+                            batchRunId, posting.referenceNo());
+                    continue;
+                }
                 notificationDispatcherHelper.dispatchInterestNotification(
                         accountInfo.customerId(),
                         posting.creditAccountId(),

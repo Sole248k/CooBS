@@ -12,5 +12,6 @@ import java.util.Optional;
 public interface BatchRunRepository extends JpaRepository<BatchRun, Long> {
     Optional<BatchRun> findByBusinessDate(LocalDate businessDate);
     boolean existsByStatus(String status);
+    List<BatchRun> findByStatus(String status);
     List<BatchRun> findAllByOrderByBatchRunIdDesc();
 }

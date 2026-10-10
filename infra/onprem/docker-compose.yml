@@ -148,9 +148,8 @@ services:
       start_period: 90s
     restart: unless-stopped
 
-  # batch-service reads the audit store through its datasource and opens its own connection to
-  # Oracle (LedgerAuditHelper). It gets the Oracle settings here; in docker-compose.yml it is
-  # given none and falls back to a password written in its code.
+  # batch-service reads the audit store through its datasource and opens its own read-only
+  # connection to Oracle (LedgerAuditHelper), so it gets the Oracle settings as well.
   batch-service:
     image: ${REGISTRY:?REGISTRY is required}/coobs/batch-service:${IMAGE_TAG:?IMAGE_TAG is required}
     container_name: batch-service

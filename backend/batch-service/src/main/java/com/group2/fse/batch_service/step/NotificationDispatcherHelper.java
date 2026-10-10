@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Dispatches customer in-app notifications on month-end interest capitalization
@@ -25,7 +24,9 @@ public class NotificationDispatcherHelper {
     private KafkaTemplate<String, Object> kafkaTemplate;
 
     public void dispatchInterestNotification(Long customerId, Long accountId, String accountNumber, BigDecimal amount, String referenceNo) {
-        String eventId = "evt_int_" + referenceNo + "_" + UUID.randomUUID().toString().substring(0, 6);
+        // One ID per credit. A step that is run again sends the same ID, and notification-service
+        // skips an event whose ID it has already stored.
+        String eventId = "evt_int_" + referenceNo;
 
         if (kafkaTemplate == null) {
             log.warn("Kafka is not configured; no interest notification was sent for account #{}", accountId);
