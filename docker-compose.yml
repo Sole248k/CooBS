@@ -5,7 +5,9 @@ services:
   # 1. ORACLE DATABASE (Master System of Record & Pessimistic Row Locking)
   # ============================================================================
   oracle-core-db:
-    image: gvenzl/oracle-free:latest
+    # Pinned to the image the E2E runs passed on (pulled as latest; built five weeks before 10 October 2026).
+    # A tag such as latest moves, and a new pull would bring a version nobody has tested.
+    image: gvenzl/oracle-free@sha256:7ed34d0ade89c91a553c9cbe9d42457c758fa29a762aaaa3137541ff30a2d1cb
     container_name: oracle-core-db
     ports:
       - "127.0.0.1:${ORACLE_PORT:-1522}:1521"
@@ -76,7 +78,8 @@ services:
   # 4. APACHE KAFKA (KRaft Mode Single Broker Event Streaming)
   # ============================================================================
   kafka-broker:
-    image: apache/kafka:latest
+    # Pinned like Oracle above (pulled as latest; built three months before 10 October 2026).
+    image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
     container_name: kafka-broker
     ports:
       - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
@@ -110,7 +113,7 @@ services:
   # 5. KAFKA TOPIC INITIALIZER (Auto-creates domain topics on boot)
   # ============================================================================
   kafka-init-topics:
-    image: apache/kafka:latest
+    image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
     container_name: kafka-init-topics
     depends_on:
       kafka-broker:

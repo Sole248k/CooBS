@@ -71,7 +71,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: kafka
-          image: apache/kafka:latest
+          # The same image, by digest, as docker-compose.yml: the one the E2E runs passed on.
+          image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
           imagePullPolicy: IfNotPresent
           ports:
             - name: internal
@@ -180,7 +181,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: init-topics
-          image: apache/kafka:latest
+          image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
           imagePullPolicy: IfNotPresent
           command: ["/bin/bash", "-c"]
           args:
