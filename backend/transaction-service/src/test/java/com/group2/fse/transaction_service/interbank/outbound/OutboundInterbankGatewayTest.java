@@ -155,6 +155,20 @@ class OutboundInterbankGatewayTest {
     }
 
     @Test
+    @DisplayName("the partner could not be reached and nothing was sent: refused, so the saga gives the money back")
+    void unreachablePartnerIsARefusalNotAPendingTransfer() {
+        when(interbankClient.deliver(any(), eq(false))).thenReturn(PartnerAnswer.unreachable());
+
+        OutboundInterbankResponse response = gateway.send(request());
+
+        // PENDING here would keep the sender's money on hold for good: a wrong partner address
+        // never answers, and a transfer that is with a partner cannot be reversed.
+        assertThat(response.getPartnerStatus()).isEqualTo("REJECTED");
+        assertThat(response.getReasonCode()).isEqualTo("PARTNER_UNREACHABLE");
+        assertThat(savedStatuses).containsExactly("PENDING", "REJECTED");
+    }
+
+    @Test
     @DisplayName("no answer: PENDING, and the message stays marked as possibly sent")
     void noAnswerIsPending() {
         when(interbankClient.deliver(any(), eq(false))).thenReturn(PartnerAnswer.unknown());

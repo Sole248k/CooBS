@@ -312,7 +312,7 @@ class TransferSagaTest {
     }
 
     @Test
-    void reversalOfATransferThatWasHeldOrOnlyApproved_givesItsLimitBack() {
+    void reversalOfAHeldTransfer_givesItsLimitBack_andOneOnlyApprovedKeepsItUntilItSettles() {
         UUID heldId = UUID.randomUUID();
         SagaInstance held = sagas.findOrCreate(heldId);
         held.setReferenceNo("TX-HELD-LIMIT-001");
@@ -325,11 +325,22 @@ class TransferSagaTest {
         approved.setState(SagaState.RISK_APPROVED);
         sagas.saveAndFlush(approved);
 
+        UUID waitingId = UUID.randomUUID();
+
         reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), heldId, "RV-LIMIT-001", "Sent by mistake", 3L), "corr");
-        reversalSaga.run(new StartReversalRequest(UUID.randomUUID(), approvedId, "RV-LIMIT-002", "Sent by mistake", 3L), "corr");
+        reversalSaga.run(new StartReversalRequest(waitingId, approvedId, "RV-LIMIT-002", "Sent by mistake", 3L), "corr");
 
         assertThat(limitReleases(heldId)).isEqualTo(1);
-        assertThat(limitReleases(approvedId)).isEqualTo(1);
+        // The approved transfer is not cancelled by the reversal, which waits for it. Its limit
+        // goes back when the transfer itself ends without posting (the test above this one).
+        assertThat(limitReleases(approvedId)).isZero();
+
+        // Taken out of flight so that neither row is picked up by the recovery of another test.
+        for (UUID id : List.of(approvedId, waitingId)) {
+            SagaInstance left = sagas.findByTransactionId(id).orElseThrow();
+            left.setState(SagaState.FAILED);
+            sagas.saveAndFlush(left);
+        }
     }
 
     @Test
@@ -985,25 +996,56 @@ class TransferSagaTest {
     }
 
     @Test
-    void reversalCancelsWhileTheHoldIsBeingPlaced_theTransferDoesNotOverwriteItAndNeverPosts() {
+    void reversalAskedWhileTheHoldIsBeingPlaced_waits_andReversesTheTransferOnceItHasSettled() {
         StartTransferRequest t = transfer();
         StartReversalRequest r = new StartReversalRequest(
                 UUID.randomUUID(), t.transactionId(), "RV-RACE-001", "Customer cancelled", 3L);
-        // The reversal finds the transfer at RISK_APPROVED and cancels it while the transfer's
-        // own thread is still waiting for the ledger to answer the hold.
+        // The reversal finds the transfer at RISK_APPROVED while the transfer's own thread is
+        // still waiting for the ledger to answer the hold.
         MEANWHILE.put(HOLD, () -> reversalSaga.run(r, "corr-rev"));
 
         saga.run(t, "corr");
 
+        // It neither cancelled the transfer nor failed: it is still in flight, for the sweep.
         assertThat(sagas.findByTransactionId(r.transactionId()).orElseThrow().getState())
-                .isEqualTo(SagaState.COMPLETED);
-        SagaInstance row = row(t);
-        assertThat(row.getState()).isEqualTo(SagaState.FAILED);
-        assertThat(row.getFailureCode()).isEqualTo("CANCELLED_BEFORE_HOLD");
-        // The hold the ledger placed for the cancelled transfer is given back, never captured.
+                .isEqualTo(SagaState.STARTED);
+        assertThat(row(t).getState()).isEqualTo(SagaState.POSTED);
         assertThat(ledgerCalls()).containsExactly(
                 new Call(HOLD, t.transactionId() + ":hold", null, null),
-                new Call(RELEASE, t.transactionId() + ":release", null, null));
+                new Call(CAPTURE, t.transactionId() + ":capture", null, null));
+
+        // The sweep runs the reversal again. The transfer has posted, so it is reversed.
+        reversalSaga.run(r, "corr-sweep");
+
+        assertThat(sagas.findByTransactionId(r.transactionId()).orElseThrow().getState())
+                .isEqualTo(SagaState.COMPLETED);
+        assertThat(ledgerCalls()).last().isEqualTo(new Call(REVERSAL, r.transactionId() + ":reversal", null, null));
+    }
+
+    @Test
+    void reversalOfATransferWhoseHoldWasNeverAnswered_doesNotCancelIt_soTheHoldIsNotOrphaned() {
+        UUID origId = UUID.randomUUID();
+        SagaInstance original = sagas.findOrCreate(origId);
+        original.setReferenceNo("TX-HOLD-UNKNOWN-001");
+        // The hold call got no answer: the ledger may hold the money, and only the sweep's
+        // repeat of that call will tell.
+        original.setState(SagaState.RISK_APPROVED);
+        sagas.saveAndFlush(original);
+        UUID revId = UUID.randomUUID();
+
+        reversalSaga.run(new StartReversalRequest(revId, origId, "RV-HOLD-UNKNOWN-001", "Sent by mistake", 3L), "corr");
+
+        // Ended FAILED here, the transfer would never be swept and its hold never released.
+        assertThat(sagas.findByTransactionId(origId).orElseThrow().getState()).isEqualTo(SagaState.RISK_APPROVED);
+        assertThat(sagas.findByTransactionId(revId).orElseThrow().getState()).isEqualTo(SagaState.STARTED);
+        assertThat(ledgerCalls()).isEmpty();
+
+        // Taken out of flight so that neither row is picked up by the recovery of another test.
+        for (UUID id : List.of(origId, revId)) {
+            SagaInstance left = sagas.findByTransactionId(id).orElseThrow();
+            left.setState(SagaState.FAILED);
+            sagas.saveAndFlush(left);
+        }
     }
 
     @Test
@@ -1229,7 +1271,7 @@ class TransferSagaTest {
         UUID origId = UUID.randomUUID();
         SagaInstance original = sagas.findOrCreate(origId);
         original.setReferenceNo("TX-NOT-HELD-001");
-        original.setState(SagaState.RISK_APPROVED);
+        // STARTED: risk has not approved it, so no hold has been asked for.
         sagas.saveAndFlush(original);
         UUID revId = UUID.randomUUID();
 

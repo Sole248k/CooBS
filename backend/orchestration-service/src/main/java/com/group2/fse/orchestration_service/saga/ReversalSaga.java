@@ -117,8 +117,16 @@ public class ReversalSaga {
             reversePostedTransfer(reversalSaga, original, r);
         } else if (original.getState() == SagaState.FUNDS_RESERVED) {
             cancelHeldTransfer(reversalSaga, original, r);
-        } else if (original.getState() == SagaState.STARTED || original.getState() == SagaState.RISK_APPROVED) {
+        } else if (original.getState() == SagaState.STARTED) {
             cancelUnreservedTransfer(reversalSaga, original, r);
+        } else if (original.getState() == SagaState.RISK_APPROVED) {
+            // The hold has been asked for and the ledger may have placed it, whatever this row
+            // says: a hold call with no answer leaves the transfer here for the sweep. Cancelling
+            // now would end the transfer FAILED, which is never swept, and the hold would stay
+            // on the sender's account for good. So the reversal waits at STARTED. The transfer
+            // leaves this state within its retry window, and the sweep runs the reversal again.
+            log.info("Transfer {} is still waiting for its hold; reversal {} waits and is run again by the sweep",
+                    r.reversesTransactionId(), r.transactionId());
         } else {
             fail(reversalSaga, r, "ALREADY_TERMINAL", "Original transaction is already in terminal state " + original.getState());
         }
@@ -192,7 +200,8 @@ public class ReversalSaga {
 
         events.passed(r.transactionId(), r.referenceNo(), Stage.POSTED, "Pre-hold transaction cancelled");
         events.passed(r.transactionId(), r.referenceNo(), Stage.NOTIFICATION, null);
-        // If risk had approved it, the amount it reserved goes back; if not, the engine has nothing to release.
+        // Risk may be approving it at this moment; if it reserved an amount, that goes back, and
+        // if not, the engine has nothing to release.
         riskOutcomes.notPosted(original.getTransactionId());
     }
 

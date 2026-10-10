@@ -93,6 +93,14 @@ public class OutboundInterbankGateway {
                     txn.getTransactionId(), partner.getBankCode(), e.toString());
             answer = PartnerAnswer.unknown();
         }
+        if (answer.outcome() == PartnerAnswer.Outcome.UNREACHABLE) {
+            // Never sent, and it will not be: the transfer ends here, as a refusal, so that the
+            // saga releases the sender's money. Left PENDING, a wrong partner address would hold
+            // that money for good, because a transfer with a partner cannot be reversed.
+            log.warn("{} could not be reached; transaction {} was never sent and is refused",
+                    partner.getBankCode(), txn.getTransactionId());
+            answer = PartnerAnswer.rejected(PartnerAnswer.PARTNER_UNREACHABLE);
+        }
         if (!answer.decided()) {
             log.warn("{} has not answered about transaction {}; it stays PENDING", partner.getBankCode(),
                     txn.getTransactionId());

@@ -207,6 +207,26 @@ class InterbankClientTest {
     }
 
     @Test
+    @DisplayName("a partner that cannot be reached on the first send: nothing was sent, and that is said at once")
+    void unreachableOnTheFirstSendIsNotSent() {
+        partner.stop(0);
+
+        // No status round: there is nothing to ask about.
+        assertThat(client.deliver(transfer(), false).outcome()).isEqualTo(PartnerAnswer.Outcome.UNREACHABLE);
+
+        bankB.setBaseUrl("http://no-such-partner.invalid");
+        assertThat(client.deliver(transfer(), false).outcome()).isEqualTo(PartnerAnswer.Outcome.UNREACHABLE);
+    }
+
+    @Test
+    @DisplayName("a partner that cannot be reached for a message it may already have: still unknown, never 'not sent'")
+    void unreachableForAPossiblySentMessageStaysUnknown() {
+        partner.stop(0);
+
+        assertThat(client.deliver(transfer(), true).outcome()).isEqualTo(PartnerAnswer.Outcome.UNKNOWN);
+    }
+
+    @Test
     @DisplayName("a message that may have been sent is asked about before anything is sent")
     void possiblySentIsAskedFirst() {
         replies.add(accepted());
