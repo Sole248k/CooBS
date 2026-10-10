@@ -95,9 +95,10 @@ Each command below creates or changes resources and costs money. Run them yourse
    $env:COOBS_KEYVAULT_ADMIN_OBJECT_ID = az ad signed-in-user show --query id -o tsv
    ```
 
-2. Deploy. It takes roughly 15 to 25 minutes; Redis and AKS are the slow parts.
+2. Deploy. It takes roughly 15 to 25 minutes; Redis and AKS are the slow parts. The first line is needed once per subscription: the cluster's logging add-on needs that provider, what-if does not notice when it is missing, and the cluster then ends as `Failed` (seen on 10 October 2026; registering it and deploying again repaired it).
 
    ```
+   az provider register --namespace Microsoft.OperationsManagement --wait
    az deployment group create --resource-group CooBS-rsg --name coobs-demo --parameters infra/bicep/main.bicepparam
    ```
 
@@ -161,10 +162,12 @@ The first deployment answers on plain HTTP, so the address must not be given to 
 
 1. Deploy the Bicep again with Front Door on and the address `deploy-cloud.ps1` printed. This adds five Front Door resources (the profile, an endpoint, a route, an origin group and an origin) and changes nothing else; run what-if first to see that. The address must be the real one: Azure refuses a documentation-range address such as 203.0.113.9 as an origin.
 
-   ```n   $env:COOBS_FRONT_DOOR = "true"
+   ```
+   $env:COOBS_FRONT_DOOR = "true"
    $env:COOBS_PUBLIC_ADDRESS = "<public address>"
    az deployment group create --resource-group CooBS-rsg --name coobs-demo --parameters infra/bicep/main.bicepparam
-   ```n
+   ```
+
 2. Run `deploy-cloud.ps1` again with the same image tag. It reads the Front Door host name from the outputs, adds `https://<that name>` to the origins the gateway allows, and closes the load balancer to everything except Front Door. It then prints the HTTPS address.
 3. Use the HTTPS address everywhere: the console, `GATEWAY_URL` for the app, `baseUrl` for Postman. The plain address no longer answers.
 
