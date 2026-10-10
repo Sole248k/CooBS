@@ -152,8 +152,14 @@ try {
         [System.IO.File]::WriteAllText($file, [string]$value, $noBom)
         $fromFile += "--from-file=$key=$file"
     }
-    kubectl delete secret coobs-app-secrets --namespace $namespace --ignore-not-found | Out-Null
-    Invoke-Native "kubectl create secret" { kubectl create secret generic coobs-app-secrets --namespace $namespace @fromFile } | Out-Null
+    # Replaced in one step. Deleting it first would leave no Secret at all if the create then
+    # failed, and the next pod to restart could not start.
+    $rendered = Invoke-Native "kubectl create secret" {
+        kubectl create secret generic coobs-app-secrets --namespace $namespace @fromFile --dry-run=client --output yaml
+    }
+    $secretFile = Join-Path $work "coobs-app-secrets.yaml"
+    [System.IO.File]::WriteAllText($secretFile, ($rendered -join "`n"), $noBom)
+    Invoke-Native "kubectl apply secret" { kubectl apply -f $secretFile } | Out-Null
 
     # -------------------------------------------------------------------------
     if ($SkipSchemaLoad) {
@@ -190,12 +196,20 @@ try {
     [System.IO.File]::WriteAllText($manifests, (Get-Manifests $sqlFqdn $sqlLogin $redis), $noBom)
     Invoke-Native "kubectl apply" { kubectl apply -f $manifests } | Out-Null
 
-    Write-Host "   Waiting for the eight services (they start together on two vCPUs, so this is slow)"
+    Write-Host "   Waiting for the nine services (they start together on two vCPUs, so this is slow)"
     kubectl wait --namespace $namespace --for=condition=available --timeout=900s deployment --all | Out-Null
     $rolledOut = ($LASTEXITCODE -eq 0)
     kubectl get pods --namespace $namespace
     if (-not $rolledOut) { throw "Not every deployment became available. The pod list above shows which one; read its log with kubectl logs." }
-    $address = kubectl get service api-gateway-public --namespace $namespace --output "jsonpath={.status.loadBalancer.ingress[0].ip}"
+    # Azure can take a minute or two to give the load balancer its address after the pods are up.
+    $deadline = (Get-Date).AddMinutes(3)
+    do {
+        $address = kubectl get service api-gateway-public --namespace $namespace --output "jsonpath={.status.loadBalancer.ingress[0].ip}"
+        if (-not $address) { Start-Sleep -Seconds 5 }
+    } while (-not $address -and (Get-Date) -lt $deadline)
+    if (-not $address) {
+        throw "The gateway has no public address yet. Look again with: kubectl get service api-gateway-public --namespace $namespace"
+    }
 
     Write-Host ""
     Write-Host "Gateway: http://$address" -ForegroundColor Green

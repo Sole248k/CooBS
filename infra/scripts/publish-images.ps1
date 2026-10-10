@@ -7,9 +7,8 @@
     pipeline use) and pushes it as <registry>/coobs/<service>:<tag>, which is the name the cluster
     manifests (infra/k8s/kustomization.yaml) and the on-premises Compose file expect.
 
-    The default list is the twelve services that are deployed: eight on the cluster and four on
-    the VM. staff-bff is left out because it has no manifest yet; name it with -Services to
-    publish it as well.
+    The default list is the thirteen services that are deployed: nine on the cluster and four on
+    the VM.
 
     Run it on a machine with Docker, from a clean checkout of the commit to deploy. Sign in to
     the registry first; this script does not handle credentials:
@@ -35,7 +34,7 @@ param(
     [string]$Registry = "coobs-asfagkfjadgsgfcf.azurecr.io",
     [string[]]$Services = @(
         # the cluster
-        "api-gateway", "mobile-bff", "auth-service", "customer-service", "transaction-service",
+        "api-gateway", "mobile-bff", "staff-bff", "auth-service", "customer-service", "transaction-service",
         "orchestration-service", "risk-engine", "notification-service",
         # the on-premises VM
         "ledger-service", "account-service", "audit-service", "batch-service"

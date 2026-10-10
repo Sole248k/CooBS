@@ -1,4 +1,4 @@
-# The CooBS cloud zone: eight services and Kafka on one AKS cluster.
+# The CooBS cloud zone: nine services and Kafka on one AKS cluster.
 #
 #   kubectl kustomize infra/k8s          render and check, needs no cluster
 #   kubectl apply -k infra/k8s           apply
@@ -17,6 +17,7 @@ resources:
   - kafka.yaml
   - api-gateway.yaml
   - mobile-bff.yaml
+  - staff-bff.yaml
   - auth-service.yaml
   - customer-service.yaml
   - transaction-service.yaml
@@ -32,6 +33,9 @@ images:
     newTag: CHANGE_ME
   - name: coobs/mobile-bff
     newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/mobile-bff
+    newTag: CHANGE_ME
+  - name: coobs/staff-bff
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/staff-bff
     newTag: CHANGE_ME
   - name: coobs/auth-service
     newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/auth-service
