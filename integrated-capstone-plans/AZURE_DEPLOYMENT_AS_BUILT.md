@@ -262,7 +262,7 @@ A browser tells the server which page a call comes from, in the `Origin` header.
 ### Going back to plain HTTP
 
 ```
-.\infra\scripts\deploy-cloud.ps1 -ImageTag version-1.3 -SkipSchemaLoad
+.\infra\scripts\deploy-cloud.ps1 -ImageTag <tag> -SkipSchemaLoad -PlainHttp
 kubectl delete deployment/tls-proxy service/frontend configmap/tls-proxy-config pvc/tls-proxy-data --namespace coobs
 ```
 
@@ -280,6 +280,7 @@ kubectl delete deployment/tls-proxy service/frontend configmap/tls-proxy-config 
 | 8 | A second machine had no SSH key for the Bicep | The key was made on the laptop, and Azure does not allow a VM's key to change | Read the public key back from the VM in Azure (section 5, step 1) |
 | 9 | The console's writes to accounts, ledger, audit and end-of-day were refused | Section 7, "The browser origin". E2E and the app send no `Origin`, so neither showed it | The gateway no longer passes `Origin` on (pull request 160) |
 | 10 | One image build failed on a download from Maven Central | A single failed connection; every other download in the same second worked | Ran the build again |
+| 11 | A console-only update switched HTTPS off and left nine rollouts stuck, while the script reported success | Only the console image was built under the new tag, and the script was run without the HTTPS options. It applied the tag to all ten images, put the plain entry back, and its wait passed because the old pods were still answering | Built all images under the tag and ran the script with the HTTPS options. The script now checks the registry for every image first, keeps HTTPS unless told `-PlainHttp`, and waits for each rollout to finish |
 
 For problem 3, a bigger node was considered and set aside: the trial allows four vCPUs in total, and raising that needs a paid subscription and an approved request.
 
@@ -310,7 +311,7 @@ kubectl logs deployment/tls-proxy --namespace coobs --tail 40
 .\infra\scripts\deploy-onprem.ps1 -StatusOnly
 ```
 
-To put a new version on the cluster: build all images under one new tag, then run `deploy-cloud.ps1` with that tag and the same `-SkipSchemaLoad -DnsLabel coobs -AcmeEmail ...`. Use one tag for everything; the script applies a single tag to all ten images, and a tag that is missing for one of them leaves that pod waiting.
+To put a new version on the cluster: build all images under one new tag (`publish-images.ps1 -ImageTag <tag>`, with no `-Services`), then run `deploy-cloud.ps1 -ImageTag <tag> -SkipSchemaLoad`. The script applies a single tag to all ten images. Since problem 11 it refuses to start when the registry lacks that tag for any of them, keeps HTTPS on by itself, and fails if a rollout does not finish.
 
 To remove everything after the presentation, follow "Removing it" in `infra/README.md`. Key Vault keeps a deleted vault for seven days under the same name.
 

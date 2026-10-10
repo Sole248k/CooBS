@@ -2,7 +2,7 @@
 
 These manifests run the nine cloud services, the staff console and Kafka on one AKS cluster, in the `coobs` namespace. The four on-premises services (ledger, account, audit, batch) are not here: they run on the on-premises VM, and the cluster reaches them through `onprem-services.yaml`.
 
-**Status: rendered with `kubectl kustomize`, never applied to a cluster.** Nothing in this folder has started a pod yet.
+**Status: applied to the cluster on 10 October 2026 by `infra/scripts/deploy-cloud.ps1`, together with the HTTPS overlay in `infra/k8s-https`; the E2E suite passed against it.** What that proved and what it did not is at the end of `infra/README.md`.
 
 ## Files
 

@@ -40,6 +40,10 @@ param(
     # The certificate issuer's contact address. Needed with -DnsLabel.
     [string]$AcmeEmail,
     [string]$Location = "indonesiacentral",
+    # Once HTTPS is on, a later run keeps it without being told. This switch turns it off.
+    [switch]$PlainHttp,
+    # The registry the images are pulled from, by its Azure resource name.
+    [string]$RegistryName = "CooBS",
     # Writes the manifests that would be applied to this file and stops, without calling Azure or the cluster.
     # Needs the three values below, which otherwise come from the Bicep outputs.
     [string]$RenderOnly,
@@ -130,6 +134,18 @@ try {
         throw "Azure Managed Redis was not deployed. Apply infra/k8s/optional/redis-in-cluster.yaml and set the Redis settings by hand; this script covers the managed path only."
     }
 
+    # One tag is applied to every image. If one image lacks it, that service's new pod waits
+    # for ever while the old one keeps answering, which is easy to miss. So look first.
+    $images = [regex]::Matches((Get-Manifests $sqlFqdn $sqlLogin $redis $frontDoor), 'image:\s*\S+?azurecr\.io/(\S+)') |
+        ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+    $missing = @()
+    foreach ($image in $images) {
+        if (-not (Test-Native { az acr repository show --name $RegistryName --image $image --output none })) { $missing += $image }
+    }
+    if ($missing) {
+        throw "Registry $RegistryName has no image for: $($missing -join ', '). Build every image under one tag first (publish-images.ps1 -ImageTag $ImageTag). Nothing was changed."
+    }
+
     # -------------------------------------------------------------------------
     Write-Host "2. Application secrets in Key Vault $vault (existing ones are kept)" -ForegroundColor Cyan
     # The JWT key has the shape the services already use: 64 hexadecimal characters.
@@ -163,6 +179,18 @@ try {
         az aks get-credentials --resource-group $ResourceGroup --name $cluster --overwrite-existing --output none
     } | Out-Null
     Invoke-Native "kubectl apply namespace" { kubectl apply -f (Join-Path $repo "infra\k8s\namespace.yaml") } | Out-Null
+
+    # A run that only brings a new version must not take HTTPS away. When the cluster has the
+    # HTTPS entry and this run names no label, the label and e-mail address in use are kept.
+    if (-not $DnsLabel -and -not $PlainHttp) {
+        $liveLabel = kubectl get service coobs-public --namespace $namespace --ignore-not-found --output "jsonpath={.metadata.annotations.service\.beta\.kubernetes\.io/azure-dns-label-name}"
+        $liveProxy = (kubectl get configmap tls-proxy-config --namespace $namespace --ignore-not-found --output "jsonpath={.data.Caddyfile}") -join "`n"
+        if ($liveLabel -and $liveProxy -match '(?m)^\s*email\s+(\S+)') {
+            $DnsLabel = $liveLabel
+            $AcmeEmail = $Matches[1]
+            Write-Host "   HTTPS is on at $DnsLabel.$Location.cloudapp.azure.com and stays on (-PlainHttp turns it off)"
+        }
+    }
 
     # Kubernetes key -> Key Vault secret
     $secretMap = [ordered]@{
@@ -229,8 +257,13 @@ try {
     Invoke-Native "kubectl apply" { kubectl apply -f $manifests } | Out-Null
 
     Write-Host "   Waiting for the nine services and the console (they start together on two vCPUs, so this is slow)"
-    kubectl wait --namespace $namespace --for=condition=available --timeout=900s deployment --all | Out-Null
-    $rolledOut = ($LASTEXITCODE -eq 0)
+    # The rollout, not "available": a Deployment whose new pod cannot start stays available on
+    # its old pod, and a wait for that reports success.
+    $rolledOut = $true
+    foreach ($deployment in (kubectl get deployments --namespace $namespace --output name)) {
+        kubectl rollout status $deployment --namespace $namespace --timeout=900s | Out-Null
+        if ($LASTEXITCODE -ne 0) { $rolledOut = $false; break }
+    }
     kubectl get pods --namespace $namespace
     if (-not $rolledOut) { throw "Not every deployment became available. The pod list above shows which one; read its log with kubectl logs." }
     # Azure can take a minute or two to give the load balancer its address after the pods are up.
