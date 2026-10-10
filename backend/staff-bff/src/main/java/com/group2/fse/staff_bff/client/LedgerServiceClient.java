@@ -1,5 +1,6 @@
 package com.group2.fse.staff_bff.client;
 
+import com.group2.fse.staff_bff.exception.ApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,13 +44,8 @@ public class LedgerServiceClient {
 
     public Map<String, Object> executeCashDeposit(Map<String, Object> requestPayload, String idempotencyKey, String bearerToken, String correlationId) {
         String url = ledgerServiceBaseUrl + "/api/v1/ledger/credits";
-        String effectiveIdempotencyKey = (idempotencyKey != null && !idempotencyKey.isBlank()) ? idempotencyKey : java.util.UUID.randomUUID().toString();
-        HttpHeaders headers = createHeaders(bearerToken, correlationId, effectiveIdempotencyKey);
-        Map<String, Object> payloadWithRef = new java.util.HashMap<>(requestPayload);
-        if (!payloadWithRef.containsKey("referenceNo") || payloadWithRef.get("referenceNo") == null || payloadWithRef.get("referenceNo").toString().isBlank()) {
-            payloadWithRef.put("referenceNo", "DEP-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 10000));
-        }
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payloadWithRef, headers);
+        HttpHeaders headers = createHeaders(bearerToken, correlationId, requireKey(idempotencyKey));
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestPayload, headers);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
@@ -58,17 +54,25 @@ public class LedgerServiceClient {
 
     public Map<String, Object> executeCashWithdrawal(Map<String, Object> requestPayload, String idempotencyKey, String bearerToken, String correlationId) {
         String url = ledgerServiceBaseUrl + "/api/v1/ledger/debits";
-        String effectiveIdempotencyKey = (idempotencyKey != null && !idempotencyKey.isBlank()) ? idempotencyKey : java.util.UUID.randomUUID().toString();
-        HttpHeaders headers = createHeaders(bearerToken, correlationId, effectiveIdempotencyKey);
-        Map<String, Object> payloadWithRef = new java.util.HashMap<>(requestPayload);
-        if (!payloadWithRef.containsKey("referenceNo") || payloadWithRef.get("referenceNo") == null || payloadWithRef.get("referenceNo").toString().isBlank()) {
-            payloadWithRef.put("referenceNo", "WDL-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 10000));
-        }
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payloadWithRef, headers);
+        HttpHeaders headers = createHeaders(bearerToken, correlationId, requireKey(idempotencyKey));
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestPayload, headers);
 
         ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
                 url, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
         return response.getBody();
+    }
+
+    /**
+     * The key and the reference are the caller's: they are what makes a repeated click the same
+     * operation. A key made up here would be new on every call, so a retry after a lost answer
+     * would pay twice. A missing reference is refused by the ledger itself.
+     */
+    private static String requireKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST_PARAMETERS",
+                    "The Idempotency-Key header is required for a cash deposit or withdrawal.");
+        }
+        return idempotencyKey;
     }
 
     private HttpHeaders createHeaders(String bearerToken, String correlationId, String idempotencyKey) {

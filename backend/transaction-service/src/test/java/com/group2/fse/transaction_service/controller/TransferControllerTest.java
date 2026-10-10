@@ -397,6 +397,14 @@ class TransferControllerTest {
     }
 
     @Test
+    @DisplayName("an amount with more than four decimals is 400 here, not a failed transfer at the ledger")
+    void tooManyDecimalsIsABadRequest() throws Exception {
+        mockMvc.perform(t1(transfer("10.00001"), "idemp-key-12345")).andExpect(status().isBadRequest());
+
+        verify(transactionRepository, never()).save(any(TxnTransaction.class));
+    }
+
+    @Test
     @DisplayName("a missing source account is 400")
     void missingSourceAccountIsABadRequest() throws Exception {
         TransferRequestDto request = transfer("500.00");
