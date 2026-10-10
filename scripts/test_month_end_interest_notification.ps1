@@ -32,6 +32,20 @@ function Get-Token([string]$path, [string]$username, [string]$password) {
     return $response.authData.accessToken
 }
 
+# The member's interest notices, counted over every page of the inbox. After a day of checks the
+# newest fifty notifications no longer reach back to them, so one page is not enough.
+function Get-InterestNotices([string]$token) {
+    $count = 0
+    $page = 0
+    do {
+        $response = Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/api/v1/notifications/my-notifications?size=50&page=$page" `
+            -Headers @{ Authorization = "Bearer $token" }
+        $count += ([regex]::Matches($response.Content, "Monthly Interest Credited")).Count
+        $pages = if ($response.Content -match '"totalPages"\s*:\s*(\d+)') { [int]$Matches[1] } else { 1 }
+        $page++
+    } while ($page -lt $pages -and $page -lt 40)
+    return $count
+}
 $adminToken = Get-Token "/api/v1/auth/staff/login" $vars.staffUsername $vars.staffPassword
 $customerToken = Get-Token "/api/v1/auth/customers/login" $vars.customerUsername $vars.customerPassword
 
@@ -57,9 +71,7 @@ $found = $false
 $deadline = (Get-Date).AddSeconds(30)
 do {
     Start-Sleep -Seconds 2
-    $page = Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/api/v1/notifications/my-notifications?size=50" `
-        -Headers @{ Authorization = "Bearer $customerToken" }
-    $found = $page.Content -match "Monthly Interest Credited"
+    $found = (Get-InterestNotices $customerToken) -gt 0
 } while (-not $found -and (Get-Date) -lt $deadline)
 
 if ($found) {
