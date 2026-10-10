@@ -6,6 +6,7 @@ import '../core/network/network.dart';
 import '../core/router/app_router.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../core/theme/app_theme.dart';
+import '../features/accounts/demo_store.dart';
 import '../features/accounts/ui.dart';
 import '../features/remittance/remittance_screen.dart';
 import '../features/resilience/service_unavailable_view.dart';
@@ -422,9 +423,12 @@ class _AppShellState extends State<AppShell> {
 
   /// Interactive Visual Stepper backed by live M2 timeline adapter
   Widget _buildTimelineView() {
+    final validTx = Demo.i.curTx.where((x) => x.ref.isNotEmpty && x.ref != 'TXN' && !x.ref.startsWith('Just now'));
+    final latest = validTx.isNotEmpty ? validTx.first.ref : null;
+    final ref = _selectedTrackingRef ?? widget.trackingReference ?? latest;
     return TrackingView(
-      key: ValueKey(_selectedTrackingRef ?? widget.trackingReference ?? 'default_timeline'),
-      trackingReference: _selectedTrackingRef ?? widget.trackingReference,
+      key: ValueKey(ref ?? 'default_timeline'),
+      trackingReference: ref,
       apiClient: _apiClient,
     );
   }

@@ -13,8 +13,17 @@ import '../auth/auth_screens.dart';
 import '../kyc/kyc_intake_screen.dart';
 
 Widget _title(String t) => Padding(
-    padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
-    child: Text(t, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kInk)));
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+    child: Text(
+      t,
+      style: TextStyle(
+        fontFamily: 'Poppins',
+        fontSize: 18,
+        fontWeight: FontWeight.w500,
+        color: kInk,
+        letterSpacing: -0.3,
+      ),
+    ));
 
 Future<void> _handleLogout(BuildContext context) async {
   try {
@@ -141,9 +150,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
       builder: (context, _) => RefreshIndicator(
         onRefresh: _loadNotifications,
         child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
+          padding: const EdgeInsets.fromLTRB(0, 10, 0, 24),
           children: [
-            _title('Notifications'),
             if (_isLoading)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 40),
@@ -365,7 +373,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   title: Text('Live Saga & Audit Timeline', style: TextStyle(color: kInk)),
                   subtitle: Text('Distributed transfers, timeline & resilience', style: TextStyle(color: kMut)),
                   trailing: Icon(Icons.chevron_right, color: kMut),
-                  onTap: () => go(context, const AppShell()),
+                  onTap: () {
+                    final validTx = Demo.i.curTx.where((x) => x.ref.isNotEmpty && x.ref != 'TXN' && !x.ref.startsWith('Just now'));
+                    final latest = validTx.isNotEmpty ? validTx.first.ref : null;
+                    go(context, AppShell(initialIndex: 2, trackingReference: latest));
+                  },
                 ),
                 SwitchListTile(
                   secondary: const Icon(Icons.dark_mode_outlined),

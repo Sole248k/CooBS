@@ -128,6 +128,53 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
             ),
           ],
           onBack: widget.onBack,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () async {
+                      final added = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddBeneficiaryPage()),
+                      );
+                      if (added == true) {
+                        _loadBeneficiaries();
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: kDark ? const Color(0xFF16202E) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: kLine.withAlpha(kDark ? 50 : 160),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(kDark ? 30 : 8),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.person_add_alt_1_rounded,
+                        size: 20,
+                        color: kInk,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
 }
@@ -286,7 +333,22 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
               )
             : bigBtn(step == 2 ? 'Save Beneficiary' : 'Next', next),
       ],
-      chip: Text('${step + 1} / 3', style: TextStyle(color: kBlue, fontWeight: FontWeight.w700)),
+      chip: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: kBlue.withAlpha(kDark ? 40 : 25),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          '${step + 1} of 3',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            color: kBlue,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
       onBack: () => step == 0 ? Navigator.pop(context) : setState(() => step--),
     );
   }

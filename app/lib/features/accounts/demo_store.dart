@@ -45,13 +45,13 @@ class Bill {
 }
 
 class Loan {
-  final String ref = 'LN-2026-0001';
+  final String ref;
   final String reason;
   final double amt, m, total;
   final int term;
   double paid = 0;
   final List<Tx> tx = [];
-  Loan(this.reason, this.amt, this.term, this.m) : total = r2(m * term);
+  Loan(this.reason, this.amt, this.term, this.m, {this.ref = 'LN_10000006'}) : total = r2(m * term);
   double get balance => r2(total - paid);
   DateTime due(int k) => DateTime(today.year, today.month + k, 25);
   List<Bill> get bills => [
@@ -215,8 +215,14 @@ class Demo extends ChangeNotifier {
 
       final parsed = <Acct>[];
       final liveRecent = (m1['recentTransactions'] as List? ?? []);
+      Map? loanAccountData;
       for (final a in k5) {
         if (a is! Map) continue;
+        final rawType = (a['accountType'] ?? '').toString().toUpperCase();
+        if (rawType == 'LOAN') {
+          loanAccountData = a;
+          continue; // Loan is a liability/credit product; rendered exclusively in the Credit Line card
+        }
         final acctNo = (a['accountNumber'] as String?) ?? '';
         final acctType = parseType(a['accountType']);
         final bal = parseBal(a['availableBalance'] ?? a['balance']);
@@ -227,6 +233,19 @@ class Demo extends ChangeNotifier {
                 : (acctNo == primaryNo ? liveRecent : []));
         final txList = parseTxList(rawTxList);
         parsed.add(Acct(acctType, acctNo, bal, txList));
+      }
+
+      if (loanAccountData != null) {
+        final lNo = (loanAccountData['accountNumber'] as String?) ?? 'LN_10000006';
+        final lBal = parseBal(loanAccountData['availableBalance'] ?? loanAccountData['balance']);
+        final rawLoanTx = ((k6[lNo] as List?)?.isNotEmpty == true) ? (k6[lNo] as List) : [];
+        final parsedLoanTx = parseTxList(rawLoanTx);
+        final defaultLoanAmt = lBal > 0 ? lBal : 50000.0;
+        if (loan == null) {
+          final lObj = Loan('Credit Line', defaultLoanAmt, 12, monthly(defaultLoanAmt, 12), ref: lNo);
+          lObj.tx.addAll(parsedLoanTx);
+          loan = lObj;
+        }
       }
 
       if (parsed.isNotEmpty) {
