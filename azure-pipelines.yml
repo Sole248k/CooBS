@@ -437,8 +437,6 @@ stages:
             displayName: Install, lint and build the staff console
             condition: and(succeeded(), ne(variables['runConsole'], 'false'))
 
-          # shortcut: a failure here marks the run orange and does not stop it, because these
-          # tests have never run on an agent. Remove continueOnError after the first green run.
           - script: |
               set -e
               git clone --quiet --depth 1 --branch $(flutterVersion) https://github.com/flutter/flutter.git "$(Agent.TempDirectory)/flutter"
@@ -448,7 +446,6 @@ stages:
               flutter test
             displayName: Test the mobile app
             condition: and(succeededOrFailed(), ne(variables['runApp'], 'false'))
-            continueOnError: true
 
   # ============================================================================
   # 4. PACKAGE - build every image once, which proves every Dockerfile works.
