@@ -42,12 +42,20 @@ function Get-Token([string]$path, [string]$username, [string]$password) {
     return (Invoke-RestMethod -Method Post -Uri "$baseUrl$path" -ContentType "application/json" -Body $body).authData.accessToken
 }
 
+# The member's interest notices, counted over every page of the inbox. After a day of checks the
+# newest fifty notifications no longer reach back to them, so one page is not enough.
 function Get-InterestNotices([string]$token) {
-    $page = Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/api/v1/notifications/my-notifications?size=50" `
-        -Headers @{ Authorization = "Bearer $token" }
-    return ([regex]::Matches($page.Content, "Monthly Interest Credited")).Count
+    $count = 0
+    $page = 0
+    do {
+        $response = Invoke-WebRequest -UseBasicParsing -Uri "$baseUrl/api/v1/notifications/my-notifications?size=50&page=$page" `
+            -Headers @{ Authorization = "Bearer $token" }
+        $count += ([regex]::Matches($response.Content, "Monthly Interest Credited")).Count
+        $pages = if ($response.Content -match '"totalPages"\s*:\s*(\d+)') { [int]$Matches[1] } else { 1 }
+        $page++
+    } while ($page -lt $pages -and $page -lt 40)
+    return $count
 }
-
 # Triggers end of day for the date and waits for the run to end. Returns the run with its steps.
 function Invoke-EndOfDay([string]$token, [string]$businessDate) {
     $run = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/batch/eod/trigger" `
