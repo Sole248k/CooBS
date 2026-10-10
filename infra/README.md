@@ -159,7 +159,7 @@ One thing differs from the local stack on purpose. Each service gets `JAVA_OPTS=
 
 The first deployment answers on plain HTTP, so the address must not be given to anyone outside the team. Front Door puts HTTPS in front of it. It cannot be in the first deployment, because its origin is the public address, which exists only after step 5. Do this once E2E has passed on the plain address:
 
-1. Deploy the Bicep again with Front Door on and the address `deploy-cloud.ps1` printed. This adds four Front Door resources and changes nothing else; run what-if first to see that.
+1. Deploy the Bicep again with Front Door on and the address `deploy-cloud.ps1` printed. This adds five Front Door resources (the profile, an endpoint, a route, an origin group and an origin) and changes nothing else; run what-if first to see that. The address must be the real one: Azure refuses a documentation-range address such as 203.0.113.9 as an origin.
 
    ```n   $env:COOBS_FRONT_DOOR = "true"
    $env:COOBS_PUBLIC_ADDRESS = "<public address>"
@@ -208,6 +208,6 @@ The what-if checks the templates, names, API versions and the Kubernetes version
 - That 8 GB is enough for Oracle, PostgreSQL and four JVMs.
 - `deploy-cloud.ps1` against a real vault and cluster, and the schema Job against Azure SQL. Checked here: the render-only mode produces 10 Deployments (nine services and the console), Kafka and the on-premises endpoints with every placeholder filled, and the Job's shell script is valid. The same scripts load into SQL Server 2022 locally.
 - The NAT gateway price.
-- Front Door: the module compiles, and nothing more. Not run through what-if, never deployed. Whether the `Microsoft.Cdn` provider is registered on the subscription, whether a free trial may create Front Door Standard, and whether `service.beta.kubernetes.io/azure-allowed-service-tags` closes the load balancer as intended are all unproven.
+- Front Door: the module compiles and passes what-if against the subscription, off (no Front Door resource) and on (five to create), and `Microsoft.Cdn` is registered (10 October 2026). Never deployed. Whether a free trial may create Front Door Standard, and whether `service.beta.kubernetes.io/azure-allowed-service-tags` closes the load balancer as intended are all unproven.
 - The console's nginx pod on the cluster. It is the image the local stack runs, but here it runs without a mounted configuration and behind a load balancer.
 - The staff password step of the schema job (`htpasswd` in an `httpd` image, then one `UPDATE`). The shell logic and the hash prefix are checked; the job has never run.
