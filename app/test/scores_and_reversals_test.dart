@@ -94,6 +94,7 @@ void main() {
       expect(find.text('Total Deposits'), findsOneWidget);
       expect(find.text('Total Loans'), findsOneWidget);
       expect(find.text('30-Day Spending'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Debit transaction history'), 300);
       expect(find.text('Debit transaction history'), findsOneWidget);
     });
 

@@ -6,6 +6,7 @@ import '../data/mobile_repo.dart';
 import '../../core/config/app_config.dart';
 import '../../core/models/dashboard_models.dart';
 import '../../core/network/api_client.dart';
+import '../../core/storage/secure_storage_service.dart';
 
 String peso(double v) => '₱${NumberFormat('#,##0.00').format(v)}';
 String fmt(DateTime d) => DateFormat('dd MMM yyyy').format(d);
@@ -84,6 +85,33 @@ class Loan {
   }
 }
 
+/// Model for Cooperative Virtual "Ipon" Vaults / Sub-Savings Goals
+class IponVault {
+  final String id;
+  final String name;
+  final double targetAmount;
+  double currentAmount;
+  final String targetDate;
+  final String category; // 'Emergency', 'Community', 'Cooperative', 'Education'
+  final int iconCode;
+  final int colorValue;
+
+  IponVault({
+    required this.id,
+    required this.name,
+    required this.targetAmount,
+    required this.currentAmount,
+    required this.targetDate,
+    required this.category,
+    required this.iconCode,
+    required this.colorValue,
+  });
+
+  double get progress => targetAmount > 0 ? (currentAmount / targetAmount).clamp(0.0, 1.0) : 0.0;
+  bool get isCompleted => currentAmount >= targetAmount - 0.01;
+  double get remaining => (targetAmount - currentAmount).clamp(0.0, double.infinity);
+}
+
 enum LoadState { loading, ready, partial, offline }
 
 /// In-memory demo state (backed by ApiClient fixtures/network with local mutations).
@@ -157,6 +185,152 @@ class Demo extends ChangeNotifier {
   Map<String, double> spendingBreakdown = {};
   double totalDeposits = 0;
   double totalLoans = 0;
+  final Map<String, String> accountNicknames = {};
+
+  String nicknameFor(String accountNo) => accountNicknames[accountNo] ?? '';
+
+  Future<void> setNickname(String accountNo, String nick) async {
+    final clean = nick.trim();
+    if (clean.isEmpty) {
+      accountNicknames.remove(accountNo);
+      try {
+        await SecureStorageService().delete('coobs_nick_$accountNo');
+      } catch (_) {}
+    } else {
+      accountNicknames[accountNo] = clean;
+      try {
+        await SecureStorageService().write('coobs_nick_$accountNo', clean);
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
+
+  // --- Feature 1: Smart Envelopes Category Budgeting ---
+  final Map<String, double> categoryBudgets = {
+    'Groceries & Food': 10000.0,
+    'Utilities & Bills': 5000.0,
+    'Shopping & Retail': 4000.0,
+    'Transportation': 2500.0,
+    'Entertainment': 1500.0,
+    'Other': 2000.0,
+    'FOOD': 10000.0,
+    'UTILITIES': 5000.0,
+    'SHOPPING': 4000.0,
+    'TRANSPORT': 2500.0,
+    'ENTERTAINMENT': 1500.0,
+  };
+
+  double getBudgetForCategory(String cat) {
+    if (categoryBudgets.containsKey(cat)) return categoryBudgets[cat]!;
+    for (final e in categoryBudgets.entries) {
+      if (e.key.toLowerCase().contains(cat.toLowerCase()) || cat.toLowerCase().contains(e.key.toLowerCase())) {
+        return e.value;
+      }
+    }
+    return 3000.0;
+  }
+
+  void updateCategoryBudget(String cat, double newLimit) {
+    categoryBudgets[cat] = newLimit;
+    notifyListeners();
+  }
+
+  // --- Feature 2: Virtual "Ipon" Vaults ---
+  final List<IponVault> iponVaults = [
+    IponVault(
+      id: 'VAULT-01',
+      name: 'Emergency Buffer',
+      targetAmount: 30000.0,
+      currentAmount: 18500.0,
+      targetDate: 'Dec 2026',
+      category: 'Emergency',
+      iconCode: 0xe5ce, // Icons.shield_rounded
+      colorValue: 0xFF0D9488, // Co-op Teal
+    ),
+    IponVault(
+      id: 'VAULT-02',
+      name: 'Paluwagan & Holidays',
+      targetAmount: 15000.0,
+      currentAmount: 9200.0,
+      targetDate: 'Nov 2026',
+      category: 'Community',
+      iconCode: 0xe59c, // Icons.savings_rounded
+      colorValue: 0xFF2563EB, // Sapphire
+    ),
+    IponVault(
+      id: 'VAULT-03',
+      name: 'Co-op Share Capital',
+      targetAmount: 20000.0,
+      currentAmount: 7300.0,
+      targetDate: 'Jan 2027',
+      category: 'Cooperative',
+      iconCode: 0xe06e, // Icons.account_balance_rounded
+      colorValue: 0xFFF59E0B, // Amber
+    ),
+  ];
+
+  double get totalEarmarkedInVaults => iponVaults.fold(0.0, (sum, v) => sum + v.currentAmount);
+
+  String? allocateToVault(String vaultId, double amount) {
+    if (amount <= 0) return 'Enter an amount greater than ₱0.00';
+    final v = iponVaults.firstWhere((x) => x.id == vaultId, orElse: () => throw 'Vault not found');
+    if (accts.isEmpty) return 'No accounts available';
+    final savings = accts.length > 1 ? accts[1] : accts[0];
+    if (savings.bal < amount) {
+      return 'Insufficient funds in ${savings.type} (${peso(savings.bal)})';
+    }
+    savings.bal = r2(savings.bal - amount);
+    v.currentAmount = r2(v.currentAmount + amount);
+    savings.tx.insert(0, Tx('Earmarked for ${v.name}', 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}', today, -amount));
+    _alert('${peso(amount)} earmarked for ${v.name}');
+    notifyListeners();
+    return null;
+  }
+
+  String? releaseFromVault(String vaultId, double amount) {
+    if (amount <= 0) return 'Enter an amount greater than ₱0.00';
+    final v = iponVaults.firstWhere((x) => x.id == vaultId, orElse: () => throw 'Vault not found');
+    if (v.currentAmount < amount) {
+      return 'Vault only holds ${peso(v.currentAmount)}';
+    }
+    if (accts.isEmpty) return 'No accounts available';
+    final savings = accts.length > 1 ? accts[1] : accts[0];
+    v.currentAmount = r2(v.currentAmount - amount);
+    savings.bal = r2(savings.bal + amount);
+    savings.tx.insert(0, Tx('Released from ${v.name}', 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}', today, amount));
+    _alert('${peso(amount)} released back to ${savings.type}');
+    notifyListeners();
+    return null;
+  }
+
+  void createVault({
+    required String name,
+    required double targetAmount,
+    double initialAmount = 0.0,
+    required String targetDate,
+    required String category,
+    int? iconCode,
+    int? colorValue,
+  }) {
+    final id = 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}';
+    final v = IponVault(
+      id: id,
+      name: name,
+      targetAmount: targetAmount,
+      currentAmount: 0.0,
+      targetDate: targetDate,
+      category: category,
+      iconCode: iconCode ?? 0xe59c,
+      colorValue: colorValue ?? 0xFF0D9488,
+    );
+    iponVaults.add(v);
+    if (initialAmount > 0) {
+      allocateToVault(id, initialAmount);
+    } else {
+      notifyListeners();
+    }
+  }
+
   final bens = <Ben>[
     const Ben('Juan Dela Cruz', 'COOBS · ACC_10000002', '+63 918 222 3333', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
     const Ben('Maria Santos', 'COOBS · ACC_10000004', '+63 917 000 1111', accountNumber: 'ACC_10000004', bankCode: 'COOBS'),
@@ -313,6 +487,17 @@ class Demo extends ChangeNotifier {
             ..add(Acct(pType, pNo, pBal, txList));
         }
       }
+
+      // Load saved account nicknames from secure storage
+      for (final a in accts) {
+        try {
+          final savedNick = await SecureStorageService().read('coobs_nick_${a.no}');
+          if (savedNick != null && savedNick.isNotEmpty) {
+            accountNicknames[a.no] = savedNick;
+          }
+        } catch (_) {}
+      }
+
       final notifList = (n1['content'] as List?) ?? (n1['items'] as List?) ?? [];
       for (final n in notifList.reversed) {
         final rawCreated = n['createdAt'] as String?;
@@ -538,6 +723,7 @@ class Demo extends ChangeNotifier {
     primaryNo = '';
     unread = 0;
     unavailable.clear();
+    accountNicknames.clear();
     _pendingLocalTx.clear();
     accts.clear();
     accts.addAll([
@@ -556,6 +742,39 @@ class Demo extends ChangeNotifier {
       ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
       ['₱150.00 transferred to ACC_10000002', 'Ref TXN-9021 · Today'],
       ['KYC update approved', 'Yesterday'],
+    ]);
+    iponVaults.clear();
+    iponVaults.addAll([
+      IponVault(
+        id: 'VAULT-01',
+        name: 'Emergency Buffer',
+        targetAmount: 30000.0,
+        currentAmount: 18500.0,
+        targetDate: 'Dec 2026',
+        category: 'Emergency',
+        iconCode: 0xe5ce,
+        colorValue: 0xFF0D9488,
+      ),
+      IponVault(
+        id: 'VAULT-02',
+        name: 'Paluwagan & Holidays',
+        targetAmount: 15000.0,
+        currentAmount: 9200.0,
+        targetDate: 'Nov 2026',
+        category: 'Community',
+        iconCode: 0xe59c,
+        colorValue: 0xFF2563EB,
+      ),
+      IponVault(
+        id: 'VAULT-03',
+        name: 'Co-op Share Capital',
+        targetAmount: 20000.0,
+        currentAmount: 7300.0,
+        targetDate: 'Jan 2027',
+        category: 'Cooperative',
+        iconCode: 0xe06e,
+        colorValue: 0xFFF59E0B,
+      ),
     ]);
     notifyListeners();
   }
