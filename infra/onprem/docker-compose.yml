@@ -177,6 +177,36 @@ services:
       start_period: 90s
     restart: unless-stopped
 
+  # Monitoring, optional. It is in the profile "monitoring", which start.sh switches on only
+  # when Key Vault holds datadog-api-key; without the key this container does not exist.
+  # It reads the other containers' logs and resource use through the Docker socket, read-only,
+  # and the metrics the four services publish (datadog/conf.d). It reaches Datadog through
+  # the NAT gateway. The image is the one the cluster's agent runs.
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:7.84.2@sha256:779986aa446bb10cbc9db7d1352f0c648943a3d7082d350eadc18ba931eefa21
+    container_name: datadog-agent
+    profiles: ["monitoring"]
+    environment:
+      DD_API_KEY: ${DD_API_KEY:-}
+      DD_SITE: ${DD_SITE:-datadoghq.com}
+      DD_HOSTNAME: vm-coobs-onprem
+      DD_ENV: demo
+      DD_TAGS: "zone:onprem"
+      DD_LOGS_ENABLED: "true"
+      DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL: "true"
+      DD_CONTAINER_EXCLUDE: "name:datadog-agent"
+      DD_APM_ENABLED: "false"
+      DD_PROCESS_CONFIG_PROCESS_COLLECTION_ENABLED: "false"
+      DD_REMOTE_CONFIGURATION_ENABLED: "false"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./datadog/conf.d:/conf.d:ro
+    mem_limit: 512m
+    restart: unless-stopped
+
 volumes:
   oracle_data:
   postgres_data:

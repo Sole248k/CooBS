@@ -15,6 +15,18 @@ The current planning set for the CooBS expansion. Older architecture documents a
 | 5   | [`../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md`](../contracts/api/INTERBANK_TRANSFER_PROPOSAL.md)       | The bank-to-bank proposal for partner groups                                                                      |
 | 6   | [`../contracts/runtime/RUNTIME_SETTINGS.md`](../contracts/runtime/RUNTIME_SETTINGS.md)                     | Ports, service URL variables, database names and connection variables (handshakes H12 and H13)                    |
 
+## What was built, as against what was planned
+
+The documents above are plans. These three describe the system as it is, and say where it differs from the plans.
+
+| File | What it answers |
+| --- | --- |
+| [`ENTERPRISE_ARCHITECTURE_AND_DEPLOYMENT.md`](ENTERPRISE_ARCHITECTURE_AND_DEPLOYMENT.md) | Start here. Every service and resource with its status, the planned and the actual architecture, the gaps between them, the pipeline and release process, security and operations, and a remediation roadmap |
+| [`CLIENT_TO_BACKEND_COMMUNICATION.md`](CLIENT_TO_BACKEND_COMMUNICATION.md) | How the mobile app and the staff console find and call the backend, sign-in and tokens, timeouts, settings per environment |
+| [`AZURE_DEPLOYMENT_AS_BUILT.md`](AZURE_DEPLOYMENT_AS_BUILT.md) | The Azure deployment of 10 October 2026: resources, the commands as run, how HTTPS works, the problems met and their fixes |
+
+The runbook for deploying, updating, resetting and removing is [`../infra/README.md`](../infra/README.md).
+
 ## When two documents disagree
 
 1. The API contract wins on paths, payloads, field names and enumerations.

@@ -1,0 +1,29 @@
+# What the Datadog agent on the VM reads from the four on-premises services: the metrics each
+# already publishes at /actuator/prometheus. The names are the Compose service names, which the
+# agent resolves because it is on the same Docker network. The list of metrics is the one the
+# cluster's agent uses (infra/k8s-monitoring/datadog-values.yaml); keep the two the same.
+init_config:
+
+instances:
+  - openmetrics_endpoint: http://account-service:8082/actuator/prometheus
+    namespace: coobs
+    metrics: &metrics
+      - http_server_requests_seconds.*
+      - spring_kafka_listener_seconds.*
+      - hikaricp_connections.*
+      - jvm_memory_used_bytes
+      - jvm_threads_live_threads
+      - jvm_gc_pause_seconds.*
+      - process_cpu_usage
+      - system_cpu_usage
+      - process_uptime_seconds
+      - logback_events.*
+  - openmetrics_endpoint: http://ledger-service:8083/actuator/prometheus
+    namespace: coobs
+    metrics: *metrics
+  - openmetrics_endpoint: http://audit-service:8085/actuator/prometheus
+    namespace: coobs
+    metrics: *metrics
+  - openmetrics_endpoint: http://batch-service:8093/actuator/prometheus
+    namespace: coobs
+    metrics: *metrics
