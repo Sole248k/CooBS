@@ -11,6 +11,8 @@ import '../profile/tab_screens.dart';
 import '../qr/qr_screens.dart';
 import '../resilience/service_unavailable_view.dart';
 import '../scores/scores_screen.dart';
+import '../shop/shop_screen.dart';
+import '../shop/shop_store.dart';
 import 'demo_store.dart';
 import 'ui.dart';
 import '../ads/ad_models.dart';
@@ -659,6 +661,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final pc = PageController(viewportFraction: .92);
   final d = Demo.i;
+  final shop = ShopStore();
+
+  @override
+  void dispose() {
+    shop.dispose();
+    pc.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -2855,6 +2865,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildNextBillSection(nb),
                   if (!isLoan) ...[
                     _buildQuickSendBeneficiaries(),
+                    PureSilverEntry(store: shop),
                     _buildIponVaultsSection(),
                     _buildCustomer360FinancialPulse(),
                     _buildPromoAdBanner(),
