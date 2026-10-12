@@ -61,7 +61,7 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
             transactions = transactionRepository.findByCustomerOrAccountDetails(customerId, safeAccountIds, safeAccountNumbers);
         }
 
-        int max = limit > 0 ? limit : 5;
+        int max = limit > 0 ? limit : 25;
         final Set<Long> finalAccountIds = accountIds;
         final Set<String> finalAccountNumbers = accountNumbers;
         return transactions.stream()
@@ -145,6 +145,7 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
                 .currency(txn.getCurrency() != null ? txn.getCurrency() : "PHP")
                 .category(txn.getCategory() != null ? txn.getCategory() : "TRANSFER")
                 .status(txn.getStatus())
+                .failureCode(txn.getFailureCode())
                 .createdAt(createdAtStr)
                 .build();
     }

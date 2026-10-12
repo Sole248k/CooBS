@@ -26,5 +26,6 @@ public class TransactionSummaryDto {
     private String currency;
     private String category;
     private String status;
+    private String failureCode;
     private String createdAt;
 }

@@ -38,7 +38,7 @@ public class Customer360ServiceImpl implements Customer360Service {
 
         List<Customer360Response.AccountDto> accounts = accountClient.fetchCustomerAccounts(customerId);
 
-        List<Customer360Response.TransactionSummaryDto> recentTransactions = transactionClient.fetchRecentTransactions(customerId, 5);
+        List<Customer360Response.TransactionSummaryDto> recentTransactions = transactionClient.fetchRecentTransactions(customerId, 25);
         Customer360Response.SpendingBreakdown spendingBreakdown = transactionClient.fetchSpendingBreakdown(customerId, 30);
 
         BigDecimal totalDeposits = BigDecimal.ZERO;
