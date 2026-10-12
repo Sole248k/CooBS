@@ -44,6 +44,11 @@ public class RiskEvaluator {
     public static final String REASON_EXCESSIVE_DAILY_REVERSALS = "RULE_EXCESSIVE_DAILY_REVERSALS";
     public static final String REASON_AMLA_THRESHOLD = "RULE_AMLA_MANDATORY_THRESHOLD";
     public static final String REASON_CUSTOMER_RISK_RATING = "CUSTOMER_RISK_RATING";
+    public static final String REASON_IMPOSSIBLE_TRAVEL = "IMPOSSIBLE_TRAVEL_ANOMALY";
+    public static final String REASON_UNRECOGNIZED_DEVICE = "UNRECOGNIZED_DEVICE_HARDWARE";
+    public static final String REASON_DORMANT_ACCOUNT_SUDDEN_ACTIVITY = "DORMANT_ACCOUNT_SUDDEN_ACTIVITY";
+    public static final String REASON_AMLA_STRUCTURING = "RULE_AMLA_STRUCTURING_SUSPECTED";
+    public static final String REASON_BEHAVIORAL_AMOUNT_ANOMALY = "BEHAVIORAL_AMOUNT_ANOMALY";
 
     private final LimitPolicy limitPolicy;
     private final VelocityCounter velocityCounter;
@@ -137,8 +142,85 @@ public class RiskEvaluator {
             reasons.add(REASON_EXCESSIVE_DAILY_REVERSALS);
         }
 
+        // 3.6 S_device: +0.20 penalty if unrecognized hardware
+        double sDevice = 0.00;
+        if (Boolean.TRUE.equals(request.getIsNewDevice())
+                || (request.getDeviceFingerprint() != null && !velocityCounter.isDeviceRecognized(request.getCustomerId(), request.getDeviceFingerprint()))) {
+            sDevice = 0.20;
+            reasons.add(REASON_UNRECOGNIZED_DEVICE);
+        }
+
+        // 3.7 S_geo: +0.35 penalty if impossible travel anomaly
+        double sGeo = 0.00;
+        if (request.getLatitude() != null && request.getLongitude() != null) {
+            VelocityCounter.GeoVelocityResult geoResult = velocityCounter.checkGeoVelocity(
+                    request.getCustomerId(), request.getLatitude(), request.getLongitude(), Instant.now());
+            if (geoResult.isImpossibleTravel()) {
+                sGeo = 0.35;
+                reasons.add(REASON_IMPOSSIBLE_TRAVEL);
+            }
+        }
+
+        // 3.8 S_dormant: +0.30 penalty if dormant account sudden drain
+        double sDormant = 0.00;
+        boolean isDormant = Boolean.TRUE.equals(request.getIsDormantAccount())
+                || (request.getDaysSinceLastActivity() != null && request.getDaysSinceLastActivity() >= 90);
+        if (isDormant && request.getAmount() != null && request.getAmount().compareTo(new BigDecimal("5000.00")) >= 0) {
+            sDormant = 0.30;
+            reasons.add(REASON_DORMANT_ACCOUNT_SUDDEN_ACTIVITY);
+        }
+
+        // 3.9 AMLA Structuring / Smurfing Evasion Check
+        boolean isStructuring = Boolean.TRUE.equals(request.getIsStructuringSuspected());
+        if (!isStructuring && request.getAmount() != null) {
+            boolean nearAmlaCeiling = request.getAmount().compareTo(new BigDecimal("400000.00")) >= 0
+                    && request.getAmount().compareTo(new BigDecimal("500000.00")) < 0;
+            boolean cumulativeBreach = usedToday.add(request.getAmount()).compareTo(new BigDecimal("500000.00")) >= 0
+                    && usedToday.compareTo(BigDecimal.ZERO) > 0;
+            if ((nearAmlaCeiling && velocityCount >= 1) || (cumulativeBreach && nearAmlaCeiling)) {
+                isStructuring = true;
+            }
+        }
+        if (isStructuring) {
+            sAmount = 1.00;
+            reasons.add(REASON_AMLA_STRUCTURING);
+        }
+
+        // 3.10 S_behavioral: Personalized Z-Score Anomaly Detection
+        double sBehavioral = 0.00;
+        BigDecimal avgAmount = request.getAvgTransactionAmount();
+        BigDecimal stdDevAmount = request.getStdDevTransactionAmount();
+        if (avgAmount == null && request.getCustomerId() != null) {
+            VelocityCounter.CustomerSpendStats stats = velocityCounter.getCustomerSpendStats(request.getCustomerId());
+            if (stats != null && stats.getMean() != null && stats.getMean().compareTo(BigDecimal.ZERO) > 0) {
+                avgAmount = stats.getMean();
+                stdDevAmount = stats.getStdDev();
+            }
+        }
+        if (avgAmount != null && avgAmount.compareTo(BigDecimal.ZERO) > 0 && request.getAmount() != null) {
+            double mu = avgAmount.doubleValue();
+            double sigma = (stdDevAmount != null && stdDevAmount.compareTo(BigDecimal.ZERO) > 0)
+                    ? stdDevAmount.doubleValue()
+                    : (mu * 0.40); // 40% default coefficient of variation
+            double x = request.getAmount().doubleValue();
+            if (x > mu) {
+                double zScore = (x - mu) / sigma;
+                if (zScore >= 3.0) { // 3 sigma deviation (99.87th percentile outlier)
+                    sBehavioral = 0.25;
+                    reasons.add(REASON_BEHAVIORAL_AMOUNT_ANOMALY);
+                }
+            }
+        }
+
         // Composite calculation
-        double compositeScore = (0.35 * sAmount) + (0.35 * sVelocity) + (0.30 * sTier) + sBeneficiary + sReversal;
+        double compositeScore = (0.35 * sAmount) + (0.35 * sVelocity) + (0.30 * sTier) 
+                + sBeneficiary + sReversal + sDevice + sGeo + sDormant + sBehavioral;
+        if (sGeo > 0.0) {
+            compositeScore = Math.max(compositeScore, 0.75);
+        }
+        if (isStructuring) {
+            compositeScore = 1.00;
+        }
         compositeScore = Math.min(1.00, Math.max(0.00, compositeScore));
 
         // 3.6 The customer's own risk rating is a floor. A transfer is never judged safer than
@@ -192,6 +274,12 @@ public class RiskEvaluator {
         }
 
         if (DECISION_APPROVE.equals(decision)) {
+            if (request.getDeviceFingerprint() != null) {
+                velocityCounter.registerDevice(request.getCustomerId(), request.getDeviceFingerprint());
+            }
+            if (request.getAmount() != null && request.getCustomerId() != null) {
+                velocityCounter.updateCustomerSpendStats(request.getCustomerId(), request.getAmount());
+            }
             // An approval carries no rule reasons, only the AMLA flag when it applies.
             boolean amlaFlag = reasons.contains(REASON_AMLA_THRESHOLD);
             reasons.clear();
