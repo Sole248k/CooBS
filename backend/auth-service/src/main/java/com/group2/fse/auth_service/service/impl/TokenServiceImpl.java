@@ -10,6 +10,7 @@ import com.group2.fse.auth_service.security.blacklist.TokenBlacklistService;
 import com.group2.fse.auth_service.security.jwt.JwtTokenProvider;
 import com.group2.fse.auth_service.security.session.RedisRefreshTokenService;
 import com.group2.fse.auth_service.security.session.RefreshTokenData;
+import com.group2.fse.auth_service.security.session.SingleSessionGuard;
 import com.group2.fse.auth_service.service.TokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ public class TokenServiceImpl implements TokenService {
     private final RedisRefreshTokenService refreshTokenService;
     private final TokenBlacklistService tokenBlacklistService;
     private final AppUserRepository appUserRepository;
+    private final SingleSessionGuard singleSessionGuard;
 
     @Override
     public AuthResponseDto refreshAccessToken(String refreshToken) {
@@ -54,6 +56,7 @@ public class TokenServiceImpl implements TokenService {
         // Issue new access token
         String newAccessToken = jwtTokenProvider.generateAccessToken(
                 data.getUsername(), data.getUserId(), data.getRoles(), data.getUserType());
+        singleSessionGuard.claim(data.getUserType(), data.getUserId(), newRefreshToken, newAccessToken, refreshToken);
 
         log.info("Successfully refreshed access token for user: {}", data.getUsername());
 

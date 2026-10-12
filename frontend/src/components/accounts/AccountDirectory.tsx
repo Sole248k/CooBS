@@ -325,7 +325,7 @@ export const AccountDirectory: React.FC = () => {
                     <div className="flex items-center justify-end space-x-1.5">
                       {/* Transact in Counter Desk */}
                       <button
-                        onClick={() => navigate(`/counter?accountId=${acc.accountId}`)}
+                        onClick={() => navigate(`/counter?accountId=${acc.accountNumber}`)}
                         className="p-1.5 text-[#2563EB] hover:bg-[#EFF6FF] rounded-md transition-colors"
                         title="Transact in Counter Desk"
                       >

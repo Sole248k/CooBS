@@ -187,13 +187,56 @@ export const TransactionTracker: React.FC = () => {
     setTimeout(() => setCopiedRef(false), 2000);
   };
 
+  const isReversalTx = React.useMemo(() => {
+    if (txSummary?.referenceNo?.startsWith('RV-')) return true;
+    const backendStages = timelineData?.stages || [];
+    return backendStages.some((s: any) =>
+      s.detail?.toLowerCase().includes('reversal')
+    );
+  }, [txSummary, timelineData]);
+
+  const reversedOriginalRef = React.useMemo(() => {
+    const backendStages = timelineData?.stages || [];
+    for (const s of backendStages) {
+      const match = s.detail?.match(/Reversal posted for (TX-[A-Z0-9-]+)/i);
+      if (match?.[1]) return match[1];
+    }
+    return null;
+  }, [timelineData]);
+
   // Reconcile all 11 stages
   const normalizedStages: TimelineStage[] = React.useMemo(() => {
     const backendStages = timelineData?.stages || [];
+    const stage8Passed = backendStages.some(
+      (s: any) =>
+        (s.stageName?.toUpperCase() === 'POSTED' || s.stageNumber === 8) &&
+        s.outcome === 'PASSED'
+    );
+
     return ALL_11_STAGES.map((specStage, idx) => {
       const matched = backendStages.find(
         (s: any) => s.stageName.toUpperCase() === specStage.name.toUpperCase()
       );
+
+      // For reversal transactions (RV-...), stages 4-7 (Fraud, Limit, Funds Hold, Auth)
+      // are bypassed by design because it is a staff-authorized compensating ledger entry.
+      if (
+        isReversalTx &&
+        stage8Passed &&
+        idx >= 3 &&
+        idx <= 6 &&
+        (!matched || matched.outcome === 'PENDING')
+      ) {
+        return {
+          stageNumber: idx + 1,
+          stageName: specStage.name,
+          service: matched?.service || specStage.service,
+          outcome: 'SKIPPED' as any,
+          detail: 'Bypassed — Staff compensating ledger reversal',
+          timestamp: undefined,
+        };
+      }
+
       if (matched) return matched;
 
       // Default stage rendering
@@ -205,12 +248,12 @@ export const TransactionTracker: React.FC = () => {
         detail: `Handled by ${specStage.service}`,
       };
     });
-  }, [timelineData]);
+  }, [timelineData, isReversalTx]);
 
   const canReverse =
     txSummary?.status === 'POSTED' &&
     !txSummary.reversedByTransactionId &&
-    !txSummary.referenceNo?.startsWith('RV-');
+    !isReversalTx;
 
   return (
     <div className="space-y-6">
@@ -355,6 +398,67 @@ export const TransactionTracker: React.FC = () => {
             </div>
           </div>
 
+          {isReversalTx && (
+            <div className="p-3.5 rounded-xl bg-indigo-50/90 border border-indigo-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-indigo-950">
+              <div className="flex items-start space-x-2.5">
+                <RotateCcw className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block text-indigo-900">
+                    Compensating Ledger Reversal Entry ({txSummary.referenceNo})
+                  </span>
+                  <span className="text-indigo-800/90 text-[11px]">
+                    In double-entry banking, reversals execute as a new compensating transaction that debits the recipient and credits the original sender. Stages #4–#7 are bypassed for staff-authorized reversals, while Stages #8–#11 confirm the reversal entry was posted to the ledger.
+                  </span>
+                </div>
+              </div>
+              {reversedOriginalRef && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery(reversedOriginalRef);
+                    setSearchParams({ ref: reversedOriginalRef });
+                    fetchTimeline(reversedOriginalRef);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-indigo-300 text-indigo-700 font-semibold hover:bg-indigo-100/60 transition-colors flex items-center space-x-1.5 flex-shrink-0 self-start sm:self-center"
+                >
+                  <span>View Original ({reversedOriginalRef})</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {!isReversalTx && (txSummary.status === 'REVERSED' || txSummary.reversedByTransactionId) && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
+              <div className="flex items-start space-x-2.5">
+                <RotateCcw className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold block text-amber-900">
+                    Transfer Reversed via Compensating Entry
+                  </span>
+                  <span className="text-amber-800/90 text-[11px]">
+                    This transfer originally completed all 11 stages, and was subsequently reversed by a compensating ledger transaction.
+                  </span>
+                </div>
+              </div>
+              {txSummary.reversedByTransactionId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const revId = String(txSummary.reversedByTransactionId);
+                    setSearchQuery(revId);
+                    setSearchParams({ ref: revId });
+                    fetchTimeline(revId);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-800 font-semibold hover:bg-amber-100/60 transition-colors flex items-center space-x-1.5 flex-shrink-0 self-start sm:self-center"
+                >
+                  <span>Trace Reversal Entry</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
           {txSummary.failureCode && (
             <div className="p-3 rounded-lg bg-[#FEE2E2] border border-[#FECACA] text-xs text-[#DC2626]">
               <strong>Failure Code:</strong> {txSummary.failureCode} &mdash;{' '}
@@ -366,11 +470,23 @@ export const TransactionTracker: React.FC = () => {
 
       {/* 11-Stage Vertical Pipeline */}
       <div className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] p-6 space-y-6">
-        <div>
-          <h3 className="text-base font-bold text-[#1E3A5F]">11-Stage Transaction Pipeline</h3>
-          <p className="text-xs text-[#334155]">
-            Cryptographic, fraud, balance and dual-entry ledger lifecycle verification
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-bold text-[#1E3A5F]">
+              {isReversalTx ? '11-Stage Reversal Pipeline' : '11-Stage Transaction Pipeline'}
+            </h3>
+            <p className="text-xs text-[#334155]">
+              {isReversalTx
+                ? 'Compensating double-entry reversal lifecycle verification'
+                : 'Cryptographic, fraud, balance and dual-entry ledger lifecycle verification'}
+            </p>
+          </div>
+          {!isReversalTx && (txSummary?.status === 'REVERSED' || txSummary?.reversedByTransactionId) && (
+            <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 self-start sm:self-auto">
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>REVERSED / COMPENSATED</span>
+            </span>
+          )}
         </div>
 
         <div className="relative pl-6 space-y-6 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E2E8F0]">
@@ -378,6 +494,10 @@ export const TransactionTracker: React.FC = () => {
             const isPassed = st.outcome === 'PASSED';
             const isFailed = st.outcome === 'FAILED';
             const isInProgress = st.outcome === 'IN_PROGRESS';
+            const isSkipped = (st.outcome as string) === 'SKIPPED';
+            const isOriginalReversed =
+              !isReversalTx &&
+              (txSummary?.status === 'REVERSED' || Boolean(txSummary?.reversedByTransactionId));
 
             return (
               <div key={idx} className="relative flex items-start space-x-4">
@@ -390,6 +510,8 @@ export const TransactionTracker: React.FC = () => {
                       ? 'border-[#EF4444] text-[#EF4444]'
                       : isInProgress
                       ? 'border-[#2563EB] text-[#2563EB] animate-spin'
+                      : isSkipped
+                      ? 'border-slate-300 text-slate-400 bg-slate-50'
                       : 'border-[#CBD5E1] text-[#475569]'
                   }`}
                 >
@@ -405,24 +527,50 @@ export const TransactionTracker: React.FC = () => {
                 </div>
 
                 {/* Stage Info Card */}
-                <div className="flex-1 bg-[#F8FAFC] p-3.5 rounded-xl border border-[#E2E8F0] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div
+                  className={`flex-1 p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                    isSkipped
+                      ? 'bg-slate-50/60 border-slate-200/80 opacity-75'
+                      : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                  }`}
+                >
                   <div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-bold text-xs text-[#1E3A5F]">
                         #{idx + 1} {st.stageName}
                       </span>
-                      <span className={`pill text-[10px] ${getStatusClass(st.outcome)}`}>
-                        {st.outcome}
-                      </span>
+                      {isSkipped ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200/80 text-slate-600 border border-slate-300">
+                          BYPASSED
+                        </span>
+                      ) : (
+                        <span className={`pill text-[10px] ${getStatusClass(st.outcome)}`}>
+                          {st.outcome}
+                        </span>
+                      )}
+                      {isOriginalReversed && idx >= 7 && isPassed && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                          REVERSED LATER
+                        </span>
+                      )}
                     </div>
                     <div className="text-[11px] text-[#334155] mt-0.5">
                       Service: <span className="font-mono text-[#1E3A5F]">{st.service}</span>
-                      {st.detail && ` &bull; ${st.detail}`}
+                      {st.detail && (
+                        <>
+                          {' '}
+                          &bull; <span>{st.detail}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   <div className="text-right text-[11px] font-mono text-[#334155]">
-                    {st.timestamp ? formatTimestamp(st.timestamp) : 'Pending Execution'}
+                    {st.timestamp
+                      ? formatTimestamp(st.timestamp)
+                      : isSkipped
+                      ? 'Bypassed (Reversal)'
+                      : 'Pending Execution'}
                   </div>
                 </div>
               </div>
