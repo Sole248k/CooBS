@@ -8,6 +8,7 @@ import '../kyc/kyc_intake_screen.dart';
 import '../remittance/remittance_screen.dart';
 import '../loans/loan_screens.dart';
 import '../profile/tab_screens.dart';
+import '../qr/qr_screens.dart';
 import '../resilience/service_unavailable_view.dart';
 import '../scores/scores_screen.dart';
 import 'demo_store.dart';
@@ -410,12 +411,12 @@ class _MobileShellState extends State<MobileShell> {
                               child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                                 _NavCircle(Icons.home_outlined, 'Home', i == _home, () => setState(() => i = _home)),
                                 _NavCircle(Icons.bar_chart_rounded, 'Scores and habits', i == _scores, () => setState(() => i = _scores)),
-                                _TransferNavButton(
+                                _QrNavButton(
                                   () {
                                     final curAccIdx = Demo.i.cur < Demo.i.accts.length ? Demo.i.cur : 0;
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (_) => RemittanceScreen(from: curAccIdx)),
+                                      MaterialPageRoute(builder: (_) => QrHomeScreen(from: curAccIdx)),
                                     );
                                   },
                                 ),
@@ -494,17 +495,17 @@ class _NavCircle extends StatelessWidget {
       );
 }
 
-/// Center main action button: prominent brand-colored button for Transfer (add button).
-class _TransferNavButton extends StatelessWidget {
+/// Center main action button: prominent brand-colored button for QR transactions.
+class _QrNavButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _TransferNavButton(this.onTap);
+  const _QrNavButton(this.onTap);
 
   @override
   Widget build(BuildContext context) => Tooltip(
-        message: 'Transfer',
+        message: 'QR transactions',
         child: Semantics(
           button: true,
-          label: 'Transfer money',
+          label: 'QR transactions',
           child: SizedBox(
             width: 52,
             height: 52,
@@ -519,7 +520,7 @@ class _TransferNavButton extends StatelessWidget {
                 child: const SizedBox(
                   width: 52,
                   height: 52,
-                  child: Icon(Icons.add_rounded, size: 28, color: Colors.white),
+                  child: Icon(Icons.qr_code_scanner_rounded, size: 26, color: Colors.white),
                 ),
               ),
             ),

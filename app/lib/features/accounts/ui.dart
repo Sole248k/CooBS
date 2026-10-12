@@ -35,7 +35,8 @@ Widget tf(TextEditingController c, String l, {TextInputType? k, ValueChanged<Str
     padding: const EdgeInsets.only(bottom: 12),
     child: TextField(key: ValueKey(l), controller: c, keyboardType: k, onChanged: ch, obscureText: obscure, decoration: InputDecoration(labelText: l)));
 
-Widget dd(String l, List<String> o, String? v, ValueChanged<String?> f) {
+/// Dropdown field; a null [f] shows it disabled.
+Widget dd(String l, List<String> o, String? v, ValueChanged<String?>? f) {
   final effectiveValue = (v != null && o.contains(v)) ? v : (o.isNotEmpty ? o.first : null);
   return Padding(
     padding: const EdgeInsets.only(bottom: 12),
