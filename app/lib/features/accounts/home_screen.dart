@@ -8,10 +8,13 @@ import '../kyc/kyc_intake_screen.dart';
 import '../remittance/remittance_screen.dart';
 import '../loans/loan_screens.dart';
 import '../profile/tab_screens.dart';
+import '../qr/qr_screens.dart';
 import '../resilience/service_unavailable_view.dart';
 import '../scores/scores_screen.dart';
 import 'demo_store.dart';
 import 'ui.dart';
+import '../ads/ad_models.dart';
+import '../ads/ad_service.dart';
 
 /// Palette for ambient spot gradients across card swaps.
 class AmbientPalette {
@@ -247,6 +250,11 @@ class _MobileShellState extends State<MobileShell> {
   void initState() {
     super.initState();
     _usernameFuture = SecureStorageService().getUsername();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AdService.maybeShowAd(context);
+      }
+    });
   }
 
   void _goHome() => setState(() => i = _home);
@@ -276,7 +284,14 @@ class _MobileShellState extends State<MobileShell> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            logoBox(height: 20),
+                            InkWell(
+                              onTap: () => AdService.showAd(context),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Tooltip(
+                                message: 'CooBS Display (Tap to view ad banner)',
+                                child: logoBox(height: 20),
+                              ),
+                            ),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -410,12 +425,12 @@ class _MobileShellState extends State<MobileShell> {
                               child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                                 _NavCircle(Icons.home_outlined, 'Home', i == _home, () => setState(() => i = _home)),
                                 _NavCircle(Icons.bar_chart_rounded, 'Scores and habits', i == _scores, () => setState(() => i = _scores)),
-                                _TransferNavButton(
+                                _QrNavButton(
                                   () {
                                     final curAccIdx = Demo.i.cur < Demo.i.accts.length ? Demo.i.cur : 0;
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (_) => RemittanceScreen(from: curAccIdx)),
+                                      MaterialPageRoute(builder: (_) => QrHomeScreen(from: curAccIdx)),
                                     );
                                   },
                                 ),
@@ -494,17 +509,17 @@ class _NavCircle extends StatelessWidget {
       );
 }
 
-/// Center main action button: prominent brand-colored button for Transfer (add button).
-class _TransferNavButton extends StatelessWidget {
+/// Center main action button: prominent brand-colored button for QR transactions.
+class _QrNavButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _TransferNavButton(this.onTap);
+  const _QrNavButton(this.onTap);
 
   @override
   Widget build(BuildContext context) => Tooltip(
-        message: 'Transfer',
+        message: 'QR transactions',
         child: Semantics(
           button: true,
-          label: 'Transfer money',
+          label: 'QR transactions',
           child: SizedBox(
             width: 52,
             height: 52,
@@ -519,7 +534,7 @@ class _TransferNavButton extends StatelessWidget {
                 child: const SizedBox(
                   width: 52,
                   height: 52,
-                  child: Icon(Icons.add_rounded, size: 28, color: Colors.white),
+                  child: Icon(Icons.qr_code_scanner_rounded, size: 26, color: Colors.white),
                 ),
               ),
             ),
@@ -2289,6 +2304,179 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Interactive Liquid Crystal Display promotional card on the home screen.
+  Widget _buildPromoAdBanner() {
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      decoration: BoxDecoration(
+        color: kDark ? const Color(0xFF0C141F) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: kDark
+              ? const Color(0xFF0091AE).withAlpha(80)
+              : const Color(0xFF0091AE).withAlpha(60),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0091AE).withAlpha(kDark ? 25 : 12),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => AdService.showAd(context),
+          onLongPress: () => _showAdPickerSheet(context),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0091AE).withAlpha(kDark ? 45 : 25),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF0091AE).withAlpha(70),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: const Icon(Icons.campaign_rounded, size: 20, color: Color(0xFF0091AE)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Featured Announcement',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: kInk,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0091AE).withAlpha(kDark ? 40 : 25),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'LCD DISPLAY',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0091AE),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Sit, bank, and relax with CooBS · Tap to view',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11,
+                          color: kMut,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF94A3B8)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAdPickerSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ad Display Tester (Debug)',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: kInk,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Select an ad banner or roll with the live probability engine',
+                style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut),
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                leading: const Icon(Icons.casino_outlined, color: Color(0xFF0091AE)),
+                title: const Text('Live Probability Roll', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                subtitle: const Text('1/1000 Duo, 1/2000 Umamusume, 1997/2000 Solo', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  AdService.showAd(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.star_rounded, color: Color(0xFFF59E0B)),
+                title: const Text('Umamusume Pretty Derby', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                subtitle: const Text('1 in 2,000 Ultra Rare Easter Egg', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  AdService.showAd(context, forcedAd: AdItem.umamusume);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.groups_outlined, color: Color(0xFF0091AE)),
+                title: const Text('CooBS Duo (Two Members)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                subtitle: const Text('1 in 1,000 Lucky Draw', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  AdService.showAd(context, forcedAd: AdItem.duo);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_outline, color: Color(0xFF0091AE)),
+                title: const Text('CooBS Solo (Member on Sofa)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                subtitle: const Text('Standard Most Frequent Edition', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  AdService.showAd(context, forcedAd: AdItem.solo);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNextBillSection(dynamic nb) {
     if (nb == null) {
       return Container(
@@ -2669,6 +2857,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildQuickSendBeneficiaries(),
                     _buildIponVaultsSection(),
                     _buildCustomer360FinancialPulse(),
+                    _buildPromoAdBanner(),
                   ],
                   Padding(
                     padding: const EdgeInsets.only(top: 24, bottom: 10),

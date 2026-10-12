@@ -6,6 +6,7 @@ import '../core/network/network.dart';
 import '../core/router/app_router.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/theme_controller.dart';
 import '../features/accounts/demo_store.dart';
 import '../features/accounts/ui.dart';
 import '../features/remittance/remittance_screen.dart';
@@ -49,128 +50,150 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    // Teller/web shell stays on the light theme; dark mode is mobile-only.
-    return Theme(
-      data: AppTheme.lightTheme,
-      child: LayoutBuilder(
-      builder: (context, constraints) {
-        final isWideScreen = constraints.maxWidth >= 640;
+    return ListenableBuilder(
+      listenable: ThemeController.i,
+      builder: (context, _) {
+        final isDark = ThemeController.i.dark;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.account_balance_rounded, color: AppTheme.emeraldAccent, size: 22),
-                const SizedBox(width: 8),
-                const Text('CooBS Banking'),
-                if (AppConfig.useFixtures) ...[
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppTheme.emeraldAccent.withAlpha(40),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.emeraldAccent, width: 1),
-                    ),
-                    child: const Text(
-                      'FIXTURE MODE',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.emeraldAccent,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Refresh Dashboard',
-                icon: const Icon(Icons.refresh_rounded),
-                onPressed: () => setState(() => _loadDashboard()),
-              ),
-              IconButton(
-                tooltip: 'Log out',
-                icon: const Icon(Icons.logout_rounded),
-                onPressed: () async {
-                  try {
-                    await ApiClient().post('/auth/token/revoke');
-                  } catch (_) {}
-                  await SecureStorageService().clearSession();
-                  if (context.mounted) {
-                    Navigator.pushNamedAndRemoveUntil(context, AppRouter.login, (_) => false);
-                  }
-                },
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: isWideScreen
-              ? Row(
-                  children: [
-                    NavigationRail(
-                      selectedIndex: _currentIndex,
-                      onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-                      labelType: NavigationRailLabelType.all,
-                      selectedIconTheme: const IconThemeData(color: AppTheme.navyPrimary),
-                      selectedLabelTextStyle: const TextStyle(
-                        color: AppTheme.navyPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      destinations: const [
-                        NavigationRailDestination(
-                          icon: Icon(Icons.dashboard_outlined),
-                          selectedIcon: Icon(Icons.dashboard_rounded),
-                          label: Text('Dashboard'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.send_outlined),
-                          selectedIcon: Icon(Icons.send_rounded),
-                          label: Text('Transfer'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.receipt_long_outlined),
-                          selectedIcon: Icon(Icons.receipt_long_rounded),
-                          label: Text('Timeline'),
+        return Theme(
+          data: isDark ? AppTheme.darkTheme : AppTheme.lightTheme,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWideScreen = constraints.maxWidth >= 640;
+
+              return Scaffold(
+                backgroundColor: isDark ? const Color(0xFF000107) : const Color(0xFFF8FAFC),
+                appBar: AppBar(
+                  backgroundColor: isDark ? const Color(0xFF0C141F) : AppTheme.navyPrimary,
+                  title: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.account_balance_rounded, color: AppTheme.emeraldAccent, size: 22),
+                      const SizedBox(width: 8),
+                      const Text('CooBS Banking'),
+                      if (AppConfig.useFixtures) ...[
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.emeraldAccent.withAlpha(40),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.emeraldAccent, width: 1),
+                          ),
+                          child: const Text(
+                            'FIXTURE MODE',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.emeraldAccent,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
                         ),
                       ],
+                    ],
+                  ),
+                  actions: [
+                    IconButton(
+                      tooltip: 'Refresh Dashboard',
+                      icon: const Icon(Icons.refresh_rounded),
+                      onPressed: () => setState(() => _loadDashboard()),
                     ),
-                    const VerticalDivider(width: 1, thickness: 1),
-                    Expanded(child: _buildCurrentView()),
-                  ],
-                )
-              : _buildCurrentView(),
-          bottomNavigationBar: isWideScreen
-              ? null
-              : BottomNavigationBar(
-                  currentIndex: _currentIndex,
-                  onTap: (idx) => setState(() => _currentIndex = idx),
-                  selectedItemColor: AppTheme.navyPrimary,
-                  unselectedItemColor: AppTheme.textMuted,
-                  items: const [
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.dashboard_outlined),
-                      activeIcon: Icon(Icons.dashboard_rounded),
-                      label: 'Dashboard',
+                    IconButton(
+                      tooltip: 'Log out',
+                      icon: const Icon(Icons.logout_rounded),
+                      onPressed: () async {
+                        try {
+                          await ApiClient().post('/auth/token/revoke');
+                        } catch (_) {}
+                        await SecureStorageService().clearSession();
+                        if (context.mounted) {
+                          Navigator.pushNamedAndRemoveUntil(context, AppRouter.login, (_) => false);
+                        }
+                      },
                     ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.send_outlined),
-                      activeIcon: Icon(Icons.send_rounded),
-                      label: 'Transfer',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.receipt_long_outlined),
-                      activeIcon: Icon(Icons.receipt_long_rounded),
-                      label: 'Timeline',
-                    ),
+                    const SizedBox(width: 8),
                   ],
                 ),
+                body: isWideScreen
+                    ? Row(
+                        children: [
+                          NavigationRail(
+                            selectedIndex: _currentIndex,
+                            onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+                            backgroundColor: isDark ? const Color(0xFF0C141F) : Colors.white,
+                            labelType: NavigationRailLabelType.all,
+                            selectedIconTheme: IconThemeData(
+                              color: isDark ? const Color(0xFF00B4D8) : AppTheme.navyPrimary,
+                            ),
+                            selectedLabelTextStyle: TextStyle(
+                              color: isDark ? const Color(0xFF00B4D8) : AppTheme.navyPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            unselectedIconTheme: IconThemeData(
+                              color: isDark ? const Color(0xFF94A3B8) : AppTheme.textMuted,
+                            ),
+                            unselectedLabelTextStyle: TextStyle(
+                              color: isDark ? const Color(0xFF94A3B8) : AppTheme.textMuted,
+                            ),
+                            destinations: const [
+                              NavigationRailDestination(
+                                icon: Icon(Icons.dashboard_outlined),
+                                selectedIcon: Icon(Icons.dashboard_rounded),
+                                label: Text('Dashboard'),
+                              ),
+                              NavigationRailDestination(
+                                icon: Icon(Icons.send_outlined),
+                                selectedIcon: Icon(Icons.send_rounded),
+                                label: Text('Transfer'),
+                              ),
+                              NavigationRailDestination(
+                                icon: Icon(Icons.receipt_long_outlined),
+                                selectedIcon: Icon(Icons.receipt_long_rounded),
+                                label: Text('Timeline'),
+                              ),
+                            ],
+                          ),
+                          VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                          ),
+                          Expanded(child: _buildCurrentView()),
+                        ],
+                      )
+                    : _buildCurrentView(),
+                bottomNavigationBar: isWideScreen
+                    ? null
+                    : BottomNavigationBar(
+                        currentIndex: _currentIndex,
+                        onTap: (idx) => setState(() => _currentIndex = idx),
+                        backgroundColor: isDark ? const Color(0xFF0C141F) : Colors.white,
+                        selectedItemColor: isDark ? const Color(0xFF00B4D8) : AppTheme.navyPrimary,
+                        unselectedItemColor: isDark ? const Color(0xFF94A3B8) : AppTheme.textMuted,
+                        items: const [
+                          BottomNavigationBarItem(
+                            icon: Icon(Icons.dashboard_outlined),
+                            activeIcon: Icon(Icons.dashboard_rounded),
+                            label: 'Dashboard',
+                          ),
+                          BottomNavigationBarItem(
+                            icon: Icon(Icons.send_outlined),
+                            activeIcon: Icon(Icons.send_rounded),
+                            label: 'Transfer',
+                          ),
+                          BottomNavigationBarItem(
+                            icon: Icon(Icons.receipt_long_outlined),
+                            activeIcon: Icon(Icons.receipt_long_rounded),
+                            label: 'Timeline',
+                          ),
+                        ],
+                      ),
+              );
+            },
+          ),
         );
       },
-      ),
     );
   }
 

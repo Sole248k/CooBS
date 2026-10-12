@@ -12,7 +12,8 @@ class Debit {
   final DateTime date;
   final double amt; // positive number; shown as a negative
   final int acct;
-  const Debit(this.activity, this.receiver, this.ref, this.date, this.amt, this.acct);
+  final String status;
+  const Debit(this.activity, this.receiver, this.ref, this.date, this.amt, this.acct, {this.status = 'POSTED'});
 }
 
 /// Live debits for the given account index from the store.
@@ -23,7 +24,7 @@ List<Debit> debitsFor(int a) {
     if (x.amt >= 0) continue;
     final p = x.label.split(' to ');
     final receiver = p.length > 1 ? p.last : (x.ref.isNotEmpty ? x.ref : 'Recipient');
-    out.add(Debit(p.first, receiver, x.ref, x.date, -x.amt, a));
+    out.add(Debit(p.first, receiver, x.ref, x.date, -x.amt, a, status: x.status));
   }
   return out;
 }
@@ -1809,18 +1810,27 @@ class _ScoresPageState extends State<ScoresPage> {
                   fontFamily: 'Poppins',
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
-                  color: kInk,
+                  color: d.status.toUpperCase() == 'FAILED'
+                      ? (kDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))
+                      : kInk,
                   letterSpacing: -0.2,
+                  decoration: d.status.toUpperCase() == 'FAILED' ? TextDecoration.lineThrough : null,
                 ),
               ),
               const SizedBox(height: 3),
               Text(
-                'Success',
+                d.status.toUpperCase() == 'FAILED'
+                    ? 'Failed'
+                    : (d.status.toUpperCase() == 'PROCESSING' ? 'Processing' : 'Success'),
                 style: TextStyle(
                   fontFamily: 'Poppins',
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
-                  color: kDark ? const Color(0xFF00B4D8) : const Color(0xFF059669),
+                  color: d.status.toUpperCase() == 'FAILED'
+                      ? const Color(0xFFEF4444)
+                      : (d.status.toUpperCase() == 'PROCESSING'
+                          ? const Color(0xFFF59E0B)
+                          : (kDark ? const Color(0xFF00B4D8) : const Color(0xFF059669))),
                 ),
               ),
             ],

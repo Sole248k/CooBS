@@ -10,6 +10,7 @@ import '../../shell/app_shell.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../auth/auth_screens.dart';
+import '../ads/ad_service.dart';
 import '../data/mobile_repo.dart';
 import '../kyc/kyc_intake_screen.dart';
 
@@ -31,6 +32,7 @@ Future<void> _handleLogout(BuildContext context) async {
     await ApiClient().post('/auth/token/revoke');
   } catch (_) {}
   await SecureStorageService().clearSession();
+  AdService.resetSession();
   Demo.i.reset();
   if (context.mounted) {
     Navigator.pushAndRemoveUntil(

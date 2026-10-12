@@ -38,7 +38,9 @@ class Tx {
   final String label, ref;
   final DateTime date;
   final double amt;
-  Tx(this.label, this.ref, this.date, this.amt);
+  final String status;
+  final String? failureCode;
+  Tx(this.label, this.ref, this.date, this.amt, {this.status = 'POSTED', this.failureCode});
 }
 
 class Acct {
@@ -141,6 +143,7 @@ class Demo extends ChangeNotifier {
                   t.trackingReference.isNotEmpty ? t.trackingReference : 'TXN',
                   t.submittedAt,
                   signAmt,
+                  status: t.status.isNotEmpty ? t.status : 'POSTED',
                 );
               }).toList()
             : accts[0].tx;
@@ -417,7 +420,16 @@ class Demo extends ChangeNotifier {
                       : (t['category'] != null && '${t['category']}'.isNotEmpty)
                           ? '${t['category']}'
                           : '${t['referenceNo'] ?? t['trackingReference'] ?? 'Transaction'}';
-          txList.add(Tx(label, ref, DateTime(d.year, d.month, d.day), isOut ? -amt : amt));
+          final rawStatus = (t['status'] ?? 'POSTED').toString().toUpperCase();
+          final failureCode = t['failureCode']?.toString();
+          txList.add(Tx(
+            label,
+            ref,
+            DateTime(d.year, d.month, d.day),
+            isOut ? -amt : amt,
+            status: rawStatus,
+            failureCode: failureCode,
+          ));
         }
         return txList;
       }
@@ -466,6 +478,8 @@ class Demo extends ChangeNotifier {
             parsed.insert(0, prim);
           }
         }
+        // Remove pending local transfers once server lists them
+        _pendingLocalTx.removeWhere((pTx) => parsed[0].tx.any((t) => t.ref == pTx.ref));
         // Retain any pending local transfers not yet in server list
         for (final pTx in _pendingLocalTx) {
           if (!parsed[0].tx.any((t) => t.ref == pTx.ref)) {
@@ -620,12 +634,12 @@ class Demo extends ChangeNotifier {
   /// Local effect of a successful remittance so the cards and history stay consistent.
   void applyRemittance(int from, double amt, double fee, String bank, String dest, String ref) {
     if (from < 0 || from >= accts.length) return;
-    final tx = Tx('Transfer to $bank', ref, today, -amt);
+    final tx = Tx('Transfer to $bank', ref, today, -amt, status: 'PROCESSING');
     _pendingLocalTx.insert(0, tx);
     accts[from].bal = r2(accts[from].bal - amt - fee);
     accts[from].tx.insert(0, tx);
     if (fee > 0) {
-      final feeTx = Tx('Transfer fee', ref, today, -fee);
+      final feeTx = Tx('Transfer fee', ref, today, -fee, status: 'PROCESSING');
       _pendingLocalTx.insert(0, feeTx);
       accts[from].tx.insert(0, feeTx);
     }

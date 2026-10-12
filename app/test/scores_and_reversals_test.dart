@@ -130,5 +130,44 @@ void main() {
       expect(find.text('600'), findsOneWidget);
       expect(find.text('Fair'), findsOneWidget);
     });
+
+    testWidgets('txRow renders Declined badge and strikethrough for RISK_DECLINED failed transfers', (tester) async {
+      final declinedTx = Tx(
+        'Transfer to Juan Dela Cruz',
+        'TX-20261012-7A1B2C3D',
+        DateTime(2026, 10, 12),
+        -100.0,
+        status: 'FAILED',
+        failureCode: 'RISK_DECLINED',
+      );
+
+      final postedTx = Tx(
+        'Transfer to Maria Santos',
+        'TX-20261012-11223344',
+        DateTime(2026, 10, 12),
+        -200.0,
+        status: 'POSTED',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                txRow(declinedTx),
+                txRow(postedTx),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(find.text('Declined'), findsOneWidget);
+      expect(find.text('Success'), findsOneWidget);
+      expect(find.text('Transfer to Juan Dela Cruz'), findsOneWidget);
+      expect(find.text('Transfer to Maria Santos'), findsOneWidget);
+    });
   });
 }
