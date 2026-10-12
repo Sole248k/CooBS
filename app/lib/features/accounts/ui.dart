@@ -123,6 +123,9 @@ Widget miniTag(String t) => Container(
 
 String _formatTxTitle(String raw, bool isOut) {
   final trimmed = raw.trim();
+  if (trimmed.startsWith('RV-') || trimmed.toUpperCase().contains('REVERSAL')) {
+    return isOut ? 'Reversal Debit' : 'Reversal Refund';
+  }
   if (trimmed.isEmpty || trimmed.startsWith('TX-') || trimmed.startsWith('TXN-')) {
     return isOut ? 'Transfer Out' : 'Received Funds';
   }
@@ -137,6 +140,9 @@ String _formatTxTitle(String raw, bool isOut) {
 
 IconData _getTxIcon(String label, bool isOut) {
   final l = label.toLowerCase();
+  if (l.contains('reversal') || l.contains('reversed') || l.startsWith('rv-')) {
+    return Icons.replay_rounded;
+  }
   if (l.contains('food') || l.contains('dining') || l.contains('restaurant') || l.contains('cafe') || l.contains('coffee') || l.contains('burger') || l.contains('lunch') || l.contains('dinner')) {
     return Icons.restaurant_rounded;
   }

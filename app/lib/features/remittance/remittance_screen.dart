@@ -31,7 +31,7 @@ class RemittanceScreen extends StatefulWidget {
   final String? initialDest;
   final String? initialBank;
   final String? initialRemarks;
-  final String? initialAmount;
+  final Object? initialAmount;
   /// Filled from a scanned QR: recipient account and bank are read-only, amount stays editable.
   final bool fromQr;
   const RemittanceScreen({
@@ -69,8 +69,11 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     if (widget.initialRemarks != null && widget.initialRemarks!.isNotEmpty) {
       rem.text = widget.initialRemarks!;
     }
-    if (widget.initialAmount != null && widget.initialAmount!.isNotEmpty) {
-      amt.text = widget.initialAmount!;
+    final initAmt = widget.initialAmount;
+    if (initAmt is num && initAmt > 0) {
+      amt.text = initAmt.toStringAsFixed(2);
+    } else if (initAmt is String && initAmt.isNotEmpty) {
+      amt.text = initAmt;
     }
   }
 

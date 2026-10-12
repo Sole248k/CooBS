@@ -150,6 +150,46 @@ class TransactionHistoryServiceImplTest {
     }
 
     @Test
+    @DisplayName("getRecentTransactions correctly maps reversal refund as IN with REVERSAL category")
+    void getRecentTransactions_mapsReversalRefundAsIn() {
+        com.group2.fse.transaction_service.client.dto.AccountLookupResponse acc =
+                com.group2.fse.transaction_service.client.dto.AccountLookupResponse.builder()
+                        .accountId(1001L)
+                        .accountNumber("ACC-1001")
+                        .customerId(101L)
+                        .build();
+
+        when(orchestrationClient.findAccountsByCustomerId(101L)).thenReturn(List.of(acc));
+
+        TxnTransaction reversalTx = TxnTransaction.builder()
+                .transactionId(UUID.randomUUID())
+                .referenceNo("RV-20261012-A1B2C3D4")
+                .reversesTransactionId(UUID.randomUUID())
+                .customerId(101L) // Original sender receiving refund
+                .sourceAccountId(2002L) // Recipient's account being debited
+                .destinationAccountId(1001L) // Original sender's account being refunded
+                .destinationAccountNumber("ACC-1001")
+                .amount(new BigDecimal("1250.00"))
+                .currency("PHP")
+                .category("REVERSAL")
+                .status("POSTED")
+                .remarks("Duplicate entry refund")
+                .createdAt(Instant.now())
+                .build();
+
+        when(transactionRepository.findByCustomerOrAccountDetails(eq(101L), anyCollection(), anyCollection()))
+                .thenReturn(List.of(reversalTx));
+
+        List<TransactionSummaryDto> result = historyService.getRecentTransactions(101L, 5);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getDirection()).isEqualTo("IN");
+        assertThat(result.get(0).getCategory()).isEqualTo("REVERSAL");
+        assertThat(result.get(0).getAmount()).isEqualTo("1250.00");
+        assertThat(result.get(0).getCounterpartyName()).isEqualTo("Duplicate entry refund");
+    }
+
+    @Test
     @DisplayName("getSpendingBreakdown aggregates categories and filters out FAILED transactions")
     void getSpendingBreakdown_aggregatesAndFiltersFailed() {
         TxnTransaction food2 = TxnTransaction.builder()
