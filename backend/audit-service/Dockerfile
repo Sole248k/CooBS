@@ -9,14 +9,15 @@
 # ------------------------------------------------------------------------------
 FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /workspace
+ENV MAVEN_OPTS="-Djdk.tls.client.protocols=TLSv1.2"
 
 # Copy POM and download dependencies for layer caching
 COPY pom.xml ./
-RUN mvn dependency:go-offline -B || true
+RUN --mount=type=cache,target=/root/.m2 mvn dependency:go-offline -B || true
 
 # Copy source and compile application
 COPY src ./src
-RUN mvn clean package -DskipTests -B && \
+RUN --mount=type=cache,target=/root/.m2 mvn clean package -DskipTests -B && \
     cp target/*-SNAPSHOT.jar target/app.jar || cp target/*.jar target/app.jar
 
 # ------------------------------------------------------------------------------
