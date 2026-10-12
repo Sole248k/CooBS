@@ -9,6 +9,7 @@ import com.group2.fse.auth_service.exception.InvalidCredentialsException;
 import com.group2.fse.auth_service.repository.AppUserRepository;
 import com.group2.fse.auth_service.security.jwt.JwtTokenProvider;
 import com.group2.fse.auth_service.security.session.RedisRefreshTokenService;
+import com.group2.fse.auth_service.security.session.SingleSessionGuard;
 import com.group2.fse.auth_service.service.CustomerAuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisRefreshTokenService refreshTokenService;
+    private final SingleSessionGuard singleSessionGuard;
 
     @Override
     @Transactional(readOnly = true)
@@ -61,6 +63,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private AuthResponseDto issueTokenPair(Long userId, String username, List<String> roles, String userType) {
         String accessToken = jwtTokenProvider.generateAccessToken(username, userId, roles, userType);
         String refreshToken = refreshTokenService.createRefreshToken(userId, username, roles, userType);
+        singleSessionGuard.claim(userType, userId, refreshToken, accessToken, null);
 
         return AuthResponseDto.builder()
                 .accessToken(accessToken)

@@ -13,6 +13,15 @@ Timestamps are relative to the moment the database is created, so "due today" it
 | 1 | `admin` | ROLE_ADMIN | ACTIVE |
 | 2 | `teller_alice` | ROLE_TELLER | ACTIVE |
 | 3 | `teller_bob` | ROLE_TELLER | ACTIVE |
+| 4 | `teller_carlos` | ROLE_TELLER | ACTIVE |
+| 5 | `teller_diana` | ROLE_TELLER | ACTIVE |
+| 6 | `teller_edwin` | ROLE_TELLER | ACTIVE |
+| 7 | `teller_fatima` | ROLE_TELLER | ACTIVE |
+| 8 | `teller_gina` | ROLE_TELLER | ACTIVE |
+| 9 | `teller_henry` | ROLE_TELLER | ACTIVE |
+| 10 | `teller_irene` | ROLE_TELLER | ACTIVE |
+| 11 | `manager_ramon` | ROLE_ADMIN | ACTIVE |
+| 12 | `manager_teresa` | ROLE_ADMIN | ACTIVE |
 
 ## Members
 

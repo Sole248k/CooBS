@@ -8,6 +8,7 @@ import com.group2.fse.auth_service.security.blacklist.TokenBlacklistService;
 import com.group2.fse.auth_service.security.jwt.JwtTokenProvider;
 import com.group2.fse.auth_service.security.session.RedisRefreshTokenService;
 import com.group2.fse.auth_service.security.session.RefreshTokenData;
+import com.group2.fse.auth_service.security.session.SingleSessionGuard;
 import com.group2.fse.auth_service.service.impl.TokenServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,8 @@ class TokenServiceImplTest {
     private TokenBlacklistService blacklist;
     @Mock
     private AppUserRepository users;
+    @Mock
+    private SingleSessionGuard singleSession;
 
     @InjectMocks
     private TokenServiceImpl tokenService;
@@ -71,6 +74,7 @@ class TokenServiceImplTest {
         assertThat(response.getAccessToken()).isEqualTo("jwt");
         assertThat(response.getRefreshToken()).isEqualTo("new");
         verify(refreshTokens).revokeRefreshToken(OLD);
+        verify(singleSession).claim("CUSTOMER", 1L, "new", "jwt", OLD);
     }
 
     @Test

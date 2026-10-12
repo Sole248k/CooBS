@@ -44,6 +44,16 @@ STAFF = [
     (1, "admin", "ROLE_ADMIN", "admin@corebank.local", "ACTIVE"),
     (2, "teller_alice", "ROLE_TELLER", "alice@corebank.local", "ACTIVE"),
     (3, "teller_bob", "ROLE_TELLER", "bob@corebank.local", "ACTIVE"),
+    (4, "teller_carlos", "ROLE_TELLER", "carlos@corebank.local", "ACTIVE"),
+    (5, "teller_diana", "ROLE_TELLER", "diana@corebank.local", "ACTIVE"),
+    (6, "teller_edwin", "ROLE_TELLER", "edwin@corebank.local", "ACTIVE"),
+    (7, "teller_fatima", "ROLE_TELLER", "fatima@corebank.local", "ACTIVE"),
+    (8, "teller_gina", "ROLE_TELLER", "gina@corebank.local", "ACTIVE"),
+    (9, "teller_henry", "ROLE_TELLER", "henry@corebank.local", "ACTIVE"),
+    (10, "teller_irene", "ROLE_TELLER", "irene@corebank.local", "ACTIVE"),
+    # Branch managers sign in with the admin role; there is no separate manager role.
+    (11, "manager_ramon", "ROLE_ADMIN", "ramon@corebank.local", "ACTIVE"),
+    (12, "manager_teresa", "ROLE_ADMIN", "teresa@corebank.local", "ACTIVE"),
 ]
 ROLES = [(1, "ROLE_ADMIN"), (2, "ROLE_TELLER"), (3, "ROLE_CUSTOMER"), (4, "ROLE_SERVICE")]
 
