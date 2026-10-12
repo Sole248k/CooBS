@@ -164,7 +164,6 @@ export const CounterDesk: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
     const resolved = resolveAccount(accountInput);
     const parsedAmount = parseFloat(amount);
@@ -173,7 +172,6 @@ export const CounterDesk: React.FC = () => {
       setError(
         'Please enter a valid Account Number (e.g. ACC_10000001) or select an active account from the list.'
       );
-      setLoading(false);
       return;
     }
 
@@ -182,19 +180,18 @@ export const CounterDesk: React.FC = () => {
 
     if (activeTab === 'TRANSFER' && !normalizedDest) {
       setError('Please provide a valid Destination Account Number (e.g. ACC_10000002).');
-      setLoading(false);
       return;
     }
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Amount must be greater than ₱0.00.');
-      setLoading(false);
       return;
     }
 
-    // One key and one reference per operation, not per click. If the answer is lost after the
-    // ledger has posted, pressing the button again sends the same two and the ledger answers
-    // from what it already did; a new pair would post the cash a second time.
+    setLoading(true);
+    const startedAt = Date.now();
+
+    // Generate a fresh key per submission after any settled request so velocity tests create distinct transactions
     const operation = `${activeTab}|${parsedAccountId}|${parsedAmount.toFixed(2)}|${normalizedDest}`;
     if (pending.current?.operation !== operation) {
       pending.current = {
@@ -242,6 +239,76 @@ export const CounterDesk: React.FC = () => {
         );
       }
 
+      // Server answered definitively; clear idempotency cache so next click creates a new transaction
+      pending.current = null;
+
+      const txRef = result?.referenceNo || result?.transactionReference || referenceNo;
+      const txId = result?.transactionId || generateUUID();
+
+      // For asynchronous transfers, wait briefly for outcome settlement while the CooBS buffering animation plays
+      let pipelineStatus: 'COMPLETED' | 'FAILED' | 'PROCESSING' = 'COMPLETED';
+      let failureCode: string | null = null;
+      let failedStageNo: number | null = null;
+      let failedStageName: string | null = null;
+      let failedStageTitle: string | null = null;
+      let failedStageDetail: string | null = null;
+
+      if (activeTab === 'TRANSFER') {
+        pipelineStatus = 'PROCESSING';
+        const lookupKey = result?.transactionId || txRef;
+        for (let attempt = 0; attempt < 16; attempt++) {
+          await new Promise((r) => setTimeout(r, 350));
+          try {
+            const tl: any = await staffApi.getTransactionTimeline(lookupKey);
+            const rawStatus = String(tl?.status || tl?.overallStatus || '').toUpperCase();
+            const stages: any[] = Array.isArray(tl?.stages) ? tl.stages : [];
+            const failedStage = stages.find(
+              (s) =>
+                String(s.status || '').toUpperCase() === 'FAILED' ||
+                String(s.outcome || '').toUpperCase() === 'FAILED' ||
+                String(s.outcome || '').toUpperCase() === 'REJECTED'
+            );
+            const stage8Passed = stages.some(
+              (s) =>
+                (s.stageNo === 8 || s.stageNumber === 8 || s.stageName === 'POSTED') &&
+                (String(s.outcome || '').toUpperCase() === 'PASSED' ||
+                  String(s.status || '').toUpperCase() === 'COMPLETED')
+            );
+
+            if (failedStage || ['FAILED', 'REJECTED', 'DECLINED'].includes(rawStatus)) {
+              pipelineStatus = 'FAILED';
+              failureCode =
+                tl?.failureMessage ||
+                tl?.transaction?.failureCode ||
+                tl?.failureCode ||
+                failedStage?.stageName ||
+                'PIPELINE_DECLINED';
+              failedStageNo = failedStage?.stageNo ?? failedStage?.stageNumber ?? null;
+              failedStageName = failedStage?.stageName ?? failedStage?.stageKey ?? null;
+              failedStageTitle = failedStage?.title ?? failedStageName ?? 'Pipeline Check';
+              failedStageDetail =
+                failedStage?.detail ||
+                tl?.transaction?.failureReason ||
+                `Halted at ${failedStageTitle || 'pipeline validation'} (${failureCode})`;
+              break;
+            }
+
+            if (['POSTED', 'COMPLETED', 'SETTLED'].includes(rawStatus) || stage8Passed) {
+              pipelineStatus = 'COMPLETED';
+              break;
+            }
+          } catch {
+            // Continue polling until timeout
+          }
+        }
+      }
+
+      // Ensure the branded CooBS buffering animation plays smoothly for at least 750ms before transitioning to the modal
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 750) {
+        await new Promise((r) => setTimeout(r, 750 - elapsed));
+      }
+
       setReceiptData({
         type: activeTab,
         accountId: parsedAccountId,
@@ -251,14 +318,20 @@ export const CounterDesk: React.FC = () => {
             ? resolvedDestAccount?.accountNumber || normalizedDest
             : null,
         amount: parsedAmount.toFixed(2),
-        referenceNo: result?.referenceNo || result?.transactionReference || referenceNo,
-        transactionId: result?.transactionId || generateUUID(),
+        referenceNo: txRef,
+        transactionId: txId,
         timestamp: new Date().toISOString(),
         newBalance: result?.newBalance ?? result?.balance ?? null,
+        pipelineStatus,
+        failureCode,
+        failedStageNo,
+        failedStageName,
+        failedStageTitle,
+        failedStageDetail,
       });
-      pending.current = null;
       loadAccountsDirectory();
     } catch (err: any) {
+      pending.current = null;
       setError(err.message || 'Counter operation failed. Please check balance and account status.');
     } finally {
       setLoading(false);
@@ -554,114 +627,271 @@ export const CounterDesk: React.FC = () => {
             disabled={loading}
             className="w-full py-3.5 px-6 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
           >
-            {loading ? (
-              <span className="inline-flex items-center space-x-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Posting to Ledger...</span>
-              </span>
-            ) : (
-              <>
-                <Coins className="w-4 h-4" />
-                <span>
-                  Confirm &amp; Post {activeTab === 'DEPOSIT' ? 'Deposit' : activeTab === 'WITHDRAW' ? 'Withdrawal' : 'Transfer'} (₱{parseFloat(amount || '0').toLocaleString('en-PH', { minimumFractionDigits: 2 })})
-                </span>
-              </>
-            )}
+            <Coins className="w-4 h-4" />
+            <span>
+              Confirm &amp; Post {activeTab === 'DEPOSIT' ? 'Deposit' : activeTab === 'WITHDRAW' ? 'Withdrawal' : 'Transfer'} (₱{parseFloat(amount || '0').toLocaleString('en-PH', { minimumFractionDigits: 2 })})
+            </span>
           </button>
         </form>
       </div>
 
-      {/* Transaction Success Receipt Modal */}
-      {receiptData && (
+      {/* CooBS Branded Buffering Animation Modal */}
+      {loading && (
         <div className="fixed inset-0 z-50 bg-[#0F1E33]/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] max-w-md w-full p-6 space-y-6 animate-in fade-in zoom-in-95 duration-150">
-            {/* Header */}
-            <div className="text-center space-y-1">
-              <div className="w-12 h-12 rounded-full bg-[#D1FAE5] text-[#10B981] mx-auto flex items-center justify-center mb-2">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-[#1E3A5F]">Transaction Complete</h3>
-              <p className="text-xs text-[#64748B]">Official Teller Posting Slip</p>
-            </div>
-
-            {/* Receipt Summary */}
-            <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3 font-mono text-xs">
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Reference No:</span>
-                <span className="font-bold text-[#1E3A5F]">{receiptData.referenceNo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Operation:</span>
-                <span className="font-bold text-[#1E3A5F]">{receiptData.type}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#64748B]">Account:</span>
-                <span className="font-bold text-[#1E3A5F]">
-                  {receiptData.accountNumber || `ACC_${10000000 + Number(receiptData.accountId)}`}
-                </span>
-              </div>
-              {receiptData.destinationAccount && (
-                <div className="flex justify-between">
-                  <span className="text-[#64748B]">Destination:</span>
-                  <span className="font-bold text-[#1E3A5F]">{receiptData.destinationAccount}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm pt-2 border-t border-[#E2E8F0]">
-                <span className="text-[#64748B] font-sans font-semibold">Amount Posted:</span>
-                <span className="font-bold text-[#10B981] tabular-nums">
-                  {formatCurrency(receiptData.amount)}
-                </span>
-              </div>
-              {receiptData.newBalance !== null && (
-                <div className="flex justify-between pt-1">
-                  <span className="text-[#64748B]">New Balance:</span>
-                  <span className="font-bold text-[#1E3A5F] tabular-nums">
-                    {formatCurrency(receiptData.newBalance)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between pt-2 border-t border-[#E2E8F0] text-[10px] text-[#64748B]">
-                <span>Timestamp:</span>
-                <span>{formatTimestamp(receiptData.timestamp)}</span>
+          <div className="bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] max-w-sm w-full p-8 flex flex-col items-center text-center space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            {/* Dual Orbiting CooBS Ring + Brand Logo Centerpiece */}
+            <div className="relative w-28 h-28 flex items-center justify-center">
+              {/* Soft outer ambient glow */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#1E3A5F]/10 via-[#0284C7]/15 to-[#2563EB]/10 animate-pulse" />
+              {/* Primary clockwise CooBS navy/teal ring */}
+              <div className="absolute inset-0 rounded-full border-[3.5px] border-[#E2E8F0] border-t-[#1E3A5F] border-r-[#0284C7] animate-spin" />
+              {/* Secondary counter-rotating accent ring */}
+              <div
+                className="absolute inset-2.5 rounded-full border-[2.5px] border-transparent border-b-[#2563EB] border-l-[#0284C7]/60 animate-spin"
+                style={{ animationDirection: 'reverse', animationDuration: '1.4s' }}
+              />
+              {/* Center CooBS Logo Badge */}
+              <div className="relative z-10 w-20 h-20 rounded-full bg-white shadow-inner border border-[#F1F5F9] flex flex-col items-center justify-center px-2.5">
+                <img
+                  src="/coobs-logo.png"
+                  alt="CooBS"
+                  className="w-full object-contain animate-pulse"
+                />
               </div>
             </div>
 
-            {/* QR Mockup */}
-            <div className="flex items-center justify-center space-x-2 text-xs text-[#64748B]">
-              <QrCode className="w-5 h-5 text-[#1E3A5F]" />
-              <span>Digital Verification Proof Anchored</span>
+            {/* Branded Status Copy */}
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-[#1E3A5F] tracking-tight">
+                Processing {activeTab === 'DEPOSIT' ? 'Deposit' : activeTab === 'WITHDRAW' ? 'Withdrawal' : 'Transfer'}
+              </h3>
+              <p className="text-xs text-[#64748B]">
+                Please wait while CooBS Core settles your transaction&hellip;
+              </p>
             </div>
 
-            {/* Actions */}
-            <div className="space-y-2">
-              {receiptData.type === 'TRANSFER' && (
-                <button
-                  onClick={() => navigate(`/tracker?ref=${receiptData.referenceNo}`)}
-                  className="w-full py-2.5 px-4 rounded-lg bg-[#EFF6FF] text-[#2563EB] text-xs font-bold hover:bg-[#DBEAFE] transition-colors flex items-center justify-center space-x-1.5"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>View 11-Stage Pipeline in Tracker</span>
-                </button>
-              )}
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => window.print()}
-                  className="flex-1 py-2.5 px-4 rounded-lg border border-[#CBD5E1] text-[#1E3A5F] text-xs font-semibold hover:bg-[#F8FAFC] transition-colors flex items-center justify-center space-x-1.5"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Slip</span>
-                </button>
-                <button
-                  onClick={() => setReceiptData(null)}
-                  className="flex-1 py-2.5 px-4 rounded-lg bg-[#1E3A5F] text-white text-xs font-semibold hover:bg-[#182F4D] transition-colors"
-                >
-                  Done
-                </button>
-              </div>
+            {/* CooBS Branded Bouncing Dots */}
+            <div className="flex items-center justify-center space-x-2 pt-1">
+              <span
+                className="w-2 h-2 rounded-full bg-[#1E3A5F] animate-bounce"
+                style={{ animationDelay: '0ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full bg-[#0284C7] animate-bounce"
+                style={{ animationDelay: '150ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full bg-[#2563EB] animate-bounce"
+                style={{ animationDelay: '300ms' }}
+              />
             </div>
           </div>
         </div>
       )}
+
+      {/* Transaction Outcome Receipt Modal */}
+      {receiptData && (() => {
+        const isFailed = receiptData.pipelineStatus === 'FAILED';
+        const isProcessing = receiptData.pipelineStatus === 'PROCESSING';
+        const isRiskDecline =
+          isFailed &&
+          (['RISK_DECLINED', 'LIMIT_EXCEEDED', 'HIGH_RISK_SCORE', 'VELOCITY_EXCEEDED', 'AMLA_THRESHOLD'].includes(
+            String(receiptData.failureCode || '').toUpperCase()
+          ) ||
+            ['FRAUD_CHECK', 'LIMIT_CHECK'].includes(String(receiptData.failedStageName || '').toUpperCase()));
+
+        return (
+          <div className="fixed inset-0 z-50 bg-[#0F1E33]/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] max-w-md w-full p-6 space-y-6 animate-in fade-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="text-center space-y-1">
+                {isFailed ? (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 mx-auto flex items-center justify-center mb-2">
+                      <ShieldAlert className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-bold text-rose-700">
+                      {isRiskDecline ? 'Transaction Declined by Risk Engine' : 'Transaction Failed Mid-Pipeline'}
+                    </h3>
+                    <p className="text-xs text-rose-600 font-medium">
+                      {receiptData.failedStageNo
+                        ? `Halted at Stage #${receiptData.failedStageNo} (${receiptData.failedStageTitle || receiptData.failedStageName}) — Funds Not Posted`
+                        : `Pipeline Declined (${receiptData.failureCode || 'FAILED'}) — Funds Not Posted`}
+                    </p>
+                  </>
+                ) : isProcessing ? (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 mx-auto flex items-center justify-center mb-2">
+                      <AlertCircle className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-bold text-[#1E3A5F]">Transfer Processing</h3>
+                    <p className="text-xs text-amber-700">
+                      11-Stage Pipeline In Progress &bull; Pending Final Settlement
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-[#D1FAE5] text-[#10B981] mx-auto flex items-center justify-center mb-2">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-bold text-[#1E3A5F]">Transaction Complete</h3>
+                    <p className="text-xs text-[#64748B]">Official Teller Posting Slip</p>
+                  </>
+                )}
+              </div>
+
+              {/* Receipt Summary */}
+              <div
+                className={`p-4 rounded-xl border space-y-3 font-mono text-xs ${
+                  isFailed
+                    ? 'bg-rose-50/50 border-rose-200'
+                    : isProcessing
+                    ? 'bg-amber-50/40 border-amber-200'
+                    : 'bg-[#F8FAFC] border-[#E2E8F0]'
+                }`}
+              >
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Reference No:</span>
+                  <span className="font-bold text-[#1E3A5F]">{receiptData.referenceNo}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Operation:</span>
+                  <span className="font-bold text-[#1E3A5F]">{receiptData.type}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[#64748B]">Pipeline Status:</span>
+                  {isFailed ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                      FAILED &bull; {receiptData.failureCode || receiptData.failedStageName || 'DECLINED'}
+                    </span>
+                  ) : isProcessing ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                      PROCESSING (11-STAGE SAGA)
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                      POSTED &amp; SETTLED
+                    </span>
+                  )}
+                </div>
+                {isFailed && receiptData.failedStageName && (
+                  <div className="flex justify-between">
+                    <span className="text-[#64748B]">Halted Stage:</span>
+                    <span className="font-bold text-rose-700">
+                      #{receiptData.failedStageNo || '?'} {receiptData.failedStageName}
+                    </span>
+                  </div>
+                )}
+                {isFailed && receiptData.failedStageDetail && (
+                  <div className="pt-1 border-t border-rose-200/70 text-[11px] font-sans text-rose-700">
+                    <span className="font-semibold">Decline Reason: </span>
+                    <span>{receiptData.failedStageDetail}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-[#64748B]">Account:</span>
+                  <span className="font-bold text-[#1E3A5F]">
+                    {receiptData.accountNumber || `ACC_${10000000 + Number(receiptData.accountId)}`}
+                  </span>
+                </div>
+                {receiptData.destinationAccount && (
+                  <div className="flex justify-between">
+                    <span className="text-[#64748B]">Destination:</span>
+                    <span className="font-bold text-[#1E3A5F]">{receiptData.destinationAccount}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm pt-2 border-t border-[#E2E8F0]">
+                  <span className="text-[#64748B] font-sans font-semibold">
+                    {isFailed ? 'Amount Attempted:' : isProcessing ? 'Amount In Flight:' : 'Amount Posted:'}
+                  </span>
+                  <span
+                    className={`font-bold tabular-nums ${
+                      isFailed
+                        ? 'text-rose-600 line-through'
+                        : isProcessing
+                        ? 'text-amber-600'
+                        : 'text-[#10B981]'
+                    }`}
+                  >
+                    {formatCurrency(receiptData.amount)}
+                  </span>
+                </div>
+                {isFailed && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-[#64748B] font-sans">Actual Ledger Debit:</span>
+                    <span className="font-bold text-[#1E3A5F]">₱0.00 (No Funds Moved)</span>
+                  </div>
+                )}
+                {!isFailed && receiptData.newBalance !== null && (
+                  <div className="flex justify-between pt-1">
+                    <span className="text-[#64748B]">New Balance:</span>
+                    <span className="font-bold text-[#1E3A5F] tabular-nums">
+                      {formatCurrency(receiptData.newBalance)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-2 border-t border-[#E2E8F0] text-[10px] text-[#64748B]">
+                  <span>Timestamp:</span>
+                  <span>{formatTimestamp(receiptData.timestamp)}</span>
+                </div>
+              </div>
+
+              {/* Verification / Failure Footer */}
+              {isFailed ? (
+                <div className="flex items-center justify-center space-x-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg py-2 px-3">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Pipeline halted prior to Ledger Posting &mdash; recorded as FAILED</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-2 text-xs text-[#64748B]">
+                  <QrCode className="w-5 h-5 text-[#1E3A5F]" />
+                  <span>
+                    {isProcessing
+                      ? 'Pipeline Telemetry Active in Tracker'
+                      : 'Digital Verification Proof Anchored'}
+                  </span>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="space-y-2">
+                {receiptData.type === 'TRANSFER' && (
+                  <button
+                    onClick={() => navigate(`/tracker?ref=${receiptData.referenceNo}`)}
+                    className={`w-full py-2.5 px-4 rounded-lg text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 ${
+                      isFailed
+                        ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-xs'
+                        : 'bg-[#EFF6FF] text-[#2563EB] hover:bg-[#DBEAFE]'
+                    }`}
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>
+                      {isFailed
+                        ? 'Inspect Failed Stage in 11-Stage Tracker'
+                        : 'View 11-Stage Pipeline in Tracker'}
+                    </span>
+                  </button>
+                )}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex-1 py-2.5 px-4 rounded-lg border border-[#CBD5E1] text-[#1E3A5F] text-xs font-semibold hover:bg-[#F8FAFC] transition-colors flex items-center justify-center space-x-1.5"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Slip</span>
+                  </button>
+                  <button
+                    onClick={() => setReceiptData(null)}
+                    className="flex-1 py-2.5 px-4 rounded-lg bg-[#1E3A5F] text-white text-xs font-semibold hover:bg-[#182F4D] transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

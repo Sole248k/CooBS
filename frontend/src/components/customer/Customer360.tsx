@@ -53,6 +53,58 @@ export const Customer360: React.FC = () => {
     try {
       const res = await staffApi.getCustomer360(id);
 
+      // Enrich recentTransactions with live timeline status & Risk Engine failure details (e.g. RISK_DECLINED / LIMIT_EXCEEDED)
+      if (Array.isArray(res?.recentTransactions) && res.recentTransactions.length > 0) {
+        const enrichedTx = await Promise.all(
+          res.recentTransactions.map(async (tx: any) => {
+            const statusUpper = String(tx.status || '').toUpperCase();
+            const lookupId = tx.transactionId || tx.referenceNo || tx.refId;
+            if (
+              !lookupId ||
+              String(lookupId).startsWith('EOD-') ||
+              (['POSTED', 'COMPLETED', 'REVERSED'].includes(statusUpper) && tx.failureCode)
+            ) {
+              return tx;
+            }
+            if (['FAILED', 'REJECTED', 'PROCESSING', 'INITIATED', 'PENDING'].includes(statusUpper)) {
+              try {
+                const tl: any = await staffApi.getTransactionTimeline(String(lookupId));
+                const stages: any[] = Array.isArray(tl?.stages) ? tl.stages : [];
+                const failedStage = stages.find(
+                  (s) =>
+                    String(s.status || '').toUpperCase() === 'FAILED' ||
+                    String(s.outcome || '').toUpperCase() === 'FAILED' ||
+                    String(s.outcome || '').toUpperCase() === 'REJECTED'
+                );
+                const liveStatus = failedStage
+                  ? 'FAILED'
+                  : String(tl?.status || tl?.overallStatus || tx.status || 'POSTED').toUpperCase();
+                const failureCode =
+                  tx.failureCode ||
+                  tl?.failureMessage ||
+                  tl?.transaction?.failureCode ||
+                  tl?.failureCode ||
+                  failedStage?.stageName ||
+                  null;
+                return {
+                  ...tx,
+                  status: liveStatus === 'COMPLETED' ? 'POSTED' : liveStatus,
+                  failureCode,
+                  failedStageNo: failedStage?.stageNo ?? failedStage?.stageNumber ?? null,
+                  failedStageName: failedStage?.stageName ?? failedStage?.stageKey ?? null,
+                  failedStageTitle: failedStage?.title ?? null,
+                  failedStageDetail: failedStage?.detail ?? tl?.transaction?.failureReason ?? null,
+                };
+              } catch {
+                return tx;
+              }
+            }
+            return tx;
+          })
+        );
+        res.recentTransactions = enrichedTx;
+      }
+
       // Enrich recentTransactions with daily/monthly EOD Interest Accrual credits from account audit statements
       if (res?.accounts && res.accounts.length > 0) {
         const stmtResults = await Promise.allSettled(
@@ -158,19 +210,40 @@ export const Customer360: React.FC = () => {
     fetchCustomer(1);
   }, []);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const q = searchQuery.trim().toLowerCase();
     if (!q) return;
 
-    // Check if numeric ID
-    const num = parseInt(q, 10);
-    if (!isNaN(num) && num > 0) {
-      fetchCustomer(num);
-      return;
+    // Check if pure numeric Customer ID (e.g. "1", "22")
+    if (/^\d+$/.test(q)) {
+      const num = parseInt(q, 10);
+      if (!isNaN(num) && num > 0 && num < 10000000) {
+        fetchCustomer(num);
+        return;
+      }
     }
 
-    // Lookup by name or account number in directory
+    // Check if user searched by Account Number (e.g. ACC_10000026) or Customer Name in live accounts directory
+    try {
+      const allAccounts = await staffApi.getAllAccounts();
+      if (Array.isArray(allAccounts)) {
+        const matchedAcc: any = allAccounts.find(
+          (a: any) =>
+            String(a.accountNumber || '').toLowerCase() === q ||
+            String(a.accountNumber || '').toLowerCase() === `acc_${q}` ||
+            String(a.customerName || '').toLowerCase().includes(q)
+        );
+        if (matchedAcc?.customerId) {
+          fetchCustomer(Number(matchedAcc.customerId));
+          return;
+        }
+      }
+    } catch {
+      // Fallback to static directory below
+    }
+
+    // Lookup by name or account number in static directory
     const found = CUSTOMER_DIRECTORY.find(
       (c) =>
         c.name.toLowerCase().includes(q) ||
@@ -181,7 +254,7 @@ export const Customer360: React.FC = () => {
     if (found) {
       fetchCustomer(found.id);
     } else {
-      setError(`No customer found matching "${searchQuery}". Please enter an ID (e.g. 1, 4), name or account number.`);
+      setError(`No customer found matching "${searchQuery}". Please enter a Customer ID (e.g. 1, 22), name, or Account Number (e.g. ACC_10000026).`);
     }
   };
 
@@ -677,9 +750,21 @@ export const Customer360: React.FC = () => {
 
               {/* Recent Transfers Activity Card */}
               <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-[#E2E8F0]">
-                  <h3 className="text-lg font-bold text-[#1E3A5F] tracking-tight">Recent transfers</h3>
-                  <p className="text-xs text-[#64748B] mt-0.5">Latest account activity</p>
+                <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-[#1E3A5F] tracking-tight">Recent transfers</h3>
+                    <p className="text-xs text-[#64748B] mt-0.5">Latest account activity &amp; Risk Engine telemetry</p>
+                  </div>
+                  {data?.customerId && (
+                    <button
+                      type="button"
+                      onClick={() => fetchCustomer(data.customerId)}
+                      disabled={loading}
+                      className="px-3 py-1.5 rounded-lg border border-[#CBD5E1] hover:border-[#2563EB] text-xs font-semibold text-[#1E3A5F] hover:text-[#2563EB] transition-colors"
+                    >
+                      Refresh Activity
+                    </button>
+                  )}
                 </div>
 
                 <div className="overflow-x-auto">
@@ -754,6 +839,15 @@ export const Customer360: React.FC = () => {
                             : formattedNum;
 
                           const statusUpper = (tx.status || 'POSTED').toUpperCase();
+                          const failureCodeUpper = String(tx.failureCode || '').toUpperCase();
+                          const failedStageUpper = String(tx.failedStageName || '').toUpperCase();
+                          const isRiskFlagged =
+                            ['RISK_DECLINED', 'LIMIT_EXCEEDED', 'HIGH_RISK_SCORE', 'VELOCITY_EXCEEDED', 'AMLA_THRESHOLD'].includes(failureCodeUpper) ||
+                            ['FRAUD_CHECK', 'LIMIT_CHECK'].includes(failedStageUpper);
+                          const isTrackable =
+                            displayRef !== '—' &&
+                            !String(displayRef).startsWith('EOD-') &&
+                            !String(displayRef).startsWith('DEP-');
 
                           return (
                             <tr key={tx.transactionId || tx.referenceNo || idx} className="hover:bg-[#F8FAFC]/80 transition-colors">
@@ -762,7 +856,18 @@ export const Customer360: React.FC = () => {
                               </td>
                               <td className="py-3.5 px-5 font-mono text-xs font-semibold text-[#1E3A5F]">
                                 <div className="inline-flex items-center space-x-1.5">
-                                  <span>{displayRef}</span>
+                                  {isTrackable ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate(`/tracker?ref=${displayRef}`)}
+                                      className="hover:text-[#2563EB] hover:underline text-left"
+                                      title="View 11-Stage Pipeline in Tracker"
+                                    >
+                                      {displayRef}
+                                    </button>
+                                  ) : (
+                                    <span>{displayRef}</span>
+                                  )}
                                   {displayRef !== '—' && (
                                     <button
                                       type="button"
@@ -780,7 +885,12 @@ export const Customer360: React.FC = () => {
                                 </div>
                               </td>
                               <td className="py-3.5 px-5 text-sm font-medium text-[#1E3A5F]">
-                                {displayCounterparty}
+                                <div>{displayCounterparty}</div>
+                                {tx.failedStageName && (
+                                  <div className="text-[11px] text-rose-600 font-normal mt-0.5">
+                                    Halted at Stage #{tx.failedStageNo || '?'}: {tx.failedStageTitle || tx.failedStageName}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3.5 px-5 text-xs text-[#64748B]">
                                 {displayType}
@@ -806,10 +916,12 @@ export const Customer360: React.FC = () => {
                                   </span>
                                 )}
                                 {['FAILED', 'REJECTED', 'HALTED', 'CANCELLED'].includes(statusUpper) && (
-                                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FEE2E2] text-rose-700 border border-[#FECACA]">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
-                                    <span>FAILED</span>
-                                  </span>
+                                  <div className="flex flex-col items-start gap-1">
+                                    <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FEE2E2] text-rose-700 border border-[#FECACA]">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                                      <span>{isRiskFlagged ? `FLAGGED • ${failureCodeUpper || failedStageUpper}` : failureCodeUpper ? `FAILED • ${failureCodeUpper}` : 'FAILED'}</span>
+                                    </span>
+                                  </div>
                                 )}
                                 {!['POSTED', 'COMPLETED', 'SUCCESS', 'SETTLED', 'PROCESSING', 'IN_REVIEW', 'RUNNING', 'PENDING', 'INITIATED', 'FAILED', 'REJECTED', 'HALTED', 'CANCELLED'].includes(statusUpper) && (
                                   <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]">
