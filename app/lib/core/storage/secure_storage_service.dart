@@ -67,8 +67,8 @@ class SecureStorageService {
   }
 
   Future<void> disableBiometricLogin() async {
-    await _delete(_keyBioUsername);
-    await _delete(_keyBioRefreshToken);
+    await delete(_keyBioUsername);
+    await delete(_keyBioRefreshToken);
   }
 
   /// The member fingerprint login is enabled for, or null when it is off.
@@ -117,7 +117,7 @@ class SecureStorageService {
     }
   }
 
-  Future<void> _delete(String key) async {
+  Future<void> delete(String key) async {
     _memoryFallback.remove(key);
     final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
     if (kIsWeb || isTest) return;
@@ -125,6 +125,7 @@ class SecureStorageService {
       await _storage.delete(key: key);
     } catch (_) {}
   }
+
 
   @visibleForTesting
   Future<void> write(String key, String value) async {

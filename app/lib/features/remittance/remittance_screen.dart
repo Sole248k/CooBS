@@ -31,12 +31,14 @@ class RemittanceScreen extends StatefulWidget {
   final String? initialDest;
   final String? initialBank;
   final String? initialRemarks;
+  final double? initialAmount;
   const RemittanceScreen({
     super.key,
     this.from = 0,
     this.initialDest,
     this.initialBank,
     this.initialRemarks,
+    this.initialAmount,
   });
   @override
   State<RemittanceScreen> createState() => _RemittanceScreenState();
@@ -63,6 +65,9 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     }
     if (widget.initialRemarks != null && widget.initialRemarks!.isNotEmpty) {
       rem.text = widget.initialRemarks!;
+    }
+    if (widget.initialAmount != null && widget.initialAmount! > 0) {
+      amt.text = widget.initialAmount!.toStringAsFixed(2);
     }
   }
 
