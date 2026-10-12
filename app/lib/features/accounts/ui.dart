@@ -8,7 +8,7 @@ bool get kDark => ThemeController.i.dark;
 
 // CooBS Brand Colors: Deep Obsidian Black (#000107) & Pacific Cyan-Teal (#0091AE)
 Color get kBlue => kDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE);
-Color get kNavy => kDark ? const Color(0xFF0D1722) : const Color(0xFF000107); // fills & headers
+Color get kNavy => kDark ? const Color(0xFF0D1722) : const Color(0xFF1E293B); // fills & headers (soft slate navy in light mode)
 Color get kNavyFg => kDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE); // text & icons
 Color get kInk => kDark ? const Color(0xFFF1F5F9) : const Color(0xFF000107);
 Color get kMut => kDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
@@ -184,6 +184,30 @@ Widget txRow(Tx x) {
       ? ' · ${cleanRef.length > 14 ? '${cleanRef.substring(0, 13)}…' : cleanRef}'
       : '';
 
+  final stat = x.status.toUpperCase();
+  final isFailed = stat == 'FAILED';
+  final isProcessing = stat == 'PROCESSING' || stat == 'INITIATED';
+  final isReversed = stat == 'REVERSED';
+
+  final String statusLabel;
+  final Color statusColor;
+
+  if (isFailed) {
+    statusLabel = (x.failureCode != null && x.failureCode!.isNotEmpty)
+        ? (x.failureCode == 'RISK_DECLINED' ? 'Declined' : 'Failed')
+        : 'Failed';
+    statusColor = const Color(0xFFEF4444);
+  } else if (isProcessing) {
+    statusLabel = 'Processing';
+    statusColor = const Color(0xFFF59E0B);
+  } else if (isReversed) {
+    statusLabel = 'Reversed';
+    statusColor = const Color(0xFF8B5CF6);
+  } else {
+    statusLabel = 'Success';
+    statusColor = kDark ? const Color(0xFF00B4D8) : const Color(0xFF059669);
+  }
+
   return Builder(
     builder: (context) => Material(
       color: Colors.transparent,
@@ -240,13 +264,17 @@ Widget txRow(Tx x) {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: out ? kOutBg : kInBg,
+                  color: isFailed
+                      ? const Color(0xFFEF4444).withAlpha(kDark ? 40 : 25)
+                      : (out ? kOutBg : kInBg),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
-                  icon,
+                  isFailed ? Icons.close_rounded : icon,
                   size: 20,
-                  color: out ? (kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)) : kNavyFg,
+                  color: isFailed
+                      ? const Color(0xFFEF4444)
+                      : (out ? (kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)) : kNavyFg),
                 ),
               ),
               const SizedBox(width: 14),
@@ -292,17 +320,20 @@ Widget txRow(Tx x) {
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
-                      color: out ? kInk : (kDark ? const Color(0xFF00B4D8) : const Color(0xFF059669)),
+                      color: isFailed
+                          ? (kDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))
+                          : (out ? kInk : (kDark ? const Color(0xFF00B4D8) : const Color(0xFF059669))),
+                      decoration: isFailed ? TextDecoration.lineThrough : null,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Success',
+                    statusLabel,
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: kDark ? const Color(0xFF00B4D8) : const Color(0xFF059669),
+                      fontWeight: FontWeight.w500,
+                      color: statusColor,
                     ),
                   ),
                 ],

@@ -442,11 +442,16 @@ class RemittanceResultPage extends StatelessWidget {
           statRow('Idempotency-Key', idemKey),
           statRow('Correlation ID', corr),
         ]),
-        const Padding(padding: EdgeInsets.only(top: 14, bottom: 4), child: Text('Transfer status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+        const SizedBox(height: 14),
         if (_trackingRef.isNotEmpty)
           TrackingView(trackingReference: _trackingRef, embedded: true, allowStaffMode: false)
-        else
+        else ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text('Transfer status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: kInk)),
+          ),
           Text('Tracking reference unavailable.', style: TextStyle(color: kMut)),
+        ],
         const SizedBox(height: 12),
         bigBtn('Done', () { Navigator.pop(context); Navigator.pop(context); }),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Make another transfer')),

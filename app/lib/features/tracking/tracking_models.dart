@@ -9,7 +9,7 @@ enum MilestoneStatus {
 }
 
 /// Represents one of the 4 high-level milestone stages:
-/// Ingress Received -> AML Screened -> Ledger Posted -> Dispatched.
+/// Ingress Received -> Risk & AML Screened -> Ledger Posted -> Dispatched.
 class TrackingMilestone {
   final int index;
   final String key;
@@ -78,7 +78,7 @@ class TrackingMilestone {
 /// Adapter converting backend saga stages into 4 customer-visible tracking milestones.
 class MilestoneMapper {
   /// Maps either an 11-stage staff timeline or a 3-stage customer timeline
-  /// to the 4 canonical milestones: Ingress Received -> AML Screened -> Ledger Posted -> Dispatched.
+  /// to the 4 canonical milestones: Ingress Received -> Risk & AML Screened -> Ledger Posted -> Dispatched.
   static List<TrackingMilestone> mapFromTimeline(TransactionTimelineResponse timeline) {
     if (timeline.stages.length >= 11) {
       return _mapFromStaffTimeline(timeline);
@@ -111,6 +111,25 @@ class MilestoneMapper {
     final s2Dlq = s4?.isDlq == true || s5?.isDlq == true || s6?.isDlq == true || stages.any((s) => s.stageNumber >= 4 && s.stageNumber <= 6 && s.isDlq);
     final s2Topic = s6?.dlqTopic ?? s5?.dlqTopic ?? s4?.dlqTopic;
     final s2Attempts = s6?.retryAttempts ?? s5?.retryAttempts ?? s4?.retryAttempts;
+
+    final s6Details = stageMap['FRAUD_CHECK']?.details ??
+        stageMap['LIMIT_CHECK']?.details ??
+        timeline.failureMessage;
+    final isRiskDeclined = timeline.failureMessage == 'RISK_DECLINED' ||
+        timeline.failureMessage?.contains('RISK') == true ||
+        s6Details?.contains('RISK_DECLINED') == true ||
+        s6Details?.contains('HIGH_RISK') == true;
+    final isLimitExceeded = timeline.failureMessage == 'LIMIT_EXCEEDED' ||
+        timeline.failureMessage?.contains('LIMIT') == true ||
+        s6Details?.contains('LIMIT_EXCEEDED') == true;
+
+    final s2Description = (s6Failed || s2Dlq)
+        ? (isRiskDeclined
+            ? 'Declined by automated risk engine (Risk score / policy threshold exceeded).'
+            : (isLimitExceeded
+                ? 'Declined: Account daily transfer ceiling or velocity limit exceeded.'
+                : 'Automated security screening or compliance review flagged an issue.'))
+        : 'Automated AML sanctions screening and risk evaluation computed.';
 
     // Stage 7, 8: Ledger Hold & Posted
     final s7 = stageMap['LEDGER_HOLD_RESERVED'] ?? stageMap['AUTHORIZED'];
@@ -153,8 +172,8 @@ class MilestoneMapper {
       TrackingMilestone(
         index: 2,
         key: 'AML_SCREENED',
-        title: 'AML Screened',
-        description: 'Automated AML sanctions screening and risk evaluation computed.',
+        title: 'Risk & AML Screened',
+        description: s2Description,
         status: (s6Failed || s2Dlq)
             ? MilestoneStatus.failed
             : (s6Done ? MilestoneStatus.completed : (s6Active ? MilestoneStatus.inProgress : MilestoneStatus.pending)),
@@ -226,6 +245,21 @@ class MilestoneMapper {
     final s3Dlq = s3?.isDlq == true || (dlqStage != null && dlqStage.stageNumber == 3);
     final s4Dlq = s3Dlq || (dlqStage != null && dlqStage.stageNumber >= 3);
 
+    final isCustomerRiskDeclined = timeline.failureMessage == 'RISK_DECLINED' ||
+        timeline.failureMessage?.contains('RISK') == true ||
+        s2?.details?.contains('RISK_DECLINED') == true;
+    final isCustomerLimitExceeded = timeline.failureMessage == 'LIMIT_EXCEEDED' ||
+        timeline.failureMessage?.contains('LIMIT') == true ||
+        s2?.details?.contains('LIMIT_EXCEEDED') == true;
+
+    final s2CustomerDescription = (s2Failed || s2Dlq)
+        ? (isCustomerRiskDeclined
+            ? 'Declined by automated risk engine (Risk score / policy threshold exceeded).'
+            : (isCustomerLimitExceeded
+                ? 'Declined: Account daily transfer ceiling or velocity limit exceeded.'
+                : (s2?.subtitle ?? 'Security screening and compliance review flagged an issue.')))
+        : (s2?.subtitle ?? 'Security screening and compliance verification.');
+
     return [
       TrackingMilestone(
         index: 1,
@@ -246,12 +280,12 @@ class MilestoneMapper {
       TrackingMilestone(
         index: 2,
         key: 'AML_SCREENED',
-        title: 'AML Screened',
-        description: s2?.subtitle ?? 'Security screening and compliance verification.',
+        title: 'Risk & AML Screened',
+        description: s2CustomerDescription,
         status: (s2Failed || s2Dlq)
             ? MilestoneStatus.failed
             : (s2Done ? MilestoneStatus.completed : (s2Active ? MilestoneStatus.inProgress : MilestoneStatus.pending)),
-        service: 'orchestration-service',
+        service: 'orchestration-service / risk-engine',
         timestamp: s2?.timestamp,
         details: s2?.details,
         microserviceSubStages: const ['IN_REVIEW'],

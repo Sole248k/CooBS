@@ -69,11 +69,39 @@ class _ChoiceCard extends StatelessWidget {
   const _ChoiceCard({required this.icon, required this.title, required this.body, required this.filled, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: filled ? kNavy : kSurface,
+  Widget build(BuildContext context) {
+    final isDark = kDark;
+    // In light mode, soften filled card from harsh jet-black to a balanced, premium slate navy
+    final cardBg = filled
+        ? (isDark ? const Color(0xFF0D1722) : const Color(0xFF1E293B))
+        : kSurface;
+    final borderColor = filled
+        ? (isDark ? const Color(0xFF1E293B) : const Color(0xFF334155).withValues(alpha: 0.28))
+        : kLine;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          if (filled && !isDark)
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            )
+          else if (!filled && !isDark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+        ],
+      ),
+      child: Material(
+        color: cardBg,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(22),
-          side: filled ? BorderSide.none : BorderSide(color: kLine),
+          side: BorderSide(color: borderColor, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -88,7 +116,7 @@ class _ChoiceCard extends StatelessWidget {
                   decoration: BoxDecoration(color: filled ? kBlue : kInBg, borderRadius: BorderRadius.circular(16)),
                   child: Icon(icon, size: 28, color: filled ? Colors.white : kNavyFg),
                 ),
-                Icon(Icons.chevron_right_rounded, color: kFaint),
+                Icon(Icons.chevron_right_rounded, color: filled ? const Color(0xFF94A3B8) : kFaint),
               ]),
               const SizedBox(height: 18),
               Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: filled ? Colors.white : kInk)),
@@ -97,7 +125,9 @@ class _ChoiceCard extends StatelessWidget {
             ]),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// Receive: a QR for one of the member's own accounts and an optional amount.
