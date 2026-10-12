@@ -55,6 +55,15 @@ public class CustomerController {
     // C3: Customer 360 Aggregator
     // =========================================================================
 
+    @GetMapping("/me/360")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<Customer360Response> getAuthenticatedCustomer360(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        log.info("Customer 360 request for authenticated customer ID {}", principal.getUserId());
+        Customer360Response response = customer360Service.getCustomer360(principal.getUserId(), false);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{customerId}/360")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'TELLER', 'ADMIN')")
     public ResponseEntity<Customer360Response> getCustomer360(

@@ -82,6 +82,7 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
         Map<String, List<TxnTransaction>> byCategory = transactions.stream()
                 .filter(t -> t.getCreatedAt() != null && t.getCreatedAt().isAfter(cutoff))
                 .filter(t -> !"FAILED".equalsIgnoreCase(t.getStatus()))
+                .filter(t -> !"REVERSAL".equalsIgnoreCase(t.getCategory()))
                 .collect(Collectors.groupingBy(t -> t.getCategory() != null ? t.getCategory() : "TRANSFER"));
 
         List<SpendingBreakdownDto.SpendingItemDto> items = new ArrayList<>();
@@ -111,17 +112,32 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
         String amountStr = txn.getAmount() != null ? txn.getAmount().setScale(2).toString() : "0.00";
         String createdAtStr = txn.getCreatedAt() != null ? txn.getCreatedAt().toString() : Instant.now().toString();
 
+        boolean isReversal = txn.getReversesTransactionId() != null
+                || "REVERSAL".equalsIgnoreCase(txn.getCategory())
+                || (txn.getReferenceNo() != null && txn.getReferenceNo().startsWith("RV-"));
+
         boolean isDestination = (txn.getDestinationAccountId() != null && customerAccountIds.contains(txn.getDestinationAccountId()))
                 || (txn.getDestinationAccountNumber() != null && customerAccountNumbers.contains(txn.getDestinationAccountNumber()));
 
-        boolean isSource = (txn.getSourceAccountId() != null && customerAccountIds.contains(txn.getSourceAccountId()))
-                || (txn.getCustomerId() != null && txn.getCustomerId().equals(customerId));
+        boolean isSource = (txn.getSourceAccountId() != null && customerAccountIds.contains(txn.getSourceAccountId()));
 
         String direction;
         String counterpartyName;
         String counterpartyAccountNumber;
 
-        if (isDestination && !isSource) {
+        if (isReversal) {
+            // In a reversal, destinationAccountId receives the refunded money.
+            boolean isRefundRecipient = isDestination || (!isSource && (txn.getCustomerId() != null && txn.getCustomerId().equals(customerId)));
+            if (isRefundRecipient) {
+                direction = "IN";
+                counterpartyName = txn.getRemarks() != null && !txn.getRemarks().isBlank() ? txn.getRemarks() : "Reversal Refund";
+                counterpartyAccountNumber = txn.getSourceAccountId() != null ? "ACC_" + txn.getSourceAccountId() : "Internal Reversal";
+            } else {
+                direction = "OUT";
+                counterpartyName = txn.getRemarks() != null && !txn.getRemarks().isBlank() ? txn.getRemarks() : "Reversal Debit";
+                counterpartyAccountNumber = txn.getDestinationAccountId() != null ? "ACC_" + txn.getDestinationAccountId() : "Internal Reversal";
+            }
+        } else if (isDestination && !isSource) {
             direction = "IN";
             counterpartyName = txn.getRemarks() != null && !txn.getRemarks().isBlank() ? txn.getRemarks() : "Account Transfer";
             counterpartyAccountNumber = txn.getSourceAccountId() != null ? "ACC_" + txn.getSourceAccountId() : "External";
@@ -143,7 +159,7 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
                 .counterpartyAccountNumber(counterpartyAccountNumber)
                 .amount(amountStr)
                 .currency(txn.getCurrency() != null ? txn.getCurrency() : "PHP")
-                .category(txn.getCategory() != null ? txn.getCategory() : "TRANSFER")
+                .category(isReversal ? "REVERSAL" : (txn.getCategory() != null ? txn.getCategory() : "TRANSFER"))
                 .status(txn.getStatus())
                 .createdAt(createdAtStr)
                 .build();

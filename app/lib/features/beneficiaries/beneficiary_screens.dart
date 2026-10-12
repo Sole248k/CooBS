@@ -39,15 +39,32 @@ class _BeneficiariesPageState extends State<BeneficiariesPage> {
       final items = list.map((e) => BeneficiaryItem.fromJson(e as Map<String, dynamic>)).toList();
       if (mounted) {
         setState(() {
-          _beneficiaries = items;
+          _beneficiaries = items.isNotEmpty ? items : _demoBeneficiaries();
           _isLoading = false;
         });
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _beneficiaries = _demoBeneficiaries();
+          _isLoading = false;
+        });
       }
     }
+  }
+
+  List<BeneficiaryItem> _demoBeneficiaries() {
+    return [
+      for (var idx = 0; idx < Demo.i.bens.length; idx++)
+        BeneficiaryItem(
+          beneficiaryId: idx + 1,
+          customerId: 1,
+          nickname: Demo.i.bens[idx].name,
+          accountNumber: Demo.i.bens[idx].accountNumber ?? '',
+          bankCode: Demo.i.bens[idx].bankCode ?? 'COOBS',
+          active: true,
+        ),
+    ];
   }
 
   Future<void> _deleteBeneficiary(BeneficiaryItem item) async {

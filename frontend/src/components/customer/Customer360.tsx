@@ -60,6 +60,7 @@ export const Customer360: React.FC = () => {
         );
 
         const eodInterestByAccountDay = new Map<string, any>();
+        const reversalsByAccountRef = new Map<string, any>();
         stmtResults.forEach((stmtRes, idx) => {
           if (stmtRes.status !== 'fulfilled') return;
           const acc = res.accounts[idx];
@@ -71,6 +72,33 @@ export const Customer360: React.FC = () => {
             const typeUpper = String(row.transactionType || row.entryType || '').toUpperCase();
             const amt = Number(row.amount || 0);
             const oldBal = Number(row.oldBalance || 0);
+
+            const isReversal =
+              typeUpper === 'REVERSAL_CREDIT' ||
+              typeUpper === 'REVERSAL_DEBIT' ||
+              refUpper.startsWith('RV-');
+
+            if (isReversal) {
+              const rawTs = row.eventTimestamp || row.timestamp || new Date().toISOString();
+              const isCredit = typeUpper === 'REVERSAL_CREDIT' || (!typeUpper.includes('DEBIT') && amt > 0);
+              const cleanRef = row.referenceNo ? String(row.referenceNo) : `RV-${acc.accountId}`;
+              reversalsByAccountRef.set(`${acc.accountId}-${cleanRef.toUpperCase()}`, {
+                createdAt: rawTs,
+                timestamp: rawTs,
+                referenceNo: cleanRef,
+                refId: cleanRef,
+                counterparty: isCredit
+                  ? `Reversal Refund (${acc.accountNumber})`
+                  : `Reversal Debit (${acc.accountNumber})`,
+                category: 'REVERSAL',
+                type: 'Reversal',
+                direction: isCredit ? 'IN' : 'OUT',
+                amount: isCredit ? `+₱${Math.abs(amt).toFixed(2)}` : `-₱${Math.abs(amt).toFixed(2)}`,
+                status: 'POSTED',
+              });
+              return;
+            }
+
             const dailyExpected = Math.round(((oldBal * 0.02) / 365) * 100) / 100;
             const monthly30Expected = Math.round(((oldBal * 0.02 * 30) / 365) * 100) / 100;
             const monthly31Expected = Math.round(((oldBal * 0.02 * 31) / 365) * 100) / 100;
@@ -124,12 +152,17 @@ export const Customer360: React.FC = () => {
           });
         });
 
-        if (eodInterestByAccountDay.size > 0) {
+        const enrichedEntries = [
+          ...Array.from(reversalsByAccountRef.values()),
+          ...Array.from(eodInterestByAccountDay.values()),
+        ];
+
+        if (enrichedEntries.length > 0) {
           const existingList = Array.isArray(res.recentTransactions) ? res.recentTransactions : [];
           const existingRefs = new Set(
             existingList.map((t: any) => String(t.referenceNo || t.refId || '').toUpperCase())
           );
-          const newEntries = Array.from(eodInterestByAccountDay.values()).filter(
+          const newEntries = enrichedEntries.filter(
             (e) => !existingRefs.has(String(e.referenceNo).toUpperCase())
           );
           res.recentTransactions = [...newEntries, ...existingList].sort((a: any, b: any) => {
@@ -512,7 +545,7 @@ export const Customer360: React.FC = () => {
                     CREDIT SCORE
                   </div>
                   <div className="text-2xl font-black text-[#1E3A5F] font-mono tracking-tight mt-0.5">
-                    {data.creditScore || '832'}
+                    {data.creditScore || '750'}
                   </div>
                 </div>
               </div>
@@ -713,6 +746,7 @@ export const Customer360: React.FC = () => {
                             if (tx.category === 'DEPOSIT') displayCounterparty = 'Counter Deposit';
                             else if (tx.category === 'WITHDRAWAL') displayCounterparty = 'Counter Withdrawal';
                             else if (tx.category === 'TRANSFER') displayCounterparty = 'Internal Transfer';
+                            else if (tx.category === 'REVERSAL') displayCounterparty = tx.direction === 'IN' ? 'Reversal Refund' : 'Reversal Debit';
                             else displayCounterparty = 'Counter Desk';
                           }
 
@@ -724,6 +758,8 @@ export const Customer360: React.FC = () => {
                               displayType = 'Cash Withdrawal';
                             } else if (tx.category === 'TRANSFER') {
                               displayType = tx.direction === 'IN' ? 'Transfer In' : 'Transfer Out';
+                            } else if (tx.category === 'REVERSAL') {
+                              displayType = 'Reversal';
                             } else if (tx.category) {
                               displayType = tx.category.charAt(0) + tx.category.slice(1).toLowerCase();
                             } else if (tx.direction) {
@@ -799,6 +835,12 @@ export const Customer360: React.FC = () => {
                                     <span>POSTED</span>
                                   </span>
                                 )}
+                                {statusUpper === 'REVERSED' && (
+                                  <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#B91C1C]" />
+                                    <span>REVERSED</span>
+                                  </span>
+                                )}
                                 {['PROCESSING', 'IN_REVIEW', 'RUNNING', 'PENDING', 'INITIATED'].includes(statusUpper) && (
                                   <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FEF3C7] text-amber-700 border border-[#FDE68A]">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
@@ -811,7 +853,7 @@ export const Customer360: React.FC = () => {
                                     <span>FAILED</span>
                                   </span>
                                 )}
-                                {!['POSTED', 'COMPLETED', 'SUCCESS', 'SETTLED', 'PROCESSING', 'IN_REVIEW', 'RUNNING', 'PENDING', 'INITIATED', 'FAILED', 'REJECTED', 'HALTED', 'CANCELLED'].includes(statusUpper) && (
+                                {!['POSTED', 'COMPLETED', 'SUCCESS', 'SETTLED', 'REVERSED', 'PROCESSING', 'IN_REVIEW', 'RUNNING', 'PENDING', 'INITIATED', 'FAILED', 'REJECTED', 'HALTED', 'CANCELLED'].includes(statusUpper) && (
                                   <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#F1F5F9] text-[#64748B] border border-[#E2E8F0]">
                                     <span>{statusUpper}</span>
                                   </span>

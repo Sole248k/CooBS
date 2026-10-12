@@ -100,11 +100,14 @@ class Demo extends ChangeNotifier {
       if (accts.isNotEmpty && dash.primaryAccount.availableBalance > 0) {
         final mappedTx = dash.recentTransactions.isNotEmpty
             ? dash.recentTransactions.map((t) {
-                final isOut = t.direction.toUpperCase() == 'OUT';
+                final isReversal = t.trackingReference.toUpperCase().startsWith('RV-') || t.remarks.toUpperCase().contains('REVERSAL');
+                final isOut = isReversal ? (t.direction.toUpperCase() == 'OUT') : (t.direction.toUpperCase() == 'OUT');
                 final signAmt = isOut ? -t.amount.abs() : t.amount.abs();
                 final label = t.remarks.isNotEmpty
                     ? t.remarks
-                    : (isOut ? 'Transfer Out' : 'Received Funds');
+                    : isReversal
+                        ? (isOut ? 'Reversal Debit' : 'Reversal Refund')
+                        : (isOut ? 'Transfer Out' : 'Received Funds');
                 return Tx(
                   label,
                   t.trackingReference.isNotEmpty ? t.trackingReference : 'TXN',
@@ -150,6 +153,10 @@ class Demo extends ChangeNotifier {
   bool _kycTouched = false;
   bool hide = false;
   int cur = 0;
+  int? creditScore;
+  Map<String, double> spendingBreakdown = {};
+  double totalDeposits = 0;
+  double totalLoans = 0;
   final bens = <Ben>[
     const Ben('Juan Dela Cruz', 'COOBS · ACC_10000002', '+63 918 222 3333', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
     const Ben('Maria Santos', 'COOBS · ACC_10000004', '+63 917 000 1111', accountNumber: 'ACC_10000004', bankCode: 'COOBS'),
@@ -174,6 +181,9 @@ class Demo extends ChangeNotifier {
       } else {
         try {
           m1 = await ApiClient().get('/mobile/dashboard');
+          if (m1.isEmpty || m1['member'] == null) {
+            m1 = await ApiClient().loadFixtureJson('M1-mobile-dashboard.response.json');
+          }
         } catch (_) {
           // Gracefully fallback to composite dashboard fixture if gateway is offline
           m1 = await ApiClient().loadFixtureJson('M1-mobile-dashboard.response.json');
@@ -219,15 +229,20 @@ class Demo extends ChangeNotifier {
           final rawDate = (t['createdAt'] ?? t['submittedAt']) as String?;
           final d = rawDate != null ? DateTime.tryParse(rawDate)?.toLocal() ?? today : today;
           final amt = parseBal(t['amount']);
-          final isOut = (t['direction'] ?? 'OUT').toString().toUpperCase() == 'OUT';
+          final ref = '${t['referenceNo'] ?? t['trackingReference'] ?? t['transactionId'] ?? ''}';
+          final categoryUpper = (t['category'] ?? '').toString().toUpperCase();
+          final isReversal = categoryUpper == 'REVERSAL' || ref.toUpperCase().startsWith('RV-');
+          final rawDir = (t['direction'] ?? '').toString().toUpperCase();
+          final isOut = isReversal ? (rawDir == 'OUT') : (rawDir == 'OUT' || rawDir.isEmpty);
           final label = (t['remarks'] != null && '${t['remarks']}'.isNotEmpty)
               ? '${t['remarks']}'
               : (t['counterpartyName'] != null && '${t['counterpartyName']}'.isNotEmpty)
-                  ? 'Transfer ${isOut ? 'to' : 'from'} ${t['counterpartyName']}'
-                  : (t['category'] != null && '${t['category']}'.isNotEmpty)
-                      ? '${t['category']}'
-                      : '${t['referenceNo'] ?? t['trackingReference'] ?? 'Transaction'}';
-          final ref = '${t['referenceNo'] ?? t['trackingReference'] ?? t['transactionId'] ?? ''}';
+                  ? (isReversal ? '${t['counterpartyName']}' : 'Transfer ${isOut ? 'to' : 'from'} ${t['counterpartyName']}')
+                  : isReversal
+                      ? (isOut ? 'Reversal Debit' : 'Reversal Refund')
+                      : (t['category'] != null && '${t['category']}'.isNotEmpty)
+                          ? '${t['category']}'
+                          : '${t['referenceNo'] ?? t['trackingReference'] ?? 'Transaction'}';
           txList.add(Tx(label, ref, DateTime(d.year, d.month, d.day), isOut ? -amt : amt));
         }
         return txList;
@@ -340,11 +355,78 @@ class Demo extends ChangeNotifier {
         }
       } catch (_) {}
 
+      // Fetch Live Scores, Habits & 360 Totals (MOB-08)
+      try {
+        final c3 = await MobileRepo.customer360();
+        if (c3['creditScore'] != null) {
+          creditScore = (c3['creditScore'] as num?)?.toInt();
+        }
+        if (c3['kycStatus'] != null && !_kycTouched) {
+          kyc = '${c3['kycStatus']}';
+        }
+        if (c3['displayName'] != null && '${c3['displayName']}'.isNotEmpty && (memberName.isEmpty || memberName == 'Member' || memberName == 'John D.')) {
+          memberName = '${c3['displayName']}';
+        }
+        if (c3['totals'] is Map) {
+          final tot = c3['totals'] as Map;
+          totalDeposits = parseBal(tot['deposits']);
+          totalLoans = parseBal(tot['loans']);
+        }
+        if (c3['spendingBreakdown'] is Map && c3['spendingBreakdown']['items'] is List) {
+          final items = c3['spendingBreakdown']['items'] as List;
+          final map = <String, double>{};
+          for (final it in items) {
+            if (it is Map) {
+              final cat = it['category']?.toString() ?? 'Other';
+              final amt = parseBal(it['amount']);
+              map[cat] = amt;
+            }
+          }
+          spendingBreakdown = map;
+        }
+      } catch (_) {}
+
       state = unavailable.isEmpty ? LoadState.ready : LoadState.partial;
     } catch (_) {
       state = LoadState.offline;
     }
     notifyListeners();
+  }
+
+  /// On-demand fetch of credit score, spending habits breakdown, and totals (MOB-08)
+  Future<void> fetchScoresAndHabits([dynamic id]) async {
+    try {
+      final c3 = await MobileRepo.customer360(id);
+      if (c3['creditScore'] != null) {
+        creditScore = (c3['creditScore'] as num?)?.toInt();
+      }
+      if (c3['kycStatus'] != null && !_kycTouched) {
+        kyc = '${c3['kycStatus']}';
+      }
+      if (c3['displayName'] != null && '${c3['displayName']}'.isNotEmpty && (memberName.isEmpty || memberName == 'Member' || memberName == 'John D.')) {
+        memberName = '${c3['displayName']}';
+      }
+      if (c3['totals'] is Map) {
+        final tot = c3['totals'] as Map;
+        final cleanD = tot['deposits']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0';
+        final cleanL = tot['loans']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0';
+        totalDeposits = double.tryParse(cleanD) ?? 0.0;
+        totalLoans = double.tryParse(cleanL) ?? 0.0;
+      }
+      if (c3['spendingBreakdown'] is Map && c3['spendingBreakdown']['items'] is List) {
+        final items = c3['spendingBreakdown']['items'] as List;
+        final map = <String, double>{};
+        for (final it in items) {
+          if (it is Map) {
+            final cat = it['category']?.toString() ?? 'Other';
+            final cleanAmt = it['amount']?.toString().replaceAll(RegExp(r'[^0-9.]'), '') ?? '0';
+            map[cat] = double.tryParse(cleanAmt) ?? 0.0;
+          }
+        }
+        spendingBreakdown = map;
+      }
+      notifyListeners();
+    } catch (_) {}
   }
 
   void simulate(String? mode) { forced = mode; load(); }
