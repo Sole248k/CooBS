@@ -1,0 +1,64 @@
+# Adds Datadog's Java tracer to one service, without touching its image or its manifest.
+# deploy-cloud.ps1 -TraceServices <name>,... puts the service's name in place of
+# REPLACE-service and applies this with "kubectl patch" to that Deployment.
+#
+# An init container copies the tracer's jar into a volume shared with the service, and
+# JAVA_TOOL_OPTIONS, which every JVM reads by itself, loads it. The tracer then reports each
+# request, each call the service makes to another service, each database query and each Kafka
+# message, with timings, to the agent's trace port.
+#
+# The patch stays on the Deployment across later runs of the deploy script: "kubectl apply"
+# leaves alone what it did not put there. To take it off, delete the Deployment and run the
+# deploy script again, or use "kubectl rollout undo" straight after applying it.
+#
+# Cost per service: more memory and a slower start, inside the same 256 MB heap and 640 MB
+# limit as before. The node has two vCPUs, so trace a few services, not all of them, and
+# watch a traced service's restarts for the first hour.
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: datadog-java-tracer
+          image: gcr.io/datadoghq/dd-lib-java-init:v1.67.1@sha256:0991d287dfa27b13989badb55b64db48a874b2b036f76c518a506985e563d86c
+          command: ["sh", "copy-lib.sh", "/datadog-lib"]
+          volumeMounts:
+            - name: datadog-lib
+              mountPath: /datadog-lib
+          resources:
+            requests:
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: datadog-lib
+          emptyDir: {}
+      containers:
+        - name: REPLACE-service
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/datadog-lib/dd-java-agent.jar"
+            # The agent's Service in the datadog namespace; it answers from the agent on this node.
+            - name: DD_AGENT_HOST
+              value: datadog.datadog.svc.cluster.local
+            - name: DD_SERVICE
+              value: REPLACE-service
+            - name: DD_ENV
+              value: demo
+            # Puts the trace's ID into each log line, so Datadog links a trace to its logs.
+            - name: DD_LOGS_INJECTION
+              value: "true"
+            # Traces only. Profiling and the security products would add load.
+            - name: DD_PROFILING_ENABLED
+              value: "false"
+            - name: DD_APPSEC_ENABLED
+              value: "false"
+          # Only new things are added here. Anything the service's own manifest sets (JAVA_OPTS,
+          # the memory limit) is left alone: the next "kubectl apply" would put its value back,
+          # and for a variable that would leave both a value and a reference, which is refused.
+          volumeMounts:
+            - name: datadog-lib
+              mountPath: /datadog-lib

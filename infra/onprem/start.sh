@@ -48,6 +48,17 @@ APP_USER_PASSWORD=$(secret app-user-password)
 POSTGRES_PASSWORD=$(secret audit-db-password)
 REDIS_PASSWORD=$(secret redis-key)
 
+# Monitoring is optional. With no datadog-api-key in the vault the answer is empty, the
+# "monitoring" profile stays off and the Datadog agent is not started; nothing else changes.
+optional_secret() {
+  curl -fsS -H "Authorization: Bearer $TOKEN" \
+    "https://$VAULT.vault.azure.net/secrets/$1?api-version=7.4" 2>/dev/null | jq -r '.value // empty' || true
+}
+DD_API_KEY=$(optional_secret datadog-api-key)
+DD_SITE=$(optional_secret datadog-site)
+COMPOSE_PROFILES=""
+if [ -n "$DD_API_KEY" ]; then COMPOSE_PROFILES=monitoring; fi
+
 umask 077
 cat > .env <<EOF
 REGISTRY='$REGISTRY'
@@ -59,6 +70,9 @@ ORACLE_PASSWORD='$ORACLE_PASSWORD'
 APP_USER_PASSWORD='$APP_USER_PASSWORD'
 POSTGRES_PASSWORD='$POSTGRES_PASSWORD'
 REDIS_PASSWORD='$REDIS_PASSWORD'
+COMPOSE_PROFILES='$COMPOSE_PROFILES'
+DD_API_KEY='$DD_API_KEY'
+DD_SITE='${DD_SITE:-datadoghq.com}'
 EOF
 
 acr-login "$REGISTRY" > /dev/null

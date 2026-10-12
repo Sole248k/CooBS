@@ -220,6 +220,112 @@ Both zones must be reset together. The ledger on the VM and the transfer records
 If the cloud command stops half way, the services stay stopped. Run it again with `-ResetData`; it starts from an empty state each time.
 
 On the local stack the same is done by removing the volumes (`docker compose down -v`) and starting again. `scripts/reset_demo_data.ps1` is smaller: it clears the end-of-day state and the risk counters only.
+## Monitoring
+
+Two things watch the deployment. The first came with the Bicep; the second is optional and is switched on by putting one secret in Key Vault.
+
+| What | Covers | Gives |
+| --- | --- | --- |
+| Container Insights into the Log Analytics workspace | The cluster only | Container logs (table `ContainerLog`), pod and node health. Capped at 1 GB a day |
+| Datadog agents (`infra/k8s-monitoring`, `infra/onprem/datadog`) | The cluster and the VM, on one screen | Logs of every service; CPU, memory and restarts of every container and of both hosts; and the metrics each service already publishes at `/actuator/prometheus`: request counts and times per endpoint, JVM memory, threads, database pool, Kafka listeners |
+
+### Why Datadog is set up the way it is
+
+The node has about 130m of CPU left to reserve. On 11 October 2026 Azure's managed Prometheus and application monitoring were switched on, reserved 766m between them, and pushed six services off the node. So the cluster gets exactly one agent pod that reserves 50m, with the chart's operator, cluster agent, trace agent, process agent and system probe all switched off (`infra/k8s-monitoring/datadog-values.yaml`). The VM, which has memory to spare, gets one more container.
+
+No service is changed. The agents read what the services already write and publish.
+
+### Switching it on
+
+1. Create a Datadog account and note its site, the host name in the address bar after signing in without the `app.` in front: `datadoghq.com`, `us5.datadoghq.com`, `datadoghq.eu` and so on. Create an API key under Organization Settings.
+2. Put both in Key Vault. The key goes in from a file so that it is not left in the shell's history; delete the file afterwards.
+
+   ```
+   az keyvault secret set --vault-name <vault> --name datadog-api-key --file <a file holding only the key> --output none
+   az keyvault secret set --vault-name <vault> --name datadog-site --value <the site> --output none
+   ```
+
+3. Run the two deploy scripts as for any update. Each starts its agent when it finds the key, and says so.
+
+   ```
+   .\infra\scripts\deploy-cloud.ps1 -ImageTag <the tag the cluster runs> -SkipSchemaLoad
+   .\infra\scripts\deploy-onprem.ps1 -KeyVaultName <vault> -ImageTag <the tag the VM runs> -RedisHost <redis host name>
+   ```
+
+4. In Datadog, within a few minutes: two hosts under Infrastructure (the node and `vm-coobs-onprem`); logs with `kube_namespace:coobs` or `host:vm-coobs-onprem`; metrics that begin `coobs.`, for example `coobs.http_server_requests_seconds.count` split by `application`, `uri` and `status`.
+
+Without the secret `datadog-api-key` both scripts skip this and behave as before.
+
+### Setting Datadog up by script
+
+The agents send the data; this makes Datadog read and show it, without clicking through its screens. It needs one more secret, an Application key (Datadog, Organization Settings, Application Keys), stored in Key Vault as `datadog-app-key` the same way as the API key.
+
+```
+.\infra\scripts\setup-datadog.ps1 -DryRun
+.\infra\scripts\setup-datadog.ps1 -KeyVaultName <vault>
+```
+
+The first line only prints what would be created. The second creates, through Datadog's API: the two log pipelines described under "Making log severities right", the dashboard from `datadog-dashboard.json`, and the four monitors in the table below. Anything that already exists under the same name is left alone, so it can be run again. It changes the Datadog account and nothing in Azure. The sections that follow say how to do each part by hand instead.
+### The dashboard
+
+Datadog does not make a dashboard for the `coobs.` metrics by itself. One is in `infra/k8s-monitoring/datadog-dashboard.json`: requests, response times and errors per service, the slowest and busiest endpoints, gateway traffic by route, JVM memory, database connections, container CPU and memory in both zones, restarts, and the latest error lines. To load it: Dashboards, New Dashboard, give it any name, then the gear at the top right, **Import dashboard JSON**, and paste the file's contents.
+
+Two things in Datadog will look incomplete, and both are expected:
+
+- **The Kubernetes pages** (Infrastructure, Kubernetes) report the cluster as misconfigured, with no Cluster Agent and the orchestrator "partial". That is the part left out to fit the node. Containers, hosts, logs and metrics do not need it.
+- **`mobile-bff` has no `coobs.` metrics.** It answers `/actuator/prometheus` only to an admin token, so it is not in the agent's list. Its logs and container figures are collected, and its calls show at the gateway by route.
+### Alerts to create in Datadog
+
+They are made in Datadog's own screens, not from this repository. Four cover the cases that matter:
+
+| Monitor | On |
+| --- | --- |
+| A host stopped reporting | Either host silent for five minutes |
+| A container keeps restarting | Restart count of any container in `kube_namespace:coobs` rising |
+| Errors at the gateway | `coobs.http_server_requests_seconds.count` with `status:5*` above a few a minute |
+| Error lines logged by a service | `coobs.logback_events.count` with `level:error` above zero, by `application`. A metric, so it is right without any log parsing |
+
+### Making log severities right
+
+Out of the box Datadog guesses a log line's severity from the stream it was written to: everything on stderr is shown as an error, everything on stdout as information. That is wrong in both directions here. PostgreSQL and Oracle write routine messages to stderr, so a checkpoint line appears as an error; the Java services write everything to stdout, so a real `ERROR` line appears as information. Until this is set, do not build a monitor on `status:error`; use the metric in the table above.
+
+It is set once, in Datadog under Logs, Pipelines:
+
+1. **PostgreSQL:** add the PostgreSQL pipeline from the integration library. It matches `source:postgres` and reads the severity from the line (`LOG`, `WARNING`, `ERROR`).
+2. **The services:** add a pipeline with the filter `(kube_namespace:coobs OR host:vm-coobs-onprem) -source:postgres`. Give it a Grok parser with the rule below, then a Status remapper on the attribute `level`.
+
+   ```
+   coobs_spring %{notSpace:log_time}\s+%{word:level}\s+%{data:rest}
+   ```
+
+   A service's line looks like `2026-10-11T03:52:34.977Z  INFO 1 --- [transaction-service] [nio-8090-exec-5] c.g.f.t.c.HistoryInternalController : ...`, so the second word is the severity. Lines that do not start that way, a stack trace for one, are left as they are.
+### Tracing a service
+
+Tracing follows one request through a service with timings: the request itself, each call the service makes to another service, each database query, each Kafka message. It is opt-in, per service, and needs no change to an image:
+
+```
+.\infra\scripts\deploy-cloud.ps1 -ImageTag <the tag the cluster runs> -SkipSchemaLoad -TraceServices transaction-service,orchestration-service
+```
+
+The script adds Datadog's Java tracer to each named Deployment (`infra/k8s-monitoring/java-tracer-patch.yaml`), restarts it, and waits for it, one service at a time. The traces appear in Datadog under APM, by service name. Once added, the tracer stays through later deployments without the option.
+
+- Trace a few services, not all nine. Each traced JVM starts more slowly and uses more memory, inside the same 256 MB heap and 640 MB limit as before; on 11 October two services used 47 and 61 MB of that heap. Watch a traced service's restart count for the first hour.
+- `transaction-service` and `orchestration-service` together cover a transfer from intake through the saga, including the timed calls to the risk engine and the ledger.
+- A request is followed across two services only when both are traced. The four services on the VM are not covered by this option.
+- To take the tracer off one service: `kubectl rollout undo deployment/<service> --namespace coobs` straight after adding it, or delete the Deployment and run the deploy script again.
+
+### What this does not give
+
+- **Azure's managed Prometheus and Application Insights.** Both are off, for the reason above.
+- **Datadog's Kubernetes pages.** They need the Cluster Agent, which is left out to fit the node.
+### Switching it off
+
+Delete the two secrets from Key Vault, then remove the agents: `kubectl delete -f infra/k8s-monitoring/datadog-agent.yaml` on the cluster, and on the VM `docker rm -f datadog-agent`, run through `az vm run-command invoke`.
+
+### To know before switching it on
+
+- Logs and metrics leave Azure for Datadog's servers. The data is seeded demo data.
+- A Datadog trial lasts two weeks; after it a plan is needed. Log volume and the number of `coobs.` metrics are what a plan charges for, which is why system pods' logs are left out and the metric list is short.
 ## Switching on HTTPS
 
 The first deployment answers on plain HTTP, so the address must not be given to anyone outside the team. There are two ways to put HTTPS in front of it. Do either once E2E has passed on the plain address.
@@ -293,6 +399,7 @@ Proven by the deployment of 10 October 2026 (free trial, Indonesia Central) and 
 - First boot installs Docker on the VM through the NAT gateway, and `deploy-onprem.ps1` with `start.sh` starts the on-premises zone on it.
 - `deploy-cloud.ps1` against the real vault and cluster, including the console's nginx pod as the public entry.
 - The TLS proxy: Let's Encrypt issued a certificate for the Azure host name on the first attempt, plain HTTP is redirected, and the console, the app and the E2E suite work through it.
+- The Datadog agents and the Java tracer (11 October 2026): the agent pod runs on the node beside every service, logs and the `coobs.` metrics are sent from both zones, and traces arrive from all nine cluster services, none of which restarted.
 
 Three things the deployment taught, all now in this folder:
 
@@ -306,5 +413,4 @@ Not proven:
 - The link-down check (a Deny rule on the NSG) against this deployment.
 - Load: nothing heavier than the E2E suite has run. Eight GB on the VM and two vCPUs on the node were enough for that and no more is known.
 - Certificate renewal, which the proxy does by itself after about two months.
-- The data reset (`-ResetData` on both scripts). Checked: both scripts parse, the on-premises dry run shows the volume removal before the start, the cluster accepts the changed job, and its shell runs in the right order against a stand-in. Never run for real, and the SQL that removes the tables has not run against any SQL Server.
 - The NAT gateway price.

@@ -1,6 +1,6 @@
 # The Azure deployment, as built
 
-This page records what was deployed to Azure on 10 October 2026, with which tools and commands, how HTTPS was added, what went wrong on the way and how each problem was fixed. It is a record of one real deployment. The general runbook, for doing it again from nothing, is `infra/README.md`.
+This page records what was deployed to Azure on 10 October 2026, with which tools and commands, how HTTPS was added, what went wrong on the way and how each problem was fixed. Section 13 adds the monitoring that was put in on 11 October. It is a record of one real deployment. The general runbook, for doing it again from nothing, is `infra/README.md`.
 
 Three labels are used:
 
@@ -10,14 +10,15 @@ Three labels are used:
 
 ## 1. Result
 
-| | |
-| --- | --- |
-| Address | `https://coobs.indonesiacentral.cloudapp.azure.com` |
-| What answers there | The staff console, and the API for the mobile app, partner banks and Postman |
-| Version running | `version-1.3` on the cluster, `version-1` on the on-premises VM (the same code for those four services) |
-| Code | `dev` at `2fcb789` (pull request 160) |
-| Proof | E2E suite 143 of 143 on the HTTPS address, console and app working (reported); the checks in section 9 (read from Azure) |
-| Subscription | Azure free trial, spending limit on, region Indonesia Central |
+|                    |                                                                                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Address            | `https://coobs.indonesiacentral.cloudapp.azure.com`                                                                                                          |
+| What answers there | The staff console, and the API for the mobile app, partner banks and Postman                                                                                 |
+| Version running    | `version-1.21` on the cluster and on the on-premises VM (read on 11 October). The first HTTPS deployment was `version-1.3`; the commands below show that tag |
+| Monitoring         | Datadog: logs and metrics from both zones, traces from the nine cluster services (section 13)                                                                |
+| Code               | `dev` at `2fcb789` (pull request 160)                                                                                                                        |
+| Proof              | E2E suite 143 of 143 on the HTTPS address, console and app working (reported); the checks in section 9 (read from Azure)                                     |
+| Subscription       | Azure free trial, spending limit on, region Indonesia Central                                                                                                |
 
 ## 2. The picture
 
@@ -74,19 +75,19 @@ flowchart TB
 
 Everything is in the resource group `CooBS-rsg`, region `indonesiacentral`, availability zone 3. It was created by the Bicep templates in `infra/bicep`, except the registry, which existed before.
 
-| Resource | Name | Size or setting |
-| --- | --- | --- |
-| Kubernetes cluster | `aks-coobs-dev` | AKS Free tier, Kubernetes 1.35, one node `Standard_E2as_v5` |
-| Virtual machine | `vm-coobs-onprem` | `Standard_B2as_v2`, Ubuntu 24.04, private address `10.250.0.4`, no public address |
-| Azure SQL server | `sql-coobs-c2whi3` | Databases `identity_db`, `customer_db`, `transaction_db`, `notification_db`, each S0 |
-| Azure Managed Redis | `redis-coobs-c2whi3` | `Balanced_B0`, TLS on port 10000, private endpoint `pe-redis-coobs-c2whi3` |
-| Key Vault | `kv-coobs-c2whi3` | Ten secrets (section 6) |
-| Container registry | `CooBS` | Standard, 14 repositories under `coobs/` |
-| Cloud network | `vnet-coobs-cloud-dev` | `10.240.0.0/16` |
-| On-premises network | `vnet-coobs-onprem-dev` | `10.250.0.0/16`, peered with the cloud network in both directions |
-| Firewall between the zones | `nsg-coobs-onprem` | Lets the cluster's subnet reach ports 8082, 8083, 8085 and 8093 on the VM's subnet; denies everything else from the cloud network |
-| Outbound route for the VM | `nat-coobs-onprem`, `pip-coobs-onprem-nat` | So the VM can pull images without a public address of its own |
-| Logs | `law-coobs-dev`, `appi-coobs-dev`, Container Insights | Log Analytics, capped at 1 GB a day |
+| Resource                   | Name                                                  | Size or setting                                                                                                                   |
+| -------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Kubernetes cluster         | `aks-coobs-dev`                                       | AKS Free tier, Kubernetes 1.35, one node`Standard_E2as_v5`                                                                        |
+| Virtual machine            | `vm-coobs-onprem`                                     | `Standard_B2as_v2`, Ubuntu 24.04, private address `10.250.0.4`, no public address                                                 |
+| Azure SQL server           | `sql-coobs-c2whi3`                                    | Databases`identity_db`, `customer_db`, `transaction_db`, `notification_db`, each S0                                               |
+| Azure Managed Redis        | `redis-coobs-c2whi3`                                  | `Balanced_B0`, TLS on port 10000, private endpoint `pe-redis-coobs-c2whi3`                                                        |
+| Key Vault                  | `kv-coobs-c2whi3`                                     | Thirteen secrets: ten for the system (section 6) and three for Datadog (section 13)                                               |
+| Container registry         | `CooBS`                                               | Standard, 14 repositories under`coobs/`                                                                                           |
+| Cloud network              | `vnet-coobs-cloud-dev`                                | `10.240.0.0/16`                                                                                                                   |
+| On-premises network        | `vnet-coobs-onprem-dev`                               | `10.250.0.0/16`, peered with the cloud network in both directions                                                                 |
+| Firewall between the zones | `nsg-coobs-onprem`                                    | Lets the cluster's subnet reach ports 8082, 8083, 8085 and 8093 on the VM's subnet; denies everything else from the cloud network |
+| Outbound route for the VM  | `nat-coobs-onprem`, `pip-coobs-onprem-nat`            | So the VM can pull images without a public address of its own                                                                     |
+| Logs                       | `law-coobs-dev`, `appi-coobs-dev`, Container Insights | Log Analytics, capped at 1 GB a day                                                                                               |
 
 Not created: Front Door. Azure refuses it on a free trial (section 8).
 
@@ -96,31 +97,33 @@ The trial's limits shaped all of this: four vCPUs in the region (two for the nod
 
 **On the cluster**, namespace `coobs`:
 
-| Object | What |
-| --- | --- |
-| 10 Deployments from our images | `api-gateway`, `auth-service`, `customer-service`, `transaction-service`, `orchestration-service`, `risk-engine`, `notification-service`, `mobile-bff`, `staff-bff`, `frontend` (the console's nginx) |
-| 1 Deployment `tls-proxy` | Caddy 2.10.0, pinned by digest, with a 1 GB disk for the certificate |
-| 1 StatefulSet `kafka-broker` | Apache Kafka, pinned by digest, with an 8 GB disk; a Job created the topics |
-| Service `coobs-public` | The one public load balancer, ports 80 and 443, pointing at `tls-proxy` |
-| Service `kafka-external` | An internal load balancer at `10.240.15.200:9094`, so the VM can reach Kafka |
-| Services `account-service`, `ledger-service`, `audit-service`, `batch-service` | Names inside the cluster that point at the VM (`10.250.0.4`), so cloud services call the on-premises ones by the same names as locally |
-| Job `coobs-load-schemas` | Loaded the four Azure SQL databases once, and set the staff password |
+| Object                                                                        | What                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10 Deployments from our images                                                | `api-gateway`, `auth-service`, `customer-service`, `transaction-service`, `orchestration-service`, `risk-engine`, `notification-service`, `mobile-bff`, `staff-bff`, `frontend` (the console's nginx) |
+| 1 Deployment`tls-proxy`                                                       | Caddy 2.10.0, pinned by digest, with a 1 GB disk for the certificate                                                                                                                                  |
+| 1 StatefulSet`kafka-broker`                                                   | Apache Kafka, pinned by digest, with an 8 GB disk; a Job created the topics                                                                                                                           |
+| Service`coobs-public`                                                         | The one public load balancer, ports 80 and 443, pointing at`tls-proxy`                                                                                                                                |
+| Service`kafka-external`                                                       | An internal load balancer at`10.240.15.200:9094`, so the VM can reach Kafka                                                                                                                           |
+| Services`account-service`, `ledger-service`, `audit-service`, `batch-service` | Names inside the cluster that point at the VM (`10.250.0.4`), so cloud services call the on-premises ones by the same names as locally                                                                |
+| Job`coobs-load-schemas`                                                       | Loaded the four Azure SQL databases once, and set the staff password                                                                                                                                  |
+| Namespace`datadog`, DaemonSet `datadog`                                       | One Datadog agent pod on the node, with a second container that receives traces. Added on 11 October                                                                                                  |
+| Init container`datadog-java-tracer` in the nine Java Deployments              | Copies Datadog's Java tracer into each service's pod. Added on 11 October                                                                                                                             |
 
-**On the VM**, as Docker Compose (`infra/onprem/docker-compose.yml`): `ledger-service`, `account-service`, `audit-service`, `batch-service`, Oracle Database Free and PostgreSQL 16 for the audit store. The databases publish no port outside the VM.
+**On the VM**, as Docker Compose (`infra/onprem/docker-compose.yml`): `ledger-service`, `account-service`, `audit-service`, `batch-service`, Oracle Database Free and PostgreSQL 16 for the audit store. The databases publish no port outside the VM. Since 11 October a seventh container, `datadog-agent`, runs beside them.
 
 ## 5. The deployment, step by step
 
 ### Tools used
 
-| Tool | For |
-| --- | --- |
-| Azure CLI (`az`) with Bicep | Creating the Azure resources, reading outputs, Key Vault, running a script on the VM |
-| Docker Desktop | Building and pushing the 14 images |
-| `kubectl` with kustomize | Rendering and applying the Kubernetes manifests |
-| PowerShell scripts in `infra/scripts` | `publish-images.ps1`, `deploy-cloud.ps1`, `deploy-onprem.ps1` |
-| Newman | Running the Postman E2E suite against the address |
-| Caddy | The TLS proxy in the cluster |
-| Let's Encrypt | The certificate |
+| Tool                                 | For                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------ |
+| Azure CLI (`az`) with Bicep          | Creating the Azure resources, reading outputs, Key Vault, running a script on the VM |
+| Docker Desktop                       | Building and pushing the 14 images                                                   |
+| `kubectl` with kustomize             | Rendering and applying the Kubernetes manifests                                      |
+| PowerShell scripts in`infra/scripts` | `publish-images.ps1`, `deploy-cloud.ps1`, `deploy-onprem.ps1`                        |
+| Newman                               | Running the Postman E2E suite against the address                                    |
+| Caddy                                | The TLS proxy in the cluster                                                         |
+| Let's Encrypt                        | The certificate                                                                      |
 
 The pipeline (`CooBS-CI`) did not deploy anything. It checks and tests the code; its deploy stages are placeholders. The deployment was run by hand with the scripts.
 
@@ -207,15 +210,16 @@ The app is not hosted. The package is installed on the phones by hand, and the a
 
 No secret is in the repository, in an image, or on a command line.
 
-| Secret in Key Vault | Made by | Used by |
-| --- | --- | --- |
-| `cloud-db-password` | Typed once into the shell for the Bicep | Cloud services, for Azure SQL |
-| `redis-key` | The Bicep, from Redis itself | Every service that uses Redis, on both sides |
-| `jwt-secret` | `deploy-cloud.ps1`, random | Every service: signs and checks tokens |
-| `internal-service-secret` | `deploy-cloud.ps1`, random | Service-to-service calls |
-| `interbank-shared-secret`, `interbank-bankb-secret` | `deploy-cloud.ps1`, random | Signed inter-bank messages |
-| `oracle-password`, `app-user-password`, `audit-db-password` | `deploy-cloud.ps1`, random | The databases on the VM and the four services there |
-| `staff-password` | `deploy-cloud.ps1`, random | Admin and teller sign-ins, in place of the seeded demo password |
+| Secret in Key Vault                                         | Made by                                                | Used by                                                                                                      |
+| ----------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `cloud-db-password`                                         | Typed once into the shell for the Bicep                | Cloud services, for Azure SQL                                                                                |
+| `redis-key`                                                 | The Bicep, from Redis itself                           | Every service that uses Redis, on both sides                                                                 |
+| `jwt-secret`                                                | `deploy-cloud.ps1`, random                             | Every service: signs and checks tokens                                                                       |
+| `internal-service-secret`                                   | `deploy-cloud.ps1`, random                             | Service-to-service calls                                                                                     |
+| `interbank-shared-secret`, `interbank-bankb-secret`         | `deploy-cloud.ps1`, random                             | Signed inter-bank messages                                                                                   |
+| `oracle-password`, `app-user-password`, `audit-db-password` | `deploy-cloud.ps1`, random                             | The databases on the VM and the four services there                                                          |
+| `staff-password`                                            | `deploy-cloud.ps1`, random                             | Admin and teller sign-ins, in place of the seeded demo password                                              |
+| `datadog-api-key`, `datadog-site`, `datadog-app-key`        | Stored by hand on 11 October, from the Datadog account | The two agents (key and site);`setup-datadog.ps1` (all three). Optional: without the key no agent is started |
 
 The cluster gets them as one Kubernetes Secret created at deploy time. The VM reads its own with its managed identity, which has the "Key Vault Secrets User" role and nothing more.
 
@@ -232,23 +236,23 @@ The cluster gets them as one Kubernetes Secret created at deploy time. The VM re
 
 ### The certificate in use (read from Azure)
 
-| | |
-| --- | --- |
-| Name | `coobs.indonesiacentral.cloudapp.azure.com` |
-| Issuer | Let's Encrypt |
-| Valid | 10 October 2026 to 8 January 2027 |
-| Protocol offered | TLS 1.3 |
+|                  |                                             |
+| ---------------- | ------------------------------------------- |
+| Name             | `coobs.indonesiacentral.cloudapp.azure.com` |
+| Issuer           | Let's Encrypt                               |
+| Valid            | 10 October 2026 to 8 January 2027           |
+| Protocol offered | TLS 1.3                                     |
 
 ### What is encrypted, hop by hop
 
-| Hop | Encrypted? |
-| --- | --- |
-| Phone or browser to the public address | Yes, TLS 1.3 with a publicly trusted certificate |
-| Proxy to nginx to gateway to services, inside the cluster | No. Plain HTTP between pods on the cluster's private network |
-| Cluster to the four services on the VM | No. Plain HTTP over the private link between the two networks; the firewall allows four ports |
-| Services to Azure SQL | Yes (`encrypt=true`, certificate checked) |
-| Services to Redis, from both zones | Yes, TLS through a private endpoint |
-| Services to Kafka | No. Plain, on private addresses only |
+| Hop                                                       | Encrypted?                                                                                    |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Phone or browser to the public address                    | Yes, TLS 1.3 with a publicly trusted certificate                                              |
+| Proxy to nginx to gateway to services, inside the cluster | No. Plain HTTP between pods on the cluster's private network                                  |
+| Cluster to the four services on the VM                    | No. Plain HTTP over the private link between the two networks; the firewall allows four ports |
+| Services to Azure SQL                                     | Yes (`encrypt=true`, certificate checked)                                                     |
+| Services to Redis, from both zones                        | Yes, TLS through a private endpoint                                                           |
+| Services to Kafka                                         | No. Plain, on private addresses only                                                          |
 
 So HTTPS protects the part that crosses the internet. Inside, the protection is the private network, the firewall between the zones, and the fact that every service checks every token itself. A bank in production would add encryption between services as well (mutual TLS, usually through a service mesh). That was not built: every pod would need a helper container, and the one node has no CPU left to reserve for them.
 
@@ -268,20 +272,23 @@ kubectl delete deployment/tls-proxy service/frontend configmap/tls-proxy-config 
 
 ## 8. Problems met, and how each was fixed
 
-| # | What happened | Cause | Fix |
-| --- | --- | --- | --- |
-| 1 | The first Bicep run ended with the cluster marked `Failed` | The cluster's logging add-on needs the provider `Microsoft.OperationsManagement`, which was not registered. What-if does not notice this | Registered it and deployed again. Now step 2 of the runbook |
-| 2 | `deploy-cloud.ps1` stopped at `az aks get-credentials` on the second machine | That machine's kubectl settings file was empty | Renamed the file; `az` wrote a new one |
-| 3 | Four pods stayed `Pending`, among them Kafka | The node gives 1900m of CPU to reserve. AKS's own pods reserve about 1160m and ours asked for 1060m | Each Java service now reserves 50m, not 100m (pull request 159). A reservation is not a limit |
-| 4 | E2E step 10.6 failed: an internal path answered 200 | The console's nginx answers any unknown path with its home page. Nothing internal was reachable, but it read as allowed | nginx now answers `/internal` with 403 (pull request 159) |
-| 5 | The console rollout hung with `ImagePullBackOff` | The cluster was told to use the tag `version-2`; the image had been pushed as `version-1.01` | Pointed the Deployment at the tag that existed. Since then one tag is used for all images |
-| 6 | Front Door could not be created | "Free Trial and Student account is forbidden for Azure Frontdoor resources" | The TLS proxy of section 7 (pull request 160) |
-| 7 | After that failure `deploy-cloud.ps1` could not read the deployment's outputs | A failed deployment record has none | Deployed the Bicep once more with Front Door off |
-| 8 | A second machine had no SSH key for the Bicep | The key was made on the laptop, and Azure does not allow a VM's key to change | Read the public key back from the VM in Azure (section 5, step 1) |
-| 9 | The console's writes to accounts, ledger, audit and end-of-day were refused | Section 7, "The browser origin". E2E and the app send no `Origin`, so neither showed it | The gateway no longer passes `Origin` on (pull request 160) |
-| 10 | One image build failed on a download from Maven Central | A single failed connection; every other download in the same second worked | Ran the build again |
-| 11 | A console-only update switched HTTPS off and left nine rollouts stuck, while the script reported success | Only the console image was built under the new tag, and the script was run without the HTTPS options. It applied the tag to all ten images, put the plain entry back, and its wait passed because the old pods were still answering | Built all images under the tag and ran the script with the HTTPS options. The script now checks the registry for every image first, keeps HTTPS unless told `-PlainHttp`, and waits for each rollout to finish |
-| 12 | After the repair of problem 11 nobody could sign in to the console, while E2E-style calls worked | The gateway had started two minutes before the settings were corrected, so it still held the old list of allowed origins and refused the browser's sign-in with 403. A pod reads its settings once, when it starts | Restarted the gateway. The script now restarts the services whenever a run changes the settings |
+| #   | What happened                                                                                                                                              | Cause                                                                                                                                                                                                                                      | Fix                                                                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | The first Bicep run ended with the cluster marked`Failed`                                                                                                  | The cluster's logging add-on needs the provider`Microsoft.OperationsManagement`, which was not registered. What-if does not notice this                                                                                                    | Registered it and deployed again. Now step 2 of the runbook                                                                                                                                                                                                 |
+| 2   | `deploy-cloud.ps1` stopped at `az aks get-credentials` on the second machine                                                                               | That machine's kubectl settings file was empty                                                                                                                                                                                             | Renamed the file;`az` wrote a new one                                                                                                                                                                                                                       |
+| 3   | Four pods stayed`Pending`, among them Kafka                                                                                                                | The node gives 1900m of CPU to reserve. AKS's own pods reserve about 1160m and ours asked for 1060m                                                                                                                                        | Each Java service now reserves 50m, not 100m (pull request 159). A reservation is not a limit                                                                                                                                                               |
+| 4   | E2E step 10.6 failed: an internal path answered 200                                                                                                        | The console's nginx answers any unknown path with its home page. Nothing internal was reachable, but it read as allowed                                                                                                                    | nginx now answers`/internal` with 403 (pull request 159)                                                                                                                                                                                                    |
+| 5   | The console rollout hung with`ImagePullBackOff`                                                                                                            | The cluster was told to use the tag`version-2`; the image had been pushed as `version-1.01`                                                                                                                                                | Pointed the Deployment at the tag that existed. Since then one tag is used for all images                                                                                                                                                                   |
+| 6   | Front Door could not be created                                                                                                                            | "Free Trial and Student account is forbidden for Azure Frontdoor resources"                                                                                                                                                                | The TLS proxy of section 7 (pull request 160)                                                                                                                                                                                                               |
+| 7   | After that failure`deploy-cloud.ps1` could not read the deployment's outputs                                                                               | A failed deployment record has none                                                                                                                                                                                                        | Deployed the Bicep once more with Front Door off                                                                                                                                                                                                            |
+| 8   | A second machine had no SSH key for the Bicep                                                                                                              | The key was made on the laptop, and Azure does not allow a VM's key to change                                                                                                                                                              | Read the public key back from the VM in Azure (section 5, step 1)                                                                                                                                                                                           |
+| 9   | The console's writes to accounts, ledger, audit and end-of-day were refused                                                                                | Section 7, "The browser origin". E2E and the app send no`Origin`, so neither showed it                                                                                                                                                     | The gateway no longer passes`Origin` on (pull request 160)                                                                                                                                                                                                  |
+| 10  | One image build failed on a download from Maven Central                                                                                                    | A single failed connection; every other download in the same second worked                                                                                                                                                                 | Ran the build again                                                                                                                                                                                                                                         |
+| 11  | A console-only update switched HTTPS off and left nine rollouts stuck, while the script reported success                                                   | Only the console image was built under the new tag, and the script was run without the HTTPS options. It applied the tag to all ten images, put the plain entry back, and its wait passed because the old pods were still answering        | Built all images under the tag and ran the script with the HTTPS options. The script now checks the registry for every image first, keeps HTTPS unless told`-PlainHttp`, and waits for each rollout to finish                                               |
+| 12  | After the repair of problem 11 nobody could sign in to the console, while E2E-style calls worked                                                           | The gateway had started two minutes before the settings were corrected, so it still held the old list of allowed origins and refused the browser's sign-in with 403. A pod reads its settings once, when it starts                         | Restarted the gateway. The script now restarts the services whenever a run changes the settings                                                                                                                                                             |
+| 13  | Six services went down at once on 11 October: transaction, orchestration, risk-engine, notification and both BFFs were`Pending` and transfers answered 503 | Azure's managed Prometheus, application monitoring and a Container Insights re-onboarding were switched on for the cluster. Their pods reserve 766m of the node's 1900m of CPU, system pods have priority, and six of ours were pushed out | Switched managed Prometheus and application monitoring off again (`az aks update --disable-azure-monitor-metrics` and `--disable-azure-monitor-app-monitoring`); the six pods started by themselves. Monitoring was then built to fit the node (section 13) |
+| 14  | The Datadog agent logged an error for`mobile-bff` every few seconds                                                                                        | `mobile-bff` answers `/actuator/prometheus` only to an admin token; the other services answer it openly inside the network                                                                                                                 | Took`mobile-bff` off the agent's list of metric targets. Its logs, container figures and traces are still collected                                                                                                                                         |
+| 15  | Datadog showed a PostgreSQL checkpoint line as an error, and would show a real`ERROR` line of a service as information                                     | Datadog guesses severity from the stream: PostgreSQL writes to stderr, the Java services to stdout                                                                                                                                         | Two log pipelines that read the severity from the line itself, created by`infra/scripts/setup-datadog.ps1`                                                                                                                                                  |
 
 For problem 3, a bigger node was considered and set aside: the trial allows four vCPUs in total, and raising that needs a paid subscription and an approved request.
 
@@ -289,15 +296,15 @@ For problem 3, a bigger node was considered and set aside: the trial allows four
 
 Read from Azure against the live HTTPS address on 10 October:
 
-| Check | Result |
-| --- | --- |
-| Pods | Ten Deployments on `version-1.3`, `tls-proxy` and Kafka, all running |
-| `/actuator/health` over HTTPS | 200, certificate trusted |
-| Plain HTTP on the name | 308, redirect to HTTPS |
-| `/internal/...` | 403 |
-| A browser-style write, no token, to accounts, ledger, audit, batch | 401: it reaches the service. It was 403 before the gateway fix |
-| The same from a page hosted elsewhere | 403 |
-| The bare IP address | Only redirects; it serves nothing |
+| Check                                                              | Result                                                              |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Pods                                                               | Ten Deployments on`version-1.3`, `tls-proxy` and Kafka, all running |
+| `/actuator/health` over HTTPS                                      | 200, certificate trusted                                            |
+| Plain HTTP on the name                                             | 308, redirect to HTTPS                                              |
+| `/internal/...`                                                    | 403                                                                 |
+| A browser-style write, no token, to accounts, ledger, audit, batch | 401: it reaches the service. It was 403 before the gateway fix      |
+| The same from a page hosted elsewhere                              | 403                                                                 |
+| The bare IP address                                                | Only redirects; it serves nothing                                   |
 
 Reported by Carl: the E2E suite passes 143 of 143 on the HTTPS address; the console works in a browser; the app, built with the HTTPS address, works.
 
@@ -326,8 +333,65 @@ To remove everything after the presentation, follow "Removing it" in `infra/READ
 - **The link-down check** (cutting the link between the zones with a firewall rule) has not been run against this deployment.
 - **Certificate renewal** has not happened yet; it is due in about two months.
 - **Front Door** has never been created, so the Bicep module for it is untested beyond what-if.
+- **Monitoring runs on a Datadog trial**, and the four services on the VM are not traced.
+- **The node has about 80m of CPU left to reserve.** Problem 13 shows what an add-on that reserves more does.
 - **The on-premises zone is a VM in Azure**, standing in for a datacenter. The two zones are separate networks with a firewall between them, which is what the design needs to show.
 
 ## 12. Cost
 
 List prices read on 8 October put this at about USD 60 for six days, most of it the node, the VM and the four databases. The trial has USD 200 of credit, which expires on 31 October 2026. The TLS proxy adds one small disk and nothing else. Delete the resources when the presentation is over.
+
+## 13. Monitoring, added on 11 October
+
+Until 11 October the only monitoring in Azure was Container Insights: container logs and pod health of the cluster in a Log Analytics workspace, nothing from the VM, and no application figures. Problem 13 is what happened when Azure's heavier options were tried on a two-vCPU node. What was built instead fits the node and covers both zones.
+
+### What runs
+
+| Where                             | What                                                                                                                                                                                             | Load                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Cluster                           | One Datadog agent pod (DaemonSet`datadog`, namespace `datadog`), with a trace receiver as a second container. Datadog's operator, cluster agent, process agent and system probe are switched off | Reserves 50m of CPU                                           |
+| VM                                | One more container,`datadog-agent`, in the Compose profile `monitoring`                                                                                                                          | The VM had 3.5 GB of memory free                              |
+| Nine Java services on the cluster | Datadog's Java tracer, added to each Deployment by a patch; no image was rebuilt                                                                                                                 | No reservation; more memory inside each JVM's existing limits |
+
+### What is collected
+
+- **Logs** of every service in both zones.
+- **Container and host figures:** CPU, memory, restarts.
+- **The metrics every service already publishes** at `/actuator/prometheus`: request counts and times per endpoint, JVM memory, threads, database pool, Kafka listeners. In Datadog they begin with `coobs.`.
+- **Traces** from the nine cluster services: each request, each call to another service, each database query and Kafka message, with timings.
+
+No service's code or image was changed for any of this.
+
+### The commands
+
+The Datadog API key and site were stored in Key Vault as `datadog-api-key` and `datadog-site`, and an Application key as `datadog-app-key`. Then:
+
+```
+.\infra\scripts\deploy-cloud.ps1 -ImageTag version-1.21 -SkipSchemaLoad
+.\infra\scripts\deploy-onprem.ps1 -KeyVaultName kv-coobs-c2whi3 -ImageTag version-1.21 -RedisHost redis-coobs-c2whi3.indonesiacentral.redis.azure.net
+.\infra\scripts\deploy-cloud.ps1 -ImageTag version-1.21 -SkipSchemaLoad -TraceServices transaction-service,orchestration-service
+.\infra\scripts\deploy-cloud.ps1 -ImageTag version-1.21 -SkipSchemaLoad -TraceServices api-gateway,mobile-bff,staff-bff,auth-service,customer-service,risk-engine,notification-service
+.\infra\scripts\setup-datadog.ps1 -KeyVaultName kv-coobs-c2whi3
+```
+
+The first two start the agents; both scripts skip monitoring when the key is not in the vault. The next two add the tracer, two services first and then the rest. The last creates, through Datadog's API, two log pipelines, a dashboard of sixteen panels (`infra/k8s-monitoring/datadog-dashboard.json`) and four monitors.
+
+### What was checked (read from the cluster on 11 October)
+
+| Check                        | Result                                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| Agent pod                    | Running, key accepted, about 19,000 log lines sent in the first minutes                            |
+| Metric check on the services | Running; the names and tags the dashboard uses were read from the agent's own output               |
+| Trace receiver               | 16 and 19 traces in one minute from the first two traced services                                  |
+| Traced services              | All nine running, no restarts                                                                      |
+| Node afterwards              | CPU in use 28%, memory 44%; 1822m of 1900m reserved                                                |
+| VM agent                     | Sending: lines from`vm-coobs-onprem` arrive in Datadog                                             |
+| Datadog configuration        | Two log pipelines, the dashboard "CooBS services" and four monitors, created by`setup-datadog.ps1` |
+
+### Three things the traces showed at once
+
+All three are expected behaviour, not faults:
+
+- `CustomerNotFoundException ... customer ID: 0` every 20 seconds: the orchestrator keeps the risk path warm with a round for customer 0, who does not exist on purpose.
+- `TransactionNotFoundException ... TX-20261003-8F3A21C0`: the staff console's tracker opens on a sample reference written into its code.
+- `CancellationException: Request cancelled`: a call cut off at its time limit, twice, while two services restarted to take the tracer.

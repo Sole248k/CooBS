@@ -55,6 +55,8 @@ if ($StatusOnly) {
     New-Item -ItemType Directory -Path (Join-Path $stage "database") -Force | Out-Null
     Copy-Item (Join-Path $repo "infra\onprem\docker-compose.yml"), (Join-Path $repo "infra\onprem\start.sh") $stage
     Copy-Item (Join-Path $repo "database\oracle"), (Join-Path $repo "database\postgres") (Join-Path $stage "database") -Recurse
+    # What the optional Datadog agent reads from the services. Harmless when the agent is off.
+    Copy-Item (Join-Path $repo "infra\onprem\datadog") $stage -Recurse
 
     $archive = Join-Path $work "bundle.tgz"
     tar -czf $archive -C $stage .
@@ -75,7 +77,7 @@ $encoded
 COOBS_BUNDLE
 tar -xzf bundle.tgz
 rm bundle.tgz
-sed -i 's/\r`$//' start.sh docker-compose.yml
+sed -i 's/\r`$//' start.sh docker-compose.yml datadog/conf.d/openmetrics.d/conf.yaml
 chmod +x start.sh
 $reset
 ./start.sh '$KeyVaultName' '$Registry' '$ImageTag' '$RedisHost' '$KafkaBootstrap'

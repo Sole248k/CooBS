@@ -1,0 +1,123 @@
+# Settings for the Datadog agent on the cluster. datadog-agent.yaml beside this file is
+# rendered from it and is what gets applied; see the header of that file for the command.
+#
+# One agent pod on the node, and nothing else: no cluster agent, no trace agent, no process
+# agent. The node has about 130m of CPU left to reserve, and on 11 October 2026 a monitoring
+# add-on that reserved more pushed six services off it.
+#
+# The agent collects three things:
+#   - container logs of the coobs namespace
+#   - CPU, memory, restarts and network of every container and of the node
+#   - the metrics every service already publishes at /actuator/prometheus (request counts
+#     and times per endpoint, JVM memory, threads, database pool, Kafka listeners)
+targetSystem: linux
+
+datadog:
+  # The key is not in this repository. deploy-cloud.ps1 copies it from Key Vault into this Secret.
+  apiKeyExistingSecret: datadog-secret
+  # The script puts the account's site here (datadoghq.com, us5.datadoghq.com, datadoghq.eu, ...).
+  site: REPLACE-datadog-site
+  clusterName: aks-coobs-dev
+  env:
+    - name: DD_ENV
+      value: demo
+  tags:
+    - "zone:cloud"
+  kubelet:
+    # On AKS the kubelet's certificate does not carry the name the agent calls it by.
+    tlsVerify: false
+  logs:
+    enabled: true
+    containerCollectAll: true
+  # The system pods and the agent itself are noise, and log volume is what a plan charges for.
+  containerExcludeLogs: "kube_namespace:^kube-system$ kube_namespace:^datadog$"
+  # Receives traces from the services that carry the Java tracer (java-tracer-patch.yaml).
+  # It is a second, small container in the agent pod and reserves nothing more.
+  apm:
+    socketEnabled: false
+    portEnabled: true
+  processAgent:
+    enabled: false
+    processCollection: false
+  orchestratorExplorer:
+    enabled: false
+  kubeStateMetricsCore:
+    enabled: false
+  kubeStateMetricsEnabled: false
+  collectEvents: false
+  leaderElection: false
+  confd:
+    # Matches a container by the last part of its image name, so no manifest of a service
+    # has to change. %%host%% and %%port%% are the pod's address and its one declared port.
+    openmetrics.yaml: |-
+      # mobile-bff is not in the list: it answers /actuator/prometheus only to an admin token
+      # (its SecurityConfig), so a check on it fails with 401 every time. Its logs and its
+      # container figures are collected like everyone's, and its calls show at the gateway.
+      ad_identifiers:
+        - api-gateway
+        - staff-bff
+        - auth-service
+        - customer-service
+        - transaction-service
+        - orchestration-service
+        - risk-engine
+        - notification-service
+      init_config:
+      instances:
+        - openmetrics_endpoint: "http://%%host%%:%%port%%/actuator/prometheus"
+          namespace: coobs
+          metrics:
+            - http_server_requests_seconds.*
+            - spring_cloud_gateway_requests_seconds.*
+            - spring_kafka_listener_seconds.*
+            - hikaricp_connections.*
+            - jvm_memory_used_bytes
+            - jvm_threads_live_threads
+            - jvm_gc_pause_seconds.*
+            - process_cpu_usage
+            - system_cpu_usage
+            - process_uptime_seconds
+            - logback_events.*
+
+  # Off, because it adds a second container that needs the host's process list and kernel
+  # debug files. The agent then runs as one container with read-only views of the host.
+  discovery:
+    enabled: false
+    networkStats:
+      enabled: false
+  # The chart would otherwise also install Datadog's operator, a second workload on the node.
+  operator:
+    enabled: false
+  # Nothing is configured from Datadog's side; what the agent does is what this file says.
+  remoteConfiguration:
+    enabled: false
+
+remoteConfiguration:
+  enabled: false
+
+clusterAgent:
+  enabled: false
+
+# Custom resource definitions for features that are switched off above.
+datadog-crds:
+  crds:
+    datadogMetrics: false
+    datadogPodAutoscalers: false
+    datadogPodAutoscalerClusterProfiles: false
+datadog-instrumentation-crd:
+  crds:
+    datadogInstrumentations: false
+
+agents:
+  containers:
+    agent:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+
+providers:
+  aks:
+    enabled: true
