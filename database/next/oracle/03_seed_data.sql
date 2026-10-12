@@ -70,6 +70,24 @@ VALUES (2, 2, 'STAFF', NULL, 'teller_alice', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZ
 INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
 VALUES (3, 2, 'STAFF', NULL, 'teller_bob', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'bob@corebank.local', 'ACTIVE');
 INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (4, 2, 'STAFF', NULL, 'teller_carlos', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'carlos@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (5, 2, 'STAFF', NULL, 'teller_diana', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'diana@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (6, 2, 'STAFF', NULL, 'teller_edwin', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'edwin@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (7, 2, 'STAFF', NULL, 'teller_fatima', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'fatima@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (8, 2, 'STAFF', NULL, 'teller_gina', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'gina@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (9, 2, 'STAFF', NULL, 'teller_henry', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'henry@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (10, 2, 'STAFF', NULL, 'teller_irene', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'irene@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (11, 1, 'STAFF', NULL, 'manager_ramon', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'ramon@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
+VALUES (12, 1, 'STAFF', NULL, 'manager_teresa', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'teresa@corebank.local', 'ACTIVE');
+INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
 VALUES (1001, 3, 'CUSTOMER', 1, 'john_doe', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'john.doe@example.com', 'ACTIVE');
 INSERT INTO APP_USER (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
 VALUES (1002, 3, 'CUSTOMER', 2, 'maria_santos', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'maria.santos@example.com', 'ACTIVE');
