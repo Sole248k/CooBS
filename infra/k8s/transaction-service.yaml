@@ -131,6 +131,18 @@ spec:
                 secretKeyRef:
                   name: coobs-app-secrets
                   key: INTERBANK_BANKB_SECRET
+            - name: INTERBANK_AURABANK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: INTERBANK_AURABANK_API_KEY
+                  optional: true
+            - name: INTERBANK_AURABANK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: INTERBANK_AURABANK_URL
+                  optional: true
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

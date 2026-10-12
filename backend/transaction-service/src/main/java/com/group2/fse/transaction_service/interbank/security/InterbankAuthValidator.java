@@ -35,25 +35,35 @@ public class InterbankAuthValidator {
      */
     public void validate(String bankCode, String timestamp, String signature, String apiKey, String rawBody) {
         if (bankCode == null || bankCode.isBlank()) {
+            if (apiKey != null && !apiKey.isBlank()) {
+                for (InterbankSecurityProperties.PartnerConfig p : properties.getPartners().values()) {
+                    if (apiKey.trim().equals(p.getSharedSecret())) {
+                        bankCode = p.getBankCode();
+                        break;
+                    }
+                }
+            }
+        }
+        if (bankCode == null || bankCode.isBlank()) {
             throw new InterbankAuthException("UNKNOWN_BANK", "X-Bank-Code header is required.");
         }
 
-        if (timestamp == null || timestamp.isBlank()) {
-            throw new InterbankAuthException("INVALID_REQUEST", "X-Timestamp header is required.");
-        }
-
-        // Validate timestamp clock skew
-        try {
-            Instant requestTime = Instant.parse(timestamp);
-            Duration skew = Duration.between(requestTime, Instant.now()).abs();
-            if (skew.toSeconds() > properties.getAllowedTimestampSkewSeconds()) {
-                log.warn("Interbank request rejected due to expired timestamp: timestamp={}, skewSeconds={}",
-                        timestamp, skew.toSeconds());
-                throw new InterbankAuthException("TIMESTAMP_EXPIRED", "Timestamp outside the five-minute window.");
+        // Validate timestamp if provided, or require it if signature profile is used or no auth key is present
+        if (timestamp != null && !timestamp.isBlank()) {
+            try {
+                Instant requestTime = Instant.parse(timestamp);
+                Duration skew = Duration.between(requestTime, Instant.now()).abs();
+                if (skew.toSeconds() > properties.getAllowedTimestampSkewSeconds()) {
+                    log.warn("Interbank request rejected due to expired timestamp: timestamp={}, skewSeconds={}",
+                            timestamp, skew.toSeconds());
+                    throw new InterbankAuthException("TIMESTAMP_EXPIRED", "Timestamp outside the five-minute window.");
+                }
+            } catch (DateTimeParseException ex) {
+                log.warn("Invalid ISO-8601 timestamp in interbank request: {}", timestamp);
+                throw new InterbankAuthException("INVALID_REQUEST", "Malformed X-Timestamp header.");
             }
-        } catch (DateTimeParseException ex) {
-            log.warn("Invalid ISO-8601 timestamp in interbank request: {}", timestamp);
-            throw new InterbankAuthException("INVALID_REQUEST", "Malformed X-Timestamp header.");
+        } else if ((signature != null && !signature.isBlank()) || (apiKey == null || apiKey.isBlank())) {
+            throw new InterbankAuthException("INVALID_REQUEST", "X-Timestamp header is required.");
         }
 
         InterbankSecurityProperties.PartnerConfig partner = properties.getPartner(bankCode);
