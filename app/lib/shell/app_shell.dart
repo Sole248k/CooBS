@@ -430,6 +430,7 @@ class _AppShellState extends State<AppShell> {
       key: ValueKey(ref ?? 'default_timeline'),
       trackingReference: ref,
       apiClient: _apiClient,
+      allowStaffMode: false,
     );
   }
 }

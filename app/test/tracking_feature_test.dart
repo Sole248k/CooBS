@@ -269,5 +269,38 @@ void main() {
       expect(find.text('Ingress Received'), findsWidgets);
       expect(find.text('AML Screened'), findsWidgets);
     });
+
+    testWidgets('Customer transaction mode hides staff toggle and only displays 4 milestone steps', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: TrackingView(
+              trackingReference: 'TX-20261003-8F3A21C0',
+              apiClient: apiClient,
+              initialTimeline: staffTimeline,
+              animate: false,
+              autoPoll: false,
+              allowStaffMode: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Customer sees 4 milestones
+      expect(find.text('Transaction Milestones'), findsOneWidget);
+      expect(find.text('Ingress Received'), findsWidgets);
+      expect(find.text('AML Screened'), findsWidgets);
+      expect(find.text('Ledger Posted'), findsWidgets);
+      expect(find.text('Dispatched'), findsWidgets);
+
+      // Customer MUST NOT see the 11-stage staff audit toggle or deep dive
+      expect(find.text('Staff Audit (11)'), findsNothing);
+      expect(find.text('Customer (4)'), findsNothing);
+      expect(find.text('11-Stage Microservice Saga Decomposition'), findsNothing);
+      expect(find.textContaining('AUDIT INSPECTOR'), findsNothing);
+      expect(find.textContaining('MILESTONE 4 STATUS'), findsOneWidget);
+    });
   });
 }

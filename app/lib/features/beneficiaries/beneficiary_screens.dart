@@ -228,10 +228,12 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
     if (step == 2) {
       setState(() => _isSubmitting = true);
       try {
+        final bCode = v['bank'] ?? 'COOBS';
+        final normAcct = normalizeAccountNumber(s('acct'), bCode);
         final payload = {
           'nickname': s('nick'),
-          'accountNumber': s('acct'),
-          'bankCode': v['bank'] ?? 'COOBS',
+          'accountNumber': normAcct,
+          'bankCode': bCode,
           'beneficiaryName': '${s('first')} ${s('last')}',
         };
 
@@ -240,7 +242,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
           body: payload,
         );
 
-        Demo.i.addBen(Ben('${s('first')} ${s('last')}', v['rel'] ?? 'Contact', s('mob'), accountNumber: s('acct'), bankCode: v['bank'] ?? 'COOBS'));
+        Demo.i.addBen(Ben('${s('first')} ${s('last')}', v['rel'] ?? 'Contact', s('mob'), accountNumber: normAcct, bankCode: bCode));
 
         if (mounted) {
           snack(context, 'Beneficiary saved successfully');
@@ -270,7 +272,7 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
         ),
         const SizedBox(height: 14),
         tf(t('nick'), 'Nickname (e.g., Mom Savings)'),
-        tf(t('acct'), 'Account number (e.g., ACC-1002-9915)'),
+        tf(t('acct'), 'Account number (e.g., ACC_10000002)'),
         dd('Bank', const ['COOBS', 'BDO', 'BPI', 'Metrobank', 'Maya'], v['bank'] ?? 'COOBS', (x) => v['bank'] = x),
       ],
       [

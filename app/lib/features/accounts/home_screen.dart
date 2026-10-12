@@ -1031,7 +1031,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ? d.bens
         : const [
             Ben('Maria Santos', 'COOBS · ACC_10000002', '+63 917 000 1111', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
-            Ben('Mang Jose', 'COOBS · ACC_10000008', '+63 918 222 3333', accountNumber: 'ACC_10000008', bankCode: 'COOBS'),
+            Ben('Juan Dela Cruz', 'COOBS · ACC_10000004', '+63 918 222 3333', accountNumber: 'ACC_10000004', bankCode: 'COOBS'),
+            Ben('Jose Bautista', 'COOBS · ACC_10000008', '+63 918 222 3333', accountNumber: 'ACC_10000008', bankCode: 'COOBS'),
             Ben('Andrea', 'COOBS · ACC_10000007', '+63 919 444 5555', accountNumber: 'ACC_10000007', bankCode: 'COOBS'),
           ];
 
@@ -1094,8 +1095,9 @@ class _HomeScreenState extends State<HomeScreen> {
       for (final b in bensList)
         Builder(
           builder: (context) {
-            final rawAccount = b.accountNumber ?? (b.rel.contains('·') ? b.rel.split('·').last.trim() : '');
             final rawBank = b.bankCode ?? (b.rel.contains('·') ? b.rel.split('·').first.trim() : 'COOBS');
+            final extractedAccount = b.accountNumber ?? (b.rel.contains('·') ? b.rel.split('·').last.trim() : '');
+            final rawAccount = normalizeAccountNumber(extractedAccount, rawBank);
 
             final cleanName = b.name.replaceAll(RegExp(r'\([^)]*\)'), '').trim();
             final words = cleanName.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();

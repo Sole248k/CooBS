@@ -15,6 +15,24 @@ final today = DateTime(2026, 10, 6);
 /// Flat 12% p.a. demo rate (placeholder until the real loan contract exists).
 double monthly(double p, int n) => r2(r2(p * (1 + .12 * n / 12)) / n);
 
+/// Normalizes an account number to the canonical format (ACC_XXXXXXXX for CooBS).
+String normalizeAccountNumber(String raw, [String bank = 'COOBS']) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return trimmed;
+  if (bank.toUpperCase() == 'COOBS') {
+    if (RegExp(r'^ACC_\d{4,8}$').hasMatch(trimmed)) return trimmed;
+    if (RegExp(r'^[aA][cC][cC]_\d{4,8}$').hasMatch(trimmed)) return trimmed.toUpperCase();
+    if (RegExp(r'^\d{4,8}$').hasMatch(trimmed)) return 'ACC_$trimmed';
+    final m = RegExp(r'^[aA][cC][cC][-_ ]?(\d{4,8})$').firstMatch(trimmed);
+    if (m != null) return 'ACC_${m.group(1)}';
+    final m2 = RegExp(r'^[aA][cC][cC][-_ ]?(\d{4})[-_ ]?(\d{4})$').firstMatch(trimmed);
+    if (m2 != null) return 'ACC_${m2.group(1)}${m2.group(2)}';
+    final digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length == 8) return 'ACC_$digits';
+  }
+  return trimmed;
+}
+
 class Tx {
   final String label, ref;
   final DateTime date;
@@ -112,12 +130,12 @@ class Demo extends ChangeNotifier {
 
   final List<Tx> _pendingLocalTx = [];
   final accts = <Acct>[
-    Acct('Checking', 'ACC-1001-8842', 14750.50, [
-      Tx('Transfer to ACC-1002-9915', 'TXN-9021', today, -150),
+    Acct('Checking', 'ACC_10000001', 14750.50, [
+      Tx('Transfer to ACC_10000002', 'TXN-9021', today, -150),
       Tx('Payroll deposit', 'CORP-PAYROLL · TXN-9018', today, 3250),
     ]),
-    Acct('Savings', 'ACC-1002-9915', 85200, [
-      Tx('Transfer from ACC-1001-8842', 'TXN-9020', today, 150),
+    Acct('Savings', 'ACC_10000002', 85200, [
+      Tx('Transfer from ACC_10000001', 'TXN-9020', today, 150),
       Tx('Cash deposit', 'TXN-9004', DateTime(2026, 10, 2), 5000),
       Tx('Interest credit', 'INT-0930', DateTime(2026, 9, 30), 42.60),
     ]),
@@ -133,11 +151,13 @@ class Demo extends ChangeNotifier {
   bool hide = false;
   int cur = 0;
   final bens = <Ben>[
-    const Ben('Maria Santos', 'COOBS · ACC_10000002', '+63 917 000 1111', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
+    const Ben('Juan Dela Cruz', 'COOBS · ACC_10000002', '+63 918 222 3333', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
+    const Ben('Maria Santos', 'COOBS · ACC_10000004', '+63 917 000 1111', accountNumber: 'ACC_10000004', bankCode: 'COOBS'),
+    const Ben('Jose Bautista', 'COOBS · ACC_10000008', '+63 919 444 5555', accountNumber: 'ACC_10000008', bankCode: 'COOBS'),
   ];
   final alerts = <List<String>>[
     ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
-    ['₱150.00 transferred to ACC-1002-9915', 'Ref TXN-9021 · Today'],
+    ['₱150.00 transferred to ACC_10000002', 'Ref TXN-9021 · Today'],
     ['KYC update approved', 'Yesterday'],
   ];
   void _alert(String m) => alerts.insert(0, [m, 'Just now']);
@@ -311,9 +331,9 @@ class Demo extends ChangeNotifier {
               for (final b in bList)
                 Ben(
                   (b['nickname'] as String?) ?? (b['beneficiaryName'] as String?) ?? (b['name'] as String?) ?? 'Beneficiary',
-                  '${b['bankCode'] ?? 'COOBS'} · ${b['accountNumber'] ?? ''}',
+                  '${b['bankCode'] ?? 'COOBS'} · ${normalizeAccountNumber((b['accountNumber'] as String?) ?? '', (b['bankCode'] as String?) ?? 'COOBS')}',
                   (b['mobileNumber'] as String?) ?? (b['mobile'] as String?) ?? '',
-                  accountNumber: b['accountNumber'] as String?,
+                  accountNumber: normalizeAccountNumber((b['accountNumber'] as String?) ?? '', (b['bankCode'] as String?) ?? 'COOBS'),
                   bankCode: b['bankCode'] as String?,
                 )
             ]);
@@ -439,12 +459,12 @@ class Demo extends ChangeNotifier {
     _pendingLocalTx.clear();
     accts.clear();
     accts.addAll([
-      Acct('Checking', 'ACC-1001-8842', 14750.50, [
-        Tx('Transfer to ACC-1002-9915', 'TXN-9021', today, -150),
+      Acct('Checking', 'ACC_10000001', 14750.50, [
+        Tx('Transfer to ACC_10000002', 'TXN-9021', today, -150),
         Tx('Payroll deposit', 'CORP-PAYROLL · TXN-9018', today, 3250),
       ]),
-      Acct('Savings', 'ACC-1002-9915', 85200, [
-        Tx('Transfer from ACC-1001-8842', 'TXN-9020', today, 150),
+      Acct('Savings', 'ACC_10000002', 85200, [
+        Tx('Transfer from ACC_10000001', 'TXN-9020', today, 150),
         Tx('Cash deposit', 'TXN-9004', DateTime(2026, 10, 2), 5000),
         Tx('Interest credit', 'INT-0930', DateTime(2026, 9, 30), 42.60),
       ]),
@@ -452,7 +472,7 @@ class Demo extends ChangeNotifier {
     alerts.clear();
     alerts.addAll([
       ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
-      ['₱150.00 transferred to ACC-1002-9915', 'Ref TXN-9021 · Today'],
+      ['₱150.00 transferred to ACC_10000002', 'Ref TXN-9021 · Today'],
       ['KYC update approved', 'Yesterday'],
     ]);
     notifyListeners();

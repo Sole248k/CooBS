@@ -27,6 +27,12 @@ class TrackingView extends StatefulWidget {
   /// and no reference search bar, since the reference is fixed to the submitted transfer.
   final bool embedded;
 
+  /// Controls whether the 11-stage staff audit mode is available.
+  /// Customer transactions must never expose internal microservice telemetry.
+  /// Defaults to false when embedded (e.g. remittance receipt or customer dialog),
+  /// or true when standalone without explicit override (e.g. unit/widget test harnesses).
+  final bool? allowStaffMode;
+
   const TrackingView({
     super.key,
     this.trackingReference,
@@ -35,6 +41,7 @@ class TrackingView extends StatefulWidget {
     this.animate = true,
     this.autoPoll = true,
     this.embedded = false,
+    this.allowStaffMode,
   });
 
   @override
@@ -58,6 +65,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
   Timer? _pollingTimer;
   bool _userSelectedMilestone = false;
   bool _isPollingInFlight = false;
+
+  bool get _canShowStaffMode => widget.allowStaffMode ?? !widget.embedded;
+  bool get _effectiveStaffMode => _canShowStaffMode && _isStaffMode;
 
   /// Poll fast right after submission, back off once the transfer takes a while, then stop,
   /// so a stuck saga does not hit the gateway every second for as long as the page is open.
@@ -169,7 +179,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     if (_isPollingInFlight) return;
     _isPollingInFlight = true;
     try {
-      final queryParams = _isStaffMode ? {'view': 'staff'} : <String, String>{};
+      final queryParams = _effectiveStaffMode ? {'view': 'staff'} : <String, String>{};
       final safeRef = Uri.encodeComponent(reference);
       final data = await _apiClient.get(
         '/mobile/transactions/$safeRef/timeline',
@@ -198,7 +208,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     });
 
     try {
-      final queryParams = _isStaffMode ? {'view': 'staff'} : <String, String>{};
+      final queryParams = _effectiveStaffMode ? {'view': 'staff'} : <String, String>{};
       final safeRef = Uri.encodeComponent(reference);
       final data = await _apiClient.get(
         '/mobile/transactions/$safeRef/timeline',
@@ -217,7 +227,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     } catch (e) {
       // Gracefully fallback to fixture timeline if live backend does not have this specific reference
       try {
-        final queryParams = _isStaffMode ? {'view': 'staff'} : <String, String>{};
+        final queryParams = _effectiveStaffMode ? {'view': 'staff'} : <String, String>{};
         final data = await _apiClient.get(
           '/mobile/transactions/${Uri.encodeComponent(reference)}/timeline',
           queryParams: queryParams,
@@ -332,7 +342,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                           _buildPollingPausedNotice(),
                           const SizedBox(height: 16),
                         ],
-                        if (_isStaffMode && _rawTimeline != null && _rawTimeline!.stages.length >= 11)
+                        if (_effectiveStaffMode && _rawTimeline != null && _rawTimeline!.stages.length >= 11)
                           _build11StageDeepDive()
                         else ...[
                           _buildStepperCard(isWide: isWide),
@@ -505,30 +515,31 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
               ),
           ],
         ),
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment<bool>(
-              value: false,
-              label: Text('Customer (4)', style: TextStyle(fontSize: 12)),
+        if (_canShowStaffMode)
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment<bool>(
+                value: false,
+                label: Text('Customer (4)', style: TextStyle(fontSize: 12)),
+              ),
+              ButtonSegment<bool>(
+                value: true,
+                label: Text('Staff Audit (11)', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+            selected: {_isStaffMode},
+            onSelectionChanged: (set) {
+              final newMode = set.first;
+              setState(() => _isStaffMode = newMode);
+              if (newMode && (_rawTimeline == null || _rawTimeline!.stages.length < 11)) {
+                _loadTimeline(_searchController.text.trim());
+              }
+            },
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            ButtonSegment<bool>(
-              value: true,
-              label: Text('Staff Audit (11)', style: TextStyle(fontSize: 12)),
-            ),
-          ],
-          selected: {_isStaffMode},
-          onSelectionChanged: (set) {
-            final newMode = set.first;
-            setState(() => _isStaffMode = newMode);
-            if (newMode && (_rawTimeline == null || _rawTimeline!.stages.length < 11)) {
-              _loadTimeline(_searchController.text.trim());
-            }
-          },
-          style: ButtonStyle(
-            visualDensity: VisualDensity.compact,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-        ),
       ],
     );
   }
@@ -550,13 +561,16 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: kInk,
+                color: kDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 6),
             Text(
               'Tap any milestone checkpoint to inspect service telemetry and execution records.',
-              style: TextStyle(fontSize: 12, color: kMut),
+              style: TextStyle(
+                fontSize: 12,
+                color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+              ),
             ),
             const SizedBox(height: 24),
             isWide ? _buildHorizontalStepper() : _buildVerticalStepper(),
@@ -607,7 +621,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                    color: isSelected ? kNavyFg : kMut,
+                    color: isSelected
+                        ? kNavyFg
+                        : (kDark ? const Color(0xFFCBD5E1) : const Color(0xFF1E293B)),
                   ),
                 ),
               ),
@@ -672,7 +688,10 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                       const SizedBox(height: 4),
                       Text(
                         milestone.description,
-                        style: TextStyle(fontSize: 12, color: kMut),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                        ),
                       ),
                       if (milestone.isDlq && milestone.dlqTopic != null) ...[
                         const SizedBox(height: 4),
@@ -697,7 +716,11 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     Color border = AppTheme.borderSubtle;
     Widget icon = Text(
       '${milestone.index}',
-      style: const TextStyle(color: AppTheme.textMuted, fontSize: 13, fontWeight: FontWeight.bold),
+      style: TextStyle(
+        color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+      ),
     );
 
     if (milestone.isCompleted) {
@@ -819,7 +842,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         label = 'FAILED';
         break;
       case MilestoneStatus.pending:
-        color = AppTheme.textMuted;
+        color = kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
         label = 'PENDING';
         break;
     }
@@ -870,7 +893,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                     const Icon(Icons.analytics_outlined, color: AppTheme.emeraldAccent, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'STAGE ${m.index} AUDIT INSPECTOR',
+                      _canShowStaffMode
+                          ? 'STAGE ${m.index} AUDIT INSPECTOR'
+                          : 'MILESTONE ${m.index} STATUS',
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -898,10 +923,12 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
               style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
             const Divider(color: Colors.white24, height: 28),
-            _buildInspectorRow('Responsible Microservice:', m.service),
-            if (m.details != null && m.details!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _buildInspectorRow('Audit Telemetry:', m.details!),
+            if (_canShowStaffMode) ...[
+              _buildInspectorRow('Responsible Microservice:', m.service),
+              if (m.details != null && m.details!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildInspectorRow('Audit Telemetry:', m.details!),
+              ],
             ],
             if (m.timestamp != null) ...[
               const SizedBox(height: 8),
@@ -1087,13 +1114,16 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: kInk,
+                color: kDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Complete internal choreography spanning transaction-service, orchestration-service, and ledger.',
-              style: TextStyle(fontSize: 12, color: kMut),
+              style: TextStyle(
+                fontSize: 12,
+                color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+              ),
             ),
             const Divider(height: 24),
             if (stages.any((s) => s.isDlq)) ...[
@@ -1208,7 +1238,11 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                             children: [
                               Text(
                                 '${stage.stageNumber}. ${stage.title}',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: kDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
+                                ),
                               ),
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1238,7 +1272,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                                       fontWeight: FontWeight.bold,
                                       color: stage.isDlq
                                           ? const Color(0xFFDC2626)
-                                          : (stage.isCompleted ? AppTheme.successGreen : AppTheme.textMuted),
+                                          : (stage.isCompleted
+                                              ? AppTheme.successGreen
+                                              : (kDark ? const Color(0xFF94A3B8) : const Color(0xFF334155))),
                                     ),
                                   ),
                                 ],
@@ -1248,7 +1284,10 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                           if (stage.details != null && stage.details!.isNotEmpty)
                             Text(
                               stage.details!,
-                              style: TextStyle(fontSize: 11, color: kMut),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                              ),
                             ),
                           if (stage.isDlq && stage.dlqTopic != null)
                             Padding(

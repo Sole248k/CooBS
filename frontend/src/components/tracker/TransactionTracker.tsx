@@ -368,7 +368,7 @@ export const TransactionTracker: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-[#E2E8F0] p-6 space-y-6">
         <div>
           <h3 className="text-base font-bold text-[#1E3A5F]">11-Stage Transaction Pipeline</h3>
-          <p className="text-xs text-[#64748B]">
+          <p className="text-xs text-[#334155]">
             Cryptographic, fraud, balance and dual-entry ledger lifecycle verification
           </p>
         </div>
@@ -390,7 +390,7 @@ export const TransactionTracker: React.FC = () => {
                       ? 'border-[#EF4444] text-[#EF4444]'
                       : isInProgress
                       ? 'border-[#2563EB] text-[#2563EB] animate-spin'
-                      : 'border-[#CBD5E1] text-[#94A3B8]'
+                      : 'border-[#CBD5E1] text-[#475569]'
                   }`}
                 >
                   {isPassed ? (
@@ -415,13 +415,13 @@ export const TransactionTracker: React.FC = () => {
                         {st.outcome}
                       </span>
                     </div>
-                    <div className="text-[11px] text-[#64748B] mt-0.5">
+                    <div className="text-[11px] text-[#334155] mt-0.5">
                       Service: <span className="font-mono text-[#1E3A5F]">{st.service}</span>
                       {st.detail && ` &bull; ${st.detail}`}
                     </div>
                   </div>
 
-                  <div className="text-right text-[11px] font-mono text-[#64748B]">
+                  <div className="text-right text-[11px] font-mono text-[#334155]">
                     {st.timestamp ? formatTimestamp(st.timestamp) : 'Pending Execution'}
                   </div>
                 </div>

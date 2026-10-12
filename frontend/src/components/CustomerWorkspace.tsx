@@ -65,7 +65,7 @@ export const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
 
   // Transfer State
   const [debitAccountId, setDebitAccountId] = useState<number>(accounts.length > 0 ? accounts[0].accountId : 1);
-  const [creditAccountInput, setCreditAccountInput] = useState<string>('ACC-1002-9915');
+  const [creditAccountInput, setCreditAccountInput] = useState<string>('ACC_10000002');
   const [amount, setAmount] = useState<string>('500.00');
   const [remarks, setRemarks] = useState<string>('Online payment');
   const [transferLoading, setTransferLoading] = useState<boolean>(false);
@@ -796,11 +796,11 @@ export const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
                     type="text"
                     value={creditAccountInput}
                     onChange={(e) => setCreditAccountInput(e.target.value)}
-                    placeholder="e.g. ACC-1002-9915 or 2"
+                    placeholder="e.g. ACC_10000002 or 2"
                     required
                   />
                   <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                    Enter recipient's full account number (e.g. <code>ACC-1002-9915</code>) or database Account ID.
+                    Enter recipient's full account number (e.g. <code>ACC_10000002</code>) or database Account ID.
                   </div>
                 </div>
 
