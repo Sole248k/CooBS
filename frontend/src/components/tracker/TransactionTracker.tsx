@@ -475,7 +475,7 @@ export const TransactionTracker: React.FC = () => {
             <h3 className="text-base font-bold text-[#1E3A5F]">
               {isReversalTx ? '11-Stage Reversal Pipeline' : '11-Stage Transaction Pipeline'}
             </h3>
-            <p className="text-xs text-[#64748B]">
+            <p className="text-xs text-[#334155]">
               {isReversalTx
                 ? 'Compensating double-entry reversal lifecycle verification'
                 : 'Cryptographic, fraud, balance and dual-entry ledger lifecycle verification'}
@@ -512,7 +512,7 @@ export const TransactionTracker: React.FC = () => {
                       ? 'border-[#2563EB] text-[#2563EB] animate-spin'
                       : isSkipped
                       ? 'border-slate-300 text-slate-400 bg-slate-50'
-                      : 'border-[#CBD5E1] text-[#94A3B8]'
+                      : 'border-[#CBD5E1] text-[#475569]'
                   }`}
                 >
                   {isPassed ? (
@@ -554,7 +554,7 @@ export const TransactionTracker: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-[#64748B] mt-0.5">
+                    <div className="text-[11px] text-[#334155] mt-0.5">
                       Service: <span className="font-mono text-[#1E3A5F]">{st.service}</span>
                       {st.detail && (
                         <>
@@ -565,7 +565,7 @@ export const TransactionTracker: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="text-right text-[11px] font-mono text-[#64748B]">
+                  <div className="text-right text-[11px] font-mono text-[#334155]">
                     {st.timestamp
                       ? formatTimestamp(st.timestamp)
                       : isSkipped

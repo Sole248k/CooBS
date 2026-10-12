@@ -55,11 +55,11 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialDest != null && widget.initialDest!.isNotEmpty) {
-      dest.text = widget.initialDest!;
-    }
     if (widget.initialBank != null && widget.initialBank!.isNotEmpty) {
       bank = widget.initialBank!;
+    }
+    if (widget.initialDest != null && widget.initialDest!.isNotEmpty) {
+      dest.text = normalizeAccountNumber(widget.initialDest!, bank);
     }
     if (widget.initialRemarks != null && widget.initialRemarks!.isNotEmpty) {
       rem.text = widget.initialRemarks!;
@@ -95,11 +95,8 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     final e = <String, String>{};
     final cents = centavos(amt.text);
     final minC = ((lim['minAmount'] as num) * 100).round(), maxC = ((lim['maxAmount'] as num) * 100).round();
-    var d = dest.text.trim();
-    if (bank == 'COOBS' && RegExp(r'^\d{8}$').hasMatch(d)) {
-      d = 'ACC_$d';
-      dest.text = d;
-    }
+    var d = normalizeAccountNumber(dest.text.trim(), bank);
+    dest.text = d;
     bool isValidDest(String pattern, String value) {
       try {
         var p = pattern;
@@ -115,10 +112,12 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     }
     if (d.isEmpty) {
       e['dest'] = 'Please enter a recipient account number';
-    } else if (d == a.no) {
+    } else if (d.toUpperCase() == a.no.toUpperCase()) {
       e['dest'] = 'Self-transfer is not allowed. Select a different recipient account';
     } else if (!isValidDest(b['accountPattern'] as String, d)) {
-      e['dest'] = 'Invalid format. Hint: ${b['accountHint']} (e.g. ACC_10000002)';
+      e['dest'] = bank == 'COOBS'
+          ? 'Invalid format. Required: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)'
+          : 'Invalid format. Hint: ${b['accountHint']} (e.g. ACC_10000002)';
     }
 
     if (cents == null) {
@@ -243,9 +242,20 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
         ),
       );
 
-  Widget field(TextEditingController c, String l, {String? error, String? hint, TextInputType? k, List<TextInputFormatter>? f}) => Padding(
+  Widget field(TextEditingController c, String l, {String? error, String? hint, String? helper, TextInputType? k, List<TextInputFormatter>? f}) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: TextField(controller: c, keyboardType: k, inputFormatters: f, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: l, hintText: hint, errorText: error)),
+        child: TextField(
+          controller: c,
+          keyboardType: k,
+          inputFormatters: f,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            labelText: l,
+            hintText: hint,
+            helperText: helper,
+            errorText: error,
+          ),
+        ),
       );
 
   @override
@@ -325,9 +335,9 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
                         label: Text(ben.name),
                         onPressed: () {
                           setState(() {
-                            final acctNum = ben.accountNumber ?? (ben.rel.contains('·') ? ben.rel.split('·').last.trim() : '');
-                            if (acctNum.isNotEmpty) dest.text = acctNum;
                             final bCode = ben.bankCode ?? (ben.rel.contains('·') ? ben.rel.split('·').first.trim() : 'COOBS');
+                            final acctNum = normalizeAccountNumber(ben.accountNumber ?? (ben.rel.contains('·') ? ben.rel.split('·').last.trim() : ''), bCode);
+                            if (acctNum.isNotEmpty) dest.text = acctNum;
                             if (banks.any((bk) => bk['code'] == bCode)) {
                               bank = bCode;
                             }
@@ -339,7 +349,15 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
                 ]),
               ),
             ],
-            field(dest, 'Recipient account number', error: err['dest'], hint: b['accountHint'] as String),
+            field(
+              dest,
+              'Recipient account number',
+              error: err['dest'],
+              hint: bank == 'COOBS' ? 'ACC_10000002' : (b['accountHint'] as String),
+              helper: bank == 'COOBS'
+                  ? 'Format: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)'
+                  : 'Account format: ${b['accountHint']}',
+            ),
             field(amt, 'Amount (₱)', error: err['amt'], k: const TextInputType.numberWithOptions(decimal: true), f: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
             dd('Category', [for (final x in o['categories'] as List) '$x'], cat, (x) => cat = x ?? cat),
             field(rem, 'Remarks (optional)'),
@@ -382,7 +400,7 @@ class RemittanceResultPage extends StatelessWidget {
         ]),
         const Padding(padding: EdgeInsets.only(top: 14, bottom: 4), child: Text('Transfer status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
         if (_trackingRef.isNotEmpty)
-          TrackingView(trackingReference: _trackingRef, embedded: true)
+          TrackingView(trackingReference: _trackingRef, embedded: true, allowStaffMode: false)
         else
           Text('Tracking reference unavailable.', style: TextStyle(color: kMut)),
         const SizedBox(height: 12),
@@ -465,7 +483,8 @@ class _RemittanceFormState extends State<RemittanceForm> {
     if (_isSubmitting || !_formKey.currentState!.validate()) return;
 
     final source = _sourceController.text.trim();
-    final dest = _destinationController.text.trim();
+    final dest = normalizeAccountNumber(_destinationController.text.trim(), _destinationBank);
+    _destinationController.text = dest;
 
     if (source.toUpperCase() == dest.toUpperCase()) {
       _showSnackbar('Source and destination accounts must be distinct.', isError: true);
@@ -693,14 +712,21 @@ class _RemittanceFormState extends State<RemittanceForm> {
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _destinationController,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Destination Account Number',
                             hintText: 'ACC_10000002',
-                            prefixIcon: Icon(Icons.credit_card_outlined),
+                            helperText: _destinationBank == 'COOBS'
+                                ? 'Format: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)'
+                                : 'Enter destination account number',
+                            prefixIcon: const Icon(Icons.credit_card_outlined),
                           ),
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) {
                               return 'Enter destination account number';
+                            }
+                            final norm = normalizeAccountNumber(val.trim(), _destinationBank);
+                            if (_destinationBank == 'COOBS' && !RegExp(r'^ACC_\d{4,8}$').hasMatch(norm)) {
+                              return 'Required format: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)';
                             }
                             return null;
                           },

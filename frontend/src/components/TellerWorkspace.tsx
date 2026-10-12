@@ -74,7 +74,7 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
 
   // Assisted Counter Saga Transfer
   const [sagaSourceAccId, setSagaSourceAccId] = useState<string>('1');
-  const [sagaDestAccNumber, setSagaDestAccNumber] = useState<string>('ACC-2001-4455');
+  const [sagaDestAccNumber, setSagaDestAccNumber] = useState<string>('ACC_10000002');
   const [sagaTransferAmount, setSagaTransferAmount] = useState<string>('2500.00');
   const [sagaTransferRef, setSagaTransferRef] = useState<string>(() => `OTC-SAGA-${Math.floor(100000 + Math.random() * 900000)}`);
   const [sagaTransferDesc, setSagaTransferDesc] = useState<string>('Counter assisted fund transfer');
@@ -1143,7 +1143,7 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
                     type="text"
                     value={sagaDestAccNumber}
                     onChange={(e) => setSagaDestAccNumber(e.target.value)}
-                    placeholder="e.g. ACC-2001-4455 or ACC-4001-1122"
+                    placeholder="e.g. ACC_10000002"
                     required
                     style={{ fontFamily: 'var(--font-mono)' }}
                   />
@@ -2012,16 +2012,16 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
                     <span className="badge badge-active" style={{ fontSize: '11px' }}>
                       {timelineData.currentStatus}
                     </span>
-                    <span style={{ fontSize: '11px', color: '#64748b' }}>
+                    <span style={{ fontSize: '11px', color: '#334155' }}>
                       Staff View (<code style={{ fontFamily: 'var(--font-mono)' }}>?view=staff</code>)
                     </span>
                   </div>
-                  <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
-                    Source: Account #{timelineData.sourceAccountId || 1} &bull; Dest: {timelineData.destinationAccountNumber || 'ACC-2001-4455'} &bull; Amount: ₱{Number(timelineData.amount || 2500).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  <div style={{ fontSize: '13px', color: '#334155', marginTop: '4px' }}>
+                    Source: Account #{timelineData.sourceAccountId || 1} &bull; Dest: {timelineData.destinationAccountNumber || 'ACC_10000002'} &bull; Amount: ₱{Number(timelineData.amount || 2500).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                   </div>
                 </div>
 
-                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                <div style={{ fontSize: '12px', color: '#334155' }}>
                   Last Updated: {timelineData.lastUpdated ? new Date(timelineData.lastUpdated).toLocaleTimeString() : 'Just now'}
                 </div>
               </div>
@@ -2083,13 +2083,13 @@ export const TellerWorkspace: React.FC<TellerWorkspaceProps> = ({
                               {stage.latencyMs}ms
                             </span>
                           )}
-                          <span style={{ color: '#64748b' }}>
+                          <span style={{ color: '#334155' }}>
                             {stage.timestamp ? new Date(stage.timestamp).toLocaleTimeString() : 'N/A'}
                           </span>
                         </div>
                       </div>
 
-                      <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}>
+                      <div style={{ fontSize: '12px', color: '#1e293b', marginTop: '4px' }}>
                         {stage.details || 'Lifecycle event verified by orchestrator.'}
                       </div>
                     </div>

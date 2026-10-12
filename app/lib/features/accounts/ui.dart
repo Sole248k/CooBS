@@ -204,7 +204,10 @@ Widget txRow(Tx x) {
                         titleSpacing: 12,
                         title: Text('Track ${x.ref}', style: TextStyle(fontFamily: 'Poppins', color: kInk, fontSize: 18, fontWeight: FontWeight.w500, letterSpacing: -0.3)),
                       ),
-                      body: TrackingView(trackingReference: x.ref),
+                      body: TrackingView(
+                        trackingReference: x.ref,
+                        allowStaffMode: false,
+                      ),
                     ),
                   ),
                 )

@@ -140,10 +140,22 @@ class MobileRepo {
       return [
         {
           'nickname': 'Juan Dela Cruz',
-          'accountNumber': 'ACC-1002-9915',
+          'accountNumber': 'ACC_10000002',
+          'bankCode': 'COOBS',
+          'mobileNumber': '+63 918 222 3333',
+        },
+        {
+          'nickname': 'Maria Santos',
+          'accountNumber': 'ACC_10000004',
           'bankCode': 'COOBS',
           'mobileNumber': '+63 917 000 1111',
-        }
+        },
+        {
+          'nickname': 'Jose Bautista',
+          'accountNumber': 'ACC_10000008',
+          'bankCode': 'COOBS',
+          'mobileNumber': '+63 919 444 5555',
+        },
       ];
     }
     try {
