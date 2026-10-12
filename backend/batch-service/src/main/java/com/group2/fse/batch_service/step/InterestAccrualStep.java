@@ -47,96 +47,85 @@ public class InterestAccrualStep implements BatchStepExecutor {
     public BatchStepResult execute(Long batchRunId, LocalDate businessDate) {
         log.info("[BatchRun #{}] Executing Step 1: INTEREST_ACCRUAL for businessDate={}", batchRunId, businessDate);
         boolean isMonthEnd = businessDate.equals(businessDate.with(TemporalAdjusters.lastDayOfMonth()));
-        int processed = 0;
-        BigDecimal totalInterest = BigDecimal.ZERO;
+        int days = isMonthEnd ? businessDate.lengthOfMonth() : 1;
 
         if (isMonthEnd) {
-            // =========================================================================
-            // MONTH-END CAPITALIZATION (EOM Payout into Customer Savings Accounts)
-            // =========================================================================
-            int daysInMonth = businessDate.lengthOfMonth();
             log.info("[BatchRun #{}] End-of-Month detected for {}. Executing Monthly Interest Capitalization ({} days).",
-                    batchRunId, businessDate, daysInMonth);
-
-            List<Object[]> eligibleAccounts = savingsInterest(daysInMonth, businessDate);
-
-            // One reference per account and month: debit 9002 GL_INTEREST_EXPENSE, credit the
-            // member. A second run in the same month is answered from the journal and pays nothing more.
-            String month = businessDate.format(DateTimeFormatter.ofPattern("yyyyMM"));
-            List<LedgerPostings.Posting> postings = new ArrayList<>();
-            for (Object[] acc : eligibleAccounts) {
-                BigDecimal interestAmount = (BigDecimal) acc[1];
-                if (interestAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    Long accountId = (Long) acc[0];
-                    postings.add(new LedgerPostings.Posting("EOD-" + month + "-INT-" + String.format("%06d", accountId),
-                            GL_INTEREST_EXPENSE, accountId, interestAmount, "Monthly savings interest"));
-                }
-            }
-
-            Map<String, String> outcomes = ledgerPostings.post(batchRunId, getStepName(), postings);
-
-            int refused = 0;
-            for (LedgerPostings.Posting posting : postings) {
-                String errorCode = outcomes.get(posting.referenceNo());
-                if (errorCode != null) {
-                    if (!LedgerPostings.ALREADY_USED.equals(errorCode)) {
-                        refused++;
-                        log.warn("[BatchRun #{}] Interest {} for account #{} refused by the ledger: {}",
-                                batchRunId, posting.referenceNo(), posting.creditAccountId(), errorCode);
-                    }
-                    continue;
-                }
-                processed++;
-                totalInterest = totalInterest.add(posting.amount());
-
-                // Resolve official account number (e.g. ACC_10000001) and customer ID
-                LedgerAuditHelper.AccountInfo accountInfo = ledgerAuditHelper.getAccountInfo(posting.creditAccountId());
-                if (accountInfo == null) {
-                    log.warn("[BatchRun #{}] Interest {} is credited, but its owner could not be read; no notification sent",
-                            batchRunId, posting.referenceNo());
-                    continue;
-                }
-                notificationDispatcherHelper.dispatchInterestNotification(
-                        accountInfo.customerId(),
-                        posting.creditAccountId(),
-                        accountInfo.accountNumber(),
-                        posting.amount(),
-                        posting.referenceNo()
-                );
-            }
-            log.info("[BatchRun #{}] Month-end interest: {} credited, {} refused, totalAmount={}",
-                    batchRunId, processed, refused, totalInterest);
-
-            return BatchStepResult.builder()
-                    .success(true)
-                    .itemsProcessed(processed)
-                    .totalAmount(totalInterest)
-                    .message("Month-end interest capitalization credited across " + processed + " accounts"
-                            + (refused > 0 ? "; " + refused + " refused by the ledger" : ""))
-                    .build();
-
+                    batchRunId, businessDate, days);
         } else {
-            // =========================================================================
-            // REGULAR DAY ACCRUAL (Daily GL liability booking, no cash payout)
-            // =========================================================================
-            try {
-                for (Object[] account : savingsInterest(1, businessDate)) {
-                    processed++;
-                    totalInterest = totalInterest.add((BigDecimal) account[1]);
-                }
-            } catch (Exception ex) {
-                log.warn("Could not query live ledger balances for daily interest accrual: {}", ex.getMessage());
-            }
-
-            log.info("[BatchRun #{}] Daily INTEREST_ACCRUAL completed: {} accounts accrued, totalAmount={}",
-                    batchRunId, processed, totalInterest);
-            return BatchStepResult.builder()
-                    .success(true)
-                    .itemsProcessed(processed)
-                    .totalAmount(totalInterest)
-                    .message("Daily interest accrued across " + processed + " accounts (Booked to GL 9002 Expense)")
-                    .build();
+            log.info("[BatchRun #{}] Executing Daily EOD Savings Interest Credit (1 day) for {}.",
+                    batchRunId, businessDate);
         }
+
+        List<Object[]> eligibleAccounts = savingsInterest(days, businessDate);
+
+        String refPrefix = isMonthEnd
+                ? "EOD-" + businessDate.format(DateTimeFormatter.ofPattern("yyyyMM")) + "-INT-"
+                : "EOD-" + businessDate.format(DateTimeFormatter.BASIC_ISO_DATE) + "-B" + batchRunId + "-INT-";
+        String remarks = isMonthEnd ? "Monthly savings interest" : "Daily savings interest credit";
+
+        List<LedgerPostings.Posting> postings = new ArrayList<>();
+        for (Object[] acc : eligibleAccounts) {
+            BigDecimal interestAmount = (BigDecimal) acc[1];
+            if (interestAmount != null && interestAmount.compareTo(BigDecimal.ZERO) > 0) {
+                Long accountId = (Long) acc[0];
+                postings.add(new LedgerPostings.Posting(
+                        refPrefix + String.format("%06d", accountId),
+                        GL_INTEREST_EXPENSE,
+                        accountId,
+                        interestAmount,
+                        remarks
+                ));
+            }
+        }
+
+        Map<String, String> outcomes = ledgerPostings.post(batchRunId, getStepName(), postings);
+
+        int processed = 0;
+        int refused = 0;
+        BigDecimal totalInterest = BigDecimal.ZERO;
+        for (LedgerPostings.Posting posting : postings) {
+            String errorCode = outcomes.get(posting.referenceNo());
+            if (errorCode != null) {
+                if (!LedgerPostings.ALREADY_USED.equals(errorCode)) {
+                    refused++;
+                    log.warn("[BatchRun #{}] Interest {} for account #{} refused by the ledger: {}",
+                            batchRunId, posting.referenceNo(), posting.creditAccountId(), errorCode);
+                }
+                continue;
+            }
+            processed++;
+            totalInterest = totalInterest.add(posting.amount());
+
+            // Resolve official account number (e.g. ACC_10000001) and customer ID
+            LedgerAuditHelper.AccountInfo accountInfo = ledgerAuditHelper.getAccountInfo(posting.creditAccountId());
+            if (accountInfo == null) {
+                log.warn("[BatchRun #{}] Interest {} is credited, but its owner could not be read; no notification sent",
+                        batchRunId, posting.referenceNo());
+                continue;
+            }
+            notificationDispatcherHelper.dispatchInterestNotification(
+                    accountInfo.customerId(),
+                    posting.creditAccountId(),
+                    accountInfo.accountNumber(),
+                    posting.amount(),
+                    posting.referenceNo()
+            );
+        }
+
+        String summaryPrefix = isMonthEnd
+                ? "Month-end interest capitalization credited across "
+                : "Daily savings interest credited across ";
+        log.info("[BatchRun #{}] INTEREST_ACCRUAL completed: {} credited, {} refused, totalAmount={}",
+                batchRunId, processed, refused, totalInterest);
+
+        return BatchStepResult.builder()
+                .success(true)
+                .itemsProcessed(processed)
+                .totalAmount(totalInterest)
+                .message(summaryPrefix + processed + " savings accounts"
+                        + (refused > 0 ? "; " + refused + " refused by the ledger" : ""))
+                .build();
     }
 
     /**
@@ -154,7 +143,7 @@ public class InterestAccrualStep implements BatchStepExecutor {
                 "INNER JOIN (" +
                 "    SELECT account_id, MAX(audit_id) AS max_id " +
                 "    FROM audit_store.ledger_mutation_audit " +
-                "    WHERE account_id < 9000 AND DATE(event_timestamp) <= ? " +
+                "    WHERE account_id NOT BETWEEN 9000 AND 9999 AND DATE(event_timestamp) <= ? " +
                 "    GROUP BY account_id" +
                 ") m ON a.audit_id = m.max_id " +
                 "WHERE a.new_balance >= 1000",

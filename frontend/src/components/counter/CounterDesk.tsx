@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { staffApi } from '../../services/api';
+import type { StaffAccountSummary } from '../../types/staff-bff';
 import { formatCurrency, formatTimestamp, generateUUID } from '../../lib/utils';
 import {
   Coins,
@@ -13,21 +14,43 @@ import {
   Printer,
   QrCode,
   ExternalLink,
-  RotateCcw,
   ShieldAlert,
 } from 'lucide-react';
 
 type CounterTab = 'DEPOSIT' | 'WITHDRAW' | 'TRANSFER';
+
+const normalizeInitialAccountInput = (raw: string | null): string => {
+  if (!raw) return 'ACC_10000001';
+  const trimmed = raw.trim().toUpperCase();
+  if (trimmed.startsWith('ACC_') || trimmed.startsWith('LN_')) return trimmed;
+  const num = parseInt(trimmed, 10);
+  if (!isNaN(num) && num > 0) {
+    return num > 10000000 ? `ACC_${num}` : `ACC_${10000000 + num}`;
+  }
+  return trimmed;
+};
 
 export const CounterDesk: React.FC = () => {
   const { isTeller, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<CounterTab>('DEPOSIT');
+  const initialMode = searchParams.get('mode')?.toUpperCase();
+  const [activeTab, setActiveTab] = useState<CounterTab>(
+    initialMode === 'WITHDRAW' || initialMode === 'WITHDRAWAL'
+      ? 'WITHDRAW'
+      : initialMode === 'TRANSFER'
+      ? 'TRANSFER'
+      : 'DEPOSIT'
+  );
 
-  // Form State
-  const [accountId, setAccountId] = useState(searchParams.get('accountId') || '1');
+  // Accounts Directory for resolving ACC_XXXXXXX <-> accountId
+  const [accounts, setAccounts] = useState<StaffAccountSummary[]>([]);
+
+  // Form State (accepts ACC_XXXXXXX format)
+  const [accountInput, setAccountInput] = useState(() =>
+    normalizeInitialAccountInput(searchParams.get('accountId') || searchParams.get('accountNumber'))
+  );
   const [destinationAccount, setDestinationAccount] = useState('ACC_10000002');
   const [amount, setAmount] = useState('1000.00');
   const [remarks, setRemarks] = useState('Counter posting transaction');
@@ -38,7 +61,89 @@ export const CounterDesk: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<any | null>(null);
 
-  // If Admin attempts to select assisted transfer, revert to Deposit
+  const loadAccountsDirectory = async () => {
+    try {
+      const list = await staffApi.getAllAccounts();
+      if (Array.isArray(list)) {
+        setAccounts(list);
+        // If URL passed a numeric accountId that maps to a non-sequential ACC_XXXXXXX, sync display
+        const rawParam = searchParams.get('accountId')?.trim();
+        if (rawParam && /^\d+$/.test(rawParam)) {
+          const matchById = list.find((a) => a.accountId === parseInt(rawParam, 10));
+          if (matchById?.accountNumber) {
+            setAccountInput(matchById.accountNumber);
+          }
+        }
+      }
+    } catch {
+      // Non-blocking fallback to pattern resolution if directory fetch fails
+    }
+  };
+
+  useEffect(() => {
+    loadAccountsDirectory();
+  }, []);
+
+  // Resolve user input (e.g. "ACC_10000001", "ACC_D3CF90C0", or "1") to internal numeric ID + display number
+  const resolveAccount = (
+    rawInput: string
+  ): { accountId: number; accountNumber: string; summary?: StaffAccountSummary } | null => {
+    const cleaned = rawInput.trim().toUpperCase();
+    if (!cleaned) return null;
+
+    // 1. Exact match by accountNumber in directory (handles ACC_10000001 and hex ACC_D3CF90C0)
+    const exactMatch = accounts.find((a) => a.accountNumber?.toUpperCase() === cleaned);
+    if (exactMatch) {
+      return {
+        accountId: exactMatch.accountId,
+        accountNumber: exactMatch.accountNumber,
+        summary: exactMatch,
+      };
+    }
+
+    // 2. Match if user omitted "ACC_" prefix (e.g. "10000001" or "D3CF90C0")
+    const prefixedMatch = accounts.find(
+      (a) => a.accountNumber?.toUpperCase() === `ACC_${cleaned}`
+    );
+    if (prefixedMatch) {
+      return {
+        accountId: prefixedMatch.accountId,
+        accountNumber: prefixedMatch.accountNumber,
+        summary: prefixedMatch,
+      };
+    }
+
+    // 3. Sequential ACC_100000XX or raw numeric ID fallback
+    const seqMatch = cleaned.match(/^(?:ACC_)?(\d+)$/i);
+    if (seqMatch) {
+      const num = parseInt(seqMatch[1], 10);
+      if (!isNaN(num) && num > 0) {
+        const internalId = num > 10000000 ? num - 10000000 : num;
+        const byId = accounts.find((a) => a.accountId === internalId);
+        if (byId) {
+          return {
+            accountId: byId.accountId,
+            accountNumber: byId.accountNumber,
+            summary: byId,
+          };
+        }
+        if (internalId > 0) {
+          return {
+            accountId: internalId,
+            accountNumber: num > 10000000 ? `ACC_${num}` : `ACC_${10000000 + internalId}`,
+          };
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const resolvedSourceAccount = resolveAccount(accountInput);
+  const resolvedDestAccount =
+    activeTab === 'TRANSFER' ? resolveAccount(destinationAccount) : null;
+
+  // If Branch Manager attempts to select assisted transfer, revert to Deposit
   useEffect(() => {
     if (isAdmin && !isTeller && activeTab === 'TRANSFER') {
       setActiveTab('DEPOSIT');
@@ -61,11 +166,22 @@ export const CounterDesk: React.FC = () => {
     setError(null);
     setLoading(true);
 
-    const parsedAccountId = parseInt(accountId, 10);
+    const resolved = resolveAccount(accountInput);
     const parsedAmount = parseFloat(amount);
 
-    if (isNaN(parsedAccountId) || parsedAccountId <= 0) {
-      setError('Please provide a valid numeric account ID.');
+    if (!resolved || resolved.accountId <= 0) {
+      setError(
+        'Please enter a valid Account Number (e.g. ACC_10000001) or select an active account from the list.'
+      );
+      setLoading(false);
+      return;
+    }
+
+    const parsedAccountId = resolved.accountId;
+    const normalizedDest = destinationAccount.trim().toUpperCase();
+
+    if (activeTab === 'TRANSFER' && !normalizedDest) {
+      setError('Please provide a valid Destination Account Number (e.g. ACC_10000002).');
       setLoading(false);
       return;
     }
@@ -79,7 +195,7 @@ export const CounterDesk: React.FC = () => {
     // One key and one reference per operation, not per click. If the answer is lost after the
     // ledger has posted, pressing the button again sends the same two and the ledger answers
     // from what it already did; a new pair would post the cash a second time.
-    const operation = `${activeTab}|${parsedAccountId}|${parsedAmount.toFixed(2)}|${destinationAccount}`;
+    const operation = `${activeTab}|${parsedAccountId}|${parsedAmount.toFixed(2)}|${normalizedDest}`;
     if (pending.current?.operation !== operation) {
       pending.current = {
         operation,
@@ -115,7 +231,7 @@ export const CounterDesk: React.FC = () => {
         result = await staffApi.assistedTransfer(
           {
             sourceAccountId: parsedAccountId,
-            destinationAccountNumber: destinationAccount,
+            destinationAccountNumber: resolvedDestAccount?.accountNumber || normalizedDest,
             destinationBankCode: 'COOBS',
             amount: parsedAmount.toFixed(2),
             currency: 'PHP',
@@ -129,7 +245,11 @@ export const CounterDesk: React.FC = () => {
       setReceiptData({
         type: activeTab,
         accountId: parsedAccountId,
-        destinationAccount: activeTab === 'TRANSFER' ? destinationAccount : null,
+        accountNumber: resolved.accountNumber,
+        destinationAccount:
+          activeTab === 'TRANSFER'
+            ? resolvedDestAccount?.accountNumber || normalizedDest
+            : null,
         amount: parsedAmount.toFixed(2),
         referenceNo: result?.referenceNo || result?.transactionReference || referenceNo,
         transactionId: result?.transactionId || generateUUID(),
@@ -137,6 +257,7 @@ export const CounterDesk: React.FC = () => {
         newBalance: result?.newBalance ?? result?.balance ?? null,
       });
       pending.current = null;
+      loadAccountsDirectory();
     } catch (err: any) {
       setError(err.message || 'Counter operation failed. Please check balance and account status.');
     } finally {
@@ -232,23 +353,67 @@ export const CounterDesk: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Account Directory Datalist for Quick Autocomplete */}
+          <datalist id="counter-accounts-list">
+            {accounts
+              .filter((a) => a.status !== 'CLOSED')
+              .map((acc) => (
+                <option
+                  key={acc.accountId}
+                  value={acc.accountNumber}
+                  label={`${acc.accountType} • ${acc.status} • Avail: ${formatCurrency(acc.availableBalance)}`}
+                />
+              ))}
+          </datalist>
+
           {/* Account Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-[#1E3A5F] uppercase tracking-wider mb-1.5">
-                {activeTab === 'TRANSFER' ? 'Source Account ID' : 'Target Account ID'}
+                {activeTab === 'TRANSFER' ? 'Source Account Number' : 'Target Account Number'}
               </label>
               <input
-                type="number"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
+                type="text"
+                list="counter-accounts-list"
+                value={accountInput}
+                onChange={(e) => setAccountInput(e.target.value.toUpperCase())}
                 required
-                className="w-full px-3.5 py-2.5 text-sm bg-white border border-[#CBD5E1] rounded-lg text-[#1E3A5F] font-mono focus:ring-2 focus:ring-[#2563EB] focus:outline-none"
-                placeholder="e.g. 1"
+                className="w-full px-3.5 py-2.5 text-sm bg-white border border-[#CBD5E1] rounded-lg text-[#1E3A5F] font-mono focus:ring-2 focus:ring-[#2563EB] focus:outline-none uppercase"
+                placeholder="e.g. ACC_10000001"
               />
-              <span className="text-[11px] text-[#64748B] mt-1 block">
-                Internal Account primary ID key
-              </span>
+              {resolvedSourceAccount?.summary ? (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-mono text-[#1E3A5F] bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-1 rounded-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="font-bold">{resolvedSourceAccount.accountNumber}</span>
+                  <span>&bull;</span>
+                  <span className="text-[#64748B]">{resolvedSourceAccount.summary.accountType}</span>
+                  <span>&bull;</span>
+                  <span
+                    className={
+                      resolvedSourceAccount.summary.status === 'ACTIVE'
+                        ? 'text-emerald-600 font-semibold'
+                        : 'text-amber-600 font-semibold'
+                    }
+                  >
+                    {resolvedSourceAccount.summary.status}
+                  </span>
+                  <span>&bull;</span>
+                  <span className="text-[#64748B]">
+                    Avail:{' '}
+                    <strong className="text-[#1E3A5F]">
+                      {formatCurrency(resolvedSourceAccount.summary.availableBalance)}
+                    </strong>
+                  </span>
+                </div>
+              ) : resolvedSourceAccount ? (
+                <span className="text-[11px] font-mono text-emerald-700 mt-1 block">
+                  Resolved Account: <strong>{resolvedSourceAccount.accountNumber}</strong>
+                </span>
+              ) : (
+                <span className="text-[11px] text-[#64748B] mt-1 block">
+                  Enter account number in <span className="font-mono font-semibold">ACC_XXXXXXX</span> format
+                </span>
+              )}
             </div>
 
             {activeTab === 'TRANSFER' && (
@@ -258,15 +423,29 @@ export const CounterDesk: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  list="counter-accounts-list"
                   value={destinationAccount}
-                  onChange={(e) => setDestinationAccount(e.target.value)}
+                  onChange={(e) => setDestinationAccount(e.target.value.toUpperCase())}
                   required
-                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-[#CBD5E1] rounded-lg text-[#1E3A5F] font-mono focus:ring-2 focus:ring-[#2563EB] focus:outline-none"
+                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-[#CBD5E1] rounded-lg text-[#1E3A5F] font-mono focus:ring-2 focus:ring-[#2563EB] focus:outline-none uppercase"
                   placeholder="e.g. ACC_10000002"
                 />
-                <span className="text-[11px] text-[#64748B] mt-1 block">
-                  Target destination account string
-                </span>
+                {resolvedDestAccount?.summary ? (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-mono text-[#1E3A5F] bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-1 rounded-md">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <span className="font-bold">{resolvedDestAccount.accountNumber}</span>
+                    <span>&bull;</span>
+                    <span className="text-[#64748B]">{resolvedDestAccount.summary.accountType}</span>
+                    <span>&bull;</span>
+                    <span className="text-emerald-600 font-semibold">
+                      {resolvedDestAccount.summary.status}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-[#64748B] mt-1 block">
+                    Target beneficiary account in <span className="font-mono font-semibold">ACC_XXXXXXX</span> format
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -417,7 +596,9 @@ export const CounterDesk: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-[#64748B]">Account:</span>
-                <span className="font-bold text-[#1E3A5F]">ACC_ID #{receiptData.accountId}</span>
+                <span className="font-bold text-[#1E3A5F]">
+                  {receiptData.accountNumber || `ACC_${10000000 + Number(receiptData.accountId)}`}
+                </span>
               </div>
               {receiptData.destinationAccount && (
                 <div className="flex justify-between">
