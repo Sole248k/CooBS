@@ -37,20 +37,19 @@ public class InterbankController {
 
     /**
      * Endpoint 1: Receive an inbound transfer.
-     * Mapped to both standard /transfers and Jira FIN-407 /transfers/inbound.
+     * Mapped to standard /transfers, Jira FIN-407 /transfers/inbound, and partner /transfers/inward.
      */
-    @PostMapping({"/transfers", "/transfers/inbound"})
+    @PostMapping({"/transfers", "/transfers/inbound", "/transfers/inward"})
     public ResponseEntity<InterbankTransferResponse> receiveInboundTransfer(
             @RequestHeader(value = "X-Bank-Code", required = false) String bankCode,
             @RequestHeader(value = "X-Timestamp", required = false) String timestamp,
             @RequestHeader(value = "X-Signature", required = false) String signature,
             @RequestHeader(value = "X-Api-Key", required = false) String apiKey,
+            @RequestHeader(value = "X-Interbank-API-Key", required = false) String interbankApiKey,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestBody(required = false) String rawBody) {
 
         log.info("Received inbound interbank transfer request from bankCode={}, timestamp={}", bankCode, timestamp);
-
-        // 1. Authenticate request via signature or API key
-        authValidator.validate(bankCode, timestamp, signature, apiKey, rawBody != null ? rawBody : "");
 
         if (rawBody == null || rawBody.isBlank()) {
             return ResponseEntity.badRequest().body(
@@ -58,7 +57,7 @@ public class InterbankController {
             );
         }
 
-        // 2. Deserialize request
+        // 1. Deserialize request
         InterbankTransferRequest request;
         try {
             request = objectMapper.readValue(rawBody, InterbankTransferRequest.class);
@@ -68,6 +67,12 @@ public class InterbankController {
                     InterbankTransferResponse.rejected("unknown", "INVALID_REQUEST", "Malformed JSON payload.", Instant.now().toString())
             );
         }
+
+        // 2. Resolve authentication credentials (supporting standard X-Api-Key, X-Interbank-API-Key, and Bearer token)
+        String effectiveApiKey = resolveApiKey(apiKey, interbankApiKey, authorization);
+        String effectiveBankCode = (bankCode != null && !bankCode.isBlank()) ? bankCode : request.getSourceBankCode();
+
+        authValidator.validate(effectiveBankCode, timestamp, signature, effectiveApiKey, rawBody);
 
         // 3. Bean Validation
         Set<ConstraintViolation<InterbankTransferRequest>> violations = validator.validate(request);
@@ -98,7 +103,7 @@ public class InterbankController {
         // 5. Process transfer
         InterbankTransferResponse response = interbankService.processInboundTransfer(request);
 
-        if ("ACCEPTED".equalsIgnoreCase(response.getStatus())) {
+        if ("ACCEPTED".equalsIgnoreCase(response.getStatus()) || "COMPLETED".equalsIgnoreCase(response.getStatus())) {
             return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
@@ -114,18 +119,20 @@ public class InterbankController {
             @RequestHeader(value = "X-Bank-Code", required = false) String bankCode,
             @RequestHeader(value = "X-Timestamp", required = false) String timestamp,
             @RequestHeader(value = "X-Signature", required = false) String signature,
-            @RequestHeader(value = "X-Api-Key", required = false) String apiKey) {
+            @RequestHeader(value = "X-Api-Key", required = false) String apiKey,
+            @RequestHeader(value = "X-Interbank-API-Key", required = false) String interbankApiKey,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
 
         log.info("Received transfer status enquiry for messageId={}, bankCode={}", messageId, bankCode);
 
-        // Authenticate request (empty body for GET)
-        authValidator.validate(bankCode, timestamp, signature, apiKey, "");
+        String effectiveApiKey = resolveApiKey(apiKey, interbankApiKey, authorization);
+        authValidator.validate(bankCode, timestamp, signature, effectiveApiKey, "");
 
         InterbankTransferResponse response = interbankService.getTransferStatus(messageId);
 
         if ("NOT_FOUND".equalsIgnoreCase(response.getStatus())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        } else if ("ACCEPTED".equalsIgnoreCase(response.getStatus())) {
+        } else if ("ACCEPTED".equalsIgnoreCase(response.getStatus()) || "COMPLETED".equalsIgnoreCase(response.getStatus())) {
             return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(response);
@@ -141,12 +148,14 @@ public class InterbankController {
             @RequestHeader(value = "X-Bank-Code", required = false) String bankCode,
             @RequestHeader(value = "X-Timestamp", required = false) String timestamp,
             @RequestHeader(value = "X-Signature", required = false) String signature,
-            @RequestHeader(value = "X-Api-Key", required = false) String apiKey) {
+            @RequestHeader(value = "X-Api-Key", required = false) String apiKey,
+            @RequestHeader(value = "X-Interbank-API-Key", required = false) String interbankApiKey,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
 
         log.info("Received account check for accountNumber={}, bankCode={}", accountNumber, bankCode);
 
-        // Authenticate request (empty body for GET)
-        authValidator.validate(bankCode, timestamp, signature, apiKey, "");
+        String effectiveApiKey = resolveApiKey(apiKey, interbankApiKey, authorization);
+        authValidator.validate(bankCode, timestamp, signature, effectiveApiKey, "");
 
         InterbankAccountLookupResponse response = interbankService.checkAccount(accountNumber);
 
@@ -154,6 +163,19 @@ public class InterbankController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
         return ResponseEntity.ok(response);
+    }
+
+    private String resolveApiKey(String apiKey, String interbankApiKey, String authorization) {
+        if (apiKey != null && !apiKey.isBlank()) {
+            return apiKey;
+        }
+        if (interbankApiKey != null && !interbankApiKey.isBlank()) {
+            return interbankApiKey;
+        }
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            return authorization.substring(7).trim();
+        }
+        return null;
     }
 
     @ExceptionHandler(InterbankAuthException.class)

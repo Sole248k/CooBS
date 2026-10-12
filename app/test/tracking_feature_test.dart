@@ -22,7 +22,7 @@ void main() {
       expect(milestones[0].status, MilestoneStatus.completed);
       expect(milestones[0].service, 'transaction-service');
 
-      expect(milestones[1].title, 'AML Screened');
+      expect(milestones[1].title, 'Risk & AML Screened');
       expect(milestones[1].status, MilestoneStatus.completed);
       expect(milestones[1].details, contains('score 0.15'));
 
@@ -118,7 +118,7 @@ void main() {
       // Verify header elements and 4 milestone titles
       expect(find.text('Transaction Milestones'), findsOneWidget);
       expect(find.text('Ingress Received'), findsWidgets);
-      expect(find.text('AML Screened'), findsWidgets);
+      expect(find.text('Risk & AML Screened'), findsWidgets);
       expect(find.text('Ledger Posted'), findsWidgets);
       expect(find.text('Dispatched'), findsWidgets);
       expect(find.text('Customer (4)'), findsOneWidget);
@@ -143,8 +143,8 @@ void main() {
       );
       await tester.pump();
 
-      // Tap on AML Screened node
-      final amlNode = find.text('AML Screened').first;
+      // Tap on Risk & AML Screened node
+      final amlNode = find.text('Risk & AML Screened').first;
       await tester.tap(amlNode);
       await tester.pump();
 
@@ -267,7 +267,7 @@ void main() {
 
       expect(find.text('Transaction Milestones'), findsOneWidget);
       expect(find.text('Ingress Received'), findsWidgets);
-      expect(find.text('AML Screened'), findsWidgets);
+      expect(find.text('Risk & AML Screened'), findsWidgets);
     });
 
     testWidgets('Customer transaction mode hides staff toggle and only displays 4 milestone steps', (tester) async {
@@ -291,7 +291,7 @@ void main() {
       // Customer sees 4 milestones
       expect(find.text('Transaction Milestones'), findsOneWidget);
       expect(find.text('Ingress Received'), findsWidgets);
-      expect(find.text('AML Screened'), findsWidgets);
+      expect(find.text('Risk & AML Screened'), findsWidgets);
       expect(find.text('Ledger Posted'), findsWidgets);
       expect(find.text('Dispatched'), findsWidgets);
 
@@ -301,6 +301,46 @@ void main() {
       expect(find.text('11-Stage Microservice Saga Decomposition'), findsNothing);
       expect(find.textContaining('AUDIT INSPECTOR'), findsNothing);
       expect(find.textContaining('MILESTONE 4 STATUS'), findsOneWidget);
+    });
+
+    test('Customer timeline mapping surfaces Risk & AML Screened with explicit risk explanation on RISK_DECLINED', () {
+      final customerFailedTimeline = TransactionTimelineResponse(
+        trackingReference: 'TX-20261012-452F2E61',
+        view: 'CUSTOMER',
+        currentStage: 2,
+        totalStages: 3,
+        overallStatus: 'FAILED',
+        failureMessage: 'RISK_DECLINED',
+        stages: [
+          TimelineStage(
+            stageNumber: 1,
+            stageKey: 'SUBMITTED',
+            title: 'Transfer Submitted',
+            subtitle: 'Your transfer request has been received and verified.',
+            status: 'COMPLETED',
+          ),
+          TimelineStage(
+            stageNumber: 2,
+            stageKey: 'IN_REVIEW',
+            title: 'Security & Clearing',
+            subtitle: 'Automated security screening and cooperative network clearing.',
+            status: 'FAILED',
+          ),
+          TimelineStage(
+            stageNumber: 3,
+            stageKey: 'COMPLETED',
+            title: 'Transfer Completed',
+            subtitle: 'Funds have been successfully deposited into the recipient account.',
+            status: 'PENDING',
+          ),
+        ],
+      );
+
+      final milestones = MilestoneMapper.mapFromTimeline(customerFailedTimeline);
+      expect(milestones.length, 4);
+      expect(milestones[1].title, 'Risk & AML Screened');
+      expect(milestones[1].status, MilestoneStatus.failed);
+      expect(milestones[1].description, contains('Declined by automated risk engine'));
     });
   });
 }

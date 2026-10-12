@@ -39,7 +39,7 @@ public class InterbankTransferRequest {
     private Beneficiary beneficiary;
 
     @NotBlank(message = "amount is required")
-    @Pattern(regexp = "^\\d+(\\.\\d{2})?$", message = "amount must have at most two decimal places")
+    @Pattern(regexp = "^\\d+(\\.\\d{1,2})?$", message = "amount must have at most two decimal places")
     private String amount;
 
     @NotBlank(message = "currency is required")
@@ -51,7 +51,6 @@ public class InterbankTransferRequest {
     @NotBlank(message = "senderReference is required")
     private String senderReference;
 
-    @NotBlank(message = "createdAt is required")
     private String createdAt;
 
     @Data

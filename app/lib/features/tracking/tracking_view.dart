@@ -13,7 +13,7 @@ import 'tracking_models.dart';
 
 /// Interactive Visual Stepper & Saga Tracker for Transaction Timelines.
 /// Visualizes the 4-stage business pipeline:
-/// Ingress Received -> AML Screened -> Ledger Posted -> Dispatched.
+/// Ingress Received -> Risk & AML Screened -> Ledger Posted -> Dispatched.
 /// Adapts responsively between horizontal and vertical layouts, supports
 /// auto-polling until terminal state, failure message rendering, and role-based view switching.
 class TrackingView extends StatefulWidget {
@@ -288,9 +288,13 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark || kDark;
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 640;
+        final isWide = constraints.maxWidth >= 720 &&
+            !widget.embedded &&
+            MediaQuery.of(context).orientation == Orientation.landscape;
 
         return Material(
           color: Colors.transparent,
@@ -307,14 +311,16 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (!widget.embedded) ...[
-                        _buildSearchAndHeader(),
+                        _buildSearchAndHeader(isDark: isDark),
                         const SizedBox(height: 16),
                       ],
                       if (_isLoading)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 60),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40),
                           child: Center(
-                            child: CircularProgressIndicator(color: AppTheme.navyPrimary),
+                            child: CircularProgressIndicator(
+                              color: isDark ? const Color(0xFF00B4D8) : AppTheme.brandCyan,
+                            ),
                           ),
                         )
                       else if (_isUnavailable)
@@ -330,24 +336,26 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                           },
                         )
                       else if (_errorMessage != null)
-                        _buildErrorCard(_errorMessage!)
+                        _buildErrorCard(_errorMessage!, isDark: isDark)
                       else ...[
                         if (_rawTimeline?.failureMessage != null) ...[
-                          _buildFailureBanner(_rawTimeline!.failureMessage!),
+                          _buildFailureBanner(_rawTimeline!.failureMessage!, isDark: isDark),
                           const SizedBox(height: 16),
                         ],
-                        _buildHeaderBadgesAndModeToggle(),
-                        const SizedBox(height: 16),
+                        _buildHeaderBadgesAndModeToggle(isDark: isDark),
+                        const SizedBox(height: 14),
                         if (_pollingPaused) ...[
-                          _buildPollingPausedNotice(),
-                          const SizedBox(height: 16),
+                          _buildPollingPausedNotice(isDark: isDark),
+                          const SizedBox(height: 14),
                         ],
                         if (_effectiveStaffMode && _rawTimeline != null && _rawTimeline!.stages.length >= 11)
-                          _build11StageDeepDive()
+                          _build11StageDeepDive(isDark: isDark)
                         else ...[
-                          _buildStepperCard(isWide: isWide),
-                          const SizedBox(height: 16),
-                          _buildSelectedDetailInspector(),
+                          _buildStepperCard(isWide: isWide, isDark: isDark),
+                          if (isWide) ...[
+                            const SizedBox(height: 16),
+                            _buildSelectedDetailInspector(isDark: isDark),
+                          ],
                         ],
                       ],
                     ],
@@ -361,21 +369,41 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildSearchAndHeader() {
+  Widget _buildSearchAndHeader({required bool isDark}) {
+    final textPrimary = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final brandCyan = isDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: TextField(
             controller: _searchController,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
             decoration: InputDecoration(
               labelText: 'Transaction Reference',
+              labelStyle: TextStyle(color: textSecondary, fontSize: 13),
               hintText: 'e.g. TX-20261003-8F3A21C0',
-              prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppTheme.navyPrimary),
+              hintStyle: TextStyle(color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF0C141F) : Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: brandCyan, width: 1.5),
+              ),
+              prefixIcon: Icon(Icons.search_rounded, size: 20, color: brandCyan),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                icon: Icon(Icons.arrow_forward_rounded, size: 20, color: brandCyan),
                 onPressed: () => _loadTimeline(_searchController.text.trim()),
               ),
             ),
@@ -386,28 +414,37 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         IconButton.filledTonal(
           icon: const Icon(Icons.refresh_rounded),
           tooltip: 'Refresh Timeline',
+          style: IconButton.styleFrom(
+            backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+            foregroundColor: isDark ? const Color(0xFF38BDF8) : brandCyan,
+          ),
           onPressed: () => _loadTimeline(_searchController.text.trim()),
         ),
       ],
     );
   }
 
-  Widget _buildPollingPausedNotice() {
+  Widget _buildPollingPausedNotice({required bool isDark}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.warningAmber.withAlpha(25),
+        color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.3) : const Color(0xFFFFFBEB),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.warningAmber.withAlpha(90)),
+        border: Border.all(
+          color: isDark ? const Color(0xFFD97706).withValues(alpha: 0.5) : const Color(0xFFFDE68A),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.warningAmber, size: 20),
+          const Icon(Icons.pause_circle_outline_rounded, color: Color(0xFFF59E0B), size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Still processing. Automatic updates paused.',
-              style: TextStyle(fontSize: 13, color: kInk),
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
+              ),
             ),
           ),
           TextButton(
@@ -419,18 +456,20 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildFailureBanner(String message) {
+  Widget _buildFailureBanner(String message, {required bool isDark}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.errorCarmine.withAlpha(20),
+        color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.3) : const Color(0xFFFEF2F2),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.errorCarmine.withAlpha(80)),
+        border: Border.all(
+          color: isDark ? const Color(0xFFDC2626).withValues(alpha: 0.5) : const Color(0xFFFECACA),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.cancel_rounded, color: AppTheme.errorCarmine, size: 22),
+          const Icon(Icons.cancel_rounded, color: Color(0xFFEF4444), size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -441,13 +480,16 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.errorCarmine,
+                    color: Color(0xFFEF4444),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   message,
-                  style: TextStyle(fontSize: 13, color: kInk),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
+                  ),
                 ),
               ],
             ),
@@ -457,14 +499,98 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildHeaderBadgesAndModeToggle() {
-    final status = _rawTimeline?.overallStatus ?? 'PROCESSING';
-    final isSuccess = _rawTimeline?.isTerminalSuccess == true;
-    final isFailed = _rawTimeline?.isTerminalFailure == true;
+  Widget _buildProfessionalStatusPill(String status, {required bool isDark}) {
+    final s = status.toUpperCase();
+    final isSuccess = s == 'COMPLETED' || s == 'SUCCESS';
+    final isFailed = s == 'FAILED' || s == 'CANCELLED';
 
-    Color badgeColor = AppTheme.infoBlue;
-    if (isSuccess) badgeColor = AppTheme.successGreen;
-    if (isFailed) badgeColor = AppTheme.errorCarmine;
+    Color bg;
+    Color border;
+    Color fg;
+    IconData icon;
+
+    if (isSuccess) {
+      bg = isDark ? const Color(0xFF064E3B).withValues(alpha: 0.45) : const Color(0xFFECFDF5);
+      border = isDark ? const Color(0xFF059669).withValues(alpha: 0.55) : const Color(0xFFA7F3D0);
+      fg = isDark ? const Color(0xFF34D399) : const Color(0xFF047857);
+      icon = Icons.check_circle_rounded;
+    } else if (isFailed) {
+      bg = isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.4) : const Color(0xFFFEF2F2);
+      border = isDark ? const Color(0xFFDC2626).withValues(alpha: 0.5) : const Color(0xFFFECACA);
+      fg = isDark ? const Color(0xFFF87171) : const Color(0xFFB91C1C);
+      icon = Icons.cancel_rounded;
+    } else {
+      bg = isDark ? const Color(0xFF78350F).withValues(alpha: 0.4) : const Color(0xFFFFFBEB);
+      border = isDark ? const Color(0xFFD97706).withValues(alpha: 0.5) : const Color(0xFFFDE68A);
+      fg = isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309);
+      icon = Icons.sync_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: fg),
+          const SizedBox(width: 5),
+          Text(
+            status,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: fg,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderBadgesAndModeToggle({required bool isDark}) {
+    final status = _rawTimeline?.overallStatus ?? 'PROCESSING';
+    final textPrimary = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+    final brandCyan = isDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE);
+
+    if (widget.embedded) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            'Transfer status',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: textPrimary,
+              letterSpacing: -0.2,
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildProfessionalStatusPill(status, isDark: isDark),
+              if (_isAutoPolling) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: brandCyan,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      );
+    }
 
     return Wrap(
       alignment: WrapAlignment.spaceBetween,
@@ -478,40 +604,41 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: AppTheme.navyPrimary.withAlpha(20),
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'REF: ${_rawTimeline?.trackingReference ?? _searchController.text}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.navyPrimary,
+                border: Border.all(
+                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
                 ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: badgeColor.withAlpha(25),
-                borderRadius: BorderRadius.circular(8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.tag_rounded,
+                    size: 13,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'REF: ${_rawTimeline?.trackingReference ?? _searchController.text}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? const Color(0xFF38BDF8) : brandCyan,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
               ),
-              child: Text(
-                status,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: badgeColor,
-                ),
-              ),
             ),
+            _buildProfessionalStatusPill(status, isDark: isDark),
             if (_isAutoPolling)
-              const SizedBox(
+              SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.navyPrimary),
+                child: CircularProgressIndicator(strokeWidth: 2, color: brandCyan),
               ),
           ],
         ),
@@ -538,49 +665,115 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
             style: ButtonStyle(
               visualDensity: VisualDensity.compact,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return isDark ? const Color(0xFF1E3A5F) : const Color(0xFFE0F4F8);
+                }
+                return isDark ? const Color(0xFF0C141F) : Colors.white;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return isDark ? const Color(0xFF38BDF8) : brandCyan;
+                }
+                return isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+              }),
+              side: WidgetStateProperty.all(
+                BorderSide(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFCBD5E1),
+                ),
+              ),
             ),
           ),
       ],
     );
   }
 
-  Widget _buildStepperCard({required bool isWide}) {
+  Widget _buildTimelineProgressIndicator({required bool isDark}) {
+    final completedCount = _milestones.where((m) => m.isCompleted).length;
+    final total = _milestones.length;
+    final allDone = total > 0 && completedCount == total;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: allDone
+            ? (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFECFDF5))
+            : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: allDone
+              ? (isDark ? const Color(0xFF059669).withValues(alpha: 0.45) : const Color(0xFFA7F3D0))
+              : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+        ),
+      ),
+      child: Text(
+        '$completedCount of $total stages',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: allDone
+              ? (isDark ? const Color(0xFF34D399) : const Color(0xFF047857))
+              : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepperCard({required bool isWide, required bool isDark}) {
+    final textPrimary = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
     return Card(
       elevation: 0,
+      color: isDark ? const Color(0xFF0C141F) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Transaction Milestones',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: kDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Transaction Milestones',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textPrimary,
+                    ),
+                  ),
+                ),
+                _buildTimelineProgressIndicator(isDark: isDark),
+              ],
             ),
             const SizedBox(height: 6),
             Text(
               'Tap any milestone checkpoint to inspect service telemetry and execution records.',
               style: TextStyle(
                 fontSize: 12,
-                color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                color: textSecondary,
               ),
             ),
-            const SizedBox(height: 24),
-            isWide ? _buildHorizontalStepper() : _buildVerticalStepper(),
+            const SizedBox(height: 20),
+            isWide ? _buildHorizontalStepper(isDark: isDark) : _buildVerticalStepper(isDark: isDark),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHorizontalStepper() {
+  Widget _buildHorizontalStepper({required bool isDark}) {
+    final brandCyan = isDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE);
+    final textPrimary = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: List.generate(_milestones.length * 2 - 1, (i) {
@@ -592,7 +785,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
               margin: const EdgeInsets.only(top: 18),
               height: 3,
               decoration: BoxDecoration(
-                color: isCompleted ? AppTheme.emeraldAccent : AppTheme.borderSubtle,
+                color: isCompleted
+                    ? brandCyan
+                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -611,7 +806,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildMilestoneNode(milestone, isSelected),
+              _buildMilestoneNode(milestone, isSelected, isDark: isDark),
               const SizedBox(height: 10),
               SizedBox(
                 width: 100,
@@ -622,8 +817,8 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                     color: isSelected
-                        ? kNavyFg
-                        : (kDark ? const Color(0xFFCBD5E1) : const Color(0xFF1E293B)),
+                        ? (isDark ? const Color(0xFF38BDF8) : brandCyan)
+                        : textPrimary,
                   ),
                 ),
               ),
@@ -634,119 +829,205 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildVerticalStepper() {
+  Widget _buildVerticalStepper({required bool isDark}) {
+    final brandCyan = isDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE);
+    final textPrimary = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
     return Column(
       children: List.generate(_milestones.length, (idx) {
         final milestone = _milestones[idx];
         final isSelected = _selectedMilestoneIndex == idx;
         final isLast = idx == _milestones.length - 1;
 
-        return InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => setState(() {
-            _selectedMilestoneIndex = idx;
-            _userSelectedMilestone = true;
-          }),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left track: node + vertical connecting line
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Column(
-                  children: [
-                    _buildMilestoneNode(milestone, isSelected),
-                    if (!isLast)
-                      Container(
-                        width: 2,
-                        height: 44,
-                        color: milestone.isCompleted ? AppTheme.emeraldAccent : AppTheme.borderSubtle,
-                      ),
-                  ],
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _selectedMilestoneIndex = idx;
+                    _userSelectedMilestone = true;
+                  }),
+                  child: _buildMilestoneNode(milestone, isSelected, isDark: isDark),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              milestone.title,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? kNavyFg : kInk,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildStatusPill(milestone.status, isDlq: milestone.isDlq, retryAttempts: milestone.retryAttempts),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        milestone.description,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
-                        ),
-                      ),
-                      if (milestone.isDlq && milestone.dlqTopic != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'DLQ Topic: ${milestone.dlqTopic}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFFDC2626), fontWeight: FontWeight.w600, fontFamily: 'monospace'),
-                        ),
-                      ],
-                    ],
+                if (!isLast)
+                  Container(
+                    width: 2.5,
+                    height: isSelected ? 80 : 44,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: milestone.isCompleted
+                          ? brandCyan
+                          : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
               ],
             ),
-          ),
-        );
-      }),
-    );
+            const SizedBox(width: 14),
+            // Right content
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => setState(() {
+                    _selectedMilestoneIndex = idx;
+                    _userSelectedMilestone = true;
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? (isDark ? const Color(0xFF111E2E) : const Color(0xFFF8FAFC))
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? (isDark ? const Color(0xFF23354E) : const Color(0xFFCBD5E1))
+                            : (isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9)),
+                        width: 1,
+                      ),
+                    ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  milestone.title,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected
+                                        ? (isDark ? const Color(0xFF38BDF8) : brandCyan)
+                                        : textPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildStatusPill(
+                                milestone.status,
+                                isDlq: milestone.isDlq,
+                                retryAttempts: milestone.retryAttempts,
+                                isDark: isDark,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            milestone.description,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: textSecondary,
+                              height: 1.35,
+                            ),
+                          ),
+                          if (milestone.timestamp != null) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 13,
+                                  color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    _dateFormat.format(milestone.timestamp!),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (milestone.isDlq && milestone.dlqTopic != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'DLQ Topic: ${milestone.dlqTopic}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFFDC2626),
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                          if (isSelected) ...[
+                            const SizedBox(height: 10),
+                            _buildInlineAuditDetails(milestone, isDark: isDark),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }),
+      );
   }
 
-  Widget _buildMilestoneNode(TrackingMilestone milestone, bool isSelected) {
-    Color bg = AppTheme.borderSubtle;
-    Color border = AppTheme.borderSubtle;
+  Widget _buildMilestoneNode(TrackingMilestone milestone, bool isSelected, {required bool isDark}) {
+    final brandCyan = isDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE);
+    Color bg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+    Color border = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
     Widget icon = Text(
       '${milestone.index}',
       style: TextStyle(
-        color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
         fontSize: 13,
         fontWeight: FontWeight.bold,
       ),
     );
 
     if (milestone.isCompleted) {
-      bg = AppTheme.emeraldAccent;
-      border = AppTheme.emeraldDark;
-      icon = const Icon(Icons.check_rounded, color: AppTheme.navyDark, size: 20);
+      bg = brandCyan;
+      border = isDark ? const Color(0xFF38BDF8) : const Color(0xFF007A99);
+      icon = const Icon(Icons.check_rounded, color: Colors.white, size: 20);
     } else if (milestone.isInProgress) {
-      bg = AppTheme.warningAmber.withAlpha(40);
-      border = AppTheme.warningAmber;
-      icon = const SizedBox(
+      bg = isDark ? const Color(0xFF78350F).withValues(alpha: 0.4) : const Color(0xFFFFFBEB);
+      border = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+      icon = SizedBox(
         width: 16,
         height: 16,
         child: CircularProgressIndicator(
           strokeWidth: 2.2,
-          color: AppTheme.warningAmber,
+          color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
         ),
       );
     } else if (milestone.isFailed) {
       if (milestone.isDlq) {
-        bg = const Color(0xFFFEE2E2);
-        border = AppTheme.errorCarmine;
-        icon = const Icon(Icons.sync_problem_rounded, color: AppTheme.errorCarmine, size: 20);
+        bg = isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.45) : const Color(0xFFFEE2E2);
+        border = isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626);
+        icon = Icon(
+          Icons.sync_problem_rounded,
+          color: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
+          size: 20,
+        );
       } else {
-        bg = AppTheme.errorCarmine.withAlpha(30);
-        border = AppTheme.errorCarmine;
-        icon = const Icon(Icons.close_rounded, color: AppTheme.errorCarmine, size: 20);
+        bg = isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEF2F2);
+        border = isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626);
+        icon = Icon(
+          Icons.close_rounded,
+          color: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
+          size: 20,
+        );
       }
     }
 
@@ -758,13 +1039,13 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
         color: bg,
         shape: BoxShape.circle,
         border: Border.all(
-          color: isSelected ? AppTheme.navyPrimary : border,
+          color: isSelected ? (isDark ? const Color(0xFF38BDF8) : brandCyan) : border,
           width: isSelected ? 2.5 : 1.5,
         ),
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: AppTheme.navyPrimary.withAlpha(40),
+                  color: (isDark ? const Color(0xFF00B4D8) : brandCyan).withValues(alpha: 0.35),
                   blurRadius: 8,
                   spreadRadius: 2,
                 )
@@ -783,7 +1064,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.warningAmber.withAlpha((_pulseController.value * 60).toInt()),
+                  color: const Color(0xFFF59E0B).withValues(
+                    alpha: (_pulseController.value * 0.4).clamp(0.0, 1.0),
+                  ),
                   blurRadius: 10 * _pulseController.value,
                   spreadRadius: 3 * _pulseController.value,
                 )
@@ -798,26 +1081,37 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     return node;
   }
 
-  Widget _buildStatusPill(MilestoneStatus status, {bool isDlq = false, int? retryAttempts}) {
+  Widget _buildStatusPill(
+    MilestoneStatus status, {
+    bool isDlq = false,
+    int? retryAttempts,
+    required bool isDark,
+  }) {
     if (isDlq) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
         decoration: BoxDecoration(
-          color: const Color(0xFFEF4444).withAlpha(25),
+          color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEF2F2),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFEF4444).withAlpha(80)),
+          border: Border.all(
+            color: isDark ? const Color(0xFFDC2626).withValues(alpha: 0.5) : const Color(0xFFFCA5A5),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.sync_problem_rounded, size: 12, color: Color(0xFFDC2626)),
+            Icon(
+              Icons.sync_problem_rounded,
+              size: 11,
+              color: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
+            ),
             const SizedBox(width: 4),
             Text(
               retryAttempts != null ? 'DLQ RETRY ($retryAttempts/3)' : 'DLQ ACTIVE',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFDC2626),
+                color: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
                 letterSpacing: 0.5,
               ),
             ),
@@ -827,31 +1121,42 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     }
 
     Color color;
+    Color bg;
+    Color border;
     String label;
     switch (status) {
       case MilestoneStatus.completed:
-        color = AppTheme.successGreen;
+        color = isDark ? const Color(0xFF34D399) : const Color(0xFF047857);
+        bg = isDark ? const Color(0xFF064E3B).withValues(alpha: 0.35) : const Color(0xFFECFDF5);
+        border = isDark ? const Color(0xFF059669).withValues(alpha: 0.45) : const Color(0xFFA7F3D0);
         label = 'COMPLETED';
         break;
       case MilestoneStatus.inProgress:
-        color = AppTheme.warningAmber;
+        color = isDark ? const Color(0xFFFBBF24) : const Color(0xFFB45309);
+        bg = isDark ? const Color(0xFF78350F).withValues(alpha: 0.35) : const Color(0xFFFFFBEB);
+        border = isDark ? const Color(0xFFD97706).withValues(alpha: 0.45) : const Color(0xFFFDE68A);
         label = 'IN PROGRESS';
         break;
       case MilestoneStatus.failed:
-        color = AppTheme.errorCarmine;
+        color = isDark ? const Color(0xFFF87171) : const Color(0xFFB91C1C);
+        bg = isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.35) : const Color(0xFFFEF2F2);
+        border = isDark ? const Color(0xFFDC2626).withValues(alpha: 0.45) : const Color(0xFFFECACA);
         label = 'FAILED';
         break;
       case MilestoneStatus.pending:
-        color = kDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
+        color = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+        bg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
+        border = isDark ? const Color(0xFF334155).withValues(alpha: 0.5) : const Color(0xFFE2E8F0);
         label = 'PENDING';
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
       decoration: BoxDecoration(
-        color: color.withAlpha(25),
+        color: bg,
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border, width: 1),
       ),
       child: Text(
         label,
@@ -865,17 +1170,130 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildSelectedDetailInspector() {
+  Widget _buildInlineAuditDetails(TrackingMilestone m, {required bool isDark}) {
+    final brandCyan = isDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0C141F) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1E2F46) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.analytics_outlined,
+                size: 15,
+                color: isDark ? const Color(0xFF38BDF8) : brandCyan,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _canShowStaffMode
+                      ? 'STAGE ${m.index} AUDIT INSPECTOR'
+                      : 'MILESTONE ${m.index} STATUS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? const Color(0xFF38BDF8) : brandCyan,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_canShowStaffMode) ...[
+            const SizedBox(height: 8),
+            _buildInspectorRow('Responsible Microservice:', m.service, isDark: isDark, stacked: true),
+            if (m.details != null && m.details!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _buildInspectorRow('Audit Telemetry:', m.details!, isDark: isDark, stacked: true),
+            ],
+          ] else ...[
+            if (m.details != null && m.details!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                m.details!,
+                style: TextStyle(fontSize: 12, color: textSecondary),
+              ),
+            ],
+          ],
+          if (m.timestamp != null) ...[
+            const SizedBox(height: 6),
+            _buildInspectorRow('Execution Timestamp:', _dateFormat.format(m.timestamp!), isDark: isDark, stacked: true),
+          ],
+          if (m.isDlq) ...[
+            const SizedBox(height: 10),
+            _buildDlqActionBanner(m, isDark: isDark),
+          ],
+          if (_isStaffMode && m.microserviceSubStages.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Correlated Saga Sub-Stages:',
+              style: TextStyle(
+                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: m.microserviceSubStages.map((sub) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  child: Text(
+                    sub,
+                    style: TextStyle(
+                      color: brandCyan,
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedDetailInspector({required bool isDark}) {
     if (_milestones.isEmpty || _selectedMilestoneIndex >= _milestones.length) {
       return const SizedBox.shrink();
     }
 
     final m = _milestones[_selectedMilestoneIndex];
+    final brandCyan = isDark ? const Color(0xFF00B4D8) : const Color(0xFF0091AE);
+    final textPrimary = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Card(
       elevation: 0,
-      color: AppTheme.navyPrimary,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDark ? const Color(0xFF0C141F) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(22),
         child: Column(
@@ -890,29 +1308,38 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.analytics_outlined, color: AppTheme.emeraldAccent, size: 20),
+                    Icon(
+                      Icons.analytics_outlined,
+                      color: isDark ? const Color(0xFF38BDF8) : brandCyan,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       _canShowStaffMode
                           ? 'STAGE ${m.index} AUDIT INSPECTOR'
                           : 'MILESTONE ${m.index} STATUS',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.emeraldAccent,
+                        color: isDark ? const Color(0xFF38BDF8) : brandCyan,
                         letterSpacing: 0.9,
                       ),
                     ),
                   ],
                 ),
-                _buildStatusPill(m.status, isDlq: m.isDlq, retryAttempts: m.retryAttempts),
+                _buildStatusPill(
+                  m.status,
+                  isDlq: m.isDlq,
+                  retryAttempts: m.retryAttempts,
+                  isDark: isDark,
+                ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
               m.title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -920,99 +1347,32 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
             const SizedBox(height: 6),
             Text(
               m.description,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(color: textSecondary, fontSize: 13),
             ),
-            const Divider(color: Colors.white24, height: 28),
+            Divider(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              height: 28,
+            ),
             if (_canShowStaffMode) ...[
-              _buildInspectorRow('Responsible Microservice:', m.service),
+              _buildInspectorRow('Responsible Microservice:', m.service, isDark: isDark),
               if (m.details != null && m.details!.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                _buildInspectorRow('Audit Telemetry:', m.details!),
+                _buildInspectorRow('Audit Telemetry:', m.details!, isDark: isDark),
               ],
             ],
             if (m.timestamp != null) ...[
               const SizedBox(height: 8),
-              _buildInspectorRow('Execution Timestamp:', _dateFormat.format(m.timestamp!)),
+              _buildInspectorRow('Execution Timestamp:', _dateFormat.format(m.timestamp!), isDark: isDark),
             ],
             if (m.isDlq) ...[
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF7F1D1D).withAlpha(160),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF87171).withAlpha(180)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.sync_problem_rounded, color: Color(0xFFFCA5A5), size: 18),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'DEAD-LETTER QUEUE (DLQ) ACTIVE',
-                          style: TextStyle(
-                            color: Color(0xFFFCA5A5),
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF991B1B),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Attempt ${m.retryAttempts ?? 3}/3',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Kafka message routed to ${m.dlqTopic ?? "notification.events.DLT"}. Exponential backoff retries exhausted.',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                    const SizedBox(height: 10),
-                    ElevatedButton.icon(
-                      onPressed: _isReplayingDlq
-                          ? null
-                          : () => _replayDlqRecord(m.dlqTopic ?? 'notification.events.DLT'),
-                      icon: _isReplayingDlq
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.navyDark),
-                            )
-                          : const Icon(Icons.replay_rounded, size: 14),
-                      label: Text(
-                        _isReplayingDlq ? 'Replaying...' : 'Replay DLQ Record',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emeraldAccent,
-                        foregroundColor: AppTheme.navyDark,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildDlqActionBanner(m, isDark: isDark),
             ],
             if (_isStaffMode && m.microserviceSubStages.isNotEmpty) ...[
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'Correlated Saga Sub-Stages:',
-                style: TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w600),
+                style: TextStyle(color: textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
               Wrap(
@@ -1022,14 +1382,16 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(25),
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.white24),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                      ),
                     ),
                     child: Text(
                       sub,
-                      style: const TextStyle(
-                        color: AppTheme.emeraldAccent,
+                      style: TextStyle(
+                        color: brandCyan,
                         fontSize: 11,
                         fontFamily: 'monospace',
                       ),
@@ -1044,65 +1406,168 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildInspectorRow(String label, String value) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 320) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ],
-          );
-        }
-        return Row(
+  Widget _buildInspectorRow(String label, String value, {required bool isDark, bool stacked = false}) {
+    final textPrimary = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    if (stacked) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 150,
-              child: Text(
-                label,
-                style: const TextStyle(color: Colors.white60, fontSize: 12),
-              ),
+            Text(
+              label,
+              style: TextStyle(color: textSecondary, fontSize: 11),
             ),
-            Expanded(
-              child: Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
-                ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: TextStyle(
+                color: textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
               ),
             ),
           ],
-        );
-      },
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 135,
+            child: Text(
+              label,
+              style: TextStyle(color: textSecondary, fontSize: 11),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _build11StageDeepDive() {
+  Widget _buildDlqActionBanner(TrackingMilestone m, {required bool isDark}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF7F1D1D).withValues(alpha: 0.35)
+            : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFFDC2626).withValues(alpha: 0.6)
+              : const Color(0xFFF87171),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(Icons.sync_problem_rounded, color: Color(0xFFEF4444), size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    'DEAD-LETTER QUEUE (DLQ) ACTIVE',
+                    style: TextStyle(
+                      color: Color(0xFFEF4444),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF991B1B),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Attempt ${m.retryAttempts ?? 3}/3',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Kafka message routed to ${m.dlqTopic ?? "notification.events.DLT"}. Exponential backoff retries exhausted.',
+            style: TextStyle(
+              color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFF7F1D1D),
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            onPressed: _isReplayingDlq
+                ? null
+                : () => _replayDlqRecord(m.dlqTopic ?? 'notification.events.DLT'),
+            icon: _isReplayingDlq
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.replay_rounded, size: 14),
+            label: Text(
+              _isReplayingDlq ? 'Replaying...' : 'Replay DLQ Record',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _build11StageDeepDive({required bool isDark}) {
     final stages = _rawTimeline?.stages ?? [];
+    final textPrimary = isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Card(
       elevation: 0,
+      color: isDark ? const Color(0xFF0C141F) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.borderSubtle),
+        side: BorderSide(
+          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -1114,7 +1579,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: kDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
+                color: textPrimary,
               ),
             ),
             const SizedBox(height: 4),
@@ -1122,10 +1587,13 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
               'Complete internal choreography spanning transaction-service, orchestration-service, and ledger.',
               style: TextStyle(
                 fontSize: 12,
-                color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                color: textSecondary,
               ),
             ),
-            const Divider(height: 24),
+            Divider(
+              height: 24,
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            ),
             if (stages.any((s) => s.isDlq)) ...[
               Builder(
                 builder: (context) {
@@ -1134,9 +1602,11 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
+                      color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.3) : const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFF87171)),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFFDC2626).withValues(alpha: 0.6) : const Color(0xFFF87171),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1148,7 +1618,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                             const Text(
                               'DEAD-LETTER QUEUE (DLQ) DETECTED IN SAGA',
                               style: TextStyle(
-                                color: Color(0xFF991B1B),
+                                color: Color(0xFFDC2626),
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
@@ -1175,7 +1645,10 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                         const SizedBox(height: 6),
                         Text(
                           'Target DLT: ${dlqStage.dlqTopic ?? "notification.events.DLT"} • Retries: ${dlqStage.retryAttempts ?? 3}/3 exhausted',
-                          style: const TextStyle(color: Color(0xFF7F1D1D), fontSize: 12),
+                          style: TextStyle(
+                            color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFF7F1D1D),
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 10),
                         ElevatedButton.icon(
@@ -1216,8 +1689,8 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                       backgroundColor: stage.isDlq
                           ? const Color(0xFFEF4444)
                           : (stage.isCompleted
-                              ? AppTheme.successGreen
-                              : (stage.isInProgress ? AppTheme.warningAmber : AppTheme.borderSubtle)),
+                              ? (isDark ? const Color(0xFF059669) : AppTheme.successGreen)
+                              : (stage.isInProgress ? const Color(0xFFD97706) : (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)))),
                       child: Icon(
                         stage.isDlq
                             ? Icons.sync_problem
@@ -1225,7 +1698,9 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                                 ? Icons.check
                                 : (stage.isInProgress ? Icons.hourglass_top : Icons.circle)),
                         size: 12,
-                        color: Colors.white,
+                        color: stage.isCompleted || stage.isDlq || stage.isInProgress
+                            ? Colors.white
+                            : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1241,7 +1716,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: kDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A),
+                                  color: textPrimary,
                                 ),
                               ),
                               Row(
@@ -1252,15 +1727,15 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       margin: const EdgeInsets.only(right: 6),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFFEE2E2),
+                                        color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.4) : const Color(0xFFFEE2E2),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         'DLQ (${stage.retryAttempts ?? 3}/3)',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFFDC2626),
+                                          color: isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
                                         ),
                                       ),
                                     ),
@@ -1273,8 +1748,8 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                                       color: stage.isDlq
                                           ? const Color(0xFFDC2626)
                                           : (stage.isCompleted
-                                              ? AppTheme.successGreen
-                                              : (kDark ? const Color(0xFF94A3B8) : const Color(0xFF334155))),
+                                              ? (isDark ? const Color(0xFF34D399) : AppTheme.successGreen)
+                                              : textSecondary),
                                     ),
                                   ),
                                 ],
@@ -1286,7 +1761,7 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
                               stage.details!,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: kDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                                color: textSecondary,
                               ),
                             ),
                           if (stage.isDlq && stage.dlqTopic != null)
@@ -1315,24 +1790,34 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildErrorCard(String error) {
+  Widget _buildErrorCard(String error, {required bool isDark}) {
     return Card(
-      color: AppTheme.errorCarmine.withAlpha(20),
+      elevation: 0,
+      color: isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.25) : const Color(0xFFFEF2F2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isDark ? const Color(0xFFDC2626).withValues(alpha: 0.45) : const Color(0xFFFECACA),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: AppTheme.errorCarmine, size: 28),
+            const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 28),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 error,
-                style: const TextStyle(color: AppTheme.errorCarmine, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFDC2626),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             if (widget.embedded)
               IconButton(
-                icon: const Icon(Icons.refresh_rounded, color: AppTheme.errorCarmine),
+                icon: const Icon(Icons.refresh_rounded, color: Color(0xFFEF4444)),
                 tooltip: 'Retry',
                 onPressed: () => _loadTimeline(_searchController.text.trim()),
               ),

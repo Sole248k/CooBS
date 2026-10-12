@@ -8,10 +8,13 @@ import '../kyc/kyc_intake_screen.dart';
 import '../remittance/remittance_screen.dart';
 import '../loans/loan_screens.dart';
 import '../profile/tab_screens.dart';
+import '../qr/qr_screens.dart';
 import '../resilience/service_unavailable_view.dart';
 import '../scores/scores_screen.dart';
 import 'demo_store.dart';
 import 'ui.dart';
+import '../ads/ad_models.dart';
+import '../ads/ad_service.dart';
 
 /// Palette for ambient spot gradients across card swaps.
 class AmbientPalette {
@@ -247,6 +250,11 @@ class _MobileShellState extends State<MobileShell> {
   void initState() {
     super.initState();
     _usernameFuture = SecureStorageService().getUsername();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AdService.maybeShowAd(context);
+      }
+    });
   }
 
   void _goHome() => setState(() => i = _home);
@@ -276,7 +284,14 @@ class _MobileShellState extends State<MobileShell> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            logoBox(height: 20),
+                            InkWell(
+                              onTap: () => AdService.showAd(context),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Tooltip(
+                                message: 'CooBS Display (Tap to view ad banner)',
+                                child: logoBox(height: 20),
+                              ),
+                            ),
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -410,12 +425,12 @@ class _MobileShellState extends State<MobileShell> {
                               child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                                 _NavCircle(Icons.home_outlined, 'Home', i == _home, () => setState(() => i = _home)),
                                 _NavCircle(Icons.bar_chart_rounded, 'Scores and habits', i == _scores, () => setState(() => i = _scores)),
-                                _TransferNavButton(
+                                _QrNavButton(
                                   () {
                                     final curAccIdx = Demo.i.cur < Demo.i.accts.length ? Demo.i.cur : 0;
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (_) => RemittanceScreen(from: curAccIdx)),
+                                      MaterialPageRoute(builder: (_) => QrHomeScreen(from: curAccIdx)),
                                     );
                                   },
                                 ),
@@ -494,17 +509,17 @@ class _NavCircle extends StatelessWidget {
       );
 }
 
-/// Center main action button: prominent brand-colored button for Transfer (add button).
-class _TransferNavButton extends StatelessWidget {
+/// Center main action button: prominent brand-colored button for QR transactions.
+class _QrNavButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _TransferNavButton(this.onTap);
+  const _QrNavButton(this.onTap);
 
   @override
   Widget build(BuildContext context) => Tooltip(
-        message: 'Transfer',
+        message: 'QR transactions',
         child: Semantics(
           button: true,
-          label: 'Transfer money',
+          label: 'QR transactions',
           child: SizedBox(
             width: 52,
             height: 52,
@@ -519,7 +534,7 @@ class _TransferNavButton extends StatelessWidget {
                 child: const SizedBox(
                   width: 52,
                   height: 52,
-                  child: Icon(Icons.add_rounded, size: 28, color: Colors.white),
+                  child: Icon(Icons.qr_code_scanner_rounded, size: 26, color: Colors.white),
                 ),
               ),
             ),
@@ -842,17 +857,213 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
+  void _showNicknameDialog(BuildContext context, String accountNo, String currentNick) {
+    final controller = TextEditingController(text: currentNick);
+    const presets = [
+      'Daily Allowance',
+      'Emergency Fund',
+      'Vacation & Travel',
+      'Bills & Utilities',
+      'Savings Goal',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: kSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: kInBg,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.edit_note_rounded, size: 20, color: kBlue),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Account Nickname & Goal',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: kInk,
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Personalize $accountNo with a goal or custom label',
+              style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: TextStyle(fontFamily: 'Poppins', fontSize: 14, color: kInk, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: 'e.g. Daily Allowance, Vacation Fund',
+                hintStyle: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: kMut),
+                filled: true,
+                fillColor: kInBg,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: kLine),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: kLine),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: kBlue, width: 1.5),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'SUGGESTED GOALS',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: kMut,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final p in presets)
+                  InkWell(
+                    onTap: () => controller.text = p,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: kInBg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: kLine),
+                      ),
+                      child: Text(
+                        p,
+                        style: TextStyle(fontFamily: 'Poppins', fontSize: 11.5, color: kInk, fontWeight: FontWeight.w400),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                if (currentNick.isNotEmpty) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        side: BorderSide(color: kLine),
+                      ),
+                      onPressed: () {
+                        Demo.i.setNickname(accountNo, '');
+                        Navigator.pop(ctx);
+                      },
+                      child: Text('Reset', style: TextStyle(fontFamily: 'Poppins', color: kMut, fontWeight: FontWeight.w500)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      backgroundColor: kBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    onPressed: () {
+                      Demo.i.setNickname(accountNo, controller.text);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Save Nickname', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget acctCard(int i) {
     if (i >= d.accts.length) return const SizedBox.shrink();
     final a = d.accts[i];
     final isChecking = a.type.toUpperCase().contains('CHECKING') || a.type.toUpperCase().contains('CURRENT');
     final isPrimary = a.no == d.primaryNo || i == 0;
+    final nick = d.nicknameFor(a.no);
+
+    Widget buildNoWithEdit() => InkWell(
+          onTap: () => _showNicknameDialog(context, a.no, nick),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  a.no,
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.6,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 13,
+                  color: Colors.white.withAlpha(210),
+                ),
+              ],
+            ),
+          ),
+        );
 
     if (isChecking || i == 1) {
-      final label = isChecking ? 'Current' : a.type;
+      final baseLabel = isChecking ? 'Current' : a.type;
+      final displayLabel = nick.isNotEmpty
+          ? (isPrimary ? '$nick · primary' : nick)
+          : (isPrimary ? '$baseLabel · primary' : baseLabel);
       return shell(
         const [Color(0xFF0A192F), Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF38BDF8)],
-        isPrimary ? '$label · primary' : label,
+        displayLabel,
         'ACTIVE',
         [
           const SizedBox(height: 8),
@@ -862,16 +1073,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 8),
               Icon(Icons.contactless_rounded, color: Colors.white.withAlpha(200), size: 20),
               const Spacer(),
-              Text(
-                a.no,
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.6,
-                  color: Colors.white,
-                ),
-              ),
+              buildNoWithEdit(),
             ],
           ),
           const SizedBox(height: 8),
@@ -892,9 +1094,12 @@ class _HomeScreenState extends State<HomeScreen> {
         accentGlow: const Color(0xFF2563EB),
       );
     } else if (i == 2) {
+      final displayLabel = nick.isNotEmpty
+          ? (isPrimary ? '$nick · primary' : nick)
+          : (isPrimary ? '${a.type} · primary' : a.type);
       return shell(
         const [Color(0xFF042F24), Color(0xFF065F46), Color(0xFF059669), Color(0xFF10B981)],
-        isPrimary ? '${a.type} · primary' : a.type,
+        displayLabel,
         'ACTIVE',
         [
           const SizedBox(height: 8),
@@ -904,16 +1109,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 8),
               Icon(Icons.contactless_rounded, color: Colors.white.withAlpha(200), size: 20),
               const Spacer(),
-              Text(
-                a.no,
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.6,
-                  color: Colors.white,
-                ),
-              ),
+              buildNoWithEdit(),
             ],
           ),
           const SizedBox(height: 8),
@@ -934,9 +1130,12 @@ class _HomeScreenState extends State<HomeScreen> {
         accentGlow: const Color(0xFF059669),
       );
     } else {
+      final displayLabel = nick.isNotEmpty
+          ? (isPrimary ? '$nick · primary' : nick)
+          : (isPrimary ? '${a.type} · primary' : a.type);
       return shell(
         const [Color(0xFF003847), Color(0xFF006B7A), Color(0xFF0091AE), Color(0xFF00B4D8)],
-        isPrimary ? '${a.type} · primary' : a.type,
+        displayLabel,
         'ACTIVE',
         [
           const SizedBox(height: 8),
@@ -946,16 +1145,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 8),
               Icon(Icons.contactless_rounded, color: Colors.white.withAlpha(200), size: 20),
               const Spacer(),
-              Text(
-                a.no,
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.6,
-                  color: Colors.white,
-                ),
-              ),
+              buildNoWithEdit(),
             ],
           ),
           const SizedBox(height: 8),
@@ -977,6 +1167,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
   }
+
 
   Widget loanCard() {
     final l = d.loan;
@@ -1107,6 +1298,17 @@ class _HomeScreenState extends State<HomeScreen> {
               return cleanWord.isNotEmpty ? cleanWord[0].toUpperCase() : '';
             }).join();
 
+            double? lastAmount;
+            for (final a in d.accts) {
+              for (final tx in a.tx) {
+                if (tx.amt < 0 && (tx.label.contains(rawAccount) || tx.label.contains(b.name))) {
+                  lastAmount = -tx.amt;
+                  break;
+                }
+              }
+              if (lastAmount != null) break;
+            }
+
             return SizedBox(
               width: 58,
               child: InkWell(
@@ -1116,6 +1318,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     initialDest: rawAccount,
                     initialBank: rawBank,
                     initialRemarks: 'Transfer to ${b.name}',
+                    initialAmount: lastAmount,
                   ),
                 ),
                 borderRadius: BorderRadius.circular(18),
@@ -1258,6 +1461,628 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildIponVaultsSection() {
+    final vaults = d.iponVaults;
+    final totalEarmarked = d.totalEarmarkedInVaults;
+    final savingsBal = d.accts.length > 1 ? d.accts[1].bal : (d.accts.isNotEmpty ? d.accts[0].bal : 0.0);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0D9488).withAlpha(kDark ? 40 : 25),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.savings_rounded, size: 16, color: Color(0xFF0D9488)),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Co-op Ipon Vaults',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: kInk,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${peso(totalEarmarked)} earmarked · ${peso(savingsBal)} available',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 11,
+                              color: kMut,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _showCreateVaultDialog,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: kSurface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: kLine, width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 14, color: kBlue),
+                      const SizedBox(width: 3),
+                      Text(
+                        'New Goal',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: kBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 148,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: vaults.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, idx) {
+                final v = vaults[idx];
+                return _buildVaultCard(v);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVaultCard(IponVault v) {
+    final color = Color(v.colorValue);
+    final pct = (v.progress * 100).round();
+
+    return InkWell(
+      onTap: () => _showManageVaultSheet(v),
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: 210,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: kDark ? const Color(0xFF0C141F).withAlpha(220) : Colors.white.withAlpha(235),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: kDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(kDark ? 16 : 6),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: color.withAlpha(kDark ? 35 : 20),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    v.category.toUpperCase(),
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                Icon(IconData(v.iconCode, fontFamily: 'MaterialIcons'), size: 16, color: color),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              v.name,
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: kInk,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  peso(v.currentAmount),
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: kNavyFg,
+                  ),
+                ),
+                Text(
+                  '$pct%',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: v.isCompleted ? const Color(0xFF10B981) : kMut,
+                  ),
+                ),
+              ],
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: SizedBox(
+                height: 5,
+                child: Stack(
+                  children: [
+                    Container(color: kLine.withAlpha(kDark ? 40 : 100)),
+                    FractionallySizedBox(
+                      widthFactor: v.progress,
+                      child: Container(color: color),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Target: ${peso(v.targetAmount)}',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 10,
+                      color: kMut,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  v.targetDate,
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 10,
+                    color: kMut,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showManageVaultSheet(IponVault v) {
+    bool isDeposit = true;
+    final controller = TextEditingController(text: '1000');
+    final savings = d.accts.length > 1 ? d.accts[1] : (d.accts.isNotEmpty ? d.accts[0] : null);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final color = Color(v.colorValue);
+            return Container(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 18,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              decoration: BoxDecoration(
+                color: kDark ? const Color(0xFF0C141F) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: kLine,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: color.withAlpha(25),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(IconData(v.iconCode, fontFamily: 'MaterialIcons'), size: 18, color: color),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                v.name,
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: kInk,
+                                ),
+                              ),
+                              Text(
+                                '${v.category} · Due ${v.targetDate}',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 11.5,
+                                  color: kMut,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: (v.isCompleted ? const Color(0xFF10B981) : color).withAlpha(25),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          v.isCompleted ? 'Goal Met!' : '${(v.progress * 100).round()}%',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: v.isCompleted ? const Color(0xFF10B981) : color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: kInBg,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Vault Balance', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kMut)),
+                            Text(peso(v.currentAmount), style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w600, color: kNavyFg)),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('Target Goal', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kMut)),
+                            Text(peso(v.targetAmount), style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w600, color: kInk)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Toggle Segment
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setSheetState(() => isDeposit = true),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isDeposit ? kNavyFg : kInBg,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Save More (Deposit)',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDeposit ? Colors.white : kMut,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => setSheetState(() => isDeposit = false),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: !isDeposit ? kNavyFg : kInBg,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Release to Savings',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: !isDeposit ? Colors.white : kMut,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 17, fontWeight: FontWeight.w600, color: kInk),
+                    decoration: InputDecoration(
+                      prefixText: '₱ ',
+                      prefixStyle: TextStyle(fontFamily: 'Poppins', fontSize: 17, fontWeight: FontWeight.w600, color: kNavyFg),
+                      helperText: isDeposit
+                          ? 'Available in ${savings?.type ?? "Savings"}: ${peso(savings?.bal ?? 0)}'
+                          : 'Available in ${v.name}: ${peso(v.currentAmount)}',
+                      filled: true,
+                      fillColor: kInBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: kLine)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final add in [500, 1000, 2500, 5000])
+                        ActionChip(
+                          label: Text('+₱$add', style: const TextStyle(fontSize: 11)),
+                          onPressed: () => setSheetState(() => controller.text = '$add'),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final amt = double.tryParse(controller.text) ?? 0.0;
+                        if (amt <= 0) return;
+                        final err = isDeposit ? d.allocateToVault(v.id, amt) : d.releaseFromVault(v.id, amt);
+                        if (err != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: Colors.red));
+                        } else {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(isDeposit
+                                  ? '₱${amt.toStringAsFixed(2)} earmarked for ${v.name}'
+                                  : '₱${amt.toStringAsFixed(2)} released back to ${savings?.type ?? "Savings"}'),
+                              backgroundColor: const Color(0xFF059669),
+                            ),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDeposit ? const Color(0xFF0D9488) : kNavyFg,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
+                      child: Text(
+                        isDeposit ? 'Confirm Allocation' : 'Release to Savings Account',
+                        style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showCreateVaultDialog() {
+    final nameCtrl = TextEditingController();
+    final targetCtrl = TextEditingController(text: '15000');
+    final dateCtrl = TextEditingController(text: 'Dec 2026');
+    String selectedCategory = 'Emergency';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Container(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 18,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              decoration: BoxDecoration(
+                color: kDark ? const Color(0xFF0C141F) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(color: kLine, borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Create New Ipon Vault',
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w600, color: kInk),
+                  ),
+                  Text(
+                    'Set a goal to earmark funds for your cooperative milestone.',
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Goal Name (e.g. Tuition, Emergency, Paluwagan)',
+                      filled: true,
+                      fillColor: kInBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: targetCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Target Amount (₱)',
+                            filled: true,
+                            fillColor: kInBg,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: dateCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Target Date',
+                            filled: true,
+                            fillColor: kInBg,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      for (final cat in ['Emergency', 'Community', 'Cooperative', 'Education'])
+                        ChoiceChip(
+                          label: Text(cat, style: const TextStyle(fontSize: 11)),
+                          selected: selectedCategory == cat,
+                          onSelected: (val) {
+                            if (val) setSheetState(() => selectedCategory = cat);
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final name = nameCtrl.text.trim();
+                        final target = double.tryParse(targetCtrl.text) ?? 10000.0;
+                        if (name.isEmpty) return;
+                        d.createVault(
+                          name: name,
+                          targetAmount: target,
+                          targetDate: dateCtrl.text.trim(),
+                          category: selectedCategory,
+                        );
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Created Ipon Goal: $name'),
+                            backgroundColor: const Color(0xFF059669),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D9488),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text('Create Goal', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildCustomer360FinancialPulse() {
     double spentTotal = 0;
     double transferShare = 0;
@@ -1391,10 +2216,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                runSpacing: 4,
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         width: 7,
@@ -1413,6 +2241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
                         width: 7,
@@ -1434,6 +2263,212 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: () => go(const ScoresPage()),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: kInBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: kLine.withAlpha(kDark ? 40 : 100)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.local_offer_outlined, size: 16, color: kBlue),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '25 partner discounts in Makati & Mandaluyong tailored to your habits',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: kInk,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded, size: 11, color: kMut),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Interactive Liquid Crystal Display promotional card on the home screen.
+  Widget _buildPromoAdBanner() {
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      decoration: BoxDecoration(
+        color: kDark ? const Color(0xFF0C141F) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: kDark
+              ? const Color(0xFF0091AE).withAlpha(80)
+              : const Color(0xFF0091AE).withAlpha(60),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0091AE).withAlpha(kDark ? 25 : 12),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => AdService.showAd(context),
+          onLongPress: () => _showAdPickerSheet(context),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0091AE).withAlpha(kDark ? 45 : 25),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFF0091AE).withAlpha(70),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: const Icon(Icons.campaign_rounded, size: 20, color: Color(0xFF0091AE)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Featured Announcement',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: kInk,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0091AE).withAlpha(kDark ? 40 : 25),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'LCD DISPLAY',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0091AE),
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Sit, bank, and relax with CooBS · Tap to view',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11,
+                          color: kMut,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF94A3B8)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAdPickerSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ad Display Tester (Debug)',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: kInk,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Select an ad banner or roll with the live probability engine',
+                style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut),
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                leading: const Icon(Icons.casino_outlined, color: Color(0xFF0091AE)),
+                title: const Text('Live Probability Roll', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                subtitle: const Text('1/1000 Duo, 1/2000 Umamusume, 1997/2000 Solo', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  AdService.showAd(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.star_rounded, color: Color(0xFFF59E0B)),
+                title: const Text('Umamusume Pretty Derby', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                subtitle: const Text('1 in 2,000 Ultra Rare Easter Egg', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  AdService.showAd(context, forcedAd: AdItem.umamusume);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.groups_outlined, color: Color(0xFF0091AE)),
+                title: const Text('CooBS Duo (Two Members)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                subtitle: const Text('1 in 1,000 Lucky Draw', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  AdService.showAd(context, forcedAd: AdItem.duo);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_outline, color: Color(0xFF0091AE)),
+                title: const Text('CooBS Solo (Member on Sofa)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                subtitle: const Text('Standard Most Frequent Edition', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  AdService.showAd(context, forcedAd: AdItem.solo);
+                },
               ),
             ],
           ),
@@ -1820,7 +2855,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildNextBillSection(nb),
                   if (!isLoan) ...[
                     _buildQuickSendBeneficiaries(),
+                    _buildIponVaultsSection(),
                     _buildCustomer360FinancialPulse(),
+                    _buildPromoAdBanner(),
                   ],
                   Padding(
                     padding: const EdgeInsets.only(top: 24, bottom: 10),

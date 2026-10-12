@@ -31,12 +31,17 @@ class RemittanceScreen extends StatefulWidget {
   final String? initialDest;
   final String? initialBank;
   final String? initialRemarks;
+  final Object? initialAmount;
+  /// Filled from a scanned QR: recipient account and bank are read-only, amount stays editable.
+  final bool fromQr;
   const RemittanceScreen({
     super.key,
     this.from = 0,
     this.initialDest,
     this.initialBank,
     this.initialRemarks,
+    this.initialAmount,
+    this.fromQr = false,
   });
   @override
   State<RemittanceScreen> createState() => _RemittanceScreenState();
@@ -63,6 +68,12 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     }
     if (widget.initialRemarks != null && widget.initialRemarks!.isNotEmpty) {
       rem.text = widget.initialRemarks!;
+    }
+    final initAmt = widget.initialAmount;
+    if (initAmt is num && initAmt > 0) {
+      amt.text = initAmt.toStringAsFixed(2);
+    } else if (initAmt is String && initAmt.isNotEmpty) {
+      amt.text = initAmt;
     }
   }
 
@@ -242,19 +253,46 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
         ),
       );
 
-  Widget field(TextEditingController c, String l, {String? error, String? hint, String? helper, TextInputType? k, List<TextInputFormatter>? f}) => Padding(
+  Widget field(TextEditingController c, String l, {String? error, String? hint, String? helper, TextInputType? k, List<TextInputFormatter>? f, bool readOnly = false, Widget? suffix}) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: TextField(
           controller: c,
           keyboardType: k,
           inputFormatters: f,
+          readOnly: readOnly,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             labelText: l,
             hintText: hint,
             helperText: helper,
             errorText: error,
+            suffixIcon: suffix,
           ),
+        ),
+      );
+
+  Widget get qrTag => Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [miniTag('QR')]),
+      );
+
+  Widget get qrBanner => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(color: kInBg, borderRadius: BorderRadius.circular(12)),
+          child: Row(children: [
+            Icon(Icons.qr_code_scanner_rounded, size: 18, color: kNavyFg),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                widget.initialAmount == null
+                    ? 'Account number filled from a QR code. Check it before you send.'
+                    : 'Account number and amount filled from a QR code. Check them before you send.',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: kInk),
+              ),
+            ),
+          ]),
         ),
       );
 
@@ -278,10 +316,11 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
           final bal = (accts[safeSrc].bal * 100).round();
           return Pg('Transfer', [
             if (problem != null) banner(problem!),
+            if (widget.fromQr) qrBanner,
             const SizedBox(height: 4),
             dd('From account', labels, labels[safeSrc], (x) => setState(() => src = x != null && labels.contains(x) ? labels.indexOf(x) : 0)),
             dd('Destination bank', [for (final x in banks) x['name'] as String], b['name'] as String,
-                (x) => setState(() { bank = banks.firstWhere((y) => y['name'] == x)['code'] as String; err = {}; })),
+                widget.fromQr ? null : (x) => setState(() { bank = banks.firstWhere((y) => y['name'] == x)['code'] as String; err = {}; })),
             if (bank != 'COOBS')
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -315,7 +354,7 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
                   ]),
                 ),
               ),
-            if (Demo.i.bens.isNotEmpty) ...[
+            if (Demo.i.bens.isNotEmpty && !widget.fromQr) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: 4, top: 4),
                 child: Text('Saved Beneficiaries', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kMut)),
@@ -357,8 +396,13 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
               helper: bank == 'COOBS'
                   ? 'Format: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)'
                   : 'Account format: ${b['accountHint']}',
+              readOnly: widget.fromQr,
+              suffix: widget.fromQr ? qrTag : null,
             ),
-            field(amt, 'Amount (₱)', error: err['amt'], k: const TextInputType.numberWithOptions(decimal: true), f: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
+            field(amt, 'Amount (₱)', error: err['amt'],
+                helper: widget.fromQr && widget.initialAmount == null ? 'This QR has no amount. Enter how much to send.' : null,
+                suffix: widget.fromQr && widget.initialAmount != null ? qrTag : null,
+                k: const TextInputType.numberWithOptions(decimal: true), f: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]),
             dd('Category', [for (final x in o['categories'] as List) '$x'], cat, (x) => cat = x ?? cat),
             field(rem, 'Remarks (optional)'),
             panel([
@@ -398,11 +442,16 @@ class RemittanceResultPage extends StatelessWidget {
           statRow('Idempotency-Key', idemKey),
           statRow('Correlation ID', corr),
         ]),
-        const Padding(padding: EdgeInsets.only(top: 14, bottom: 4), child: Text('Transfer status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16))),
+        const SizedBox(height: 14),
         if (_trackingRef.isNotEmpty)
           TrackingView(trackingReference: _trackingRef, embedded: true, allowStaffMode: false)
-        else
+        else ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text('Transfer status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: kInk)),
+          ),
           Text('Tracking reference unavailable.', style: TextStyle(color: kMut)),
+        ],
         const SizedBox(height: 12),
         bigBtn('Done', () { Navigator.pop(context); Navigator.pop(context); }),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Make another transfer')),
