@@ -10,6 +10,7 @@ import '../../shell/app_shell.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../auth/auth_screens.dart';
+import '../data/mobile_repo.dart';
 import '../kyc/kyc_intake_screen.dart';
 
 Widget _title(String t) => Padding(
@@ -468,7 +469,7 @@ class _KycDetailsPageState extends State<KycDetailsPage> {
       setState(() => _isLoading = true);
     }
     try {
-      final json = await _apiClient.get('/customers/me');
+      final json = await MobileRepo.customerProfile();
       final profile = CustomerProfileData.fromJson(json);
       if (mounted) {
         setState(() {
@@ -502,7 +503,27 @@ class _KycDetailsPageState extends State<KycDetailsPage> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        if (Demo.i.kycData != null) {
+          final k = Demo.i.kycData!;
+          _firstCtrl.text = k['firstName'] ?? '';
+          _midCtrl.text = k['middleInitial'] ?? '';
+          _lastCtrl.text = k['lastName'] ?? '';
+          _addrCtrl.text = k['address'] ?? '';
+          _occCtrl.text = k['occupation'] ?? '';
+          _mobCtrl.text = k['mobileNumber'] ?? '';
+          final rawCivil = (k['civilStatus'] ?? 'Single').toString().toUpperCase();
+          civil = rawCivil == 'MARRIED' ? 'Married' : (rawCivil == 'WIDOWED' ? 'Widowed' : 'Single');
+          _kycStatus = Demo.i.kyc;
+        } else {
+          final parts = Demo.i.memberName.split(' ');
+          if (parts.isNotEmpty) _firstCtrl.text = parts.first;
+          if (parts.length > 1) _lastCtrl.text = parts.last;
+          civil = 'Single';
+          _kycStatus = Demo.i.kyc;
+        }
+        setState(() => _isLoading = false);
+      }
     }
   }
 

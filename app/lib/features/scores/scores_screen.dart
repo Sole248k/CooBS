@@ -42,35 +42,332 @@ class _ScoresPageState extends State<ScoresPage> {
   static const chk = [32.0, 28, 41, 25, 30, 36, 29, 33, 38, 22];
   static const sav = [12.0, 10, 14, 8, 11, 9, 15, 12, 10, 6];
 
-  Widget scoreCard() => Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 28),
-          child: Column(children: [
+  Widget scoreCard() {
+    final score = Demo.i.creditScore ?? 750;
+    final rating = score >= 800 ? 'Exceptional' : (score >= 740 ? 'Very Good' : (score >= 670 ? 'Good' : 'Fair'));
+    final progress = ((score - 300) / (850 - 300)).clamp(0.0, 1.0);
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: kDark ? const Color(0xFF1E293B) : Colors.white.withAlpha(220),
+          width: 0.9,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Your Credit Score',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: kInk,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: kDark ? const Color(0xFF0F291E) : const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: kDark ? const Color(0xFF166534) : const Color(0xFFBBF7D0),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    rating,
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: kDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
             Text(
-              '832',
+              '$score',
               style: TextStyle(
                 fontFamily: 'Poppins',
-                fontSize: 64,
-                fontWeight: FontWeight.w500,
+                fontSize: 60,
+                fontWeight: FontWeight.w600,
                 color: kNavyFg,
                 letterSpacing: -1.0,
-                height: 1.1,
+                height: 1.0,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              'Your Credit Score',
+              'Range: 300 – 850 · Seeded reference',
               style: TextStyle(
                 fontFamily: 'Poppins',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: kNavyFg,
-                letterSpacing: 0.1,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: kMut,
               ),
             ),
-          ]),
+            const SizedBox(height: 18),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: SizedBox(
+                height: 8,
+                child: Stack(
+                  children: [
+                    Container(color: kLine.withAlpha(kDark ? 40 : 120)),
+                    FractionallySizedBox(
+                      widthFactor: progress,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              kBlue,
+                              const Color(0xFF0284C7),
+                              const Color(0xFF10B981),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
+
+  Widget totalsCard() {
+    final deposits = Demo.i.totalDeposits > 0
+        ? Demo.i.totalDeposits
+        : Demo.i.accts.fold(0.0, (sum, a) => sum + a.bal);
+    final loans = Demo.i.totalLoans;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: kDark ? const Color(0xFF1E293B) : Colors.white.withAlpha(220),
+          width: 0.9,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Total Deposits',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: kMut,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    peso(deposits),
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: kInk,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(width: 1, height: 36, color: kLine.withAlpha(kDark ? 40 : 100)),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Total Loans',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: kMut,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    peso(loans),
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: kInk,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget spendingBreakdownCard() {
+    final breakdown = Demo.i.spendingBreakdown.isNotEmpty
+        ? Demo.i.spendingBreakdown
+        : {
+            'Groceries & Food': 8450.0,
+            'Utilities & Bills': 4200.0,
+            'Shopping & Retail': 3150.0,
+            'Transportation': 1850.0,
+            'Entertainment': 950.0,
+          };
+
+    final totalSpending = breakdown.values.fold(0.0, (sum, val) => sum + val);
+
+    final categoryColors = [
+      kBlue,
+      const Color(0xFF0284C7),
+      const Color(0xFF0D9488),
+      const Color(0xFFD97706),
+      const Color(0xFF8B5CF6),
+      const Color(0xFFEC4899),
+    ];
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: kDark ? const Color(0xFF1E293B) : Colors.white.withAlpha(220),
+          width: 0.9,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    '30-Day Spending',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: kInk,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  peso(totalSpending),
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: kNavyFg,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (totalSpending > 0)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: SizedBox(
+                  height: 10,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < breakdown.entries.length; i++)
+                        Expanded(
+                          flex: (breakdown.entries.elementAt(i).value * 100 / totalSpending).round().clamp(1, 1000),
+                          child: Container(
+                            color: categoryColors[i % categoryColors.length],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+            for (var i = 0; i < breakdown.entries.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: categoryColors[i % categoryColors.length],
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      breakdown.entries.elementAt(i).key,
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: kInk,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    peso(breakdown.entries.elementAt(i).value),
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: kInk,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      totalSpending > 0
+                          ? '${((breakdown.entries.elementAt(i).value / totalSpending) * 100).toStringAsFixed(0)}%'
+                          : '0%',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: kMut,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget bar(int i, double h) => Column(mainAxisSize: MainAxisSize.min, children: [
         Container(width: 14, height: sav[i] / 60 * h, color: const Color(0xFF0284C7)),
@@ -237,8 +534,11 @@ class _ScoresPageState extends State<ScoresPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && Demo.i.state == LoadState.loading) {
-        Demo.i.load();
+      if (mounted) {
+        Demo.i.fetchScoresAndHabits();
+        if (Demo.i.state == LoadState.loading) {
+          Demo.i.load();
+        }
       }
     });
   }
@@ -259,12 +559,23 @@ class _ScoresPageState extends State<ScoresPage> {
         }
         return Pg('Scores and Habits', [
           scoreCard(),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          totalsCard(),
+          const SizedBox(height: 8),
+          spendingBreakdownCard(),
+          const SizedBox(height: 8),
           chart(),
           Padding(
             padding: const EdgeInsets.only(top: 20, bottom: 4),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('Debit transaction history', style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w500, color: kInk)),
+              Expanded(
+                child: Text(
+                  'Debit transaction history',
+                  style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w500, color: kInk),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               PopupMenuButton<int>(
                 onSelected: (v) => setState(() { acct = v; page = 0; }),
                 itemBuilder: (_) => <PopupMenuEntry<int>>[

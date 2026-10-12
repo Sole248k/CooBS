@@ -1,0 +1,22 @@
+{
+  "customerId": 1,
+  "username": "john_doe",
+  "email": "john.doe@example.com",
+  "kycStatus": "VERIFIED",
+  "createdAt": "2026-01-15T08:00:00",
+  "kyc": {
+    "kycId": 1,
+    "firstName": "John",
+    "middleInitial": "A",
+    "lastName": "Doe",
+    "address": "123 Ayala Avenue, Makati City",
+    "mobileNumber": "09171234567",
+    "civilStatus": "SINGLE",
+    "occupation": "Software Engineer",
+    "status": "VERIFIED",
+    "createdAt": "2026-01-15T08:00:00"
+  },
+  "membershipNumber": "MBR-000001",
+  "displayName": "John D.",
+  "kycTier": "TIER_3_FULL"
+}

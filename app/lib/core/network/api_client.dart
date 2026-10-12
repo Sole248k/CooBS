@@ -423,6 +423,12 @@ class ApiClient {
     if (lower.contains('/notifications')) {
       return 'N1-notifications.response.json';
     }
+    if (lower.contains('360')) {
+      return 'C3-customer-360.response.json';
+    }
+    if (lower.contains('customer-profile') || lower.contains('/customers/me') || (lower.contains('/customers/') && !lower.contains('beneficiar'))) {
+      return 'C1-C2-customer-profile.response.json';
+    }
 
     // Default fallback to composite dashboard fixture
     return 'M1-mobile-dashboard.response.json';
@@ -461,6 +467,30 @@ class ApiClient {
           'roles': ['ROLE_CUSTOMER'],
           'userType': 'CUSTOMER'
         }
+      };
+    }
+    if (filename.contains('customer-profile') || filename.contains('profile')) {
+      return {
+        'customerId': 1,
+        'username': 'john_doe',
+        'email': 'john.doe@example.com',
+        'kycStatus': 'VERIFIED',
+        'createdAt': '2026-01-15T08:00:00',
+        'kyc': {
+          'kycId': 1,
+          'firstName': 'John',
+          'middleInitial': 'A',
+          'lastName': 'Doe',
+          'address': '123 Ayala Avenue, Makati City',
+          'mobileNumber': '09171234567',
+          'civilStatus': 'SINGLE',
+          'occupation': 'Software Engineer',
+          'status': 'VERIFIED',
+          'createdAt': '2026-01-15T08:00:00'
+        },
+        'membershipNumber': 'MBR-000001',
+        'displayName': 'John D.',
+        'kycTier': 'TIER_3_FULL'
       };
     }
     if (filename.contains('dashboard')) {
@@ -623,6 +653,30 @@ class ApiClient {
             'isRead': false,
           }
         ]
+      };
+    }
+    if (filename.contains('customer-360') || filename.contains('360')) {
+      return {
+        'customerId': 101,
+        'displayName': 'John Doe',
+        'membershipNumber': 'MBR-10000005',
+        'kycStatus': 'VERIFIED',
+        'kycTier': 'TIER_3',
+        'creditScore': 750,
+        'totals': {
+          'deposits': '125430.50',
+          'loans': '0.00'
+        },
+        'spendingBreakdown': {
+          'periodDays': 30,
+          'items': [
+            {'category': 'Groceries & Food', 'amount': '8450.00', 'count': 12},
+            {'category': 'Utilities & Bills', 'amount': '4200.00', 'count': 4},
+            {'category': 'Shopping & Retail', 'amount': '3150.00', 'count': 5},
+            {'category': 'Transportation', 'amount': '1850.00', 'count': 8},
+            {'category': 'Entertainment', 'amount': '950.00', 'count': 2}
+          ]
+        }
       };
     }
     return <String, dynamic>{};
