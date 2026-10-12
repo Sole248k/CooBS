@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { staffApi } from '../../services/api';
-import type { AuditRecord, ChainVerificationResult, DailyAuditSealResponse } from '../../types/staff-bff';
+import type {
+  AuditRecord,
+  DailyAuditSealResponse,
+  StaffAccountSummary,
+} from '../../types/staff-bff';
 import { formatCurrency, formatTimestamp, truncateHash } from '../../lib/utils';
 import {
   ShieldCheck,
   ShieldAlert,
-  Search,
   Copy,
   Check,
   Lock,
   Calendar,
   AlertCircle,
-  Hash,
   RefreshCw,
-  Layers,
 } from 'lucide-react';
 
 export const AuditStatement: React.FC = () => {
-  const [accountId, setAccountId] = useState('1');
+  const [accountInput, setAccountInput] = useState('ACC_10000001');
+  const [accounts, setAccounts] = useState<StaffAccountSummary[]>([]);
   const [businessDate, setBusinessDate] = useState('2026-10-05');
 
   const [statement, setStatement] = useState<AuditRecord[]>([]);
@@ -28,6 +30,34 @@ export const AuditStatement: React.FC = () => {
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
+
+  const resolveAccountId = (rawInput: string): { accountId: number; accountNumber: string } | null => {
+    const cleaned = rawInput.trim().toUpperCase();
+    if (!cleaned) return null;
+
+    const exact = accounts.find((a) => a.accountNumber?.toUpperCase() === cleaned);
+    if (exact) return { accountId: exact.accountId, accountNumber: exact.accountNumber };
+
+    const prefixed = accounts.find((a) => a.accountNumber?.toUpperCase() === `ACC_${cleaned}`);
+    if (prefixed) return { accountId: prefixed.accountId, accountNumber: prefixed.accountNumber };
+
+    const seqMatch = cleaned.match(/^(?:ACC_)?(\d+)$/i);
+    if (seqMatch) {
+      const num = parseInt(seqMatch[1], 10);
+      if (!isNaN(num) && num > 0) {
+        const internalId = num > 10000000 ? num - 10000000 : num;
+        const byId = accounts.find((a) => a.accountId === internalId);
+        if (byId) return { accountId: byId.accountId, accountNumber: byId.accountNumber };
+        return {
+          accountId: internalId,
+          accountNumber: num > 10000000 ? `ACC_${num}` : `ACC_${10000000 + internalId}`,
+        };
+      }
+    }
+    return null;
+  };
+
+  const resolvedAccount = resolveAccountId(accountInput);
 
   const loadAuditData = async (accId: number, dateStr: string) => {
     setLoading(true);
@@ -60,22 +90,31 @@ export const AuditStatement: React.FC = () => {
 
   useEffect(() => {
     loadAuditData(1, businessDate);
+    staffApi
+      .getAllAccounts()
+      .then((list) => {
+        if (Array.isArray(list)) setAccounts(list);
+      })
+      .catch(() => {});
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const acc = parseInt(accountId, 10);
-    if (!isNaN(acc) && acc > 0) {
-      loadAuditData(acc, businessDate);
+    const resolved = resolveAccountId(accountInput);
+    if (resolved && resolved.accountId > 0) {
+      setAccountInput(resolved.accountNumber);
+      loadAuditData(resolved.accountId, businessDate);
+    } else {
+      setError('Please enter a valid Account Number (e.g. ACC_10000001).');
     }
   };
 
   const handleVerifyChain = async () => {
-    const acc = parseInt(accountId, 10);
-    if (isNaN(acc) || acc <= 0) return;
+    const resolved = resolveAccountId(accountInput);
+    if (!resolved || resolved.accountId <= 0) return;
     setVerifying(true);
     try {
-      const res = await staffApi.verifyChain(acc);
+      const res = await staffApi.verifyChain(resolved.accountId);
       setChainResult(res);
     } catch (err: any) {
       setError(err.message || 'Chain verification failed.');
@@ -93,6 +132,16 @@ export const AuditStatement: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <datalist id="audit-accounts-list">
+        {accounts.map((acc) => (
+          <option
+            key={acc.accountId}
+            value={acc.accountNumber}
+            label={`${acc.accountType} • ${acc.status}`}
+          />
+        ))}
+      </datalist>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -103,14 +152,15 @@ export const AuditStatement: React.FC = () => {
         </div>
 
         <form onSubmit={handleSearch} className="flex items-center space-x-2">
-          <div className="relative">
+          <div className="relative flex items-center">
             <span className="text-xs font-semibold text-[#64748B] mr-2">Account:</span>
             <input
-              type="number"
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              className="w-24 px-3 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#1E3A5F] font-mono focus:ring-2 focus:ring-[#2563EB]"
-              placeholder="1"
+              type="text"
+              list="audit-accounts-list"
+              value={accountInput}
+              onChange={(e) => setAccountInput(e.target.value.toUpperCase())}
+              className="w-40 px-3 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg text-[#1E3A5F] font-mono uppercase focus:ring-2 focus:ring-[#2563EB] focus:outline-none"
+              placeholder="ACC_10000001"
             />
           </div>
           <button
@@ -217,7 +267,7 @@ export const AuditStatement: React.FC = () => {
               value={businessDate}
               onChange={(e) => {
                 setBusinessDate(e.target.value);
-                const acc = parseInt(accountId, 10) || 1;
+                const acc = resolvedAccount?.accountId || 1;
                 loadAuditData(acc, e.target.value);
               }}
               className="px-2.5 py-1 text-xs border border-[#CBD5E1] rounded-md text-[#1E3A5F] font-mono"
@@ -279,7 +329,7 @@ export const AuditStatement: React.FC = () => {
         <div className="px-6 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
           <div>
             <h3 className="text-base font-bold text-[#1E3A5F]">
-              Account #{accountId} Audit Statement
+              Account {resolvedAccount?.accountNumber || accountInput} Audit Statement
             </h3>
             <p className="text-xs text-[#64748B]">Chronological double-entry audit records</p>
           </div>
@@ -306,15 +356,40 @@ export const AuditStatement: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-[#E2E8F0]">
               {statement.map((row) => {
-                const typeStr = String(row.entryType || row.transactionType || 'RECORD').toUpperCase();
+                const rawType = String(row.entryType || row.transactionType || 'RECORD').toUpperCase();
+                const amt = Number(row.amount || 0);
+                const oldBal = Number(row.oldBalance || 0);
+                const dailyExpected = Math.round(((oldBal * 0.02) / 365) * 100) / 100;
+                const monthly30Expected = Math.round(((oldBal * 0.02 * 30) / 365) * 100) / 100;
+                const monthly31Expected = Math.round(((oldBal * 0.02 * 31) / 365) * 100) / 100;
+                const isInterestCredit =
+                  String(row.referenceNo || '').toUpperCase().includes('-INT-') ||
+                  rawType === 'INTEREST_CREDIT' ||
+                  (rawType === 'CREDIT' &&
+                    oldBal >= 1000 &&
+                    amt > 0 &&
+                    (Math.abs(amt - dailyExpected) <= 0.02 ||
+                      Math.abs(amt - monthly30Expected) <= 0.05 ||
+                      Math.abs(amt - monthly31Expected) <= 0.05));
+
+                const typeStr = isInterestCredit ? 'INTEREST_CREDIT' : rawType;
                 const isCredit = typeStr.includes('CREDIT') || typeStr.includes('DEPOSIT');
+                const dateCompact =
+                  String(row.timestamp || row.eventTimestamp || '')
+                    .slice(0, 10)
+                    .replace(/-/g, '') || '20261012';
+                const displayRef =
+                  row.referenceNo ||
+                  (isInterestCredit
+                    ? `EOD-${dateCompact}-INT-${String((row as any).accountId || resolvedAccount?.accountId || 1).padStart(6, '0')}`
+                    : '—');
 
                 return (
                   <tr key={String(row.auditId)} className="hover:bg-[#F8FAFC]/70 transition-colors">
                     <td className="py-3 px-3 font-mono font-medium text-[#1E3A5F]">
                       #{row.auditId}
                     </td>
-                    <td className="py-3 px-3 font-mono text-[#1E3A5F]">{row.referenceNo || '—'}</td>
+                    <td className="py-3 px-3 font-mono text-[#1E3A5F]">{displayRef}</td>
                     <td className="py-3 px-3">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${

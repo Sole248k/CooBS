@@ -52,6 +52,94 @@ export const Customer360: React.FC = () => {
     setError(null);
     try {
       const res = await staffApi.getCustomer360(id);
+
+      // Enrich recentTransactions with daily/monthly EOD Interest Accrual credits from account audit statements
+      if (res?.accounts && res.accounts.length > 0) {
+        const stmtResults = await Promise.allSettled(
+          res.accounts.map((acc) => staffApi.getAccountStatement(acc.accountId, 0, 30))
+        );
+
+        const eodInterestByAccountDay = new Map<string, any>();
+        stmtResults.forEach((stmtRes, idx) => {
+          if (stmtRes.status !== 'fulfilled') return;
+          const acc = res.accounts[idx];
+          const rows = stmtRes.value?.content || stmtRes.value || [];
+          if (!Array.isArray(rows)) return;
+
+          rows.forEach((row: any) => {
+            const refUpper = String(row.referenceNo || '').toUpperCase();
+            const typeUpper = String(row.transactionType || row.entryType || '').toUpperCase();
+            const amt = Number(row.amount || 0);
+            const oldBal = Number(row.oldBalance || 0);
+            const dailyExpected = Math.round(((oldBal * 0.02) / 365) * 100) / 100;
+            const monthly30Expected = Math.round(((oldBal * 0.02 * 30) / 365) * 100) / 100;
+            const monthly31Expected = Math.round(((oldBal * 0.02 * 31) / 365) * 100) / 100;
+
+            const isExplicitInterest = refUpper.includes('-INT-') || typeUpper === 'INTEREST_CREDIT';
+            const isMatchedSavingsInterest =
+              acc.accountType === 'SAVINGS' &&
+              typeUpper === 'CREDIT' &&
+              !refUpper.startsWith('TX-') &&
+              !refUpper.startsWith('RV-') &&
+              !refUpper.startsWith('DEP-') &&
+              oldBal >= 1000 &&
+              amt > 0 &&
+              (Math.abs(amt - dailyExpected) <= 0.02 ||
+                Math.abs(amt - monthly30Expected) <= 0.05 ||
+                Math.abs(amt - monthly31Expected) <= 0.05);
+
+            if (!isExplicitInterest && !isMatchedSavingsInterest) return;
+
+            const rawTs = row.eventTimestamp || row.timestamp || new Date().toISOString();
+            const dateOnly = String(rawTs).slice(0, 10);
+            const dateCompact = dateOnly.replace(/-/g, '') || '20261012';
+            const dedupeKey = `${acc.accountId}-${dateOnly}`;
+
+            // Keep the latest interest accrual entry per savings account per day
+            if (eodInterestByAccountDay.has(dedupeKey)) return;
+
+            const isMonthly =
+              Math.abs(amt - monthly30Expected) <= 0.05 ||
+              Math.abs(amt - monthly31Expected) <= 0.05 ||
+              /^EOD-\d{6}-INT-/i.test(refUpper);
+
+            const cleanRef =
+              row.referenceNo
+                ? String(row.referenceNo).replace(/-[DC]$/i, '')
+                : `EOD-${dateCompact}-INT-${String(acc.accountId).padStart(6, '0')}`;
+
+            eodInterestByAccountDay.set(dedupeKey, {
+              createdAt: rawTs,
+              timestamp: rawTs,
+              referenceNo: cleanRef,
+              refId: cleanRef,
+              counterparty: isMonthly
+                ? `Monthly EOD Interest Capitalization (${acc.accountNumber})`
+                : `Daily EOD Interest Accrual (${acc.accountNumber})`,
+              type: 'Interest Accrual',
+              direction: 'IN',
+              amount: `+₱${amt.toFixed(2)}`,
+              status: 'POSTED',
+            });
+          });
+        });
+
+        if (eodInterestByAccountDay.size > 0) {
+          const existingList = Array.isArray(res.recentTransactions) ? res.recentTransactions : [];
+          const existingRefs = new Set(
+            existingList.map((t: any) => String(t.referenceNo || t.refId || '').toUpperCase())
+          );
+          const newEntries = Array.from(eodInterestByAccountDay.values()).filter(
+            (e) => !existingRefs.has(String(e.referenceNo).toUpperCase())
+          );
+          res.recentTransactions = [...newEntries, ...existingList].sort((a: any, b: any) => {
+            const tA = new Date(a.createdAt || a.timestamp || 0).getTime();
+            const tB = new Date(b.createdAt || b.timestamp || 0).getTime();
+            return tB - tA;
+          });
+        }
+      }
+
       setData(res);
       setLastSyncTime(new Date().toLocaleTimeString('en-US', { hour12: false }));
     } catch (err: any) {
@@ -810,7 +898,7 @@ export const Customer360: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      const firstAcc = data.accounts?.[0]?.accountId;
+                      const firstAcc = data.accounts?.[0]?.accountNumber || data.accounts?.[0]?.accountId;
                       navigate(firstAcc ? `/counter?mode=deposit&accountId=${firstAcc}` : '/counter');
                     }}
                     className="w-full py-2.5 px-4 rounded-xl border border-[#E2E8F0] hover:border-blue-400 hover:bg-blue-50/50 text-[#1E3A5F] text-xs font-semibold flex items-center justify-center space-x-2 transition-all"
@@ -822,7 +910,7 @@ export const Customer360: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      const firstAcc = data.accounts?.[0]?.accountId;
+                      const firstAcc = data.accounts?.[0]?.accountNumber || data.accounts?.[0]?.accountId;
                       navigate(firstAcc ? `/counter?mode=transfer&accountId=${firstAcc}` : '/counter');
                     }}
                     className="w-full py-2.5 px-4 rounded-xl border border-[#E2E8F0] hover:border-blue-400 hover:bg-blue-50/50 text-[#1E3A5F] text-xs font-semibold flex items-center justify-center space-x-2 transition-all"
