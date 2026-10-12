@@ -1,7 +1,9 @@
 package com.group2.fse.transaction_service.interbank.outbound;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,16 +27,26 @@ public class InterbankClient {
 
     private final ProposalPartnerAdapter proposalAdapter;
     private final LoopbackPartnerAdapter loopbackAdapter;
+    private final AuraBankPartnerAdapter auraBankAdapter;
     private final int statusAttempts;
     private final long statusPauseMs;
 
+    @Autowired
     public InterbankClient(ProposalPartnerAdapter proposalAdapter, LoopbackPartnerAdapter loopbackAdapter,
+            @Nullable AuraBankPartnerAdapter auraBankAdapter,
             @Value("${app.interbank.outbound.status-attempts:3}") int statusAttempts,
             @Value("${app.interbank.outbound.status-pause-ms:1000}") long statusPauseMs) {
         this.proposalAdapter = proposalAdapter;
         this.loopbackAdapter = loopbackAdapter;
+        this.auraBankAdapter = auraBankAdapter;
         this.statusAttempts = statusAttempts;
         this.statusPauseMs = statusPauseMs;
+    }
+
+    public InterbankClient(ProposalPartnerAdapter proposalAdapter, LoopbackPartnerAdapter loopbackAdapter,
+            @Value("${app.interbank.outbound.status-attempts:3}") int statusAttempts,
+            @Value("${app.interbank.outbound.status-pause-ms:1000}") long statusPauseMs) {
+        this(proposalAdapter, loopbackAdapter, (AuraBankPartnerAdapter) null, statusAttempts, statusPauseMs);
     }
 
     /**
@@ -84,7 +96,13 @@ public class InterbankClient {
 
     private PartnerAdapter adapterFor(OutboundTransfer transfer) {
         String baseUrl = transfer.partner().getBaseUrl();
-        return baseUrl == null || baseUrl.isBlank() ? loopbackAdapter : proposalAdapter;
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return loopbackAdapter;
+        }
+        if ("AURABANK".equalsIgnoreCase(transfer.partner().getBankCode()) && auraBankAdapter != null) {
+            return auraBankAdapter;
+        }
+        return proposalAdapter;
     }
 
     private boolean pause() {

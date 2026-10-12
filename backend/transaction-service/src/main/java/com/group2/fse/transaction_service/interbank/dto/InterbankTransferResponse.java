@@ -17,7 +17,8 @@ import lombok.NoArgsConstructor;
 public class InterbankTransferResponse {
 
     private String messageId;
-    private String status; // ACCEPTED, REJECTED, or NOT_FOUND
+    private String status; // ACCEPTED, COMPLETED, REJECTED, or NOT_FOUND
+    @com.fasterxml.jackson.annotation.JsonAlias({"referenceNumber", "receiverReference"})
     private String receiverReference;
     private String beneficiaryName;
     private String creditedAt;

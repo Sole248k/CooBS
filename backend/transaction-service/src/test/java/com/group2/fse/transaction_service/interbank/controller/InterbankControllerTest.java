@@ -118,6 +118,45 @@ class InterbankControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/interbank/transfers/inward (AuraBank inward route) with X-Interbank-API-Key returns 200 OK")
+    void receiveTransferInwardRouteAccepted() throws Exception {
+        InterbankTransferRequest request = sampleRequest();
+        request.setCreatedAt(null); // AuraBank spec does not provide createdAt
+        String json = objectMapper.writeValueAsString(request);
+
+        when(interbankService.processInboundTransfer(any())).thenReturn(
+                InterbankTransferResponse.accepted(request.getMessageId(), "INW-0b6c2f6e", "A*** G***", Instant.now().toString())
+        );
+
+        mockMvc.perform(post("/api/v1/interbank/transfers/inward")
+                        .header("X-Interbank-API-Key", "AURABANK-SECURE-KEY-2026")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"))
+                .andExpect(jsonPath("$.receiverReference").value("INW-0b6c2f6e"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/interbank/transfers/inward with Authorization Bearer header returns 200 OK")
+    void receiveTransferInwardBearerAccepted() throws Exception {
+        InterbankTransferRequest request = sampleRequest();
+        request.setCreatedAt(null);
+        String json = objectMapper.writeValueAsString(request);
+
+        when(interbankService.processInboundTransfer(any())).thenReturn(
+                InterbankTransferResponse.accepted(request.getMessageId(), "INW-0b6c2f6e", "A*** G***", Instant.now().toString())
+        );
+
+        mockMvc.perform(post("/api/v1/interbank/transfers/inward")
+                        .header("Authorization", "Bearer AURABANK-SECURE-KEY-2026")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACCEPTED"));
+    }
+
+    @Test
     @DisplayName("POST /api/v1/interbank/transfers returns 401 when signature check fails")
     void authFailureReturns401() throws Exception {
         doThrow(new InterbankAuthException("INVALID_SIGNATURE", "Signature does not match."))
