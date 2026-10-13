@@ -13,6 +13,7 @@ import '../resilience/service_unavailable_view.dart';
 import '../scores/scores_screen.dart';
 import '../shop/shop_screen.dart';
 import '../shop/shop_store.dart';
+import '../vaults/ipon_vaults_screen.dart';
 import 'demo_store.dart';
 import 'ui.dart';
 import '../ads/ad_models.dart';
@@ -245,7 +246,7 @@ class MobileShell extends StatefulWidget {
 
 class _MobileShellState extends State<MobileShell> {
   int i = 0;
-  static const _home = 0, _scores = 1, _alerts = 2, _bens = 3, _profile = 4;
+  static const _home = 0, _scores = 1, _alerts = 2, _vaults = 3, _profile = 4;
   late final Future<String?> _usernameFuture;
 
   @override
@@ -282,7 +283,7 @@ class _MobileShellState extends State<MobileShell> {
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 600),
                       child: Column(children: [
-                        if (i != _scores && i != _bens)
+                        if (i != _scores && i != _vaults && i != _alerts)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                           child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -377,10 +378,10 @@ class _MobileShellState extends State<MobileShell> {
                         ),
                         Expanded(
                           child: IndexedStack(index: i, children: [
-                            const HomeScreen(),
+                            HomeScreen(onOpenVaults: () => setState(() => i = _vaults)),
                             ScoresPage(onBack: _goHome),
                             AlertsPage(onBack: _goHome),
-                            BeneficiariesPage(onBack: _goHome),
+                            IponVaultsPage(onBack: _goHome),
                             const ProfileScreen(),
                           ]),
                         ),
@@ -436,7 +437,7 @@ class _MobileShellState extends State<MobileShell> {
                                     );
                                   },
                                 ),
-                                _NavCircle(Icons.groups_outlined, 'Beneficiaries', i == _bens, () => setState(() => i = _bens)),
+                                _NavCircle(Icons.savings_outlined, 'Co-op Ipon Vaults', i == _vaults, () => setState(() => i = _vaults)),
                                 _NavCircle(Icons.person_outline, 'Profile', i == _profile, () => setState(() => i = _profile)),
                               ]),
                             ),
@@ -653,7 +654,8 @@ class AlertsPage extends StatelessWidget {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onOpenVaults;
+  const HomeScreen({super.key, this.onOpenVaults});
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -681,8 +683,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w));
-
-  Color _getCardAmbientColor(int cur) => getAmbientPalette(cur, d).primary;
 
   Widget shell(List<Color> colors, String type, String status, List<Widget> kids, {required CustomPainter painter, Color? accentGlow}) => Container(
         margin: const EdgeInsets.fromLTRB(6, 4, 6, 12),
@@ -810,7 +810,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: const TextStyle(
               fontFamily: 'Poppins',
               fontSize: 25,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               letterSpacing: -0.5,
             ),
           ),
@@ -1471,671 +1471,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildIponVaultsSection() {
-    final vaults = d.iponVaults;
-    final totalEarmarked = d.totalEarmarkedInVaults;
-    final savingsBal = d.accts.length > 1 ? d.accts[1].bal : (d.accts.isNotEmpty ? d.accts[0].bal : 0.0);
-
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D9488).withAlpha(kDark ? 40 : 25),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.savings_rounded, size: 16, color: Color(0xFF0D9488)),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Co-op Ipon Vaults',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: kInk,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            '${peso(totalEarmarked)} earmarked · ${peso(savingsBal)} available',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 11,
-                              color: kMut,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: _showCreateVaultDialog,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: kSurface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: kLine, width: 0.8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add_rounded, size: 14, color: kBlue),
-                      const SizedBox(width: 3),
-                      Text(
-                        'New Goal',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: kBlue,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 148,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: vaults.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (context, idx) {
-                final v = vaults[idx];
-                return _buildVaultCard(v);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getVaultIcon(int code, [String? category]) {
-    switch (code) {
-      case 0xe5ce:
-        return Icons.shield_rounded;
-      case 0xe06e:
-        return Icons.account_balance_rounded;
-      case 0xe59c:
-        return Icons.savings_rounded;
-    }
-    if (category != null) {
-      switch (category.toLowerCase()) {
-        case 'emergency':
-          return Icons.shield_rounded;
-        case 'education':
-          return Icons.school_rounded;
-        case 'cooperative':
-        case 'community':
-          return Icons.group_rounded;
-      }
-    }
-    return Icons.savings_rounded;
-  }
-
-  Widget _buildVaultCard(IponVault v) {
-    final color = Color(v.colorValue);
-    final pct = (v.progress * 100).round();
-
-    return InkWell(
-      onTap: () => _showManageVaultSheet(v),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: 210,
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: kDark ? const Color(0xFF0C141F).withAlpha(220) : Colors.white.withAlpha(235),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: kDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-            width: 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(kDark ? 16 : 6),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(kDark ? 35 : 20),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    v.category.toUpperCase(),
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                Icon(_getVaultIcon(v.iconCode, v.category), size: 16, color: color),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              v.name,
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: kInk,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  peso(v.currentAmount),
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: kNavyFg,
-                  ),
-                ),
-                Text(
-                  '$pct%',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: v.isCompleted ? const Color(0xFF10B981) : kMut,
-                  ),
-                ),
-              ],
-            ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: SizedBox(
-                height: 5,
-                child: Stack(
-                  children: [
-                    Container(color: kLine.withAlpha(kDark ? 40 : 100)),
-                    FractionallySizedBox(
-                      widthFactor: v.progress,
-                      child: Container(color: color),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Target: ${peso(v.targetAmount)}',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 10,
-                      color: kMut,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  v.targetDate,
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 10,
-                    color: kMut,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showManageVaultSheet(IponVault v) {
-    bool isDeposit = true;
-    final controller = TextEditingController(text: '1000');
-    final savings = d.accts.length > 1 ? d.accts[1] : (d.accts.isNotEmpty ? d.accts[0] : null);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            final color = Color(v.colorValue);
-            return Container(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 18,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-              ),
-              decoration: BoxDecoration(
-                color: kDark ? const Color(0xFF0C141F) : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: kLine,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: color.withAlpha(25),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(_getVaultIcon(v.iconCode, v.category), size: 18, color: color),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                v.name,
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: kInk,
-                                ),
-                              ),
-                              Text(
-                                '${v.category} · Due ${v.targetDate}',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 11.5,
-                                  color: kMut,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: (v.isCompleted ? const Color(0xFF10B981) : color).withAlpha(25),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          v.isCompleted ? 'Goal Met!' : '${(v.progress * 100).round()}%',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: v.isCompleted ? const Color(0xFF10B981) : color,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: kInBg,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Vault Balance', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kMut)),
-                            Text(peso(v.currentAmount), style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w600, color: kNavyFg)),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text('Target Goal', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kMut)),
-                            Text(peso(v.targetAmount), style: TextStyle(fontFamily: 'Poppins', fontSize: 15, fontWeight: FontWeight.w600, color: kInk)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Toggle Segment
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setSheetState(() => isDeposit = true),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDeposit ? kNavyFg : kInBg,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Save More (Deposit)',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDeposit ? Colors.white : kMut,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => setSheetState(() => isDeposit = false),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: !isDeposit ? kNavyFg : kInBg,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Release to Savings',
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: !isDeposit ? Colors.white : kMut,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  TextField(
-                    controller: controller,
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(fontFamily: 'Poppins', fontSize: 17, fontWeight: FontWeight.w600, color: kInk),
-                    decoration: InputDecoration(
-                      prefixText: '₱ ',
-                      prefixStyle: TextStyle(fontFamily: 'Poppins', fontSize: 17, fontWeight: FontWeight.w600, color: kNavyFg),
-                      helperText: isDeposit
-                          ? 'Available in ${savings?.type ?? "Savings"}: ${peso(savings?.bal ?? 0)}'
-                          : 'Available in ${v.name}: ${peso(v.currentAmount)}',
-                      filled: true,
-                      fillColor: kInBg,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: kLine)),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final add in [500, 1000, 2500, 5000])
-                        ActionChip(
-                          label: Text('+₱$add', style: const TextStyle(fontSize: 11)),
-                          onPressed: () => setSheetState(() => controller.text = '$add'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final amt = double.tryParse(controller.text) ?? 0.0;
-                        if (amt <= 0) return;
-                        final err = isDeposit ? await d.allocateToVault(v.id, amt) : await d.releaseFromVault(v.id, amt);
-                        if (err != null) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: Colors.red));
-                        } else {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(isDeposit
-                                  ? '₱${amt.toStringAsFixed(2)} earmarked for ${v.name}'
-                                  : '₱${amt.toStringAsFixed(2)} released back to ${savings?.type ?? "Savings"}'),
-                              backgroundColor: const Color(0xFF059669),
-                            ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDeposit ? const Color(0xFF0D9488) : kNavyFg,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                      ),
-                      child: Text(
-                        isDeposit ? 'Confirm Allocation' : 'Release to Savings Account',
-                        style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        await d.closeVault(v.id);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${v.name} closed. Remaining balance returned to savings.'),
-                            backgroundColor: const Color(0xFF059669),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
-                      label: const Text(
-                        'Close Vault & Return Funds',
-                        style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.redAccent),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showCreateVaultDialog() {
-    final nameCtrl = TextEditingController();
-    final targetCtrl = TextEditingController(text: '15000');
-    final dateCtrl = TextEditingController(text: 'Dec 2026');
-    String selectedCategory = 'Emergency';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheetState) {
-            return Container(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 18,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-              ),
-              decoration: BoxDecoration(
-                color: kDark ? const Color(0xFF0C141F) : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(color: kLine, borderRadius: BorderRadius.circular(2)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Create New Ipon Vault',
-                    style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w600, color: kInk),
-                  ),
-                  Text(
-                    'Set a goal to earmark funds for your cooperative milestone.',
-                    style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Goal Name (e.g. Tuition, Emergency, Paluwagan)',
-                      filled: true,
-                      fillColor: kInBg,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: targetCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Target Amount (₱)',
-                            filled: true,
-                            fillColor: kInBg,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: dateCtrl,
-                          decoration: InputDecoration(
-                            labelText: 'Target Date',
-                            filled: true,
-                            fillColor: kInBg,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final cat in ['Emergency', 'Community', 'Cooperative', 'Education'])
-                        ChoiceChip(
-                          label: Text(cat, style: const TextStyle(fontSize: 11)),
-                          selected: selectedCategory == cat,
-                          onSelected: (val) {
-                            if (val) setSheetState(() => selectedCategory = cat);
-                          },
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final name = nameCtrl.text.trim();
-                        final target = double.tryParse(targetCtrl.text) ?? 10000.0;
-                        if (name.isEmpty) return;
-                        await d.createVault(
-                          name: name,
-                          targetAmount: target,
-                          targetDate: dateCtrl.text.trim(),
-                          category: selectedCategory,
-                        );
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Created Ipon Goal: $name'),
-                            backgroundColor: const Color(0xFF059669),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D9488),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Create Goal', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Widget _buildCustomer360FinancialPulse() {
     double spentTotal = 0;
     double transferShare = 0;
@@ -2242,7 +1577,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontSize: 22,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       color: kInk,
                     ),
                   ),
@@ -2319,7 +1654,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
               InkWell(
-                onTap: () => go(const ScoresPage()),
+                onTap: () => go(const GeoDealsPage()),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2676,7 +2011,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(
               fontFamily: 'Poppins',
               fontSize: 28,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: kInk,
               letterSpacing: -0.6,
             ),
@@ -2761,7 +2096,6 @@ class _HomeScreenState extends State<HomeScreen> {
           return RefreshIndicator(
             onRefresh: () => d.load(),
             child: ListView(
-              clipBehavior: Clip.none,
               padding: const EdgeInsets.only(top: 4, bottom: 16),
               children: [
                 SizedBox(
@@ -2909,7 +2243,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (!isLoan) ...[
                     _buildQuickSendBeneficiaries(),
                     PureSilverEntry(store: shop),
-                    _buildIponVaultsSection(),
                     _buildCustomer360FinancialPulse(),
                     _buildPromoAdBanner(),
                   ],
