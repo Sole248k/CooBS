@@ -445,14 +445,17 @@ class Pg extends StatelessWidget {
           titleSpacing: tab ? 20 : 12,
           title: Row(
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  color: kInk,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.3,
+              Flexible(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    color: kInk,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: -0.3,
+                  ),
                 ),
               ),
               if (chip != null) ...[

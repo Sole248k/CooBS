@@ -119,3 +119,5 @@ scratch/
 backend/api-gateway/src/main/resources/keystore/*.p12
 infra/certs/*.p12
 infra/certs/*.key
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
