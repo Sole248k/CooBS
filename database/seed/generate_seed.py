@@ -177,7 +177,7 @@ GUESTS = [
     ("Marveen Antonio", "Bernabe", "Software Developer", "0.74", 635, "25000.00", 142),
     ("Christian Rei", "Javier", "Private Employee", "0.17", 704, "60000.00", 138),
     ("Barani", "Sundaram", "Private Employee", "0.11", 717, "35000.00", 134),
-    ("Rod", "Vekez", "Private Employee", "0.10", 730, "70000.00", 130),
+    ("Rod", "Velez", "Private Employee", "0.10", 730, "70000.00", 130),
     ("Assissi", "Raval", "Private Employee", "0.12", 743, "45000.00", 126),
     ("Jet", "Almazan", "Private Employee", "0.14", 756, "20000.00", 122),
     ("Gerard", "Martinez", "Private Employee", "0.16", 769, "55000.00", 118),

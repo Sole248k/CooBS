@@ -53,7 +53,7 @@ For a customer the token's `userId` is the customer ID.
 | 22 | `marveen_bernabe` | Marveen Antonio Bernabe | TIER_3_FULL | 0.74 | 635 | 100,000.00 | ACTIVE | Risk score in the 0.60 to 0.85 band: declined as REVIEW_REQUIRED. |
 | 23 | `christian_javier` | Christian Rei Javier | TIER_3_FULL | 0.17 | 704 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
 | 24 | `barani_sundaram` | Barani Sundaram | TIER_3_FULL | 0.11 | 717 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
-| 25 | `rod_vekez` | Rod Vekez | TIER_3_FULL | 0.10 | 730 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
+| 25 | `rod_velez` | Rod Velez | TIER_3_FULL | 0.10 | 730 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
 | 26 | `assissi_raval` | Assissi Raval | TIER_3_FULL | 0.12 | 743 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
 | 27 | `jet_almazan` | Jet Almazan | TIER_3_FULL | 0.14 | 756 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
 | 28 | `gerard_martinez` | Gerard Martinez | TIER_3_FULL | 0.16 | 769 | 100,000.00 | ACTIVE | Demonstration member: one savings account, nothing unusual. |
@@ -112,7 +112,7 @@ For a customer the token's `userId` is the customer ID.
 | 26 | `ACC_10000026` | SAVINGS | ACTIVE | 22 `marveen_bernabe` | 25,000.00 | 0.00 | 25,000.00 |
 | 27 | `ACC_10000027` | SAVINGS | ACTIVE | 23 `christian_javier` | 60,000.00 | 0.00 | 60,000.00 |
 | 28 | `ACC_10000028` | SAVINGS | ACTIVE | 24 `barani_sundaram` | 35,000.00 | 0.00 | 35,000.00 |
-| 29 | `ACC_10000029` | SAVINGS | ACTIVE | 25 `rod_vekez` | 70,000.00 | 0.00 | 70,000.00 |
+| 29 | `ACC_10000029` | SAVINGS | ACTIVE | 25 `rod_velez` | 70,000.00 | 0.00 | 70,000.00 |
 | 30 | `ACC_10000030` | SAVINGS | ACTIVE | 26 `assissi_raval` | 45,000.00 | 0.00 | 45,000.00 |
 | 31 | `ACC_10000031` | SAVINGS | ACTIVE | 27 `jet_almazan` | 20,000.00 | 0.00 | 20,000.00 |
 | 32 | `ACC_10000032` | SAVINGS | ACTIVE | 28 `gerard_martinez` | 55,000.00 | 0.00 | 55,000.00 |

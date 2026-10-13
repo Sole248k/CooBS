@@ -23,7 +23,7 @@ Inside Compose a service is reached by its container name. From the host, and wh
 | batch-service | `batch-service` | 8093 | On-premises | `expansion` |
 | mobile-bff | `mobile-bff` | 8094 | Cloud | `expansion` |
 | staff-bff | `staff-bff` | 8095 | Cloud | `expansion` |
-| order-service | `order-service` | 8096 | On-premises | `expansion` |
+| order-service | `order-service` | 8096 | Cloud | `expansion` |
 
 | Data store | Container name | Port inside Compose | Host port | Compose profile |
 | --- | --- | --- | --- | --- |
@@ -57,12 +57,13 @@ Which service receives which URL follows section 3.2 of the API contract, the li
 
 | Service | Receives |
 | --- | --- |
-| api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch, mobile-bff, staff-bff |
+| api-gateway | Every service with a public route: auth, account, ledger, notification, audit, customer, transaction, batch, mobile-bff, staff-bff, order |
 | customer-service | `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL` |
 | transaction-service | `ACCOUNT_SERVICE_URL`, `ORCHESTRATION_SERVICE_URL` |
 | orchestration-service | `CUSTOMER_SERVICE_URL`, `RISK_ENGINE_URL`, `LEDGER_SERVICE_URL`, `TRANSACTION_SERVICE_URL` (the inter-bank gateway, I4) |
 | account-service | `LEDGER_SERVICE_URL` |
 | batch-service | `LEDGER_SERVICE_URL` |
+| order-service | `LEDGER_SERVICE_URL` (hold, capture, release for shop orders). Not yet in section 3.2 of the API contract |
 | mobile-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
 | staff-bff | `CUSTOMER_SERVICE_URL`, `ACCOUNT_SERVICE_URL`, `LEDGER_SERVICE_URL`, `TRANSACTION_SERVICE_URL`, `AUDIT_SERVICE_URL`, `BATCH_SERVICE_URL`, `NOTIFICATION_SERVICE_URL` |
 
@@ -98,6 +99,7 @@ Init scripts: `database/postgres-cloud/`. One user for local development.
 | `transaction_db` | `txn` | transaction-service |
 | `transaction_db` | `saga` | orchestration-service |
 | `notification_db` | `public` | notification-service |
+| `order_db` | `public` | order-service. It reads `DATABASE_URL`, `DATABASE_DRIVER`, `DATABASE_USERNAME` and `DATABASE_PASSWORD`, as notification-service does |
 
 | Variable | Value in Compose | Default when run from an IDE |
 | --- | --- | --- |

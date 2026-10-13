@@ -160,3 +160,15 @@ scrape_configs:
         labels:
           service: 'mobile-bff'
           tier: 'edge'
+
+  # ----------------------------------------------------------------------------
+  # order-service (core) - Co-op Essentials Depot orders and ledger escrow
+  # ----------------------------------------------------------------------------
+  - job_name: 'order-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['order-service:8096']
+        labels:
+          service: 'order-service'
+          tier: 'core'

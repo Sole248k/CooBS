@@ -81,12 +81,13 @@ services:
           echo "Cloud databases are already loaded."
           exit 0
         fi
-        run -Q "DROP DATABASE IF EXISTS identity_db; DROP DATABASE IF EXISTS customer_db; DROP DATABASE IF EXISTS transaction_db; DROP DATABASE IF EXISTS notification_db;"
+        run -Q "DROP DATABASE IF EXISTS identity_db; DROP DATABASE IF EXISTS customer_db; DROP DATABASE IF EXISTS transaction_db; DROP DATABASE IF EXISTS notification_db; DROP DATABASE IF EXISTS order_db;"
         run -i /scripts/01_create_databases.sql
         run -d identity_db     -i /scripts/02_identity_db.sql
         run -d customer_db     -i /scripts/03_customer_db.sql
         run -d transaction_db  -i /scripts/04_transaction_db.sql
         run -d notification_db -i /scripts/05_notification_db.sql
+        run -d order_db        -i /scripts/06_order_db.sql
         run -Q "CREATE DATABASE coobs_seed_done"
         echo "Cloud databases loaded."
     restart: "no"
@@ -123,6 +124,15 @@ services:
     depends_on: *sqlserver-loaded
     environment:
       DATABASE_URL: jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=notification_db;encrypt=true;trustServerCertificate=true;loginTimeout=30
+      DATABASE_DRIVER: com.microsoft.sqlserver.jdbc.SQLServerDriver
+      DATABASE_USERNAME: sa
+      DATABASE_PASSWORD: ${CLOUD_DB_PASSWORD:?CLOUD_DB_PASSWORD is required}
+
+  # order-service reads the same DATABASE_* names as notification-service.
+  order-service:
+    depends_on: *sqlserver-loaded
+    environment:
+      DATABASE_URL: jdbc:sqlserver://sqlserver-cloud-db:1433;databaseName=order_db;encrypt=true;trustServerCertificate=true;loginTimeout=30
       DATABASE_DRIVER: com.microsoft.sqlserver.jdbc.SQLServerDriver
       DATABASE_USERNAME: sa
       DATABASE_PASSWORD: ${CLOUD_DB_PASSWORD:?CLOUD_DB_PASSWORD is required}

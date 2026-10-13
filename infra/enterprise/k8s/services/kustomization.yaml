@@ -1,0 +1,116 @@
+# The business services cluster: auth, customer, transaction, orchestration, risk-engine,
+# notification, order and Kafka. It has no public address.
+#
+#   kubectl kustomize infra/enterprise/k8s/services
+#
+# It is infra/k8s with the channel workloads taken out, and with the five services the channels
+# cluster calls given a fixed private address each on an internal load balancer. The addresses
+# are in the AKS subnet and are repeated in ../channels/business-services.yaml: change both together.
+# orchestration-service and risk-engine stay ClusterIP: nothing outside this cluster calls them.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: coobs
+
+resources:
+  - ../../../k8s
+
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: frontend
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: api-gateway
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: mobile-bff
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: staff-bff
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: coobs-public
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: api-gateway
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: mobile-bff
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: staff-bff
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: auth-service
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+          service.beta.kubernetes.io/azure-load-balancer-ipv4: "10.240.15.211"
+      spec:
+        type: LoadBalancer
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: customer-service
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+          service.beta.kubernetes.io/azure-load-balancer-ipv4: "10.240.15.212"
+      spec:
+        type: LoadBalancer
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: transaction-service
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+          service.beta.kubernetes.io/azure-load-balancer-ipv4: "10.240.15.213"
+      spec:
+        type: LoadBalancer
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: notification-service
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+          service.beta.kubernetes.io/azure-load-balancer-ipv4: "10.240.15.214"
+      spec:
+        type: LoadBalancer
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: order-service
+        annotations:
+          service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+          service.beta.kubernetes.io/azure-load-balancer-ipv4: "10.240.15.215"
+      spec:
+        type: LoadBalancer

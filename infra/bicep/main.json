@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "2261541607818607995"
+      "templateHash": "18286663191857110908"
     }
   },
   "parameters": {
@@ -93,6 +93,15 @@
       "defaultValue": "",
       "metadata": {
         "description": "Public address of the coobs-public load balancer, as printed by infra/scripts/deploy-cloud.ps1. Needed only when deployFrontDoor is true"
+      }
+    },
+    "aksMaxNodeCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "maxValue": 3,
+      "metadata": {
+        "description": "Most AKS nodes the autoscaler may run. 1 keeps the single fixed node; 2 allows one more when pods find no room"
       }
     },
     "uniqueSuffix": {
@@ -747,7 +756,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.48.1.52935",
-              "templateHash": "13364190573179982432"
+              "templateHash": "5260813497221046084"
             }
           },
           "parameters": {
@@ -801,10 +810,11 @@
                 "identity_db",
                 "customer_db",
                 "transaction_db",
-                "notification_db"
+                "notification_db",
+                "order_db"
               ],
               "metadata": {
-                "description": "The four cloud databases (contracts/runtime/RUNTIME_SETTINGS.md section 3)"
+                "description": "The five cloud databases (contracts/runtime/RUNTIME_SETTINGS.md section 3)"
               }
             },
             "tags": {
@@ -1139,6 +1149,9 @@
           "enableContainerInsights": {
             "value": "[parameters('enableContainerInsights')]"
           },
+          "maxNodeCount": {
+            "value": "[parameters('aksMaxNodeCount')]"
+          },
           "tags": {
             "value": "[variables('tags')]"
           }
@@ -1150,7 +1163,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.48.1.52935",
-              "templateHash": "2408233697789715087"
+              "templateHash": "12019873915790859841"
             }
           },
           "parameters": {
@@ -1195,7 +1208,16 @@
               "type": "int",
               "defaultValue": 1,
               "metadata": {
-                "description": "One node, fixed. The trial quota is 4 vCPUs and the on-premises VM takes the other two"
+                "description": "Nodes the pool starts with. One runs the whole cloud zone; its CPU reservations are 95 percent taken"
+              }
+            },
+            "maxNodeCount": {
+              "type": "int",
+              "defaultValue": 1,
+              "minValue": 1,
+              "maxValue": 3,
+              "metadata": {
+                "description": "Most nodes the autoscaler may add. Equal to nodeCount (the default) leaves autoscaling off. 2 lets a rollout that finds no room add one node, and caps the cost at two"
               }
             },
             "availabilityZones": {
@@ -1285,7 +1307,9 @@
                     "mode": "System",
                     "vnetSubnetID": "[parameters('subnetId')]",
                     "availabilityZones": "[parameters('availabilityZones')]",
-                    "enableAutoScaling": false,
+                    "enableAutoScaling": "[greater(parameters('maxNodeCount'), parameters('nodeCount'))]",
+                    "minCount": "[if(greater(parameters('maxNodeCount'), parameters('nodeCount')), parameters('nodeCount'), null())]",
+                    "maxCount": "[if(greater(parameters('maxNodeCount'), parameters('nodeCount')), parameters('maxNodeCount'), null())]",
                     "maxPods": 60,
                     "osDiskSizeGB": 64,
                     "type": "VirtualMachineScaleSets"

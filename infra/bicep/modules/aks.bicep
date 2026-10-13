@@ -16,8 +16,13 @@ param acrName string
 @description('2 vCPUs and 16 GB. Eight JVMs and Kafka share one node, so memory is the limit, not CPU')
 param vmSize string = 'Standard_E2as_v5'
 
-@description('One node, fixed. The trial quota is 4 vCPUs and the on-premises VM takes the other two')
+@description('Nodes the pool starts with. One runs the whole cloud zone; its CPU reservations are 95 percent taken')
 param nodeCount int = 1
+
+@description('Most nodes the autoscaler may add. Equal to nodeCount (the default) leaves autoscaling off. 2 lets a rollout that finds no room add one node, and caps the cost at two')
+@minValue(1)
+@maxValue(3)
+param maxNodeCount int = 1
 
 @description('The only zone in which the trial subscription may create this size')
 param availabilityZones array = [
@@ -87,8 +92,10 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2024-02-01' = {
         mode: 'System'
         vnetSubnetID: subnetId
         availabilityZones: availabilityZones
-        // No autoscaling: a second node would not fit the quota.
-        enableAutoScaling: false
+        // Off unless maxNodeCount is raised. The upper bound is the cost ceiling.
+        enableAutoScaling: maxNodeCount > nodeCount
+        minCount: maxNodeCount > nodeCount ? nodeCount : null
+        maxCount: maxNodeCount > nodeCount ? maxNodeCount : null
         // Every pod takes an address from the subnet; the default of 30 leaves no room for a rollout.
         maxPods: 60
         osDiskSizeGB: 64

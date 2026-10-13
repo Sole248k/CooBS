@@ -8,3 +8,4 @@ IF DB_ID(N'identity_db') IS NULL CREATE DATABASE identity_db COLLATE Latin1_Gene
 IF DB_ID(N'customer_db') IS NULL CREATE DATABASE customer_db COLLATE Latin1_General_100_CI_AS_SC_UTF8;
 IF DB_ID(N'transaction_db') IS NULL CREATE DATABASE transaction_db COLLATE Latin1_General_100_CI_AS_SC_UTF8;
 IF DB_ID(N'notification_db') IS NULL CREATE DATABASE notification_db COLLATE Latin1_General_100_CI_AS_SC_UTF8;
+IF DB_ID(N'order_db') IS NULL CREATE DATABASE order_db COLLATE Latin1_General_100_CI_AS_SC_UTF8;

@@ -61,6 +61,7 @@ data:
       - orchestration-service
       - risk-engine
       - notification-service
+      - order-service
     init_config:
     instances:
       - openmetrics_endpoint: "http://%%host%%:%%port%%/actuator/prometheus"

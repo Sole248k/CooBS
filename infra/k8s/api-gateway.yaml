@@ -73,6 +73,11 @@ spec:
                 configMapKeyRef:
                   name: coobs-config
                   key: STAFF_BFF_URL
+            - name: ORDER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: ORDER_SERVICE_URL
             # Routes that cross the link to the on-premises services
             - name: ACCOUNT_SERVICE_URL
               valueFrom:

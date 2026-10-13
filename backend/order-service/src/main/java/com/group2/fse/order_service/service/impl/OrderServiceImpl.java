@@ -96,7 +96,7 @@ public class OrderServiceImpl implements OrderService {
 
         Long holdId = holdResponse != null ? holdResponse.getHoldId() : null;
 
-        // 2. Persist order in Oracle
+        // 2. Persist order in order_db
         ShopOrder order = ShopOrder.builder()
                 .referenceNo(referenceNo)
                 .customerId(customerId)

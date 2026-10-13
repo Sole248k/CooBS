@@ -1,10 +1,10 @@
-# Loads the four cloud databases in Azure SQL from database/azure-sql/. Not in kustomization.yaml:
+# Loads the five cloud databases in Azure SQL from database/azure-sql/. Not in kustomization.yaml:
 # infra/scripts/deploy-cloud.ps1 creates the two ConfigMaps it reads, applies it, and waits.
 #
 # It runs in the cluster because Azure SQL accepts connections from the AKS subnet only.
 # The image is the SQL Server one, used only for its sqlcmd; no database engine is started.
 #
-#   coobs-sql-scripts   the four script files, from database/azure-sql/
+#   coobs-sql-scripts   the five script files, from database/azure-sql/
 #   coobs-sql-target    SQL_SERVER_FQDN and CLOUD_DB_USER
 #   coobs-app-secrets   CLOUD_DB_PASSWORD and STAFF_PASSWORD
 #
@@ -18,7 +18,7 @@
 # by htpasswd in the first container (bcrypt, cost 10, the form auth-service reads).
 #
 # With RESET_DATA=true (deploy-cloud.ps1 -ResetData) it first empties Redis and removes every
-# table from the four databases, so the load that follows puts the seed back. The script stops
+# table from the five databases, so the load that follows puts the seed back. The script stops
 # the services before it runs this, because a service that writes during the load breaks it.
 apiVersion: batch/v1
 kind: Job
@@ -161,12 +161,13 @@ spec:
                   IF EXISTS (SELECT 1 FROM sys.extended_properties WHERE class = 0 AND name = N'coobs_seed') EXEC sys.sp_dropextendedproperty @name = N'coobs_seed';"
               }
               if [ "$RESET_DATA" = "true" ]; then
-                for db in identity_db customer_db transaction_db notification_db; do wipe "$db"; done
+                for db in identity_db customer_db transaction_db notification_db order_db; do wipe "$db"; done
               fi
               load identity_db     02_identity_db.sql
               load customer_db     03_customer_db.sql
               load transaction_db  04_transaction_db.sql
               load notification_db 05_notification_db.sql
+              load order_db        06_order_db.sql
               echo "Cloud databases are loaded."
 
               hash=$(cat /work/staff.hash)

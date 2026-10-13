@@ -1,0 +1,81 @@
+# The five business services, seen from the channels cluster. Each address is the fixed private
+# address ../services/kustomization.yaml gives that service's internal load balancer.
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: auth-service-business
+  labels:
+    kubernetes.io/service-name: auth-service
+    coobs/zone: business
+addressType: IPv4
+ports:
+  - name: http
+    port: 8081
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.240.15.211"
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: customer-service-business
+  labels:
+    kubernetes.io/service-name: customer-service
+    coobs/zone: business
+addressType: IPv4
+ports:
+  - name: http
+    port: 8089
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.240.15.212"
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: transaction-service-business
+  labels:
+    kubernetes.io/service-name: transaction-service
+    coobs/zone: business
+addressType: IPv4
+ports:
+  - name: http
+    port: 8090
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.240.15.213"
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: notification-service-business
+  labels:
+    kubernetes.io/service-name: notification-service
+    coobs/zone: business
+addressType: IPv4
+ports:
+  - name: http
+    port: 8084
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.240.15.214"
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: order-service-business
+  labels:
+    kubernetes.io/service-name: order-service
+    coobs/zone: business
+addressType: IPv4
+ports:
+  - name: http
+    port: 8096
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.240.15.215"
