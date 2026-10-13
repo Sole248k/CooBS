@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void fillBasket(ShopStore store) {
-  for (final product in shopProducts) {
+  for (final product in shopProducts.take(3)) {
     store.setQuantity(product.id, 1);
   }
 }

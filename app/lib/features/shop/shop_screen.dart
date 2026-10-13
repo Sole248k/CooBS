@@ -74,7 +74,7 @@ class PureSilverEntry extends StatelessWidget {
             spacing: 6,
             runSpacing: 4,
             children: [
-              _featureTag(Icons.shield_outlined, '2-Phase Escrow'),
+              _featureTag(Icons.verified_outlined, 'Co-op Partner'),
               _featureTag(Icons.local_shipping_outlined, 'Branch Pickup'),
               _featureTag(Icons.percent_rounded, 'Co-op Subsidy'),
             ],
@@ -150,6 +150,7 @@ class PureSilverScreen extends StatefulWidget {
 class _PureSilverScreenState extends State<PureSilverScreen> {
   final List<_View> _history = [];
   late _View _view;
+  String _selectedCategory = 'All';
   ShopStore get store => widget.store;
 
   @override
@@ -204,28 +205,6 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
         if (!didPop) _back();
       },
       child: Pg(_title, [
-        Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: kInBg,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF047857)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  AppConfig.useFixtures
-                      ? 'SAMPLE ONLY · No bank charges or real orders. Shopping data resets when this banking session ends.'
-                      : 'LIVE ESCROW DEPOT · Connected to Order Service & Ledger 2-Phase Escrow.',
-                  style: TextStyle(color: kInk, fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
         ..._content(),
       ], onBack: _back),
     ),
@@ -253,106 +232,210 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
     _Page.help => _help(_view.order!),
   };
 
+  static const _categories = [
+    'All',
+    'Grains & Rice',
+    'Dairy & Eggs',
+    'Fresh Produce',
+    'Pantry & Cooking',
+    'Bakery & Beverages',
+  ];
+
   // --------------------------------------------------------------------------
   // MODERN E-COMMERCE GROCERY CATALOGUE
   // --------------------------------------------------------------------------
-  List<Widget> _catalogue() => [
-    _ShopCard(
-      children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withAlpha(30),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'COOPERATIVE ESSENTIALS DEPOT · ZERO MARKUP',
-              style: TextStyle(
-                color: Color(0xFF047857),
-                fontSize: 10.5,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+  List<Widget> _catalogue() {
+    final filtered = _selectedCategory == 'All'
+        ? store.products
+        : store.products.where((p) => p.category == _selectedCategory).toList();
+
+    return [
+      _ShopCard(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withAlpha(30),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'COOPERATIVE ESSENTIALS DEPOT · ZERO MARKUP',
+                style: TextStyle(
+                  color: Color(0xFF047857),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Everyday essentials.',
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w600,
-            color: kInk,
+          const SizedBox(height: 4),
+          Text(
+            'Everyday essentials.',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w600,
+              color: kInk,
+            ),
           ),
-        ),
-        const Text(
-          'Bank-partner shopping concept. Collect at PureSilver Central Mall.',
-        ),
-        const Text('Sample branch · 4:00–6:00 PM pickup · No substitutions'),
-        const SizedBox(height: 4),
-        Wrap(
+          const Text(
+            'Bank-partner shopping concept. Collect at PureSilver Central Mall.',
+          ),
+          const Text('Sample branch · 4:00–6:00 PM pickup · No substitutions'),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              PureSilverEntry._featureTag(Icons.verified_outlined, 'Co-op Partner'),
+              PureSilverEntry._featureTag(Icons.storefront_outlined, 'Branch Pickup'),
+              PureSilverEntry._featureTag(Icons.percent_rounded, 'Co-op Subsidized'),
+            ],
+          ),
+        ],
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Wrap(
           spacing: 6,
-          runSpacing: 4,
+          runSpacing: 6,
           children: [
-            PureSilverEntry._featureTag(Icons.shield_outlined, '2-Phase Escrow'),
-            PureSilverEntry._featureTag(Icons.storefront_outlined, 'Branch Pickup'),
-            PureSilverEntry._featureTag(Icons.percent_rounded, 'Co-op Subsidized'),
+            for (final cat in _categories)
+              FilterChip(
+                selected: _selectedCategory == cat,
+                showCheckmark: false,
+                label: Text(
+                  cat,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: _selectedCategory == cat ? FontWeight.bold : FontWeight.w500,
+                    color: _selectedCategory == cat
+                        ? Colors.white
+                        : (kDark ? Colors.white70 : const Color(0xFF1F2937)),
+                  ),
+                ),
+                backgroundColor: kDark ? const Color(0xFF1E293B) : const Color(0xFFF3F4F6),
+                selectedColor: const Color(0xFF047857),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _selectedCategory == cat
+                        ? const Color(0xFF047857)
+                        : (kDark ? Colors.white12 : const Color(0xFFE5E7EB)),
+                  ),
+                ),
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedCategory = cat);
+                  }
+                },
+              ),
           ],
         ),
-      ],
-    ),
-    if (store.isLoading)
-      const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Center(
-          child: SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF047857)),
-          ),
-        ),
       ),
-    for (final product in store.products)
-      Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(
-            color: store.quantity(product.id) > 0 ? const Color(0xFF047857) : kLine,
-            width: store.quantity(product.id) > 0 ? 1.5 : 1.0,
-          ),
-        ),
-        color: kSurface,
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          leading: Container(
-            height: 48,
-            width: 48,
-            decoration: BoxDecoration(
-              color: kDark ? const Color(0xFF1E293B) : const Color(0xFFE8F5E9),
-              borderRadius: BorderRadius.circular(14),
+      if (store.isLoading)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Center(
+            child: SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF047857)),
             ),
-            child: Icon(_icon(product), size: 28, color: const Color(0xFF047857)),
           ),
-          title: Text(
-            product.name,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Text('${product.unit}\n${shopMoney(product.priceCents)}'),
-          isThreeLine: true,
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => _go(_Page.product, product: product),
         ),
+      for (final product in filtered)
+        Card(
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: store.quantity(product.id) > 0 ? const Color(0xFF047857) : kLine,
+              width: store.quantity(product.id) > 0 ? 1.5 : 1.0,
+            ),
+          ),
+          color: kSurface,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                height: 52,
+                width: 52,
+                color: kDark ? const Color(0xFF1E293B) : const Color(0xFFE8F5E9),
+                child: product.imageUrl != null
+                    ? Image.network(
+                        product.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Icon(
+                          _icon(product),
+                          size: 28,
+                          color: const Color(0xFF047857),
+                        ),
+                      )
+                    : Icon(_icon(product), size: 28, color: const Color(0xFF047857)),
+              ),
+            ),
+            title: Text(
+              product.name,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${product.unit} · ${product.badge}'),
+                const SizedBox(height: 2),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      shopMoney(product.priceCents),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+                    ),
+                    if (product.originalPriceCents > product.priceCents)
+                      Text(
+                        shopMoney(product.originalPriceCents),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: kMut,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            isThreeLine: true,
+            trailing: store.quantity(product.id) > 0
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF047857),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${store.quantity(product.id)}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                : const Icon(Icons.chevron_right),
+            onTap: () => _go(_Page.product, product: product),
+          ),
+        ),
+      _action(
+        'View basket (${store.cartCount}) · ${shopMoney(store.cartTotalCents)}',
+        () => _go(_Page.cart),
       ),
-    _action(
-      'View basket (${store.cartCount}) · ${shopMoney(store.cartTotalCents)}',
-      () => _go(_Page.cart),
-    ),
-    _action('My sample orders', () => _go(_Page.orders), secondary: true),
-    _action('Back to banking', () => Navigator.pop(context), secondary: true),
-  ];
+      _action('My sample orders', () => _go(_Page.orders), secondary: true),
+      _action('Back to banking', () => Navigator.pop(context), secondary: true),
+    ];
+  }
 
   // --------------------------------------------------------------------------
   // PRODUCT DETAILS
@@ -360,33 +443,117 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
   List<Widget> _product(ShopProduct product) => [
     _ShopCard(
       children: [
-        Center(
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
           child: Container(
-            height: 120,
-            width: 120,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: kDark ? const Color(0xFF1E293B) : const Color(0xFFE8F5E9),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(_icon(product), size: 68, color: const Color(0xFF047857)),
+            height: 180,
+            width: double.infinity,
+            color: kDark ? const Color(0xFF1E293B) : const Color(0xFFE8F5E9),
+            child: product.imageUrl != null
+                ? Image.network(
+                    product.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Icon(
+                      _icon(product),
+                      size: 68,
+                      color: const Color(0xFF047857),
+                    ),
+                  )
+                : Icon(_icon(product), size: 68, color: const Color(0xFF047857)),
           ),
         ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withAlpha(25),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                product.badge,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF047857),
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: kInBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                product.category,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: kMut,
+                ),
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 2),
+                Text(
+                  product.rating.toStringAsFixed(1),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: kInk,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
         Text(
           product.name,
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: FontWeight.w700,
             color: kInk,
           ),
         ),
-        Text('${product.unit} · ${shopMoney(product.priceCents)}'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              shopMoney(product.priceCents),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF047857),
+              ),
+            ),
+            if (product.originalPriceCents > product.priceCents)
+              Text(
+                shopMoney(product.originalPriceCents),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: kMut,
+                  decoration: TextDecoration.lineThrough,
+                ),
+              ),
+            Text('· ${product.unit}', style: TextStyle(color: kMut, fontSize: 13)),
+          ],
+        ),
         const SizedBox(height: 6),
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: kInBg,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,7 +564,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                'Sample stock: up to ${product.stock} per basket. Final retailer stock checks are not connected.',
+                'Sample stock: up to ${product.stock} per basket. Co-op partner depot pickup.',
                 style: TextStyle(fontSize: 11.5, color: kMut),
               ),
             ],
@@ -480,7 +647,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Two-Phase Escrow: Funds remain in your account until you collect your basket.',
+                  'Buyer Protection: Funds remain reserved in your account until you collect your basket.',
                   style: TextStyle(fontSize: 11.5, color: kInk),
                 ),
               ),
@@ -665,7 +832,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           }),
           const Divider(height: 14),
           if (order.holdId != null) ...[
-            _kv('Ledger Escrow Hold', '#${order.holdId}'),
+            _kv('Authorization Hold', '#${order.holdId}'),
           ],
           _kv('Sample available balance', shopMoney(store.availableCents)),
           _kv('Sample ledger balance', shopMoney(store.ledgerCents)),
