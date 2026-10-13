@@ -20,6 +20,18 @@ IconData _vaultIcon(int code) {
     case 0xe000:
     case 0xf0621:
       return Icons.shield_outlined;
+    case 0xe040:
+      return Icons.account_balance_wallet_rounded;
+    case 0xe1db:
+      return Icons.directions_car_rounded;
+    case 0xe318:
+      return Icons.home_rounded;
+    case 0xe539:
+      return Icons.flight_takeoff_rounded;
+    case 0xe84f:
+      return Icons.favorite_rounded;
+    case 0xe227:
+      return Icons.medical_services_rounded;
     default:
       return Icons.savings_rounded;
   }

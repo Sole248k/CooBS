@@ -189,20 +189,22 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 14),
             tf(c, 'Gateway Base URL (e.g. http://192.168.254.126:8080)'),
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => c.text = 'http://10.0.2.2:8080',
-                    child: const Text('Emulator (10.0.2.2)', style: TextStyle(fontFamily: 'Poppins')),
-                  ),
+                OutlinedButton.icon(
+                  onPressed: () => c.text = AppConfig.defaultAzureGatewayUrl,
+                  icon: const Icon(Icons.cloud_outlined, size: 16),
+                  label: const Text('Azure Cloud', style: TextStyle(fontFamily: 'Poppins', fontSize: 12)),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => c.text = 'http://localhost:8080',
-                    child: const Text('Localhost:8080', style: TextStyle(fontFamily: 'Poppins')),
-                  ),
+                OutlinedButton(
+                  onPressed: () => c.text = 'http://localhost:8080',
+                  child: const Text('Localhost:8080', style: TextStyle(fontFamily: 'Poppins', fontSize: 12)),
+                ),
+                OutlinedButton(
+                  onPressed: () => c.text = 'http://10.0.2.2:8080',
+                  child: const Text('Emulator (10.0.2.2)', style: TextStyle(fontFamily: 'Poppins', fontSize: 12)),
                 ),
               ],
             ),

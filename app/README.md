@@ -34,11 +34,10 @@ Wrapped around every request in `ApiClient`:
 - **Fail-Fast**: In `OPEN` state, requests fail in 0ms and route to `ServiceUnavailableView` with a live 30-second cooldown timer.
 - **Probing**: After 30 seconds, a probe request tests recovery; on success, resets to `CLOSED`.
 
-- **Role / Ownership:** Neo: Dev 6 (Flutter Foundation) & Gabo: Dev 7 (Flutter Features)
-- **Target Platform:** Mobile devices / Android Emulator
+- **Target Platform:** Mobile devices (iOS & Android) / Simulator / Emulator
 - **Target Ingress:** 
-  - Android Emulator: `http://10.0.2.2:8080` (Spring Cloud Gateway loopback)
-  - Physical Device: `http://<LAN_IP>:8080` or `adb reverse tcp:8080 tcp:8080`
+  - Production Azure Gateway (Default): `https://coobs.indonesiacentral.cloudapp.azure.com`
+  - Local Docker Gateway (Optional override): `http://localhost:8080` (or `http://10.0.2.2:8080` on Android Emulator)
 - **Air-Gapped Fixture Mode:** Toggle `USE_FIXTURES=true` to run offline against `assets/fixtures/` without a running backend.
 
 ---
@@ -84,29 +83,38 @@ app/
 
 For a complete step-by-step setup walkthrough including troubleshooting, consult [TESTING_GUIDE.md](../TESTING_GUIDE.md).
 
-### Mode A: Physical Device via Wi-Fi LAN (Recommended)
-Ensure your phone/tablet and host PC are on the same Wi-Fi network:
+### Mode A: Standard Run (Defaults to Live Azure Gateway)
+Runs against `https://coobs.indonesiacentral.cloudapp.azure.com`:
 ```bash
-flutter run --dart-define=GATEWAY_URL=http://<YOUR_PC_WIFI_IP>:8080
+# iOS Simulator
+flutter run -d "iPhone 17 Pro"
+
+# Physical iOS / Android Device
+flutter run -d <DEVICE_ID>
 ```
 
-### Mode B: Physical Device via USB (ADB Reverse)
-Due to port 8080 conflicts on certain Android devices, port 8088 is mapped to host port 8080:
-```powershell
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" reverse tcp:8088 tcp:8080
-flutter run --dart-define=GATEWAY_URL=http://localhost:8088
-```
-
-### Mode C: Android Emulator
+### Mode B: Air-Gapped Fixture Mode (Offline / Zero Backend)
 ```bash
-flutter run
-```
-*(Automatically routes to `http://10.0.2.2:8080`).*
-
-### Mode D: Air-Gapped Fixture Mode (Offline / Zero Backend)
-```bash
+# Works completely offline against local JSON fixtures:
 flutter run --dart-define=USE_FIXTURES=true
 ```
+
+### Mode C: Custom Gateway Override (CLI Flag)
+```bash
+# Override gateway to local development server:
+flutter run --dart-define=GATEWAY_URL=http://localhost:8080
+```
+*(Or easily switch between Azure Cloud, Localhost, and Android Emulator via the in-app server settings popup).*
+
+### Mode D: Physical iOS Device with Xcode
+1. Open the workspace in Xcode:
+   ```bash
+   open ios/Runner.xcworkspace
+   ```
+2. Under **Runner > Signing & Capabilities**, verify your **Development Team**.
+3. Select your connected iPhone and click **Run** (or `flutter run -d <DEVICE_ID>`).
+
+
 
 ### Run Tests & Static Analysis
 ```bash
