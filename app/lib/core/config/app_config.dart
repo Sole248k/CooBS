@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Runtime configuration for the CooBS Mobile Application.
 /// Handles environment toggles, gateway routing, and air-gapped fixture mode.
 class AppConfig {

@@ -13,13 +13,13 @@ IconData _vaultIcon(int code) {
       return Icons.school_rounded;
     case 0xe3ae:
       return Icons.groups_rounded;
+    case 0xe06e:
+      return Icons.account_balance_rounded;
+    case 0xe5ce:
+      return Icons.shield_rounded;
     case 0xe000:
     case 0xf0621:
       return Icons.shield_outlined;
-    case 0xe5ce:
-      return Icons.shield_rounded;
-    case 0xe06e:
-      return Icons.account_balance_rounded;
     case 0xe040:
       return Icons.account_balance_wallet_rounded;
     case 0xe1db:
@@ -33,7 +33,7 @@ IconData _vaultIcon(int code) {
     case 0xe227:
       return Icons.medical_services_rounded;
     default:
-      return Icons.account_balance_wallet_rounded;
+      return Icons.savings_rounded;
   }
 }
 
