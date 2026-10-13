@@ -4,6 +4,8 @@ import 'package:app/features/accounts/demo_store.dart';
 import 'package:app/features/accounts/home_screen.dart';
 import 'package:app/features/scores/scores_screen.dart';
 
+import 'package:app/features/vaults/ipon_vaults_screen.dart';
+
 void main() {
   setUp(() {
     Demo.i.reset();
@@ -118,7 +120,7 @@ void main() {
       expect(find.text('Remaining'), findsOneWidget);
     });
 
-    testWidgets('HomeScreen renders Co-op Ipon Vaults section', (tester) async {
+    testWidgets('HomeScreen does not render Co-op Ipon Vaults (moved to navbar tab)', (tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.0;
       addTearDown(() => tester.view.resetPhysicalSize());
@@ -132,10 +134,29 @@ void main() {
       );
       await tester.pump();
 
+      expect(find.text('Co-op Ipon Vaults'), findsNothing);
+    });
+
+    testWidgets('IponVaultsPage renders dedicated page with hero card, filters, and cards', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      Demo.i.state = LoadState.ready;
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: IponVaultsPage(),
+        ),
+      );
+      await tester.pump();
+
       expect(find.text('Co-op Ipon Vaults'), findsOneWidget);
-      expect(find.text('New Goal'), findsOneWidget);
+      expect(find.text('COOPERATIVE IPON PROGRAM'), findsOneWidget);
+      expect(find.text('Total Earmarked in Vaults'), findsOneWidget);
       expect(find.text('Emergency Buffer'), findsOneWidget);
       expect(find.text('Paluwagan & Holidays'), findsOneWidget);
+      expect(find.text('New Vault'), findsOneWidget);
     });
   });
 }

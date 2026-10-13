@@ -11,6 +11,7 @@ import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
 import '../auth/auth_screens.dart';
 import '../ads/ad_service.dart';
+import '../beneficiaries/beneficiary_screens.dart';
 import '../data/mobile_repo.dart';
 import '../kyc/kyc_intake_screen.dart';
 
@@ -371,6 +372,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     subtitle: Text('Submit your details for review', style: TextStyle(color: kMut)),
                     trailing: AnimatedBuilder(animation: Demo.i, builder: (context, _) => kycChip(Demo.i.kyc)),
                     onTap: () => go(context, const KycIntakeScreen())),
+                ListTile(title: Text('Beneficiaries', style: TextStyle(color: kInk)), subtitle: Text('Saved transfer recipients & accounts', style: TextStyle(color: kMut)), trailing: Icon(Icons.chevron_right, color: kMut), onTap: () => go(context, const BeneficiariesPage())),
                 ListTile(title: Text('Security & tokens', style: TextStyle(color: kInk)), subtitle: Text('Password and active sessions', style: TextStyle(color: kMut)), trailing: Icon(Icons.chevron_right, color: kMut), onTap: () => go(context, const SecurityPage())),
                 ListTile(
                   title: Text('Live Saga & Audit Timeline', style: TextStyle(color: kInk)),
