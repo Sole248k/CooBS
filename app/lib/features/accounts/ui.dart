@@ -409,6 +409,7 @@ class Pg extends StatelessWidget {
   final VoidCallback? onBack;
   final bool tab;
   final List<Widget>? actions;
+  final ScrollController? controller;
 
   const Pg(
     this.title,
@@ -418,6 +419,7 @@ class Pg extends StatelessWidget {
     this.onBack,
     this.tab = false,
     this.actions,
+    this.controller,
   });
 
   @override
@@ -467,6 +469,7 @@ class Pg extends StatelessWidget {
               : null,
         ),
         body: ListView(
+          controller: controller,
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: kids,
         ),
