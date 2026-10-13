@@ -1574,6 +1574,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  IconData _getVaultIcon(int code, [String? category]) {
+    switch (code) {
+      case 0xe5ce:
+        return Icons.shield_rounded;
+      case 0xe06e:
+        return Icons.account_balance_rounded;
+      case 0xe59c:
+        return Icons.savings_rounded;
+    }
+    if (category != null) {
+      switch (category.toLowerCase()) {
+        case 'emergency':
+          return Icons.shield_rounded;
+        case 'education':
+          return Icons.school_rounded;
+        case 'cooperative':
+        case 'community':
+          return Icons.group_rounded;
+      }
+    }
+    return Icons.savings_rounded;
+  }
+
   Widget _buildVaultCard(IponVault v) {
     final color = Color(v.colorValue);
     final pct = (v.progress * 100).round();
@@ -1623,7 +1646,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                Icon(IconData(v.iconCode, fontFamily: 'MaterialIcons'), size: 16, color: color),
+                Icon(_getVaultIcon(v.iconCode, v.category), size: 16, color: color),
               ],
             ),
             const SizedBox(height: 4),
@@ -1757,7 +1780,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: color.withAlpha(25),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Icon(IconData(v.iconCode, fontFamily: 'MaterialIcons'), size: 18, color: color),
+                            child: Icon(_getVaultIcon(v.iconCode, v.category), size: 18, color: color),
                           ),
                           const SizedBox(width: 10),
                           Column(
