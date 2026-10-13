@@ -111,7 +111,9 @@ az keyvault secret set --vault-name <vault> --name datadog-site --value <the sit
 Then run the `deploy-onprem.ps1` line again for the VM's agent. In Datadog the two clusters appear as `aks-coobs-services` and `aks-coobs-channels` with `env:enterprise`, apart from the demo deployment's `env:demo`.
 
 - The VM reports under the host name `vm-coobs-onprem` and `env:demo`, the same as the demo deployment's VM, because the Compose file is shared. With both deployments running, Datadog shows the two VMs as one host.
-- The Java tracer and the dashboard set-up script are not wired in here. The dashboard the demo deployment created reads the same `coobs.` metrics and shows this deployment's services too.
+- **One command does all of it** when the demo deployment's vault already holds the Datadog secrets: `deploy-enterprise.ps1 ... -SkipSchemaLoad -DatadogFromVault <demo vault> -TraceServices all` copies the secrets, starts the agents and adds the tracer to every Java service, one at a time. Name services in place of `all` to trace only some.
+- **Traces** appear in Datadog under APM with `env:enterprise`. A request is followed across two services only when both are traced; the four services on the VM are not.
+- **Dashboard and monitors** are created once per Datadog account by `infra/scripts/setup-datadog.ps1 -KeyVaultName <vault>`, which needs `datadog-app-key`. The dashboard reads the `coobs.` metrics of every host that reports, so it shows this deployment and the demo one together.
 
 ## Removing it
 
