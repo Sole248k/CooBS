@@ -23,6 +23,7 @@ Inside Compose a service is reached by its container name. From the host, and wh
 | batch-service | `batch-service` | 8093 | On-premises | `expansion` |
 | mobile-bff | `mobile-bff` | 8094 | Cloud | `expansion` |
 | staff-bff | `staff-bff` | 8095 | Cloud | `expansion` |
+| order-service | `order-service` | 8096 | On-premises | `expansion` |
 
 | Data store | Container name | Port inside Compose | Host port | Compose profile |
 | --- | --- | --- | --- | --- |
@@ -50,6 +51,7 @@ One variable per target service, holding the base URL with no trailing slash and
 | `BATCH_SERVICE_URL` | `http://batch-service:8093` |
 | `MOBILE_BFF_URL` | `http://mobile-bff:8094` |
 | `STAFF_BFF_URL` | `http://staff-bff:8095` |
+| `ORDER_SERVICE_URL` | `http://order-service:8096` |
 
 Which service receives which URL follows section 3.2 of the API contract, the list of allowed internal calls:
 

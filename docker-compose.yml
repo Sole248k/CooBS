@@ -444,6 +444,7 @@ services:
       BATCH_SERVICE_URL: http://batch-service:8093
       MOBILE_BFF_URL: http://mobile-bff:8094
       STAFF_BFF_URL: http://staff-bff:8095
+      ORDER_SERVICE_URL: http://order-service:8096
       SWAGGER_UI_URL: http://swagger-ui:8080
       REDIS_HOST: redis-cache
       REDIS_PORT: 6379
@@ -742,6 +743,46 @@ services:
       JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8094/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # order-service (on-premises) - Co-op Essentials Depot orders and ledger escrow
+  # ----------------------------------------------------------------------------
+  order-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "127.0.0.1:${ORDER_PORT:-8096}:8096"
+    depends_on:
+      oracle-core-db:
+        condition: service_healthy
+      ledger-service:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8096
+      ORACLE_HOST: oracle-core-db
+      ORACLE_PORT: 1521
+      ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
+      APP_USER: ${APP_USER:-core_user}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD is required}
+      LEDGER_SERVICE_URL: http://ledger-service:8083
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8096/actuator/health"]
       interval: 15s
       timeout: 5s
       retries: 5
