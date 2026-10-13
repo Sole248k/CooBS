@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/theme/theme_controller.dart';
 import '../accounts/ui.dart';
 import 'shop_store.dart';
@@ -160,6 +161,9 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
       quote: null,
       order: null,
     );
+    if (!AppConfig.useFixtures) {
+      store.syncFromBackend();
+    }
   }
 
   void _go(
@@ -213,7 +217,9 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'SAMPLE ONLY · No bank charges or real orders. Shopping data resets when this banking session ends.',
+                  AppConfig.useFixtures
+                      ? 'SAMPLE ONLY · No bank charges or real orders. Shopping data resets when this banking session ends.'
+                      : 'LIVE ESCROW DEPOT · Connected to Order Service & Ledger 2-Phase Escrow.',
                   style: TextStyle(color: kInk, fontSize: 12),
                 ),
               ),
@@ -297,7 +303,18 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
         ),
       ],
     ),
-    for (final product in shopProducts)
+    if (store.isLoading)
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Center(
+          child: SizedBox(
+            height: 20,
+            width: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF047857)),
+          ),
+        ),
+      ),
+    for (final product in store.products)
       Card(
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -612,7 +629,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                 const Icon(Icons.qr_code_2_rounded, size: 84, color: Color(0xFF0F172A)),
                 const SizedBox(height: 4),
                 Text(
-                  'PICKUP PASS: ${order.reference}',
+                  'PICKUP PASS: ${order.pickupPassToken ?? order.reference}',
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.bold,
@@ -647,6 +664,9 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
               'Money remains held in sample savings. PureSilver has not been paid.',
           }),
           const Divider(height: 14),
+          if (order.holdId != null) ...[
+            _kv('Ledger Escrow Hold', '#${order.holdId}'),
+          ],
           _kv('Sample available balance', shopMoney(store.availableCents)),
           _kv('Sample ledger balance', shopMoney(store.ledgerCents)),
         ],
@@ -796,11 +816,20 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
   ];
 }
 
-IconData _icon(ShopProduct product) => switch (product.id) {
-  'rice' => Icons.rice_bowl_outlined,
-  'eggs' => Icons.egg_outlined,
-  _ => Icons.local_drink_outlined,
-};
+IconData _icon(ShopProduct product) {
+  final id = product.id.toLowerCase();
+  final name = product.name.toLowerCase();
+  if (id == 'rice' || name.contains('rice')) {
+    return Icons.rice_bowl_outlined;
+  }
+  if (id == 'eggs' || name.contains('egg')) {
+    return Icons.egg_outlined;
+  }
+  if (id == 'milk' || name.contains('milk')) {
+    return Icons.local_drink_outlined;
+  }
+  return Icons.shopping_basket_outlined;
+}
 
 Widget _kv(String k, String v) => Row(
   crossAxisAlignment: CrossAxisAlignment.start,
