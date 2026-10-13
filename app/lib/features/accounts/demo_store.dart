@@ -274,7 +274,7 @@ class Demo extends ChangeNotifier {
 
   double get totalEarmarkedInVaults => iponVaults.fold(0.0, (sum, v) => sum + v.currentAmount);
 
-  String? allocateToVault(String vaultId, double amount) {
+  Future<String?> allocateToVault(String vaultId, double amount, {String? notes}) async {
     if (amount <= 0) return 'Enter an amount greater than ₱0.00';
     final v = iponVaults.firstWhere((x) => x.id == vaultId, orElse: () => throw 'Vault not found');
     if (accts.isEmpty) return 'No accounts available';
@@ -282,15 +282,30 @@ class Demo extends ChangeNotifier {
     if (savings.bal < amount) {
       return 'Insufficient funds in ${savings.type} (${peso(savings.bal)})';
     }
+
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await MobileRepo.allocateToVault(vaultId, amount, notes: notes);
+        if (res['currentAmount'] != null) {
+          v.currentAmount = (res['currentAmount'] as num).toDouble();
+        } else {
+          v.currentAmount = r2(v.currentAmount + amount);
+        }
+      } catch (_) {
+        v.currentAmount = r2(v.currentAmount + amount);
+      }
+    } else {
+      v.currentAmount = r2(v.currentAmount + amount);
+    }
+
     savings.bal = r2(savings.bal - amount);
-    v.currentAmount = r2(v.currentAmount + amount);
     savings.tx.insert(0, Tx('Earmarked for ${v.name}', 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}', today, -amount));
     _alert('${peso(amount)} earmarked for ${v.name}');
     notifyListeners();
     return null;
   }
 
-  String? releaseFromVault(String vaultId, double amount) {
+  Future<String?> releaseFromVault(String vaultId, double amount, {String? notes}) async {
     if (amount <= 0) return 'Enter an amount greater than ₱0.00';
     final v = iponVaults.firstWhere((x) => x.id == vaultId, orElse: () => throw 'Vault not found');
     if (v.currentAmount < amount) {
@@ -298,7 +313,22 @@ class Demo extends ChangeNotifier {
     }
     if (accts.isEmpty) return 'No accounts available';
     final savings = accts.length > 1 ? accts[1] : accts[0];
-    v.currentAmount = r2(v.currentAmount - amount);
+
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await MobileRepo.releaseFromVault(vaultId, amount, notes: notes);
+        if (res['currentAmount'] != null) {
+          v.currentAmount = (res['currentAmount'] as num).toDouble();
+        } else {
+          v.currentAmount = r2(v.currentAmount - amount);
+        }
+      } catch (_) {
+        v.currentAmount = r2(v.currentAmount - amount);
+      }
+    } else {
+      v.currentAmount = r2(v.currentAmount - amount);
+    }
+
     savings.bal = r2(savings.bal + amount);
     savings.tx.insert(0, Tx('Released from ${v.name}', 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}', today, amount));
     _alert('${peso(amount)} released back to ${savings.type}');
@@ -306,7 +336,7 @@ class Demo extends ChangeNotifier {
     return null;
   }
 
-  void createVault({
+  Future<void> createVault({
     required String name,
     required double targetAmount,
     double initialAmount = 0.0,
@@ -314,8 +344,29 @@ class Demo extends ChangeNotifier {
     required String category,
     int? iconCode,
     int? colorValue,
-  }) {
-    final id = 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}';
+  }) async {
+    String id = 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}';
+    final resolvedIcon = iconCode ?? 0xe59c;
+    final resolvedColor = colorValue ?? 0xFF0D9488;
+
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await MobileRepo.createVault({
+          'name': name,
+          'targetAmount': targetAmount,
+          'initialAmount': initialAmount,
+          'targetDate': targetDate,
+          'category': category,
+          'iconCode': resolvedIcon,
+          'colorValue': resolvedColor,
+          if (accts.isNotEmpty) 'accountNumber': (accts.length > 1 ? accts[1] : accts[0]).no,
+        });
+        if (res['id'] != null || res['vaultReference'] != null) {
+          id = '${res['id'] ?? res['vaultReference']}';
+        }
+      } catch (_) {}
+    }
+
     final v = IponVault(
       id: id,
       name: name,
@@ -323,15 +374,32 @@ class Demo extends ChangeNotifier {
       currentAmount: 0.0,
       targetDate: targetDate,
       category: category,
-      iconCode: iconCode ?? 0xe59c,
-      colorValue: colorValue ?? 0xFF0D9488,
+      iconCode: resolvedIcon,
+      colorValue: resolvedColor,
     );
     iponVaults.add(v);
     if (initialAmount > 0) {
-      allocateToVault(id, initialAmount);
+      await allocateToVault(id, initialAmount);
     } else {
       notifyListeners();
     }
+  }
+
+  Future<void> closeVault(String vaultId) async {
+    final v = iponVaults.firstWhere((x) => x.id == vaultId, orElse: () => throw 'Vault not found');
+    if (!AppConfig.useFixtures) {
+      try {
+        await MobileRepo.closeVault(vaultId);
+      } catch (_) {}
+    }
+    if (v.currentAmount > 0 && accts.isNotEmpty) {
+      final savings = accts.length > 1 ? accts[1] : accts[0];
+      savings.bal = r2(savings.bal + v.currentAmount);
+      savings.tx.insert(0, Tx('Vault Closed: ${v.name}', 'VAULT-CLS', today, v.currentAmount));
+    }
+    iponVaults.removeWhere((x) => x.id == vaultId);
+    _alert('${v.name} closed');
+    notifyListeners();
   }
 
   final bens = <Ben>[
@@ -549,6 +617,28 @@ class Demo extends ChangeNotifier {
                   (b['mobileNumber'] as String?) ?? (b['mobile'] as String?) ?? '',
                   accountNumber: normalizeAccountNumber((b['accountNumber'] as String?) ?? '', (b['bankCode'] as String?) ?? 'COOBS'),
                   bankCode: b['bankCode'] as String?,
+                )
+            ]);
+        }
+      } catch (_) {}
+
+      // Fetch Live Ipon Vaults (MOB-02)
+      try {
+        final vList = await MobileRepo.fetchVaults();
+        if (vList.isNotEmpty) {
+          iponVaults
+            ..clear()
+            ..addAll([
+              for (final v in vList)
+                IponVault(
+                  id: '${v['id'] ?? v['vaultId'] ?? ''}',
+                  name: '${v['name'] ?? ''}',
+                  targetAmount: parseBal(v['targetAmount']),
+                  currentAmount: parseBal(v['currentAmount']),
+                  targetDate: '${v['targetDate'] ?? ''}',
+                  category: '${v['category'] ?? 'Emergency'}',
+                  iconCode: (v['iconCode'] as num?)?.toInt() ?? 0xe59c,
+                  colorValue: (v['colorValue'] as num?)?.toInt() ?? 0xFF0D9488,
                 )
             ]);
         }

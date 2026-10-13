@@ -326,4 +326,124 @@ class MobileRepo {
       return {};
     }
   }
+
+  // =========================================================================
+  // V1: Virtual "Ipon" Vaults & Sub-Ledger Earmarks
+  // =========================================================================
+
+  /// Fetches active Ipon Vaults for the authenticated member.
+  static Future<List<dynamic>> fetchVaults() async {
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await _api.get('/accounts/vaults');
+        if (res['data'] is List) return res['data'] as List;
+        if (res['items'] is List) return res['items'] as List;
+        if (res['content'] is List) return res['content'] as List;
+      } catch (_) {}
+    }
+    // Return default fixture vaults
+    return [
+      {
+        'id': 'VAULT-01',
+        'vaultId': 1,
+        'name': 'Emergency Buffer',
+        'targetAmount': 30000.0,
+        'currentAmount': 18500.0,
+        'targetDate': 'Dec 2026',
+        'category': 'Emergency',
+        'iconCode': 0xe5ce,
+        'colorValue': 0xFF0D9488,
+        'status': 'ACTIVE',
+      },
+      {
+        'id': 'VAULT-02',
+        'vaultId': 2,
+        'name': 'Paluwagan & Holidays',
+        'targetAmount': 15000.0,
+        'currentAmount': 9200.0,
+        'targetDate': 'Nov 2026',
+        'category': 'Community',
+        'iconCode': 0xe59c,
+        'colorValue': 0xFF2563EB,
+        'status': 'ACTIVE',
+      },
+      {
+        'id': 'VAULT-03',
+        'vaultId': 3,
+        'name': 'Co-op Share Capital',
+        'targetAmount': 20000.0,
+        'currentAmount': 7300.0,
+        'targetDate': 'Jan 2027',
+        'category': 'Cooperative',
+        'iconCode': 0xe06e,
+        'colorValue': 0xFFF59E0B,
+        'status': 'ACTIVE',
+      },
+    ];
+  }
+
+  /// Creates a new Ipon Vault for the member.
+  static Future<Map<String, dynamic>> createVault(Map<String, dynamic> body) async {
+    if (!AppConfig.useFixtures) {
+      try {
+        return await _api.post('/accounts/vaults', body: body);
+      } catch (_) {}
+    }
+    return {
+      'id': 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}',
+      ...body,
+      'currentAmount': body['initialAmount'] ?? 0.0,
+      'status': 'ACTIVE',
+    };
+  }
+
+  /// Earmarks funds into a vault.
+  static Future<Map<String, dynamic>> allocateToVault(String vaultId, double amount, {String? notes}) async {
+    if (!AppConfig.useFixtures) {
+      try {
+        return await _api.post('/accounts/vaults/$vaultId/allocate', body: {
+          'amount': amount,
+          if (notes != null) 'notes': notes,
+        });
+      } catch (_) {}
+    }
+    return {'amount': amount, 'status': 'ALLOCATED'};
+  }
+
+  /// Releases funds from a vault back to the member's account.
+  static Future<Map<String, dynamic>> releaseFromVault(String vaultId, double amount, {String? notes}) async {
+    if (!AppConfig.useFixtures) {
+      try {
+        return await _api.post('/accounts/vaults/$vaultId/release', body: {
+          'amount': amount,
+          if (notes != null) 'notes': notes,
+        });
+      } catch (_) {}
+    }
+    return {'amount': amount, 'status': 'RELEASED'};
+  }
+
+  /// Closes a vault and returns all funds back to the deposit balance.
+  static Future<Map<String, dynamic>> closeVault(String vaultId) async {
+    if (!AppConfig.useFixtures) {
+      try {
+        return await _api.delete('/accounts/vaults/$vaultId');
+      } catch (_) {}
+    }
+    return {'status': 'CLOSED'};
+  }
+
+  /// Fetches earmark transaction audit history for a vault.
+  static Future<List<dynamic>> fetchVaultTransactions(String vaultId) async {
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await _api.get('/accounts/vaults/$vaultId/transactions');
+        if (res['data'] is List) return res['data'] as List;
+        if (res['items'] is List) return res['items'] as List;
+        if (res['content'] is List) return res['content'] as List;
+      } catch (_) {}
+    }
+    return [];
+  }
 }
+

@@ -1940,10 +1940,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final amt = double.tryParse(controller.text) ?? 0.0;
                         if (amt <= 0) return;
-                        final err = isDeposit ? d.allocateToVault(v.id, amt) : d.releaseFromVault(v.id, amt);
+                        final err = isDeposit ? await d.allocateToVault(v.id, amt) : await d.releaseFromVault(v.id, amt);
                         if (err != null) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: Colors.red));
                         } else {
@@ -1967,6 +1967,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Text(
                         isDeposit ? 'Confirm Allocation' : 'Release to Savings Account',
                         style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(ctx);
+                        await d.closeVault(v.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${v.name} closed. Remaining balance returned to savings.'),
+                            backgroundColor: const Color(0xFF059669),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                      label: const Text(
+                        'Close Vault & Return Funds',
+                        style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: Colors.redAccent),
                       ),
                     ),
                   ),
@@ -2080,11 +2100,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final name = nameCtrl.text.trim();
                         final target = double.tryParse(targetCtrl.text) ?? 10000.0;
                         if (name.isEmpty) return;
-                        d.createVault(
+                        await d.createVault(
                           name: name,
                           targetAmount: target,
                           targetDate: dateCtrl.text.trim(),
