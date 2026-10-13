@@ -44,7 +44,16 @@ function Invoke-Native([string]$what, [scriptblock]$command) {
     return $result
 }
 
-if (-not (Test-Path $SshPublicKeyFile)) { throw "No SSH public key at $SshPublicKeyFile. Make one with ssh-keygen -t ed25519, or pass -SshPublicKeyFile." }
+if (-not (Test-Path $SshPublicKeyFile)) {
+    # The VM wants an administrator key even though it is only ever reached with az vm run-command.
+    $answer = Read-Host "No SSH public key at $SshPublicKeyFile. Create one now, with no passphrase? (y/n)"
+    if ($answer -notmatch '^[yY]') { throw "An SSH public key is needed. Pass -SshPublicKeyFile, or run this again and answer y." }
+    $privateKeyFile = $SshPublicKeyFile -replace '\.pub$', ''
+    New-Item -ItemType Directory -Path (Split-Path $privateKeyFile) -Force | Out-Null
+    # '""' and not "": Windows PowerShell drops an empty argument, and ssh-keygen would then ask.
+    Invoke-Native "ssh-keygen" { ssh-keygen -t ed25519 -f $privateKeyFile -N '""' -q } | Out-Null
+    Write-Host "Created $privateKeyFile and $SshPublicKeyFile" -ForegroundColor Cyan
+}
 
 if ((az group exists --name $ResourceGroup) -ne "true") {
     Write-Host "Creating resource group $ResourceGroup in $Location" -ForegroundColor Cyan
