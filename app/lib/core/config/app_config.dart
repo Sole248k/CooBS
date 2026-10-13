@@ -7,31 +7,40 @@ class AppConfig {
   /// Set to true by default for zero-backend unit tests; overridden to false in main.dart for live gateway runtime.
   static bool useFixtures = const bool.fromEnvironment('USE_FIXTURES', defaultValue: true);
 
+  /// Primary Production Gateway on Azure.
+  static const String defaultAzureGatewayUrl = 'https://coobs.indonesiacentral.cloudapp.azure.com';
+
   /// Dynamic runtime override for gateway URL (configurable from app UI or persistent storage).
   static String? _customRuntimeGatewayUrl;
 
   static String get customRuntimeGatewayUrl => _customRuntimeGatewayUrl ?? '';
   static set customRuntimeGatewayUrl(String value) {
-    _customRuntimeGatewayUrl = value.trim().isEmpty ? null : value.trim();
+    _customRuntimeGatewayUrl = value.trim().isEmpty ? null : _normalize(value);
+  }
+
+  /// Normalizes URLs by trimming trailing slashes and correcting common typos.
+  static String _normalize(String url) {
+    var trimmed = url.trim();
+    if (trimmed.endsWith('/')) {
+      trimmed = trimmed.substring(0, trimmed.length - 1);
+    }
+    if (trimmed.contains('.coudapp.azure.com')) {
+      trimmed = trimmed.replaceAll('.coudapp.azure.com', '.cloudapp.azure.com');
+    }
+    return trimmed;
   }
 
   /// Spring Cloud Gateway base host.
-  /// Android Emulator uses 10.0.2.2 to reach host localhost; Web/Desktop uses localhost.
+  /// Defaults to the deployed Azure production gateway (https://coobs.indonesiacentral.cloudapp.azure.com).
+  /// Can be overridden at runtime via settings or at build time via --dart-define=GATEWAY_URL=...
   static String get gatewayBaseUrl {
     if (_customRuntimeGatewayUrl != null && _customRuntimeGatewayUrl!.isNotEmpty) {
-      return _customRuntimeGatewayUrl!;
+      return _normalize(_customRuntimeGatewayUrl!);
     }
     const customGateway = String.fromEnvironment('GATEWAY_URL');
-    if (customGateway.isNotEmpty) return customGateway;
-    if (kIsWeb) {
-      return 'http://localhost:8080';
-    }
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:8080';
-      default:
-        return 'http://localhost:8080';
-    }
+    if (customGateway.isNotEmpty) return _normalize(customGateway);
+
+    return defaultAzureGatewayUrl;
   }
 
   /// Mobile BFF base path routed via Spring Cloud Gateway.

@@ -16,9 +16,24 @@ IconData _vaultIcon(int code) {
     case 0xe000:
     case 0xf0621:
       return Icons.shield_outlined;
+    case 0xe5ce:
+      return Icons.shield_rounded;
+    case 0xe06e:
+      return Icons.account_balance_rounded;
+    case 0xe040:
+      return Icons.account_balance_wallet_rounded;
+    case 0xe1db:
+      return Icons.directions_car_rounded;
+    case 0xe318:
+      return Icons.home_rounded;
+    case 0xe539:
+      return Icons.flight_takeoff_rounded;
+    case 0xe84f:
+      return Icons.favorite_rounded;
+    case 0xe227:
+      return Icons.medical_services_rounded;
     default:
-      // ignore: non_const_argument_for_const_parameter
-      return IconData(code, fontFamily: 'MaterialIcons');
+      return Icons.account_balance_wallet_rounded;
   }
 }
 
