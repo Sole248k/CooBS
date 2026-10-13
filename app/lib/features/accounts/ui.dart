@@ -213,7 +213,8 @@ Widget txRow(Tx x) {
       color: Colors.transparent,
       child: InkWell(
         onTap: x.ref.isNotEmpty && x.ref != 'TXN' && !x.ref.startsWith('Just now')
-            ? () => Navigator.push(
+            ? () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (_) => Scaffold(
@@ -241,7 +242,9 @@ Widget txRow(Tx x) {
                       ),
                     ),
                   ),
-                )
+                );
+                Demo.i.load();
+              }
             : null,
         borderRadius: BorderRadius.circular(18),
         child: Container(

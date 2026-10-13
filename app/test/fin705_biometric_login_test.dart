@@ -158,17 +158,18 @@ void main() {
       expect(await storage.getBiometricRefreshToken(), 'bio-refresh-2', reason: 'rotated token replaces the used one');
     });
 
-    testWidgets('Cancelling the prompt keeps the password form and the fingerprint button', (tester) async {
+    testWidgets('Cancelling the prompt keeps the biometric screen; switching account shows the password form', (tester) async {
       final bio = FakeBiometrics(accept: false);
       final gateway = await openLogin(tester, bio, () => jsonResponse({}, 500));
       await pumpFor(tester);
 
       expect(bio.prompts, hasLength(1));
       expect(gateway.requests, isEmpty);
-      expect(find.text('Welcome back, john_doe'), findsOneWidget);
+      expect(find.text('john_doe'), findsOneWidget);
       expect(find.text('Log in with fingerprint'), findsOneWidget);
-      expect(find.text('Log in'), findsOneWidget);
-      expect(tester.widget<TextField>(find.byType(TextField).first).controller!.text, 'john_doe');
+      expect(find.text('Use another account'), findsOneWidget);
+      expect(find.text('Log in with password'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing, reason: 'Second login screen asks for biometrics, not credentials');
 
       // Trying again from the button shows the prompt again.
       bio.accept = false;
@@ -176,6 +177,48 @@ void main() {
       await pumpFor(tester);
       expect(bio.prompts, hasLength(2));
       expect(await storage.getBiometricUsername(), 'john_doe');
+
+      // Asking to use another account opens the standard login form with fields
+      await tester.tap(find.text('Use another account'));
+      await pumpFor(tester);
+      expect(find.byType(TextField), findsNWidgets(2));
+      expect(find.text('Log in'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField).first).controller!.text, isEmpty);
+    });
+
+    testWidgets('Asking to log in with password switches to password form prefilled with username', (tester) async {
+      final bio = FakeBiometrics(accept: false);
+      await openLogin(tester, bio, () => jsonResponse({}, 500));
+      await pumpFor(tester);
+
+      await tester.tap(find.text('Log in with password'));
+      await pumpFor(tester);
+
+      expect(find.byType(TextField), findsNWidgets(2));
+      expect(find.text('Log in'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField).first).controller!.text, 'john_doe');
+    });
+
+    testWidgets('Standalone BiometricLoginScreen prompts on mount and supports switching account', (tester) async {
+      final bio = FakeBiometrics(accept: false);
+      bool switched = false;
+      await tester.pumpWidget(MaterialApp(
+        home: BiometricLoginScreen(
+          storage: storage,
+          biometrics: bio,
+          bioUser: 'john_doe',
+          onUseAnotherAccount: () => switched = true,
+        ),
+      ));
+      await pumpFor(tester);
+
+      expect(bio.prompts, hasLength(1));
+      expect(find.text('john_doe'), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
+
+      await tester.tap(find.text('Use another account'));
+      await pumpFor(tester);
+      expect(switched, isTrue);
     });
 
     testWidgets('An expired or revoked refresh token turns fingerprint login off and asks for the password', (tester) async {

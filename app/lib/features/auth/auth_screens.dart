@@ -12,6 +12,9 @@ import '../../core/theme/app_theme.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/home_screen.dart';
 import '../accounts/ui.dart';
+import 'biometric_login_screen.dart';
+
+export 'biometric_login_screen.dart';
 
 /// Go to the main app (clears the login/register stack).
 void toApp(BuildContext c, [String? msg]) {
@@ -25,7 +28,18 @@ class LoginScreen extends StatefulWidget {
   final ApiClient? apiClient;
   final SecureStorageService? storage;
   final BiometricAuthenticator? biometrics;
-  const LoginScreen({super.key, this.apiClient, this.storage, this.biometrics});
+  final bool forcePassword;
+  final String? initialUsername;
+
+  const LoginScreen({
+    super.key,
+    this.apiClient,
+    this.storage,
+    this.biometrics,
+    this.forcePassword = false,
+    this.initialUsername,
+  });
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -41,10 +55,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// Member with fingerprint login turned on for this phone, when the sensor is usable.
   String? _bioUser;
+  String? _originalBioUser;
+  bool _switchAccount = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialUsername != null) {
+      u.text = widget.initialUsername!;
+    }
+    if (widget.forcePassword) {
+      _switchAccount = true;
+    }
     _loadBiometricLogin();
   }
 
@@ -53,53 +75,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (bioUser == null || !await _biometrics.isAvailable() || !mounted) return;
     setState(() {
       _bioUser = bioUser;
-      u.text = bioUser;
-    });
-    // Prompt straight away; the password form stays on screen as the fallback.
-    await _handleBiometricLogin();
-  }
-
-  /// Fingerprint, then exchange the stored refresh token for a fresh session.
-  Future<void> _handleBiometricLogin() async {
-    final bioUser = _bioUser;
-    if (_isLoading || bioUser == null) return;
-    setState(() => _isLoading = true);
-    try {
-      if (!await _biometrics.authenticate('Log in to CooBS as $bioUser')) return;
-      final refreshToken = await _storage.getBiometricRefreshToken();
-      if (refreshToken == null || refreshToken.isEmpty) return await _expireBiometricLogin();
-
-      final response = await _apiClient.post('/auth/token/refresh', body: {'refreshToken': refreshToken});
-      final token = TokenResponse.fromJson(response);
-      if (token.accessToken.isEmpty) throw UnauthorizedException('Invalid refresh response');
-      await _storage.saveTokens(
-        accessToken: token.accessToken,
-        refreshToken: token.refreshToken,
-        userId: token.userId > 0 ? token.userId : 1,
-        username: bioUser,
-      );
-      await Demo.i.load();
-      if (mounted) toApp(context, 'Welcome back, $bioUser');
-    } on ApiException catch (e) {
-      final unreachable = e is NetworkTimeoutException || e is ConnectionException || (e.statusCode ?? 0) >= 500;
-      if (unreachable) {
-        if (mounted) snack(context, 'Could not reach CooBS. Check your connection and try again.');
-      } else {
-        // Refresh token expired (7 days) or revoked: only the password can start a new session.
-        await _expireBiometricLogin();
+      _originalBioUser = bioUser;
+      if (u.text.isEmpty) {
+        u.text = bioUser;
       }
-    } catch (_) {
-      if (mounted) snack(context, 'Fingerprint login failed. Please log in with your password.');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _expireBiometricLogin() async {
-    await _storage.disableBiometricLogin();
-    if (!mounted) return;
-    setState(() => _bioUser = null);
-    snack(context, 'Fingerprint login has expired. Please log in with your password.');
+    });
   }
 
   /// Asked once per member after a password login; "Not now" is remembered.
@@ -120,7 +100,15 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
     );
-    if (enable == true) await _storage.enableBiometricLogin(username: username, refreshToken: refreshToken);
+    if (enable == true) {
+      await _storage.enableBiometricLogin(username: username, refreshToken: refreshToken);
+      if (mounted) {
+        setState(() {
+          _bioUser = username;
+          _originalBioUser = username;
+        });
+      }
+    }
   }
 
   Future<void> _handleLogin() async {
@@ -332,7 +320,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildGlassBiometricButton() {
     return OutlinedButton.icon(
-      onPressed: _handleBiometricLogin,
+      onPressed: () {
+        setState(() {
+          _switchAccount = false;
+          _bioUser = _originalBioUser;
+        });
+      },
       style: OutlinedButton.styleFrom(
         backgroundColor: const Color(0xFF0091AE).withAlpha(16),
         side: const BorderSide(color: Color(0xFF0091AE), width: 1.2),
@@ -354,6 +347,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_bioUser != null && !_switchAccount && !widget.forcePassword) {
+      return BiometricLoginScreen(
+        apiClient: _apiClient,
+        storage: _storage,
+        biometrics: _biometrics,
+        bioUser: _bioUser,
+        onUseAnotherAccount: () {
+          setState(() {
+            _switchAccount = true;
+            _bioUser = null;
+            u.clear();
+            p.clear();
+          });
+        },
+        onUsePassword: () {
+          setState(() {
+            _switchAccount = true;
+            u.text = _bioUser!;
+            p.clear();
+          });
+        },
+        onBiometricExpired: () {
+          setState(() {
+            _switchAccount = true;
+            _bioUser = null;
+            _originalBioUser = null;
+          });
+        },
+      );
+    }
+
     return Theme(
       data: AppTheme.lightTheme,
       child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -450,9 +474,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 20),
 
                         // 2. Welcome Title & Subtitle (Poppins - refined, not overly bold)
-                        Text(
-                          _bioUser == null ? 'Welcome back' : 'Welcome back, $_bioUser',
-                          style: const TextStyle(
+                        const Text(
+                          'Welcome back',
+                          style: TextStyle(
                             fontFamily: 'Poppins',
                             color: Color(0xFF000107),
                             fontSize: 28,
@@ -462,11 +486,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text(
-                          _bioUser == null
-                              ? 'Log in to see your accounts.'
-                              : 'Use your fingerprint or password to log in.',
-                          style: const TextStyle(
+                        const Text(
+                          'Log in to see your accounts.',
+                          style: TextStyle(
                             fontFamily: 'Poppins',
                             color: Color(0xFF64748B),
                             fontSize: 14,
@@ -540,7 +562,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           ),
                                         )
                                       : _buildPrimaryButton('Log in', _handleLogin),
-                                  if (_bioUser != null && !_isLoading) ...[
+                                  if (_originalBioUser != null && !_isLoading) ...[
                                     const SizedBox(height: 12),
                                     _buildGlassBiometricButton(),
                                   ],

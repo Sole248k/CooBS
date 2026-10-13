@@ -7,6 +7,7 @@ import 'package:app/core/config/app_config.dart';
 import 'package:app/core/network/api_client.dart';
 import 'package:app/core/network/api_exceptions.dart';
 import 'package:app/core/theme/app_theme.dart';
+import 'package:app/features/accounts/demo_store.dart';
 import 'package:app/features/data/mobile_repo.dart';
 import 'package:app/features/remittance/remittance_screen.dart';
 import 'package:app/features/tracking/tracking.dart';
@@ -118,6 +119,22 @@ void main() {
 
       expect(opts.containsKey('limitsSource'), isFalse);
       expect((opts['limits'] as Map)['maxAmount'], 500000.0, reason: 'bundled copy mirrors the BFF ceiling');
+    });
+
+    test('AuraBank is present in remittance options with accountHint 1000-2000-3001', () async {
+      AppConfig.useFixtures = true;
+      final opts = await MobileRepo.remitOptions();
+      final banks = opts['banks'] as List;
+      final aura = banks.firstWhere((b) => b['code'] == 'AURABANK', orElse: () => null);
+      expect(aura, isNotNull);
+      expect(aura['name'], 'AuraBank');
+      expect(aura['accountHint'], '1000-2000-3001');
+    });
+
+    test('normalizeAccountNumber for AURABANK formats 12 digits or preserves 1000-2000-3001', () {
+      expect(normalizeAccountNumber('1000-2000-3001', 'AURABANK'), '1000-2000-3001');
+      expect(normalizeAccountNumber('100020003001', 'AURABANK'), '1000-2000-3001');
+      expect(normalizeAccountNumber('1000-2000-3001', 'COOBS'), '1000-2000-3001');
     });
   });
 

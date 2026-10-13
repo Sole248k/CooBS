@@ -11,6 +11,7 @@ class AppRouter {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   static const String initial = '/';
   static const String login = '/login';
+  static const String biometricLogin = '/biometric-login';
   static const String mobile = '/mobile';
   static const String dashboard = '/dashboard';
   static const String remittance = '/remittance';
@@ -28,6 +29,11 @@ class AppRouter {
       case login:
         return MaterialPageRoute(
           builder: (_) => const LoginScreen(),
+          settings: settings,
+        );
+      case biometricLogin:
+        return MaterialPageRoute(
+          builder: (_) => const BiometricLoginScreen(),
           settings: settings,
         );
       case mobile:

@@ -169,5 +169,19 @@ void main() {
       expect(find.text('Transfer to Juan Dela Cruz'), findsOneWidget);
       expect(find.text('Transfer to Maria Santos'), findsOneWidget);
     });
+
+    test('Demo.i applyRemittance creates PROCESSING tx and updateTxStatus transitions it to POSTED', () {
+      final initialCount = Demo.i.accts.first.tx.length;
+      Demo.i.applyRemittance(0, 50.0, 0.0, 'Test Bank', 'ACC_10000002', 'TX-TEST-STATUS-101');
+      expect(Demo.i.accts.first.tx.length, initialCount + 1);
+      final newTx = Demo.i.accts.first.tx.first;
+      expect(newTx.ref, 'TX-TEST-STATUS-101');
+      expect(newTx.status, 'PROCESSING');
+      expect(Demo.i.hasPendingProcessing, isTrue);
+
+      Demo.i.updateTxStatus('TX-TEST-STATUS-101', 'POSTED');
+      expect(newTx.status, 'POSTED');
+      expect(Demo.i.hasPendingProcessing, isFalse);
+    });
   });
 }
