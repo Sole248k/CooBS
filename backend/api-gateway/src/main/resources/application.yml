@@ -209,6 +209,19 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
+        # 10. Order Service Routes (Co-op Essentials Depot & Escrow Reservations)
+        - id: order-service-route
+          uri: ${ORDER_SERVICE_URL:http://localhost:8096}
+          predicates:
+            - Path=/api/v1/shop/**, /api/v1/orders/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
         # The orchestrator has no route: it has no public endpoint. transaction-service starts a
         # saga and reads its state over /internal/v1/sagas, inside the network.
 

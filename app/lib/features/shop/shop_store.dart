@@ -10,13 +10,63 @@ String shopMoney(int cents) => NumberFormat.currency(
 class ShopProduct {
   final String id, name, unit;
   final int priceCents, stock;
-  const ShopProduct(this.id, this.name, this.unit, this.priceCents, this.stock);
+  final int originalPriceCents;
+  final String category;
+  final String badge;
+  final double rating;
+  final String farmSource;
+
+  const ShopProduct(
+    this.id,
+    this.name,
+    this.unit,
+    this.priceCents,
+    this.stock, {
+    this.originalPriceCents = 0,
+    this.category = 'Essentials',
+    this.badge = 'Co-op Subsidy',
+    this.rating = 4.9,
+    this.farmSource = 'Local Producer Co-op',
+  });
 }
 
 const shopProducts = [
-  ShopProduct('rice', 'Premium rice', '5 kg bag', 32000, 10),
-  ShopProduct('eggs', 'Fresh eggs', '12 pack', 12000, 10),
-  ShopProduct('milk', 'Fresh milk', '1 litre', 9500, 10),
+  ShopProduct(
+    'rice',
+    'Premium rice',
+    '5 kg bag',
+    32000,
+    10,
+    originalPriceCents: 38000,
+    category: 'Grains & Rice',
+    badge: 'Co-op Subsidy -16%',
+    rating: 4.9,
+    farmSource: 'Nueva Ecija Grain Producers Co-op',
+  ),
+  ShopProduct(
+    'eggs',
+    'Fresh eggs',
+    '12 pack',
+    12000,
+    10,
+    originalPriceCents: 15000,
+    category: 'Dairy & Poultry',
+    badge: 'Fresh Harvest',
+    rating: 4.8,
+    farmSource: 'Batangas Poultry Federation',
+  ),
+  ShopProduct(
+    'milk',
+    'Fresh milk',
+    '1 litre',
+    9500,
+    10,
+    originalPriceCents: 12000,
+    category: 'Dairy & Poultry',
+    badge: 'Farm Direct',
+    rating: 4.9,
+    farmSource: 'Laguna Dairy Cooperative Union',
+  ),
 ];
 
 class ShopLine {
