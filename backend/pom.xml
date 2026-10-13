@@ -23,5 +23,6 @@
         <module>batch-service</module>
         <module>mobile-bff</module>
         <module>staff-bff</module>
+        <module>order-service</module>
     </modules>
 </project>
