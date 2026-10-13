@@ -36,14 +36,14 @@ List prices from the Azure Retail Prices API (machines, SQL and Redis read on 8 
 
 | Item | A day (USD) |
 | --- | --- |
-| Two AKS nodes, `Standard_E2as_v5` | 5.86 |
-| VM, `Standard_B2as_v2` | 2.05 |
+| Two AKS nodes, `Standard_E2as_v4`, at 0.136 an hour | 6.53 |
+| VM, `Standard_D2as_v4`, at 0.108 an hour | 2.59 |
 | Azure SQL, five S0 databases | 2.42 |
 | Azure Managed Redis B0 | 0.43 |
 | Front Door Standard, 35 a month | 1.17 |
 | Container registry, Basic | about 0.17 |
 | NAT gateway, public addresses, load balancers, disks, logs | about 2.50 |
-| **Total** | **about 14.60** |
+| **Total** | **about 15.80** |
 
 This is in addition to the demo deployment's 10.50 a day, so about USD 25 a day while both exist. It uses 6 vCPUs; the region allows 10 and the demo deployment holds 4, so the quota is used in full.
 
@@ -105,7 +105,7 @@ The Key Vault stays soft-deleted for 7 days at no cost. To deploy again under th
 - **Five fixed private addresses on one internal load balancer**, and whether the channels cluster reaches them. If a Service stays without an address, `kubectl --context aks-coobs-services describe service <name> --namespace coobs` says why.
 - **Front Door.** The module has never created anything, on either deployment.
 - **`order-service` on SQL Server**, and capturing a shop order into account 9003 (`infra/README.md`).
-- **The quota.** The regional limit leaves exactly the 6 vCPUs this needs; the per-family limits read as 0 on 13 October, so Azure may still refuse a node. `-WhatIf` in step 1 does not always catch that.
+- **The quota at create time.** The demo deployment's sizes (`Standard_E2as_v5`, `Standard_B2as_v2`) cannot be used here: on pay-as-you-go their families have a quota of 0 in this region, and the first check on 13 October was refused for it. This deployment uses `Standard_E2as_v4` and `Standard_D2as_v4`, whose families allow 10 vCPUs each, and the same check then passed with 39 resources to create. The regional limit of 10 leaves exactly the 6 vCPUs this needs.
 
 ## Not in this folder
 

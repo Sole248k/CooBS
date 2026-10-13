@@ -53,6 +53,15 @@ param deployFrontDoor bool = false
 @description('Public address of the coobs-public load balancer, as printed by infra/scripts/deploy-cloud.ps1. Needed only when deployFrontDoor is true')
 param frontDoorOriginHost string = ''
 
+// The demo deployment's sizes (E2as_v5, B2as_v2) were granted under the free trial. On
+// pay-as-you-go those two families have a quota of 0 here; these two have 10 vCPUs each
+// (read on 13 October 2026), with the same vCPUs and memory.
+@description('AKS node size for both clusters: 2 vCPU, 16 GB')
+param aksNodeSize string = 'Standard_E2as_v4'
+
+@description('On-premises VM size: 2 vCPU, 8 GB')
+param onPremVmSize string = 'Standard_D2as_v4'
+
 @description('Unique suffix for globally unique resources (SQL, Key Vault, Redis)')
 param uniqueSuffix string = uniqueString(resourceGroup().id)
 
@@ -156,6 +165,7 @@ module aksChannels '../bicep/modules/aks.bicep' = {
     acrName: acrName
     logAnalyticsWorkspaceId: monitoring.outputs.workspaceId
     enableContainerInsights: enableContainerInsights
+    vmSize: aksNodeSize
     tags: tags
   }
 }
@@ -169,6 +179,7 @@ module aksServices '../bicep/modules/aks.bicep' = {
     acrName: acrName
     logAnalyticsWorkspaceId: monitoring.outputs.workspaceId
     enableContainerInsights: enableContainerInsights
+    vmSize: aksNodeSize
     tags: tags
   }
   // One at a time: both give their identity a role on the same virtual network.
@@ -187,6 +198,7 @@ module onPremVm '../bicep/modules/onprem-vm.bicep' = {
     vmName: 'vm-${baseName}-onprem'
     subnetId: network.outputs.onPremSubnetId
     privateIpAddress: onPremVmPrivateIp
+    vmSize: onPremVmSize
     adminSshPublicKey: onPremAdminSshPublicKey
     acrName: acrName
     keyVaultName: keyvault.outputs.keyVaultName
