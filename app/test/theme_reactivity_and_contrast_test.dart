@@ -88,8 +88,14 @@ void main() {
     expect(find.text('Scores and Habits'), findsOneWidget);
     expect(find.text('Your Credit Score'), findsOneWidget);
 
-    // Tap Beneficiaries tab
-    await tester.tap(find.byTooltip('Beneficiaries'));
+    // Tap Co-op Ipon Vaults tab
+    await tester.tap(find.byTooltip('Co-op Ipon Vaults'));
+    await tester.pump();
+
+    expect(find.text('Co-op Ipon Vaults'), findsWidgets);
+
+    // Tap Profile tab and verify Beneficiaries is under Profile & settings
+    await tester.tap(find.byTooltip('Profile'));
     await tester.pump();
 
     expect(find.text('Beneficiaries'), findsOneWidget);

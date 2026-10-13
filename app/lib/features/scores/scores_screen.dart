@@ -32,12 +32,14 @@ List<Debit> debitsFor(int a) {
 class ScoresPage extends StatefulWidget {
   /// Back action when shown as a navbar tab (null = pop the route).
   final VoidCallback? onBack;
-  const ScoresPage({super.key, this.onBack});
+  final bool scrollToDeals;
+  const ScoresPage({super.key, this.onBack, this.scrollToDeals = false});
   @override
   State<ScoresPage> createState() => _ScoresPageState();
 }
 
 class _ScoresPageState extends State<ScoresPage> {
+  final ScrollController _scrollController = ScrollController();
   int acct = 0, page = 0;
   String selectedCity = 'Makati CBD';
   String selectedSubcategory = 'All';
@@ -45,7 +47,6 @@ class _ScoresPageState extends State<ScoresPage> {
   double? liveLat;
   double? liveLng;
   bool isLocating = false;
-
   Future<void> _fetchLiveLocation() async {
     if (isLocating) return;
     setState(() => isLocating = true);
@@ -58,6 +59,22 @@ class _ScoresPageState extends State<ScoresPage> {
           liveLng = coords['lng'];
         }
       });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToDeals() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+      );
     }
   }
   static const per = 6;
@@ -1853,6 +1870,9 @@ class _ScoresPageState extends State<ScoresPage> {
         if (Demo.i.state == LoadState.loading) {
           Demo.i.load();
         }
+        if (widget.scrollToDeals) {
+          _scrollToDeals();
+        }
       }
     });
   }
@@ -1875,6 +1895,8 @@ class _ScoresPageState extends State<ScoresPage> {
           scoreCard(),
           const SizedBox(height: 8),
           financialHealthNudgesCard(),
+          const SizedBox(height: 8),
+          _buildDealsQuickBanner(),
           const SizedBox(height: 8),
           totalsCard(),
           const SizedBox(height: 8),
@@ -1976,7 +1998,583 @@ class _ScoresPageState extends State<ScoresPage> {
             ),
           const SizedBox(height: 16),
           dealsSection(),
-        ], onBack: widget.onBack);
+        ],
+        onBack: widget.onBack,
+        controller: _scrollController,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Center(
+              child: InkWell(
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GeoDealsPage())),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: kBlue.withAlpha(kDark ? 45 : 20),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kBlue.withAlpha(kDark ? 90 : 60), width: 0.8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.local_offer_outlined, size: 13, color: kBlue),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Deals',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: kBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ]);
+      },
+    );
+  }
+
+  Widget _buildDealsQuickBanner() {
+    return InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GeoDealsPage())),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: kDark ? const Color(0xFF0C141F) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: kDark ? const Color(0xFF1E293B) : Colors.white.withAlpha(220),
+            width: 0.9,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(kDark ? 16 : 5),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withAlpha(25),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.local_offer_rounded, size: 16, color: Color(0xFF10B981)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Personalized Geo-Deals',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: kInk,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withAlpha(25),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '25 Deals',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w600,
+                            color: kDark ? const Color(0xFF4ADE80) : const Color(0xFF059669),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap to view nearby discounts matched to your habits',
+                    style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kMut),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.arrow_forward_ios_rounded, size: 12, color: kMut),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Standalone Full-Screen Geo-Deals Page (immediate direct access with no scrolling required).
+class GeoDealsPage extends StatefulWidget {
+  final VoidCallback? onBack;
+  const GeoDealsPage({super.key, this.onBack});
+
+  @override
+  State<GeoDealsPage> createState() => _GeoDealsPageState();
+}
+
+class _GeoDealsPageState extends State<GeoDealsPage> {
+  String selectedCity = 'Makati CBD';
+  String selectedSubcategory = 'All';
+  double? liveLat;
+  double? liveLng;
+  bool isLocating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    if (!isTest) {
+      _fetchLiveLocation();
+    }
+  }
+
+  Future<void> _fetchLiveLocation() async {
+    if (isLocating) return;
+    setState(() => isLocating = true);
+    final coords = await getDeviceCoordinates();
+    if (mounted) {
+      setState(() {
+        isLocating = false;
+        if (coords != null) {
+          liveLat = coords['lat'];
+          liveLng = coords['lng'];
+        }
+      });
+    }
+  }
+
+  void _claimDeal(EnrichedDeal enriched) {
+    final deal = enriched.deal;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: kDark ? const Color(0xFF0C141F) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: kLine, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withAlpha(30),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.confirmation_number_rounded, color: Color(0xFF10B981), size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(deal.name, style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w600, color: kInk)),
+                      Text('${deal.city} · ${deal.area} · ${enriched.formattedDistance}', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: kInBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: kLine),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('PROMO CODE', style: TextStyle(fontFamily: 'Poppins', fontSize: 10, fontWeight: FontWeight.w600, color: kMut, letterSpacing: 1.0)),
+                      const SizedBox(height: 2),
+                      Text(deal.promoCode, style: TextStyle(fontFamily: 'Poppins', fontSize: 16, fontWeight: FontWeight.w700, color: kBlue, letterSpacing: 1.5)),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withAlpha(25),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(deal.discount, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF059669))),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(deal.terms, style: TextStyle(fontFamily: 'Poppins', fontSize: 11.5, color: kMut, height: 1.4)),
+            const SizedBox(height: 8),
+            Text('Valid until: ${deal.validUntil}', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w500, color: kInk)),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Voucher copied! Present ${deal.promoCode} at ${deal.name}.'),
+                      backgroundColor: const Color(0xFF059669),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Copy Voucher & Done', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, bool active, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: active ? kBlue : (kDark ? const Color(0xFF16202E) : const Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: active ? kBlue : (kDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+              width: 0.8,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 11.5,
+              fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              color: active ? Colors.white : kInk,
+            ),
+          ),
+        ),
+      );
+
+  Widget _buildSubChip(String label, bool active, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: active ? (kDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE)) : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: active ? kBlue : (kDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+              width: 0.8,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 11,
+              fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              color: active ? kBlue : kMut,
+            ),
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([Demo.i, ThemeController.i]),
+      builder: (context, _) {
+        String topCategory = 'FOOD';
+        double topAmt = 0;
+        for (final e in Demo.i.spendingBreakdown.entries) {
+          if (e.value > topAmt) {
+            topAmt = e.value;
+            topCategory = e.key;
+          }
+        }
+
+        final bool hasLiveGps = liveLat != null && liveLng != null;
+        final double userLat = liveLat ?? (selectedCity == 'Mandaluyong' ? kMandaluyongLat : kDefaultLat);
+        final double userLng = liveLng ?? (selectedCity == 'Mandaluyong' ? kMandaluyongLng : kDefaultLng);
+
+        final allDeals = getRankedDeals(
+          userLat: userLat,
+          userLng: userLng,
+          topCategory: topCategory,
+          cityFilter: selectedCity,
+          subcategoryFilter: selectedSubcategory,
+        );
+
+        final habitMatchCount = allDeals.where((d) => d.isHabitMatch).length;
+
+        return Pg(
+          'Personalized Geo-Deals',
+          [
+            // 1. Live GPS Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: kDark ? const Color(0xFF0C141F) : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: kLine.withAlpha(kDark ? 40 : 100)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: hasLiveGps
+                          ? (kDark ? const Color(0xFF0F291E) : const Color(0xFFDCFCE7))
+                          : (kDark ? const Color(0xFF0C1F2E) : const Color(0xFFE0F2FE)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      hasLiveGps ? Icons.gps_fixed_rounded : Icons.my_location_rounded,
+                      size: 20,
+                      color: hasLiveGps ? (kDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A)) : kBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hasLiveGps ? 'Live GPS Active' : 'City Preset Location',
+                          style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w600, color: kInk),
+                        ),
+                        Text(
+                          hasLiveGps
+                              ? 'Calculating real-time distance to merchants'
+                              : 'Distances anchored to ${selectedCity == "Mandaluyong" ? "Mandaluyong" : "Makati CBD"}',
+                          style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kMut),
+                        ),
+                      ],
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _fetchLiveLocation,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: hasLiveGps
+                            ? (kDark ? const Color(0xFF0F291E) : const Color(0xFFDCFCE7))
+                            : (kDark ? const Color(0xFF0C1F2E) : const Color(0xFFE0F2FE)),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: hasLiveGps
+                              ? (kDark ? const Color(0xFF166534) : const Color(0xFFBBF7D0))
+                              : (kDark ? const Color(0xFF0369A1) : const Color(0xFFBAE6FD)),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(isLocating ? Icons.sync_rounded : (hasLiveGps ? Icons.check_circle_outline_rounded : Icons.gps_fixed_rounded), size: 13, color: hasLiveGps ? (kDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A)) : kBlue),
+                          const SizedBox(width: 4),
+                          Text(isLocating ? 'Locating...' : (hasLiveGps ? 'Active' : 'Use GPS'), style: TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: hasLiveGps ? (kDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A)) : kNavyFg)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 2. City Filter Chips
+            Row(
+              children: [
+                _buildFilterChip('Makati CBD', selectedCity == 'Makati CBD', () => setState(() => selectedCity = 'Makati CBD')),
+                const SizedBox(width: 6),
+                _buildFilterChip('Mandaluyong', selectedCity == 'Mandaluyong', () => setState(() => selectedCity = 'Mandaluyong')),
+                const SizedBox(width: 6),
+                _buildFilterChip('All Cities', selectedCity == 'All', () => setState(() => selectedCity = 'All')),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // 3. Category Filter Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              child: Row(
+                children: [
+                  _buildSubChip('All (${allDeals.length})', selectedSubcategory == 'All', () => setState(() => selectedSubcategory = 'All')),
+                  const SizedBox(width: 6),
+                  _buildSubChip('☕ Cafes', selectedSubcategory == 'Cafe', () => setState(() => selectedSubcategory = 'Cafe')),
+                  const SizedBox(width: 6),
+                  _buildSubChip('👕 Clothes', selectedSubcategory == 'Clothes', () => setState(() => selectedSubcategory = 'Clothes')),
+                  if (habitMatchCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(14)),
+                      child: Text('⭐ $habitMatchCount Habit Matches', style: const TextStyle(fontFamily: 'Poppins', fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 4. Deal Cards
+            if (allDeals.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: Text('No deals found for this filter', style: TextStyle(fontFamily: 'Poppins', color: kMut, fontSize: 13))),
+              )
+            else
+              for (var i = 0; i < allDeals.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                () {
+                  final enriched = allDeals[i];
+                  final deal = enriched.deal;
+                  final isCafe = deal.subcategory == 'Cafe';
+                  return InkWell(
+                    onTap: () => _claimDeal(enriched),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: kDark ? const Color(0xFF0C141F) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: enriched.isHabitMatch
+                              ? const Color(0xFFF59E0B).withAlpha(kDark ? 100 : 160)
+                              : (kDark ? const Color(0xFF1E293B) : Colors.white.withAlpha(220)),
+                          width: enriched.isHabitMatch ? 1.2 : 0.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(kDark ? 16 : 6),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: (isCafe ? const Color(0xFF0091AE) : const Color(0xFF6366F1)).withAlpha(25),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  isCafe ? Icons.local_cafe_rounded : Icons.checkroom_rounded,
+                                  size: 22,
+                                  color: isCafe ? const Color(0xFF0091AE) : const Color(0xFF6366F1),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            deal.name,
+                                            style: TextStyle(fontFamily: 'Poppins', fontSize: 13.5, fontWeight: FontWeight.w600, color: kInk),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (enriched.isHabitMatch)
+                                          Container(
+                                            margin: const EdgeInsets.only(left: 6),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(6)),
+                                            child: const Text('⭐ Habit Match', style: TextStyle(fontFamily: 'Poppins', fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text('${deal.city} · ${deal.area} · ${enriched.formattedDistance}', style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kMut)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF059669).withAlpha(15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Text(deal.discount, style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF059669))),
+                                const SizedBox(width: 6),
+                                Expanded(child: Text(deal.title, style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kInk), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                                const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF059669)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }(),
+              ],
+            const SizedBox(height: 40),
+          ],
+          onBack: widget.onBack,
+        );
       },
     );
   }
