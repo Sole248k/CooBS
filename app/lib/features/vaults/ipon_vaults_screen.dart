@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/theme_controller.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
+import 'share_capital_screen.dart';
 
 IconData _vaultIcon(int code) {
   switch (code) {
@@ -96,6 +97,45 @@ class _IponVaultsPageState extends State<IponVaultsPage> {
           onBack: widget.onBack,
           tab: widget.tab,
           actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShareCapitalScreen())),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD97706).withAlpha(kDark ? 45 : 22),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFD97706).withAlpha(kDark ? 90 : 60),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.workspace_premium_rounded, size: 15, color: Color(0xFFD97706)),
+                          SizedBox(width: 4),
+                          Text(
+                            'Certificate',
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFD97706),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: Center(
@@ -418,9 +458,16 @@ class _IponVaultsPageState extends State<IponVaultsPage> {
   Widget _buildMinimalistVaultBox(IponVault v) {
     final color = Color(v.colorValue);
     final pct = (v.progress * 100).round();
+    final isShareCapital = v.name.toLowerCase().contains('share capital') || v.category.toLowerCase() == 'cooperative';
 
     return InkWell(
-      onTap: () => _showManageVaultSheet(context, v),
+      onTap: () {
+        if (isShareCapital) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const ShareCapitalScreen()));
+        } else {
+          _showManageVaultSheet(context, v);
+        }
+      },
       borderRadius: BorderRadius.circular(18),
       child: Container(
         padding: const EdgeInsets.all(13),
@@ -1064,10 +1111,11 @@ class _IponVaultsPageState extends State<IponVaultsPage> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final amt = double.tryParse(controller.text) ?? 0.0;
                         if (amt <= 0) return;
-                        final err = isDeposit ? d.allocateToVault(v.id, amt) : d.releaseFromVault(v.id, amt);
+                        final err = isDeposit ? await d.allocateToVault(v.id, amt) : await d.releaseFromVault(v.id, amt);
+                        if (!context.mounted) return;
                         if (err != null) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: Colors.red));
                         } else {
@@ -1343,16 +1391,17 @@ class _IponVaultsPageState extends State<IponVaultsPage> {
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final name = nameCtrl.text.trim();
                         final target = double.tryParse(targetCtrl.text) ?? 10000.0;
                         if (name.isEmpty) return;
-                        d.createVault(
+                        await d.createVault(
                           name: name,
                           targetAmount: target,
                           targetDate: dateCtrl.text.trim(),
                           category: selectedCategory,
                         );
+                        if (!context.mounted) return;
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

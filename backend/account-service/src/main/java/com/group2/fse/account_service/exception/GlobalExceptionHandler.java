@@ -51,6 +51,42 @@ public class GlobalExceptionHandler {
                 "CLOSURE_REQUEST_NOT_FOUND");
     }
 
+    @ExceptionHandler(VaultNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleVaultNotFound(
+            VaultNotFoundException ex, HttpServletRequest request) {
+        log.warn("Vault not found on {}: {}", request.getRequestURI(), ex.getMessage());
+        return buildResponse("https://api.corebank.local/errors/VAULT_NOT_FOUND",
+                "Vault Not Found",
+                HttpStatus.NOT_FOUND,
+                ex.getMessage(),
+                request.getRequestURI(),
+                "VAULT_NOT_FOUND");
+    }
+
+    @ExceptionHandler(InsufficientVaultFundsException.class)
+    public ResponseEntity<Map<String, Object>> handleInsufficientVaultFunds(
+            InsufficientVaultFundsException ex, HttpServletRequest request) {
+        log.warn("Insufficient vault funds on {}: {}", request.getRequestURI(), ex.getMessage());
+        return buildResponse("https://api.corebank.local/errors/INSUFFICIENT_VAULT_FUNDS",
+                "Insufficient Vault Funds",
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                request.getRequestURI(),
+                "INSUFFICIENT_VAULT_FUNDS");
+    }
+
+    @ExceptionHandler(InsufficientAccountFundsException.class)
+    public ResponseEntity<Map<String, Object>> handleInsufficientAccountFunds(
+            InsufficientAccountFundsException ex, HttpServletRequest request) {
+        log.warn("Insufficient account funds for vault allocation on {}: {}", request.getRequestURI(), ex.getMessage());
+        return buildResponse("https://api.corebank.local/errors/INSUFFICIENT_ACCOUNT_FUNDS",
+                "Insufficient Available Balance",
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage(),
+                request.getRequestURI(),
+                "INSUFFICIENT_ACCOUNT_FUNDS");
+    }
+
 
 
     @ExceptionHandler(AccountNonZeroBalanceException.class)

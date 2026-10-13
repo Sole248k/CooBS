@@ -47,46 +47,46 @@ void main() {
       expect(total, 18500.0 + 9200.0 + 7300.0);
     });
 
-    test('Allocating to vault earmarks funds from savings account', () {
+    test('Allocating to vault earmarks funds from savings account', () async {
       final store = Demo.i;
       final savings = store.accts[1];
       final initialBal = savings.bal;
       final vault = store.iponVaults.firstWhere((v) => v.id == 'VAULT-01');
       final initialVaultAmt = vault.currentAmount;
 
-      final err = store.allocateToVault('VAULT-01', 2000.0);
+      final err = await store.allocateToVault('VAULT-01', 2000.0);
       expect(err, isNull);
       expect(savings.bal, initialBal - 2000.0);
       expect(vault.currentAmount, initialVaultAmt + 2000.0);
       expect(savings.tx.first.label, contains('Earmarked for Emergency Buffer'));
     });
 
-    test('Allocating more than available savings returns error', () {
+    test('Allocating more than available savings returns error', () async {
       final store = Demo.i;
-      final err = store.allocateToVault('VAULT-01', 9999999.0);
+      final err = await store.allocateToVault('VAULT-01', 9999999.0);
       expect(err, isNotNull);
       expect(err, contains('Insufficient funds'));
     });
 
-    test('Releasing funds from vault restores savings balance', () {
+    test('Releasing funds from vault restores savings balance', () async {
       final store = Demo.i;
       final savings = store.accts[1];
       final initialBal = savings.bal;
       final vault = store.iponVaults.firstWhere((v) => v.id == 'VAULT-01');
       final initialVaultAmt = vault.currentAmount;
 
-      final err = store.releaseFromVault('VAULT-01', 1500.0);
+      final err = await store.releaseFromVault('VAULT-01', 1500.0);
       expect(err, isNull);
       expect(savings.bal, initialBal + 1500.0);
       expect(vault.currentAmount, initialVaultAmt - 1500.0);
       expect(savings.tx.first.label, contains('Released from Emergency Buffer'));
     });
 
-    test('Creating a new custom Ipon vault adds to store', () {
+    test('Creating a new custom Ipon vault adds to store', () async {
       final store = Demo.i;
       final countBefore = store.iponVaults.length;
 
-      store.createVault(
+      await store.createVault(
         name: 'Farm Fertilizer Fund',
         targetAmount: 25000.0,
         targetDate: 'Oct 2027',
@@ -99,6 +99,19 @@ void main() {
       expect(newVault.targetAmount, 25000.0);
       expect(newVault.currentAmount, 0.0);
       expect(newVault.isCompleted, isFalse);
+    });
+
+    test('Closing a vault releases all remaining funds back to savings and removes from store', () async {
+      final store = Demo.i;
+      final savings = store.accts[1];
+      final initialBal = savings.bal;
+      final vault = store.iponVaults.firstWhere((v) => v.id == 'VAULT-03');
+      final remainingFunds = vault.currentAmount;
+
+      await store.closeVault('VAULT-03');
+      expect(store.iponVaults.any((v) => v.id == 'VAULT-03'), isFalse);
+      expect(savings.bal, initialBal + remainingFunds);
+      expect(savings.tx.first.label, contains('Vault Closed: Co-op Share Capital'));
     });
   });
 

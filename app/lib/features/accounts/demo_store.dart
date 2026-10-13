@@ -119,6 +119,103 @@ class IponVault {
   double get remaining => (targetAmount - currentAmount).clamp(0.0, double.infinity);
 }
 
+/// Model for Cooperative Member Share Capital Subscription and Equity
+class ShareCapitalModel {
+  final int shareCapitalId;
+  final String certificateNo;
+  int subscribedShares;
+  int paidUpShares;
+  final double parValue;
+  double totalPaidAmount;
+  final double subscribedAmount;
+  final int minimumRequiredShares;
+  final double dividendRate;
+  String membershipType;
+  bool hasVotingRights;
+  double completionRatio;
+  final String status;
+
+  ShareCapitalModel({
+    required this.shareCapitalId,
+    required this.certificateNo,
+    required this.subscribedShares,
+    required this.paidUpShares,
+    required this.parValue,
+    required this.totalPaidAmount,
+    required this.subscribedAmount,
+    required this.minimumRequiredShares,
+    required this.dividendRate,
+    required this.membershipType,
+    required this.hasVotingRights,
+    required this.completionRatio,
+    required this.status,
+  });
+
+  factory ShareCapitalModel.fromMap(Map<String, dynamic> m) {
+    final subShares = (m['subscribedShares'] as num?)?.toInt() ?? 500;
+    final paidShares = (m['paidUpShares'] as num?)?.toInt() ?? 250;
+    final pVal = (m['parValue'] as num?)?.toDouble() ?? 100.0;
+    final totalPaid = (m['totalPaidAmount'] as num?)?.toDouble() ?? (paidShares * pVal);
+    final subAmt = (m['subscribedAmount'] as num?)?.toDouble() ?? (subShares * pVal);
+    final minReq = (m['minimumRequiredShares'] as num?)?.toInt() ?? 20;
+
+    return ShareCapitalModel(
+      shareCapitalId: (m['shareCapitalId'] as num?)?.toInt() ?? 100,
+      certificateNo: m['certificateNo']?.toString() ?? 'SC-2024-001001',
+      subscribedShares: subShares,
+      paidUpShares: paidShares,
+      parValue: pVal,
+      totalPaidAmount: totalPaid,
+      subscribedAmount: subAmt,
+      minimumRequiredShares: minReq,
+      dividendRate: (m['dividendRate'] as num?)?.toDouble() ?? 7.25,
+      membershipType: m['membershipType']?.toString() ?? (paidShares >= minReq ? 'REGULAR' : 'ASSOCIATE'),
+      hasVotingRights: m['hasVotingRights'] == true || paidShares >= minReq,
+      completionRatio: (m['completionRatio'] as num?)?.toDouble() ?? (subAmt > 0 ? (totalPaid / subAmt).clamp(0.0, 1.0) : 0.5),
+      status: m['status']?.toString() ?? 'ACTIVE',
+    );
+  }
+}
+
+/// Model for Cooperative Patronage Refund and Share Capital Dividend Declarations
+class DividendPayoutModel {
+  final int dividendId;
+  final int fiscalYear;
+  final double shareCapitalDividend;
+  final double patronageRefund;
+  final double totalPayout;
+  final String disposition;
+  final String payoutDate;
+  final String referenceNo;
+  final String status;
+
+  DividendPayoutModel({
+    required this.dividendId,
+    required this.fiscalYear,
+    required this.shareCapitalDividend,
+    required this.patronageRefund,
+    required this.totalPayout,
+    required this.disposition,
+    required this.payoutDate,
+    required this.referenceNo,
+    required this.status,
+  });
+
+  factory DividendPayoutModel.fromMap(Map<String, dynamic> m) {
+    return DividendPayoutModel(
+      dividendId: (m['dividendId'] as num?)?.toInt() ?? 0,
+      fiscalYear: (m['fiscalYear'] as num?)?.toInt() ?? DateTime.now().year,
+      shareCapitalDividend: (m['shareCapitalDividend'] as num?)?.toDouble() ?? 0.0,
+      patronageRefund: (m['patronageRefund'] as num?)?.toDouble() ?? 0.0,
+      totalPayout: (m['totalPayout'] as num?)?.toDouble() ?? 0.0,
+      disposition: m['disposition']?.toString() ?? 'CREDITED_TO_SAVINGS',
+      payoutDate: m['payoutDate']?.toString() ?? '',
+      referenceNo: m['referenceNo']?.toString() ?? '',
+      status: m['status']?.toString() ?? 'PAID',
+    );
+  }
+}
+
 enum LoadState { loading, ready, partial, offline }
 
 /// In-memory demo state (backed by ApiClient fixtures/network with local mutations).
@@ -279,7 +376,7 @@ class Demo extends ChangeNotifier {
 
   double get totalEarmarkedInVaults => iponVaults.fold(0.0, (sum, v) => sum + v.currentAmount);
 
-  String? allocateToVault(String vaultId, double amount) {
+  Future<String?> allocateToVault(String vaultId, double amount, {String? notes}) async {
     if (amount <= 0) return 'Enter an amount greater than ₱0.00';
     final v = iponVaults.firstWhere((x) => x.id == vaultId, orElse: () => throw 'Vault not found');
     if (accts.isEmpty) return 'No accounts available';
@@ -287,15 +384,30 @@ class Demo extends ChangeNotifier {
     if (savings.bal < amount) {
       return 'Insufficient funds in ${savings.type} (${peso(savings.bal)})';
     }
+
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await MobileRepo.allocateToVault(vaultId, amount, notes: notes);
+        if (res['currentAmount'] != null) {
+          v.currentAmount = (res['currentAmount'] as num).toDouble();
+        } else {
+          v.currentAmount = r2(v.currentAmount + amount);
+        }
+      } catch (_) {
+        v.currentAmount = r2(v.currentAmount + amount);
+      }
+    } else {
+      v.currentAmount = r2(v.currentAmount + amount);
+    }
+
     savings.bal = r2(savings.bal - amount);
-    v.currentAmount = r2(v.currentAmount + amount);
     savings.tx.insert(0, Tx('Earmarked for ${v.name}', 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}', today, -amount));
     _alert('${peso(amount)} earmarked for ${v.name}');
     notifyListeners();
     return null;
   }
 
-  String? releaseFromVault(String vaultId, double amount) {
+  Future<String?> releaseFromVault(String vaultId, double amount, {String? notes}) async {
     if (amount <= 0) return 'Enter an amount greater than ₱0.00';
     final v = iponVaults.firstWhere((x) => x.id == vaultId, orElse: () => throw 'Vault not found');
     if (v.currentAmount < amount) {
@@ -303,7 +415,22 @@ class Demo extends ChangeNotifier {
     }
     if (accts.isEmpty) return 'No accounts available';
     final savings = accts.length > 1 ? accts[1] : accts[0];
-    v.currentAmount = r2(v.currentAmount - amount);
+
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await MobileRepo.releaseFromVault(vaultId, amount, notes: notes);
+        if (res['currentAmount'] != null) {
+          v.currentAmount = (res['currentAmount'] as num).toDouble();
+        } else {
+          v.currentAmount = r2(v.currentAmount - amount);
+        }
+      } catch (_) {
+        v.currentAmount = r2(v.currentAmount - amount);
+      }
+    } else {
+      v.currentAmount = r2(v.currentAmount - amount);
+    }
+
     savings.bal = r2(savings.bal + amount);
     savings.tx.insert(0, Tx('Released from ${v.name}', 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}', today, amount));
     _alert('${peso(amount)} released back to ${savings.type}');
@@ -311,7 +438,7 @@ class Demo extends ChangeNotifier {
     return null;
   }
 
-  void createVault({
+  Future<void> createVault({
     required String name,
     required double targetAmount,
     double initialAmount = 0.0,
@@ -319,8 +446,29 @@ class Demo extends ChangeNotifier {
     required String category,
     int? iconCode,
     int? colorValue,
-  }) {
-    final id = 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}';
+  }) async {
+    String id = 'VAULT-${DateTime.now().millisecondsSinceEpoch % 10000}';
+    final resolvedIcon = iconCode ?? 0xe59c;
+    final resolvedColor = colorValue ?? 0xFF0D9488;
+
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await MobileRepo.createVault({
+          'name': name,
+          'targetAmount': targetAmount,
+          'initialAmount': initialAmount,
+          'targetDate': targetDate,
+          'category': category,
+          'iconCode': resolvedIcon,
+          'colorValue': resolvedColor,
+          if (accts.isNotEmpty) 'accountNumber': (accts.length > 1 ? accts[1] : accts[0]).no,
+        });
+        if (res['id'] != null || res['vaultReference'] != null) {
+          id = '${res['id'] ?? res['vaultReference']}';
+        }
+      } catch (_) {}
+    }
+
     final v = IponVault(
       id: id,
       name: name,
@@ -328,16 +476,115 @@ class Demo extends ChangeNotifier {
       currentAmount: 0.0,
       targetDate: targetDate,
       category: category,
-      iconCode: iconCode ?? 0xe59c,
-      colorValue: colorValue ?? 0xFF0D9488,
+      iconCode: resolvedIcon,
+      colorValue: resolvedColor,
     );
     iponVaults.add(v);
     if (initialAmount > 0) {
-      allocateToVault(id, initialAmount);
+      await allocateToVault(id, initialAmount);
     } else {
       notifyListeners();
     }
   }
+
+  Future<void> closeVault(String vaultId) async {
+    final v = iponVaults.firstWhere((x) => x.id == vaultId, orElse: () => throw 'Vault not found');
+    if (!AppConfig.useFixtures) {
+      try {
+        await MobileRepo.closeVault(vaultId);
+      } catch (_) {}
+    }
+    if (v.currentAmount > 0 && accts.isNotEmpty) {
+      final savings = accts.length > 1 ? accts[1] : accts[0];
+      savings.bal = r2(savings.bal + v.currentAmount);
+      savings.tx.insert(0, Tx('Vault Closed: ${v.name}', 'VAULT-CLS', today, v.currentAmount));
+    }
+    iponVaults.removeWhere((x) => x.id == vaultId);
+    _alert('${v.name} closed');
+    notifyListeners();
+  }
+
+  // --- Feature: Co-op Share Capital & Patronage Dividends ---
+  ShareCapitalModel shareCapital = ShareCapitalModel(
+    shareCapitalId: 100,
+    certificateNo: 'SC-2024-001001',
+    subscribedShares: 500,
+    paidUpShares: 250,
+    parValue: 100.0,
+    totalPaidAmount: 25000.0,
+    subscribedAmount: 50000.0,
+    minimumRequiredShares: 20,
+    dividendRate: 7.25,
+    membershipType: 'REGULAR',
+    hasVotingRights: true,
+    completionRatio: 0.5,
+    status: 'ACTIVE',
+  );
+
+  List<DividendPayoutModel> dividendHistory = [
+    DividendPayoutModel(
+      dividendId: 1,
+      fiscalYear: 2025,
+      shareCapitalDividend: 1812.50,
+      patronageRefund: 940.00,
+      totalPayout: 2752.50,
+      disposition: 'CREDITED_TO_SAVINGS',
+      payoutDate: '2026-03-31T10:00:00',
+      referenceNo: 'DIV-2025-9921',
+      status: 'PAID',
+    ),
+    DividendPayoutModel(
+      dividendId: 2,
+      fiscalYear: 2024,
+      shareCapitalDividend: 1500.00,
+      patronageRefund: 750.00,
+      totalPayout: 2250.00,
+      disposition: 'CREDITED_TO_SAVINGS',
+      payoutDate: '2025-03-31T10:00:00',
+      referenceNo: 'DIV-2024-8142',
+      status: 'PAID',
+    ),
+  ];
+
+  Future<String?> topUpShareCapital(double amount, {String? notes}) async {
+    if (amount <= 0) return 'Enter an amount greater than ₱0.00';
+    if (accts.isEmpty) return 'No accounts available';
+    final savings = accts.length > 1 ? accts[1] : accts[0];
+    if (savings.bal < amount) {
+      return 'Insufficient funds in ${savings.type} account (Available: ₱${savings.bal.toStringAsFixed(2)})';
+    }
+
+    // Call live gateway / backend
+    final res = await MobileRepo.topUpShareCapital(
+      amount: amount,
+      sourceAccountId: savings.no,
+      notes: notes,
+    );
+
+    savings.bal = r2(savings.bal - amount);
+    final sharesAdded = (res['sharesAdded'] as num?)?.toInt() ?? (amount / shareCapital.parValue).floor();
+    shareCapital.paidUpShares += sharesAdded;
+    shareCapital.totalPaidAmount = r2(shareCapital.totalPaidAmount + amount);
+    if (shareCapital.paidUpShares > shareCapital.subscribedShares) {
+      shareCapital.subscribedShares = shareCapital.paidUpShares;
+    }
+    shareCapital.hasVotingRights = shareCapital.paidUpShares >= shareCapital.minimumRequiredShares;
+    shareCapital.membershipType = shareCapital.hasVotingRights ? 'REGULAR' : 'ASSOCIATE';
+    final subTotal = shareCapital.subscribedShares * shareCapital.parValue;
+    shareCapital.completionRatio = subTotal > 0 ? (shareCapital.totalPaidAmount / subTotal).clamp(0.0, 1.0) : 1.0;
+
+    savings.tx.insert(0, Tx(
+      'Capital Build-Up: +$sharesAdded Shares',
+      res['referenceNo']?.toString() ?? 'SC-TOP-${DateTime.now().millisecondsSinceEpoch % 100000}',
+      today,
+      -amount,
+      status: 'POSTED',
+    ));
+    _alert('Subscribed to $sharesAdded additional shares in Co-op Share Capital');
+    notifyListeners();
+    return null;
+  }
+
 
   final bens = <Ben>[
     const Ben('Juan Dela Cruz', 'COOBS · ACC_10000002', '+63 918 222 3333', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
@@ -559,6 +806,44 @@ class Demo extends ChangeNotifier {
             ]);
         }
       } catch (_) {}
+
+      // Fetch Live Ipon Vaults (MOB-02)
+      try {
+        final vList = await MobileRepo.fetchVaults();
+        if (vList.isNotEmpty) {
+          iponVaults
+            ..clear()
+            ..addAll([
+              for (final v in vList)
+                IponVault(
+                  id: '${v['id'] ?? v['vaultId'] ?? ''}',
+                  name: '${v['name'] ?? ''}',
+                  targetAmount: parseBal(v['targetAmount']),
+                  currentAmount: parseBal(v['currentAmount']),
+                  targetDate: '${v['targetDate'] ?? ''}',
+                  category: '${v['category'] ?? 'Emergency'}',
+                  iconCode: (v['iconCode'] as num?)?.toInt() ?? 0xe59c,
+                  colorValue: (v['colorValue'] as num?)?.toInt() ?? 0xFF0D9488,
+                )
+            ]);
+        }
+      } catch (_) {}
+
+      // Fetch Live Share Capital & Dividends
+      try {
+        final sc = await MobileRepo.fetchShareCapital();
+        if (sc.isNotEmpty) {
+          shareCapital = ShareCapitalModel.fromMap(sc);
+        }
+        final divs = await MobileRepo.fetchDividendHistory();
+        if (divs.isNotEmpty) {
+          dividendHistory = [
+            for (final d in divs)
+              if (d is Map) DividendPayoutModel.fromMap(Map<String, dynamic>.from(d))
+          ];
+        }
+      } catch (_) {}
+
 
       // Fetch Live Scores, Habits & 360 Totals (MOB-08)
       try {
