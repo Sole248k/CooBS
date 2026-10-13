@@ -1,0 +1,26 @@
+version: v0.1
+testId: coobs-cloud-loadtest
+displayName: CooBS Cloud Load Test (FIN-807)
+description: Production concurrency and SLA verification suite for CooBS microservices
+testPlan: coobs-loadtest.jmx
+engineInstances: 1
+failureCriteria:
+  # SLA thresholds defined in FIN-807
+  - avg(response_time_ms) > 500
+  - p95(response_time_ms) > 1500
+  - error_rate > 1
+env:
+  - name: TARGET_PROTOCOL
+    value: https
+  - name: TARGET_PORT
+    value: "443"
+  - name: RAMP_SEC
+    value: "30"
+  - name: DURATION_SEC
+    value: "180"
+  - name: HEALTH_VUS
+    value: "20"
+  - name: SHOP_VUS
+    value: "40"
+  - name: AUTH_VUS
+    value: "15"
