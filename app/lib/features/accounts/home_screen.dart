@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
@@ -664,9 +665,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final pc = PageController(viewportFraction: .92);
   final d = Demo.i;
   final shop = ShopStore();
+  Timer? _pendingPollTimer;
 
   @override
   void dispose() {
+    _pendingPollTimer?.cancel();
+    Demo.i.removeListener(_onDemoChanged);
     shop.dispose();
     pc.dispose();
     super.dispose();
@@ -680,9 +684,44 @@ class _HomeScreenState extends State<HomeScreen> {
         Demo.i.load();
       }
     });
+    Demo.i.addListener(_onDemoChanged);
+    if (Demo.i.hasPendingProcessing) {
+      _startPendingPoll();
+    }
   }
 
-  void go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w));
+  void _onDemoChanged() {
+    final hasProcessing = Demo.i.hasPendingProcessing;
+    if (hasProcessing && _pendingPollTimer == null) {
+      _startPendingPoll();
+    } else if (!hasProcessing && _pendingPollTimer != null) {
+      _pendingPollTimer?.cancel();
+      _pendingPollTimer = null;
+    }
+  }
+
+  void _startPendingPoll() {
+    _pendingPollTimer?.cancel();
+    _pendingPollTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (!Demo.i.hasPendingProcessing) {
+        timer.cancel();
+        _pendingPollTimer = null;
+        return;
+      }
+      await Demo.i.load();
+    });
+  }
+
+  Future<void> go(Widget w) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => w));
+    if (mounted) {
+      await Demo.i.load();
+    }
+  }
 
   Widget shell(List<Color> colors, String type, String status, List<Widget> kids, {required CustomPainter painter, Color? accentGlow}) => Container(
         margin: const EdgeInsets.fromLTRB(6, 4, 6, 12),
@@ -1235,6 +1274,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Ben('Juan Dela Cruz', 'COOBS · ACC_10000004', '+63 918 222 3333', accountNumber: 'ACC_10000004', bankCode: 'COOBS'),
             Ben('Jose Bautista', 'COOBS · ACC_10000008', '+63 918 222 3333', accountNumber: 'ACC_10000008', bankCode: 'COOBS'),
             Ben('Andrea', 'COOBS · ACC_10000007', '+63 919 444 5555', accountNumber: 'ACC_10000007', bankCode: 'COOBS'),
+            Ben('AuraBank Partner', 'AURABANK · 1000-2000-3001', '+63 918 000 3001', accountNumber: '1000-2000-3001', bankCode: 'AURABANK'),
           ];
 
     final addBtn = SizedBox(

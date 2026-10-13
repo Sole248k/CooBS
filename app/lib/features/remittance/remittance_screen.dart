@@ -65,6 +65,8 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
     }
     if (widget.initialDest != null && widget.initialDest!.isNotEmpty) {
       dest.text = normalizeAccountNumber(widget.initialDest!, bank);
+    } else if (bank == 'AURABANK') {
+      dest.text = '1000-2000-3001';
     }
     if (widget.initialRemarks != null && widget.initialRemarks!.isNotEmpty) {
       rem.text = widget.initialRemarks!;
@@ -320,7 +322,15 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
             const SizedBox(height: 4),
             dd('From account', labels, labels[safeSrc], (x) => setState(() => src = x != null && labels.contains(x) ? labels.indexOf(x) : 0)),
             dd('Destination bank', [for (final x in banks) x['name'] as String], b['name'] as String,
-                widget.fromQr ? null : (x) => setState(() { bank = banks.firstWhere((y) => y['name'] == x)['code'] as String; err = {}; })),
+                widget.fromQr ? null : (x) => setState(() {
+                  bank = banks.firstWhere((y) => y['name'] == x)['code'] as String;
+                  if (bank == 'AURABANK') {
+                    dest.text = '1000-2000-3001';
+                  } else if (bank == 'COOBS' && dest.text == '1000-2000-3001') {
+                    dest.text = 'ACC_10000002';
+                  }
+                  err = {};
+                })),
             if (bank != 'COOBS')
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -392,10 +402,14 @@ class _RemittanceScreenState extends State<RemittanceScreen> {
               dest,
               'Recipient account number',
               error: err['dest'],
-              hint: bank == 'COOBS' ? 'ACC_10000002' : (b['accountHint'] as String),
+              hint: bank == 'COOBS'
+                  ? 'ACC_10000002'
+                  : (bank == 'AURABANK' ? '1000-2000-3001' : (b['accountHint'] as String)),
               helper: bank == 'COOBS'
                   ? 'Format: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)'
-                  : 'Account format: ${b['accountHint']}',
+                  : (bank == 'AURABANK'
+                      ? 'Format: 1000-2000-3001 (AuraBank account)'
+                      : 'Account format: ${b['accountHint']}'),
               readOnly: widget.fromQr,
               suffix: widget.fromQr ? qrTag : null,
             ),
@@ -453,9 +467,9 @@ class RemittanceResultPage extends StatelessWidget {
           Text('Tracking reference unavailable.', style: TextStyle(color: kMut)),
         ],
         const SizedBox(height: 12),
-        bigBtn('Done', () { Navigator.pop(context); Navigator.pop(context); }),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Make another transfer')),
-      ], onBack: () { Navigator.pop(context); Navigator.pop(context); });
+        bigBtn('Done', () { Demo.i.load(); Navigator.pop(context); Navigator.pop(context); }),
+        TextButton(onPressed: () { Demo.i.load(); Navigator.pop(context); }, child: const Text('Make another transfer')),
+      ], onBack: () { Demo.i.load(); Navigator.pop(context); Navigator.pop(context); });
 }
 
 /// Interactive Remittance Intake Form (Endpoint M3 via mobile-bff).
@@ -499,10 +513,11 @@ class _RemittanceFormState extends State<RemittanceForm> {
   List<Map<String, String>> get _quickRecipients {
     final src = _sourceController.text.trim();
     return [
-      if (src != 'ACC_10000001') {'name': 'John Doe', 'account': 'ACC_10000001'},
-      if (src != 'ACC_10000002') {'name': 'Jane Smith', 'account': 'ACC_10000002'},
-      if (src != 'ACC_10000004') {'name': 'Juan Dela Cruz', 'account': 'ACC_10000004'},
-      if (src != 'ACC_10000008') {'name': 'Jose Bautista', 'account': 'ACC_10000008'},
+      if (src != 'ACC_10000001') {'name': 'John Doe', 'account': 'ACC_10000001', 'bank': 'COOBS'},
+      if (src != 'ACC_10000002') {'name': 'Jane Smith', 'account': 'ACC_10000002', 'bank': 'COOBS'},
+      if (src != 'ACC_10000004') {'name': 'Juan Dela Cruz', 'account': 'ACC_10000004', 'bank': 'COOBS'},
+      if (src != 'ACC_10000008') {'name': 'Jose Bautista', 'account': 'ACC_10000008', 'bank': 'COOBS'},
+      {'name': 'AuraBank', 'account': '1000-2000-3001', 'bank': 'AURABANK'},
     ];
   }
 
@@ -750,12 +765,22 @@ class _RemittanceFormState extends State<RemittanceForm> {
                           ),
                           items: const [
                             DropdownMenuItem(value: 'COOBS', child: Text('CooBS Core Banking (Internal)', overflow: TextOverflow.ellipsis, maxLines: 1)),
+                            DropdownMenuItem(value: 'AURABANK', child: Text('AuraBank', overflow: TextOverflow.ellipsis, maxLines: 1)),
                             DropdownMenuItem(value: 'BDO', child: Text('BDO Unibank', overflow: TextOverflow.ellipsis, maxLines: 1)),
                             DropdownMenuItem(value: 'BPI', child: Text('Bank of the Philippine Islands', overflow: TextOverflow.ellipsis, maxLines: 1)),
                             DropdownMenuItem(value: 'MBTC', child: Text('Metrobank', overflow: TextOverflow.ellipsis, maxLines: 1)),
                           ],
                           onChanged: (val) {
-                            if (val != null) setState(() => _destinationBank = val);
+                            if (val != null) {
+                              setState(() {
+                                _destinationBank = val;
+                                if (val == 'AURABANK') {
+                                  _destinationController.text = '1000-2000-3001';
+                                } else if (val == 'COOBS' && _destinationController.text == '1000-2000-3001') {
+                                  _destinationController.text = 'ACC_10000002';
+                                }
+                              });
+                            }
                           },
                         ),
                         const SizedBox(height: 14),
@@ -763,10 +788,14 @@ class _RemittanceFormState extends State<RemittanceForm> {
                           controller: _destinationController,
                           decoration: InputDecoration(
                             labelText: 'Destination Account Number',
-                            hintText: 'ACC_10000002',
-                            helperText: _destinationBank == 'COOBS'
-                                ? 'Format: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)'
-                                : 'Enter destination account number',
+                            hintText: _destinationBank == 'AURABANK'
+                                ? '1000-2000-3001'
+                                : (_destinationBank == 'COOBS' ? 'ACC_10000002' : 'Enter destination account number'),
+                            helperText: _destinationBank == 'AURABANK'
+                                ? 'Format: 1000-2000-3001 (AuraBank account)'
+                                : (_destinationBank == 'COOBS'
+                                    ? 'Format: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)'
+                                    : 'Enter destination account number'),
                             prefixIcon: const Icon(Icons.credit_card_outlined),
                           ),
                           validator: (val) {
@@ -776,6 +805,9 @@ class _RemittanceFormState extends State<RemittanceForm> {
                             final norm = normalizeAccountNumber(val.trim(), _destinationBank);
                             if (_destinationBank == 'COOBS' && !RegExp(r'^ACC_\d{4,8}$').hasMatch(norm)) {
                               return 'Required format: ACC_XXXXXXXX (8 digits, e.g. ACC_10000002)';
+                            }
+                            if (_destinationBank == 'AURABANK' && !RegExp(r'^(\d{4}-\d{4}-\d{4}|\d{10,16})$').hasMatch(norm)) {
+                              return 'Required format: 1000-2000-3001';
                             }
                             return null;
                           },
@@ -801,6 +833,9 @@ class _RemittanceFormState extends State<RemittanceForm> {
                               onPressed: () {
                                 setState(() {
                                   _destinationController.text = rec['account']!;
+                                  if (rec['bank'] != null) {
+                                    _destinationBank = rec['bank']!;
+                                  }
                                 });
                               },
                             );

@@ -1,12 +1,13 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/router/app_router.dart';
+import '../../core/storage/secure_storage_service.dart';
 import '../accounts/ui.dart';
 
 /// Animated Boot Splash Screen.
 /// Flashes the official CooBS logo with an organic entrance animation upon launch,
-/// then smoothly transitions to the LoginScreen.
+/// then smoothly transitions to BiometricLoginScreen if previously logged in,
+/// or LoginScreen otherwise.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -55,8 +56,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       ),
     );
 
-    _controller.forward().then((_) {
-      if (mounted) {
+    _controller.forward().then((_) async {
+      if (!mounted) return;
+      final bioUser = await SecureStorageService().getBiometricUsername();
+      if (!mounted) return;
+      if (bioUser != null && bioUser.isNotEmpty) {
+        Navigator.pushReplacementNamed(context, AppRouter.biometricLogin);
+      } else {
         Navigator.pushReplacementNamed(context, AppRouter.login);
       }
     });

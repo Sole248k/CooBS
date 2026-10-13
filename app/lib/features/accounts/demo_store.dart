@@ -30,6 +30,11 @@ String normalizeAccountNumber(String raw, [String bank = 'COOBS']) {
     if (m2 != null) return 'ACC_${m2.group(1)}${m2.group(2)}';
     final digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length == 8) return 'ACC_$digits';
+  } else if (bank.toUpperCase() == 'AURABANK') {
+    final digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length == 12) {
+      return '${digits.substring(0, 4)}-${digits.substring(4, 8)}-${digits.substring(8, 12)}';
+    }
   }
   return trimmed;
 }
@@ -38,8 +43,8 @@ class Tx {
   final String label, ref;
   final DateTime date;
   final double amt;
-  final String status;
-  final String? failureCode;
+  String status;
+  String? failureCode;
   Tx(this.label, this.ref, this.date, this.amt, {this.status = 'POSTED', this.failureCode});
 }
 
@@ -338,6 +343,7 @@ class Demo extends ChangeNotifier {
     const Ben('Juan Dela Cruz', 'COOBS · ACC_10000002', '+63 918 222 3333', accountNumber: 'ACC_10000002', bankCode: 'COOBS'),
     const Ben('Maria Santos', 'COOBS · ACC_10000004', '+63 917 000 1111', accountNumber: 'ACC_10000004', bankCode: 'COOBS'),
     const Ben('Jose Bautista', 'COOBS · ACC_10000008', '+63 919 444 5555', accountNumber: 'ACC_10000008', bankCode: 'COOBS'),
+    const Ben('AuraBank Partner', 'AURABANK · 1000-2000-3001', '+63 918 000 3001', accountNumber: '1000-2000-3001', bankCode: 'AURABANK'),
   ];
   final alerts = <List<String>>[
     ['₱2,500.00 received from Maria Santos', 'Ref REF-UI-312972 · 2 min ago'],
@@ -479,7 +485,7 @@ class Demo extends ChangeNotifier {
           }
         }
         // Remove pending local transfers once server lists them
-        _pendingLocalTx.removeWhere((pTx) => parsed[0].tx.any((t) => t.ref == pTx.ref));
+        _pendingLocalTx.removeWhere((pTx) => parsed.any((a) => a.tx.any((t) => t.ref == pTx.ref)));
         // Retain any pending local transfers not yet in server list
         for (final pTx in _pendingLocalTx) {
           if (!parsed[0].tx.any((t) => t.ref == pTx.ref)) {
@@ -634,17 +640,51 @@ class Demo extends ChangeNotifier {
   /// Local effect of a successful remittance so the cards and history stay consistent.
   void applyRemittance(int from, double amt, double fee, String bank, String dest, String ref) {
     if (from < 0 || from >= accts.length) return;
-    final tx = Tx('Transfer to $bank', ref, today, -amt, status: 'PROCESSING');
+    final now = DateTime.now();
+    final txDate = now.year >= 2026 ? DateTime(now.year, now.month, now.day) : today;
+    final tx = Tx('Transfer to $bank', ref, txDate, -amt, status: 'PROCESSING');
     _pendingLocalTx.insert(0, tx);
     accts[from].bal = r2(accts[from].bal - amt - fee);
     accts[from].tx.insert(0, tx);
     if (fee > 0) {
-      final feeTx = Tx('Transfer fee', ref, today, -fee, status: 'PROCESSING');
+      final feeTx = Tx('Transfer fee', ref, txDate, -fee, status: 'PROCESSING');
       _pendingLocalTx.insert(0, feeTx);
       accts[from].tx.insert(0, feeTx);
     }
     _alert('${peso(amt)} transferred to $dest ($bank). Ref $ref');
     notifyListeners();
+  }
+
+  bool get hasPendingProcessing {
+    if (_pendingLocalTx.any((t) => t.status.toUpperCase() == 'PROCESSING' || t.status.toUpperCase() == 'INITIATED')) {
+      return true;
+    }
+    return curTx.any((t) => t.status.toUpperCase() == 'PROCESSING' || t.status.toUpperCase() == 'INITIATED');
+  }
+
+  void updateTxStatus(String ref, String newStatus, {String? failureCode}) {
+    if (ref.isEmpty) return;
+    final cleanRef = ref.trim();
+    bool changed = false;
+    for (final pTx in _pendingLocalTx) {
+      if (pTx.ref == cleanRef) {
+        pTx.status = newStatus;
+        if (failureCode != null) pTx.failureCode = failureCode;
+        changed = true;
+      }
+    }
+    for (final a in accts) {
+      for (final tx in a.tx) {
+        if (tx.ref == cleanRef) {
+          tx.status = newStatus;
+          if (failureCode != null) tx.failureCode = failureCode;
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      notifyListeners();
+    }
   }
 
   void toggleHide() { hide = !hide; notifyListeners(); }

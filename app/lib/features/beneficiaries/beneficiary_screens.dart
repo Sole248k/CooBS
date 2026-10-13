@@ -290,7 +290,12 @@ class _AddBeneficiaryPageState extends State<AddBeneficiaryPage> {
         const SizedBox(height: 14),
         tf(t('nick'), 'Nickname (e.g., Mom Savings)'),
         tf(t('acct'), 'Account number (e.g., ACC_10000002)'),
-        dd('Bank', const ['COOBS', 'BDO', 'BPI', 'Metrobank', 'Maya'], v['bank'] ?? 'COOBS', (x) => v['bank'] = x),
+        dd('Bank', const ['COOBS', 'AURABANK', 'BDO', 'BPI', 'Metrobank', 'Maya'], v['bank'] ?? 'COOBS', (x) {
+          v['bank'] = x;
+          if (x == 'AURABANK' && (t('acct').text.isEmpty || t('acct').text.startsWith('ACC_'))) {
+            t('acct').text = '1000-2000-3001';
+          }
+        }),
       ],
       [
         Text(

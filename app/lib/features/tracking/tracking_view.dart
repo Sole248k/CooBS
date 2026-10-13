@@ -134,6 +134,13 @@ class _TrackingViewState extends State<TrackingView> with SingleTickerProviderSt
     _rawTimeline = timeline;
     _milestones = MilestoneMapper.mapFromTimeline(timeline);
 
+    // Sync terminal status to Demo store
+    if (timeline.isTerminalSuccess) {
+      Demo.i.updateTxStatus(timeline.trackingReference, 'POSTED');
+    } else if (timeline.isTerminalFailure) {
+      Demo.i.updateTxStatus(timeline.trackingReference, 'FAILED', failureCode: timeline.failureMessage);
+    }
+
     if (!_userSelectedMilestone || !isAutoPoll) {
       final dlqIdx = _milestones.indexWhere((m) => m.isDlq);
       final failedIdx = _milestones.indexWhere((m) => m.isFailed);
