@@ -4,18 +4,22 @@
 
 **Status: deployed on 10 October 2026 and proven by the E2E suite (143 of 143) over HTTPS at `https://coobs.indonesiacentral.cloudapp.azure.com`.** Everything in "What is created" exists except Front Door, which a free trial may not create. The section "Proven and not proven" at the end says what the deployment showed. The record of that deployment, with the commands as they were run, is `integrated-capstone-plans/AZURE_DEPLOYMENT_AS_BUILT.md`. `infra/k8s` has its own README.
 
-This is the in-depth architecture cut to what an Azure free trial allows. It is drawn in `docs/architecture-diagrams/demo-deployment.eraserdiagram`.
+**Since then (read from Azure on 13 October 2026):** the subscription is pay-as-you-go, with no spending limit; the cluster and the VM run `version-1.22.1`; nothing in the resource group has been added or resized. `order-service`, the members' shop, is in this folder's files as a tenth cloud service with a fifth database, `order_db`, and is not yet in the running system: see "Adding order-service to the running deployment".
 
-## What the free trial allows
+This is the in-depth architecture cut to what an Azure free trial allowed, and kept at that size on pay-as-you-go because it is the proven state and the cheapest one. It is drawn in `docs/architecture-diagrams/demo-deployment.eraserdiagram`.
 
-Read from the subscription on 8 and 9 October 2026:
+## Subscription limits
 
-| Limit | Value | What it forces |
+The deployment was sized for the free trial. Read from the subscription on 8 and 9 October 2026:
+
+| Limit | Value | What it forced |
 | --- | --- | --- |
 | vCPUs in the region | 4 in total | One 2 vCPU AKS node and one 2 vCPU VM, with nothing to spare. No autoscaling, no node upgrade |
 | Public IP addresses | 3 | Exactly three are used: AKS outbound, the one public entry (console and API), the on-premises NAT gateway |
 | VM sizes | `Standard_E2as_v5` and `Standard_B2as_v2` only in zone 3 | Indonesia Central, zone 3. Southeast Asia offers no usable size |
 | Kubernetes | 1.34 to 1.36 on the Free tier (1.31 to 1.33 are long-term-support only) | 1.35 |
+
+On pay-as-you-go (read on 12 October 2026) the region allows 10 vCPUs and 20 public addresses. The per-family vCPU limits read as 0 that day, so whether a second `Standard_E2as_v5` node is granted is not proven. Front Door is no longer refused for the account type. Nothing was resized: see "Cost" for why.
 
 ## What is created
 
@@ -28,9 +32,10 @@ Everything goes into the resource group `CooBS-rsg` in Indonesia Central. The co
 | `keyvault.bicep` | Key Vault with RBAC authorisation, the Secrets Officer role for one person, and the secret `cloud-db-password` |
 | `sql.bicep` | Azure SQL logical server and `identity_db`, `customer_db`, `transaction_db`, `notification_db` at S0, collation `Latin1_General_100_CI_AS_SC_UTF8`. Reachable only from `snet-aks` |
 | `redis.bicep` | Azure Managed Redis `Balanced_B0`, one node, TLS on port 10000, access keys on. A private endpoint and a private DNS zone linked to both VNets. The secret `redis-key` |
-| `aks.bicep` | AKS, Free tier, one `Standard_E2as_v5` node in zone 3. AcrPull on the registry, Network Contributor on the cloud VNet |
+| `aks.bicep` | AKS, Free tier, one `Standard_E2as_v5` node in zone 3. AcrPull on the registry, Network Contributor on the cloud VNet. The autoscaler is off unless `COOBS_AKS_MAX_NODES` is 2 or 3, which is then its ceiling |
 | `onprem-vm.bicep` | One `Standard_B2as_v2` VM in zone 3 at `10.250.0.4`, no public address, Ubuntu 24.04, Docker installed on first boot. AcrPull on the registry and Key Vault Secrets User on the vault |
 | `frontdoor.bicep` | Front Door Standard with one endpoint and one route to the public address. **Off by default, and refused by Azure on a free trial**; see "Switching on HTTPS" |
+| `budget.bicep` | Not part of `main.bicep`. A spending alert on the resource group, deployed by itself; see "Cost" |
 
 Not created: Event Hubs (Kafka runs in the cluster), a VPN gateway (peering stands in for it), an ingress controller.
 
@@ -55,19 +60,40 @@ No secret is in this folder, and `main.bicepparam` holds none.
 
 ## Cost
 
-List prices read from the Azure Retail Prices API on 8 October 2026 for Indonesia Central. They are not a quote, and the NAT gateway price was not read.
+List prices read from the Azure Retail Prices API on 8 October 2026 for Indonesia Central. They are not a quote. The last row was not read from the API.
 
-| Item | Price | Six days |
+| Item | Price | A day (USD) |
 | --- | --- | --- |
-| AKS node, `Standard_E2as_v5` | 0.122 an hour | 17.57 |
-| VM, `Standard_B2as_v2` | 0.0855 an hour | 12.31 |
-| Azure SQL S0, four databases | 0.4839 a day each | 11.61 |
-| Azure Managed Redis B0 | 0.018 an hour | 2.59 |
-| Container registry, Standard | 0.667 a day | 4.00 |
-| Public IPs, disks, NAT gateway, logs | not all read | about 10 |
-| **Total** | | **about USD 60** |
+| AKS node, `Standard_E2as_v5` | 0.122 an hour | 2.93 |
+| VM, `Standard_B2as_v2` | 0.0855 an hour | 2.05 |
+| Azure SQL S0, five databases (four until `order_db` is created) | 0.4839 a day each | 2.42 |
+| Container registry, Standard | 0.667 a day | 0.67 |
+| Azure Managed Redis B0 | 0.018 an hour | 0.43 |
+| NAT gateway, three public IPs, load balancer, disks, logs | not all read | about 2 |
+| **Total** | | **about 10.50** |
 
-The trial has USD 200 of credit. Delete the resource group contents when the presentation is over.
+- **What drives it:** the two machines and the databases. They bill by the hour whether or not anyone uses the system. `order-service` adds its database, about 0.48 a day, and needs the second node below.
+- **What would add to it:** a second AKS node, 2.93 a day while it exists, which makes about 13.40 a day. Front Door, about 1.20 a day (a base fee remembered as about USD 35 a month, not read from the API).
+- **How long the credit lasts:** about USD 170 is left and it expires on 31 October 2026. At 10.50 a day that is about 16 days; at 13.40 with two nodes, about 12. Removing the deployment after the presentation on 14 October leaves most of it unspent.
+- **Pay-as-you-go has no spending limit.** When the credit is used up or expires, the card on the account is charged. Nothing stops by itself.
+
+### Safeguards
+
+1. **A budget alert.** It e-mails at 50 and 90 percent of USD 60 a month and when the forecast passes it. It warns; it stops nothing. It is deployed by itself and does not touch the running system:
+
+   ```
+   az deployment group create --resource-group CooBS-rsg --name coobs-budget --template-file infra/bicep/budget.bicep --parameters contactEmail=<an address you read>
+   ```
+
+2. **Fixed sizes.** One node, one replica per service, Log Analytics capped at 1 GB a day. If the autoscaler is switched on, two nodes is the suggested ceiling:
+
+   ```
+   az aks update --resource-group CooBS-rsg --name aks-coobs-dev --enable-cluster-autoscaler --min-count 1 --max-count 2
+   ```
+
+   Set `COOBS_AKS_MAX_NODES` to `2` before any later Bicep deployment, or the template switches it off again. Not tried on this cluster.
+
+3. **Remove it when the presentation is over.** See "Removing it".
 
 ## Checking it without creating anything
 
@@ -110,7 +136,7 @@ Each command below creates or changes resources and costs money. Run them yourse
 
 4. Publish the images and note the tag. There are two ways:
 
-   - **From a machine with Docker**, while the pipeline is switched off. Sign in to the registry, then build and push the thirteen deployed services and the staff console from a clean checkout of the commit to deploy. `-DryRun` prints the commands without running them.
+   - **From a machine with Docker**, while the pipeline is switched off. Sign in to the registry, then build and push the fourteen services and the staff console (eleven images for the cluster, four for the VM) from a clean checkout of the commit to deploy. `-DryRun` prints the commands without running them.
 
      ```
      az acr login --name CooBS
@@ -158,7 +184,7 @@ One thing differs from the local stack on purpose. Each service gets `JAVA_OPTS=
 
 ## Updating a running deployment
 
-`deploy-cloud.ps1` puts all ten cloud images on the one tag it is given, and the VM's Compose file does the same for its four. So the rule is: **one new tag, built for every image.**
+`deploy-cloud.ps1` puts all eleven cloud images on the one tag it is given, and the VM's Compose file does the same for its four. So the rule is: **one new tag, built for every image.**
 
 ### The normal way, also when one service changed
 
@@ -191,6 +217,47 @@ kubectl rollout status deployment/transaction-service --namespace coobs
 Put the service's name in all four places; the container in each Deployment has the Deployment's name. This touches nothing else, HTTPS included.
 
 It leaves that service on a tag the others do not have. Never give `deploy-cloud.ps1` a tag that was built for one service only: on 10 October 2026 that left nine services with a new pod waiting for a missing image, and, with the script as it was then, switched HTTPS off. The next full update builds everything under one tag again.
+## Adding order-service to the running deployment
+
+`order-service` (port 8096) is a cloud service. Its catalogue and orders are in its own database, `order_db`, on the Azure SQL server. It pays through the ledger: a hold when an order is placed, a capture when it is collected, a release when it is cancelled. Those three calls are the only ones that cross to the on-premises zone, on port 8083, which the firewall already admits. Nothing on the VM or the NSG changes.
+
+Each command below changes the running system, and the first two add cost. Run them yourself, in this order.
+
+1. Create the fifth database, about USD 0.48 a day. The template lists it too, so a later Bicep deployment keeps it.
+
+   ```
+   az sql db create --resource-group CooBS-rsg --server <sql server name> --name order_db --service-objective S0 --collation Latin1_General_100_CI_AS_SC_UTF8
+   ```
+
+2. Add a second node, about USD 2.93 a day. The one node has 1822m of its 1900m of CPU reserved, so an eleventh pod leaves a rollout no room to start a replacement.
+
+   ```
+   az aks scale --resource-group CooBS-rsg --name aks-coobs-dev --nodepool-name agentpool --node-count 2
+   ```
+
+   If Azure refuses it for quota, the node count stays at one. The service still fits (it reserves 50m); update one service at a time after that.
+
+3. Build all fifteen images under one new tag, then move both zones to it. The cloud line is run **without** `-SkipSchemaLoad`: the load job skips a database that is already loaded, so it loads only the empty `order_db` and leaves the other four as they are.
+
+   ```
+   az acr login --name CooBS
+   .\infra\scripts\publish-images.ps1 -ImageTag <a tag not used before>
+   .\infra\scripts\deploy-cloud.ps1 -ImageTag <the same tag>
+   .\infra\scripts\deploy-onprem.ps1 -KeyVaultName <vault> -ImageTag <the same tag> -RedisHost <redis host name>
+   ```
+
+4. Check it: `https://<address>/api/v1/shop/products` answers without a sign-in, with three products (rice, eggs, milk).
+
+5. Run the E2E suite again.
+
+Not proven: none of this has been run against Azure, and `order-service` has never run on PostgreSQL or SQL Server, only on H2 in its tests (7 of 7). Rendered and validated only: `kubectl kustomize infra/k8s`, `docker compose config` with and without the SQL Server override, `az bicep build`, `publish-images.ps1 -DryRun`, and the T-SQL script as the translator's output.
+
+Three things to know:
+
+- **The merchant account is a stand-in.** A collected order is captured into `SHOP_MERCHANT_ACCOUNT_ID` in `infra/k8s/config.yaml`, set to 9003 (`GL_FEE_INCOME`), because the seed has no account for shop sales and the service's own default, 1001, does not exist. Whether the ledger accepts a GL account as a capture destination has not been tried.
+- **The API contract does not list this call.** Its list of allowed internal calls has orchestration, account and batch calling the ledger. `order-service` is a fourth caller and needs adding there.
+- **The shop tables are still in the Oracle scripts** (`COOP_SHOP_PRODUCT`, `COOP_SHOP_ORDER`, `COOP_SHOP_ORDER_ITEM` in `database/oracle/02_create_tables.sql`). Nothing reads them now. They were left in place and can be removed once the shop has run on `order_db`.
+
 ## Putting the data back to the seed
 
 Testing changes the data: transfers, holds, balances, audit rows, notifications, end-of-day runs, the risk engine's daily counters. Two commands put all of it back to what the first deployment loaded. **Everything made since then is lost, on purpose.** Allow about fifteen minutes, during which the system is down.
@@ -209,7 +276,7 @@ Run the third line until all six containers are healthy before the fourth. Then 
 | What | How it is reset |
 | --- | --- |
 | Oracle and the audit store on the VM | `deploy-onprem.ps1 -ResetData` removes both data volumes, so the init scripts load the seed again when the containers start |
-| The four Azure SQL databases | `deploy-cloud.ps1 -ResetData` stops the services, then the load job removes every table and loads the seed again |
+| The Azure SQL databases (five with `order_db`) | `deploy-cloud.ps1 -ResetData` stops the services, then the load job removes every table and loads the seed again |
 | Redis | The same job empties it first: risk counters, idempotency keys, sessions. Everyone signs in again |
 | Staff password | Unchanged: the job sets the one from Key Vault on every run |
 | HTTPS and the certificate | Untouched |
@@ -311,7 +378,7 @@ The script adds Datadog's Java tracer to each named Deployment (`infra/k8s-monit
 
 - Trace a few services, not all nine. Each traced JVM starts more slowly and uses more memory, inside the same 256 MB heap and 640 MB limit as before; on 11 October two services used 47 and 61 MB of that heap. Watch a traced service's restart count for the first hour.
 - `transaction-service` and `orchestration-service` together cover a transfer from intake through the saga, including the timed calls to the risk engine and the ledger.
-- A request is followed across two services only when both are traced. The four services on the VM are not covered by this option.
+- A request is followed across two services only when both are traced. The services on the VM are not covered by this option.
 - To take the tracer off one service: `kubectl rollout undo deployment/<service> --namespace coobs` straight after adding it, or delete the Deployment and run the deploy script again.
 
 ### What this does not give
@@ -348,7 +415,7 @@ HTTPS ends at the proxy. Inside the cluster and across the link to the on-premis
 
 ### On a paid subscription: Front Door
 
-It cannot be in the first deployment, because its origin is the public address, which exists only after step 5. Not usable together with `-DnsLabel`.
+The subscription has been pay-as-you-go since 12 October 2026, so Azure should now accept this. It has still never been created, so do it only with time to run the E2E suite afterwards, not on the day of a demonstration. It cannot be in the first deployment, because its origin is the public address, which exists only after step 5. Not usable together with `-DnsLabel`.
 
 1. Deploy the Bicep again with Front Door on and the address `deploy-cloud.ps1` printed. This adds five Front Door resources (the profile, an endpoint, a route, an origin group and an origin) and changes nothing else; run what-if first to see that. The address must be the real one: Azure refuses a documentation-range address such as 203.0.113.9 as an origin.
 
@@ -388,7 +455,32 @@ Admin and the tellers sign in with the generated staff password, not the seeded 
 
 ## Removing it
 
-Delete what the deployment created but keep the registry, or delete the whole resource group and lose the pushed images too. Key Vault keeps a deleted vault for 7 days under the same name; purge it before deploying again with `az keyvault purge`.
+Every command here stops or deletes running resources. Run them yourself.
+
+**After the presentation: delete everything.** This ends every charge. It also deletes the registry and the pushed images, which can be built again from the repository.
+
+```
+az group delete --name CooBS-rsg --yes
+az group exists --name CooBS-rsg
+```
+
+The second line answers `false` when it is gone; the first can take ten minutes or more. AKS's own resource group (`MC_CooBS-rsg_aks-coobs-dev_indonesiacentral`) goes with the cluster. Key Vault keeps a deleted vault for 7 days under the same name, at no cost; purge it only to deploy again under that name (`az keyvault purge --name <vault>`). Then check the portal's Cost analysis the next day: the daily figure should be zero.
+
+**To keep the registry,** delete the other resources one at a time in place of the group: the cluster, the VM with its disk and network interface, the SQL server, Redis with its private endpoint, the NAT gateway and its public address. The registry alone costs about USD 0.67 a day.
+
+**Between sessions: pause the two machines.** This stops about half of the daily cost (the node and the VM). The databases, Redis, the registry and the NAT gateway keep billing.
+
+```
+az aks stop --resource-group CooBS-rsg --name aks-coobs-dev
+az vm deallocate --resource-group CooBS-rsg --name vm-coobs-onprem
+```
+
+```
+az vm start --resource-group CooBS-rsg --name vm-coobs-onprem
+az aks start --resource-group CooBS-rsg --name aks-coobs-dev
+```
+
+Not tried on this deployment: whether every pod, the certificate and the public address come back as they were is not known, and Oracle needs several minutes. Do not pause it the night before a demonstration.
 
 ## Proven and not proven
 

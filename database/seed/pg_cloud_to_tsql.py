@@ -3,8 +3,8 @@
 
     python database/seed/pg_cloud_to_tsql.py
 
-Reads   database/postgres-cloud/02..05_*.sql   (the source of truth while both engines exist)
-Writes  database/azure-sql/01..05_*.sql
+Reads   database/postgres-cloud/02..06_*.sql   (the source of truth while both engines exist)
+Writes  database/azure-sql/01..06_*.sql
 
 The PostgreSQL scripts use a small, regular dialect, and this script knows exactly that dialect.
 Anything it does not recognise stops the run with the file and line, so a new construct in the
@@ -42,6 +42,7 @@ FILES = {
     "03_customer_db.sql": dict(db="customer_db", ts="DATETIME2(6)", clock="SYSUTCDATETIME()"),
     "04_transaction_db.sql": dict(db="transaction_db", ts="DATETIMEOFFSET(6)", clock="SYSDATETIMEOFFSET()"),
     "05_notification_db.sql": dict(db="notification_db", ts="DATETIMEOFFSET(6)", clock="SYSDATETIMEOFFSET()"),
+    "06_order_db.sql": dict(db="order_db", ts="DATETIME2(6)", clock="SYSUTCDATETIME()"),
 }
 
 # UTF-8 so VARCHAR columns keep characters such as the peso sign, which notification-service writes.

@@ -7,7 +7,7 @@
       1. Reads the Bicep outputs (cluster, Key Vault, Azure SQL, Redis).
       2. Generates the application secrets into Key Vault. A secret that already exists is kept.
       3. Creates the Kubernetes Secret coobs-app-secrets from Key Vault.
-      4. Loads the four databases from database/azure-sql/ with a Job in the cluster, and
+      4. Loads the five databases from database/azure-sql/ with a Job in the cluster, and
          gives the staff sign-ins (admin and the tellers) the password it generated in step 2,
          in place of the seeded one that is written in this repository.
       5. Renders infra/k8s with the real values and applies it.
@@ -35,7 +35,7 @@ param(
     [string]$DeploymentName = "coobs-demo",
     [switch]$SkipSchemaLoad,
     # Puts the cloud data back to the seed: stops the services, empties Redis, removes every table
-    # from the four databases and loads them again. Everything made since the first load is lost.
+    # from the five databases and loads them again. Everything made since the first load is lost.
     # The on-premises data is reset by deploy-onprem.ps1 -ResetData; do both, that one first.
     [switch]$ResetData,
     # HTTPS at the public entry without Front Door (infra/k8s-https): the address gets the host
@@ -234,7 +234,7 @@ try {
         Write-Host "4. Schema load skipped" -ForegroundColor Yellow
     } else {
         if ($ResetData) {
-            Write-Host "4. RESET: stopping the services, then emptying Redis and the four databases on $sqlFqdn" -ForegroundColor Yellow
+            Write-Host "4. RESET: stopping the services, then emptying Redis and the five databases on $sqlFqdn" -ForegroundColor Yellow
             # A service that writes while the seed is being loaded breaks the load. Step 5 starts
             # them again, because the manifests say one replica each.
             $running = kubectl get deployments --namespace $namespace --output "jsonpath={.items[*].metadata.name}"
@@ -243,7 +243,7 @@ try {
                 if ($name) { kubectl wait --for=delete pod --selector "app.kubernetes.io/name=$name" --namespace $namespace --timeout=120s 2>$null | Out-Null }
             }
         } else {
-            Write-Host "4. Loading the four databases on $sqlFqdn (the first run pulls a large image)" -ForegroundColor Cyan
+            Write-Host "4. Loading the five databases on $sqlFqdn (the first run pulls a large image)" -ForegroundColor Cyan
         }
         $sql = Join-Path $repo "database\azure-sql"
         kubectl delete job coobs-load-schemas --namespace $namespace --ignore-not-found | Out-Null
@@ -251,7 +251,8 @@ try {
         Invoke-Native "kubectl create configmap coobs-sql-scripts" {
             kubectl create configmap coobs-sql-scripts --namespace $namespace `
                 "--from-file=$sql\02_identity_db.sql" "--from-file=$sql\03_customer_db.sql" `
-                "--from-file=$sql\04_transaction_db.sql" "--from-file=$sql\05_notification_db.sql"
+                "--from-file=$sql\04_transaction_db.sql" "--from-file=$sql\05_notification_db.sql" `
+                "--from-file=$sql\06_order_db.sql"
         } | Out-Null
         Invoke-Native "kubectl create configmap coobs-sql-target" {
             kubectl create configmap coobs-sql-target --namespace $namespace `

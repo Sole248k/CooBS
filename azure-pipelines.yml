@@ -66,6 +66,7 @@ parameters:
       - { name: batch-service,         needsInfra: false }
       - { name: mobile-bff,            needsInfra: false }
       - { name: staff-bff,             needsInfra: false }
+      - { name: order-service,         needsInfra: false }
 
   # Turn on once a container registry and its service connection exist.
   - name: publishImages

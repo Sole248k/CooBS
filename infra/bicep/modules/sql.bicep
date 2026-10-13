@@ -23,12 +23,13 @@ param skuName string = 'S0'
 @description('Tier that goes with skuName')
 param skuTier string = 'Standard'
 
-@description('The four cloud databases (contracts/runtime/RUNTIME_SETTINGS.md section 3)')
+@description('The five cloud databases (contracts/runtime/RUNTIME_SETTINGS.md section 3)')
 param databaseNames array = [
   'identity_db'
   'customer_db'
   'transaction_db'
   'notification_db'
+  'order_db'
 ]
 
 @description('Resource tags')

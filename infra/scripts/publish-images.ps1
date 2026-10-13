@@ -7,7 +7,7 @@
     and Dockerfile that Compose and the pipeline use) and pushes it as <registry>/coobs/<service>:<tag>, which is the name the cluster
     manifests (infra/k8s/kustomization.yaml) and the on-premises Compose file expect.
 
-    The default list is everything that is deployed: nine services and the staff console on the
+    The default list is everything that is deployed: ten services and the staff console on the
     cluster, and four services on the VM.
 
     Run it on a machine with Docker, from a clean checkout of the commit to deploy. Sign in to
@@ -35,7 +35,7 @@ param(
     [string[]]$Services = @(
         # the cluster
         "frontend", "api-gateway", "mobile-bff", "staff-bff", "auth-service", "customer-service", "transaction-service",
-        "orchestration-service", "risk-engine", "notification-service",
+        "orchestration-service", "risk-engine", "notification-service", "order-service",
         # the on-premises VM
         "ledger-service", "account-service", "audit-service", "batch-service"
     ),

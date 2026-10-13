@@ -38,14 +38,20 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- Spring Data JPA & Oracle Driver -->
+		<!-- Spring Data JPA. order_db is a cloud database: PostgreSQL locally, Azure SQL when deployed. -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>com.oracle.database.jdbc</groupId>
-			<artifactId>ojdbc17</artifactId>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<!-- Azure SQL: the cloud deployment supplies a jdbc:sqlserver URL. The version comes from Spring Boot. -->
+		<dependency>
+			<groupId>com.microsoft.sqlserver</groupId>
+			<artifactId>mssql-jdbc</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 

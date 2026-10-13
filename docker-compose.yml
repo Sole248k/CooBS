@@ -752,7 +752,7 @@ services:
       - core-banking-net
 
   # ----------------------------------------------------------------------------
-  # order-service (on-premises) - Co-op Essentials Depot orders and ledger escrow
+  # order-service (cloud) - Co-op Essentials Depot orders; pays through the ledger's holds
   # ----------------------------------------------------------------------------
   order-service:
     profiles:
@@ -764,18 +764,19 @@ services:
     ports:
       - "127.0.0.1:${ORDER_PORT:-8096}:8096"
     depends_on:
-      oracle-core-db:
+      postgres-cloud-db:
         condition: service_healthy
       ledger-service:
         condition: service_healthy
     environment:
       SERVER_PORT: 8096
-      ORACLE_HOST: oracle-core-db
-      ORACLE_PORT: 1521
-      ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
-      APP_USER: ${APP_USER:-core_user}
-      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD is required}
+      DATABASE_URL: jdbc:postgresql://postgres-cloud-db:5432/order_db
+      DATABASE_DRIVER: org.postgresql.Driver
+      DATABASE_USERNAME: ${POSTGRES_CLOUD_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       LEDGER_SERVICE_URL: http://ledger-service:8083
+      # 9003 is GL_FEE_INCOME, a stand-in until the seed has an account for shop sales.
+      SHOP_MERCHANT_ACCOUNT_ID: ${SHOP_MERCHANT_ACCOUNT_ID:-9003}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20

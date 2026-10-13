@@ -105,7 +105,7 @@ VALUES (1023, 3, 'CUSTOMER', 23, 'christian_javier', '$2a$10$i3NuBhqny.i6sVVFkD1
 INSERT INTO app_user (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
 VALUES (1024, 3, 'CUSTOMER', 24, 'barani_sundaram', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'barani.sundaram@example.com', 'ACTIVE');
 INSERT INTO app_user (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
-VALUES (1025, 3, 'CUSTOMER', 25, 'rod_vekez', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'rod.vekez@example.com', 'ACTIVE');
+VALUES (1025, 3, 'CUSTOMER', 25, 'rod_velez', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'rod.velez@example.com', 'ACTIVE');
 INSERT INTO app_user (user_id, role_id, user_type, customer_id, username, password_hash, email, status)
 VALUES (1026, 3, 'CUSTOMER', 26, 'assissi_raval', '$2a$10$i3NuBhqny.i6sVVFkD1aDuXRLkZJe.b4/BK3bt/VRpkZQTZEFkcUy', 'assissi.raval@example.com', 'ACTIVE');
 INSERT INTO app_user (user_id, role_id, user_type, customer_id, username, password_hash, email, status)

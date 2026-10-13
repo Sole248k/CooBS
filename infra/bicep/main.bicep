@@ -1,7 +1,7 @@
-// CooBS demo deployment: the in-depth architecture cut to what an Azure free trial allows.
+// CooBS demo deployment: the in-depth architecture cut to what the demo budget allows.
 // Drawn in docs/architecture-diagrams/demo-deployment.eraserdiagram; explained in infra/README.md.
 //
-//   Cloud VNet        one AKS node (nine services, the staff console and Kafka), Azure SQL, Azure Managed Redis
+//   Cloud VNet        one AKS node (ten services, the staff console and Kafka), Azure SQL, Azure Managed Redis
 //   On-premises VNet  one VM running Docker Compose (ledger, account, audit, batch, Oracle, audit store)
 //   Link              VNet peering, with an NSG on the on-premises subnet as the firewall
 //
@@ -49,6 +49,11 @@ param deployFrontDoor bool = false
 
 @description('Public address of the coobs-public load balancer, as printed by infra/scripts/deploy-cloud.ps1. Needed only when deployFrontDoor is true')
 param frontDoorOriginHost string = ''
+
+@description('Most AKS nodes the autoscaler may run. 1 keeps the single fixed node; 2 allows one more when pods find no room')
+@minValue(1)
+@maxValue(3)
+param aksMaxNodeCount int = 1
 
 @description('Unique suffix for globally unique resources (SQL, Key Vault, Redis)')
 param uniqueSuffix string = uniqueString(resourceGroup().id)
@@ -153,6 +158,7 @@ module aks './modules/aks.bicep' = {
     acrName: acrName
     logAnalyticsWorkspaceId: monitoring.outputs.workspaceId
     enableContainerInsights: enableContainerInsights
+    maxNodeCount: aksMaxNodeCount
     tags: tags
   }
 }

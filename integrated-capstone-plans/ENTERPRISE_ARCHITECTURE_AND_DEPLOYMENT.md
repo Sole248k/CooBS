@@ -1,7 +1,7 @@
 # CooBS: enterprise architecture and deployment
 
 **Audience:** cloud engineers, solution architects, enterprise architects and technical reviewers.
-**Describes:** the code on `dev` and the system running in Azure on 11 October 2026.
+**Describes:** the code on `dev` and the system running in Azure, read again on 13 October 2026.
 **Covers:** what the platform is made of, the architecture that was planned, the architecture that is deployed, how it is deployed and operated, where the two differ and why, and what closes the differences.
 
 This document stands on its own. It needs no other material to be read.
@@ -22,13 +22,15 @@ This document stands on its own. It needs no other material to be read.
 | Seed | The fixed starting data: members, accounts, balances |
 ## 1. Executive summary
 
-CooBS is a cooperative banking platform: thirteen Spring Boot services, a Flutter mobile app for members and a React console for staff. It is a hybrid system by design. The services that sign in, route, decide and display run in the cloud. The ledger, the accounts, the audit trail and the end-of-day batch stay on-premises with the system of record.
+CooBS is a cooperative banking platform: fourteen Spring Boot services, a Flutter mobile app for members and a React console for staff. It is a hybrid system by design. The services that sign in, route, decide and display run in the cloud. The ledger, the accounts, the audit trail and the end-of-day batch stay on-premises with the system of record.
 
-The platform is deployed in Azure and serves both clients at `https://coobs.indonesiacentral.cloudapp.azure.com`. Nine services, the console and Kafka run on an AKS cluster. Four services, Oracle and the audit store run on a virtual machine in a second network that stands in for the bank's datacenter, behind a firewall that admits four ports from the cluster and nothing else. The end-to-end suite of 143 checks passes against that address, as it does against the local stack.
+The platform is deployed in Azure and serves both clients at `https://coobs.indonesiacentral.cloudapp.azure.com`. Nine services, the console and Kafka run on an AKS cluster. Four services, Oracle and the audit store run on a virtual machine in a second network that stands in for the bank's datacenter, behind a firewall that admits four ports from the cluster and nothing else. The fourteenth service, `order-service` (the members' shop), was added on 13 October: it is in the code, the local stack and the deployment files as a tenth cloud service with its own database, and joins the running system at the next full update (section 6.5). The end-to-end suite of 143 checks passes against that address, as it does against the local stack.
 
-The deployment follows the planned placement of services and data exactly. It differs from the planned platform in six places, each forced by the Azure free trial or decided on record: Azure SQL in place of PostgreSQL, Kafka inside the cluster in place of Event Hubs, network peering in place of a VPN, a TLS proxy in the cluster in place of Front Door, one two-vCPU node in place of a three-node pool, and two backend-for-frontend services added to the original seven cloud services.
+The deployment follows the planned placement of services and data exactly. It differs from the planned platform in six places, each forced by the Azure free trial the system was first deployed on, or decided on record: Azure SQL in place of PostgreSQL, Kafka inside the cluster in place of Event Hubs, network peering in place of a VPN, a TLS proxy in the cluster in place of Front Door, one two-vCPU node in place of a three-node pool, and two backend-for-frontend services added to the original seven cloud services.
 
 What separates this deployment from a production one is stated in section 8: one environment and one instance of everything, no encryption between services, delivery by script from a workstation, no backup of the on-premises data, no security scanning in the pipeline, and monitoring that rests on a trial of a hosted product.
+
+The subscription became pay-as-you-go on 12 October 2026. That lifts the limits which shaped the deployment (ten vCPUs and twenty public addresses in place of four and three) and removes the spending limit, so cost is now controlled by a budget alert and by removing the resources after the presentation (section 5.9). The topology was reassessed against the new limits on 13 October and kept: one cluster and one virtual machine (section 5.8).
 
 ## 2. Design principles
 
@@ -58,7 +60,7 @@ These rules were set before any code was written and hold in the deployed system
 
 ### 3.2 Backend services
 
-All services run on Java 21 and expose health, liveness and Prometheus metrics through Spring Boot Actuator. Twelve are built on Spring Boot 4.1.1 with Spring MVC; `api-gateway` is built on Spring Boot 3.3.4 with Spring Cloud Gateway on WebFlux. Each service validates the caller's token itself.
+All services run on Java 21 and expose health, liveness and Prometheus metrics through Spring Boot Actuator. Thirteen are built on Spring Boot 4.1.1 with Spring MVC; `api-gateway` is built on Spring Boot 3.3.4 with Spring Cloud Gateway on WebFlux. Each service validates the caller's token itself.
 
 | Service | Port | Zone | Responsibility | Owns | Calls |
 | --- | --- | --- | --- | --- | --- |
@@ -75,6 +77,7 @@ All services run on Java 21 and expose health, liveness and Prometheus metrics t
 | `ledger-service` | 8083 | On-premises | Double-entry postings, holds, capture, release, reversal, batch postings, outbox, audit rows written at commit | Oracle, ledger tables; writes the audit store | None |
 | `audit-service` | 8085 | On-premises | Read-only audit statements, forensic records, hash-chain verification, daily seal | Reads the audit store | None |
 | `batch-service` | 8093 | On-premises | Six-step end-of-day pipeline on demand: fees, interest, standing instructions, loan instalments, GL reconciliation, audit seal | Audit store, schema `batch`; reads Oracle | ledger |
+| `order-service` | 8096 | Cloud | The members' shop (Co-op Essentials Depot): catalogue, orders, and payment in two phases, a hold when the order is placed and a capture when it is collected, or a release when it is cancelled | `order_db` | ledger |
 
 The calls one service may make to another are fixed by the project's API contract and are the ones listed in the table above. They use `/internal/v1/**` with a service token carrying `ROLE_SERVICE`; the person who caused the action travels in the request body as `actorId`.
 
@@ -101,21 +104,21 @@ One resource group, `CooBS-rsg`, region Indonesia Central, availability zone 3, 
 | SQL server | `sql-coobs-c2whi3` | Four S0 databases; reachable through a service endpoint from the cluster subnet only |
 | Redis | `redis-coobs-c2whi3` | Azure Managed Redis `Balanced_B0`, one node, access key, private endpoint with a private DNS zone linked to both networks |
 | Key Vault | `kv-coobs-c2whi3` | RBAC authorisation; thirteen secrets |
-| Container registry | `CooBS` | Standard; fourteen repositories under `coobs/` |
+| Container registry | `CooBS` | Standard; fourteen repositories under `coobs/`, fifteen once `order-service` is published |
 | Cloud network | `vnet-coobs-cloud-dev` | `10.240.0.0/16`: `snet-aks` `10.240.0.0/20`, `snet-private-endpoints` `10.240.16.0/24` |
 | On-premises network | `vnet-coobs-onprem-dev` | `10.250.0.0/16`: `snet-core` `10.250.0.0/24`; peered with the cloud network in both directions |
 | Zone firewall | `nsg-coobs-onprem` | Section 5.2 |
 | NAT gateway | `nat-coobs-onprem` | Outbound route for the VM, which has no public address |
 | Log Analytics | `law-coobs-dev` | Receives the cluster's container logs through Container Insights; capped at 1 GB a day, kept 30 days |
 
-The trial subscription allows four vCPUs in the region and three public addresses. Both limits are fully used: two vCPUs each for the node and the VM; one address each for the cluster's outbound traffic, the public entry and the NAT gateway.
+The deployment was sized for the free trial it began on: four vCPUs in the region and three public addresses, both fully used (two vCPUs each for the node and the VM; one address each for the cluster's outbound traffic, the public entry and the NAT gateway). Since 12 October the subscription is pay-as-you-go and allows ten vCPUs and twenty addresses. The sizing was kept; what the new limits allow is in section 5.8.
 
 ### 3.5 Delivery and observability tooling
 
 | Tool | Role |
 | --- | --- |
 | Azure Repos, Azure Pipelines (`CooBS-CI`) | Source control and continuous integration (section 7) |
-| `publish-images.ps1` | Builds and pushes the fourteen images |
+| `publish-images.ps1` | Builds and pushes the fifteen images: fourteen services and the console |
 | `deploy-cloud.ps1`, `deploy-onprem.ps1` | Deploy and update the two zones; reset the data; start monitoring |
 | `setup-datadog.ps1` | Creates the log pipelines, dashboard and monitors in Datadog |
 | Datadog | Logs, metrics and traces from both zones (section 9) |
@@ -126,13 +129,13 @@ The trial subscription allows four vCPUs in the region and three public addresse
 
 | Component | Position |
 | --- | --- |
-| Azure Front Door | The planned edge. Azure refuses it on a free trial. The module is kept, switched off by default, for a paid subscription |
+| Azure Front Door | The planned edge. Azure refused it on the free trial. On pay-as-you-go it can be created; the module is kept, switched off by default, and has never created anything, so it is not switched on before the presentation |
 | VPN Gateway, Azure API Management | In the target design only. Both were placed outside the build from the start |
 | Azure Event Hubs, Azure Database for PostgreSQL, Azure Cache for Redis | Earlier platform choices, replaced by decisions recorded in section 8 |
 | Application Insights (`appi-coobs-dev`) | Created by the Bicep; no service sends to it. Superseded by Datadog |
 | An ingress controller with a supplied certificate | An earlier design for the entry, superseded by the TLS proxy of section 5.4 |
 | Flutter web target | Present in the code; not built or hosted |
-| Partner bank `AURABANK` | Two unmerged branches. The only configured partner is `BANKB`, answered by a loopback inside `transaction-service` |
+| Partner bank `AURABANK` | The adapter is merged into `transaction-service`. Its key and address are not in the deployment's configuration, so in Azure the only working partner is still `BANKB`, answered by a loopback inside `transaction-service` |
 | Pipeline deploy stages | Present in the pipeline definition as placeholders; deployment is done by the scripts above |
 
 ## 4. Planned architecture
@@ -217,7 +220,7 @@ flowchart TB
                 A_NGX["frontend (nginx + console)"]
                 A_GW["api-gateway"]
                 A_BFF["mobile-bff, staff-bff"]
-                A_SVC["auth, customer, transaction,<br/>orchestration, risk-engine, notification"]
+                A_SVC["auth, customer, transaction,<br/>orchestration, risk-engine, notification<br/>(order, at the next full update)"]
                 A_KAFKA[("Kafka, 1 broker")]
                 A_DDA["datadog agent<br/>+ trace receiver"]
             end
@@ -363,7 +366,55 @@ The browser's origin is judged once, at the gateway, against a list that the dep
 
 ### 5.7 Local stack
 
-A Docker Compose file runs the same thirteen services, the console, Oracle, both PostgreSQL servers, Redis, Kafka and the monitoring tools on one Docker network. It is the development environment and the fallback for the demonstration. A release-check script resets it, runs the end-to-end suite and seven further checks, and reports the twelve demonstration scenarios; it passes with 143 of 143 checks. Scenario 12 is a JMeter load test.
+A Docker Compose file runs the same fourteen services, the console, Oracle, both PostgreSQL servers, Redis, Kafka and the monitoring tools on one Docker network. It is the development environment and the fallback for the demonstration. A release-check script resets it, runs the end-to-end suite and seven further checks, and reports the twelve demonstration scenarios; it passes with 143 of 143 checks. Scenario 12 is a JMeter load test.
+
+### 5.8 Topology options, reassessed on 13 October 2026
+
+Pay-as-you-go allows more than the trial did, so the layout was weighed again against the services that exist, the presentation on 14 October and about USD 170 of credit.
+
+| Option | What it would add | Decision |
+| --- | --- | --- |
+| One AKS cluster and one VM as the datacenter | Nothing: it is what runs and what the 143 checks pass on | **Kept** |
+| Two AKS clusters that call each other (edge and BFFs in one, the cloud services in the other) | A second node at the least (about USD 2.93 a day). AKS's own pods reserve about 1200m of a 2 vCPU node before any service starts, so the second node would mostly carry system pods. Every call between the clusters needs an internal load balancer and a name both sides resolve, and the gateway's time limits would have to be proven again | Not for the demonstration. Nothing in the code needs it, and it cannot be proven end to end before the presentation |
+| A separate cluster for the console and the BFFs | The same costs. The BFFs hold no data and call the other services by name, so a cluster boundary adds a network hop and no isolation that a namespace and a network policy would not give | Not built. In production this is a node pool and a namespace with network policies, not a cluster |
+| A cluster in place of the VM for the on-premises zone | Oracle and the audit store as stateful workloads on Kubernetes | Not built. The on-premises zone stands for a bank's own datacenter; a VM running Docker Compose behind a firewall is the honest stand-in |
+| One more node on the existing cluster | Room for a rollout to start more than one replacement pod; about USD 2.93 a day while it exists | Recommended once `order-service` joins the cluster: `az aks scale ... --node-count 2`, or `COOBS_AKS_MAX_NODES=2` to let the autoscaler add it with two nodes as its ceiling |
+
+**Where `order-service` belongs.** In the cloud. A shop's catalogue and its orders are not the bank's system of record; only the money is. The service therefore has its own cloud database, `order_db`, and an order carries the ledger's hold number and the account numbers as plain values. Three calls cross to the on-premises zone: place a hold, capture it, release it. They go to the ledger on port 8083, which the firewall already admits, so the zone boundary did not change. The service was first written against Oracle tables, which would have put it on-premises or opened the database to the cloud; it was moved to `order_db` on 13 October. If the link is down, members can still browse the catalogue and see their orders; placing and collecting an order fail visibly at the ledger call.
+
+**How the parts communicate.**
+
+| Path | Route |
+| --- | --- |
+| Clients to the system | The DNS name `coobs.indonesiacentral.cloudapp.azure.com` on one public address; ports 80 and 443 to the TLS proxy, then nginx, then the gateway |
+| Inside the cluster | Kubernetes Service names over plain HTTP (`http://auth-service:8081`); only the gateway is reachable from outside |
+| Cluster to on-premises | Selector-less Services whose EndpointSlices point at `10.250.0.4`; over the peering; admitted by the firewall on four ports and denied on every other |
+| On-premises to the cloud | Kafka through the internal load balancer at `10.240.15.200:9094`; Redis through the private endpoint; nothing else |
+| On-premises to the internet | Outbound only, through the NAT gateway |
+
+### 5.9 Cost and its controls
+
+List prices read from the Azure Retail Prices API on 8 October 2026 for Indonesia Central. They are not a quote. The last row was not read from the API.
+
+| Item | A day (USD) |
+| --- | --- |
+| AKS node, `Standard_E2as_v5`, at 0.122 an hour | 2.93 |
+| VM, `Standard_B2as_v2`, at 0.0855 an hour | 2.05 |
+| Azure SQL, five S0 databases at 0.4839 each (four until `order_db` is created) | 2.42 |
+| Container registry, Standard | 0.67 |
+| Azure Managed Redis B0, at 0.018 an hour | 0.43 |
+| NAT gateway, three public addresses, the load balancer, disks, logs | about 2 |
+| **Total** | **about 10.50** |
+
+The cost drivers are the two machines and the databases: they bill by the hour whether or not anyone uses the system. `order-service` adds its database, about 0.48 a day. A second node adds 2.93 a day, which makes about 13.40; Front Door about 1.20 a day (from a base fee remembered as about USD 35 a month, not read).
+
+About USD 170 of credit is left and it expires on 31 October 2026. At USD 10.50 a day that is about 16 days, and about 12 with two nodes, both short of the expiry. Removing the deployment after the presentation leaves most of it unspent.
+
+| Control | What it does |
+| --- | --- |
+| Budget alert (`infra/bicep/budget.bicep`) | E-mails at 50 and 90 percent of USD 60 a month, and when the forecast passes it. It warns and stops nothing |
+| Fixed sizes | One node unless the autoscaler ceiling is raised, and then two at most; one replica per service; Log Analytics capped at 1 GB a day |
+| Removal after the presentation | Deleting the resource group ends every charge. Pay-as-you-go has no spending limit: once the credit is used or expired, the card is charged |
 
 ## 6. Deployment and operation
 
@@ -373,7 +424,7 @@ A Docker Compose file runs the same thirteen services, the console, Oracle, both
 | --- | --- | --- |
 | 1 | `az provider register --namespace Microsoft.OperationsManagement --wait` | Once per subscription; the cluster's logging add-on requires it |
 | 2 | `az deployment group create --resource-group CooBS-rsg --name coobs-demo --parameters infra/bicep/main.bicepparam` | Creates every Azure resource. Three values come from the shell's environment: the SQL administrator password, the VM's SSH public key, the Key Vault administrator's object ID |
-| 3 | `publish-images.ps1 -ImageTag <tag>` | Builds the fourteen images for linux/amd64 and pushes them as `<registry>/coobs/<service>:<tag>` |
+| 3 | `publish-images.ps1 -ImageTag <tag>` | Builds the fifteen images for linux/amd64 and pushes them as `<registry>/coobs/<service>:<tag>` |
 | 4 | `deploy-cloud.ps1 -ImageTag <tag> -DnsLabel coobs -AcmeEmail <address>` | Generates the application secrets into Key Vault, creates the Kubernetes Secret, loads the four databases with a Job in the cluster, renders the Kubernetes manifests with the tag and the real values, applies it, and waits for every rollout |
 | 5 | `deploy-onprem.ps1 -KeyVaultName <vault> -ImageTag <tag> -RedisHost <host>` | Packs the Compose file, `start.sh` and the database init scripts, carries them to the VM inside `az vm run-command`, and starts the zone |
 | 6 | `npx newman run postman/e2e/... --env-var baseUrl=https://<address>` | Verifies the deployment end to end |
@@ -398,6 +449,21 @@ Rolling back is the same commands with an earlier tag.
 ### 6.4 Returning the data to the seed
 
 `deploy-onprem.ps1 -ResetData` removes the Oracle and PostgreSQL volumes on the VM before the start, so the init scripts load the seed again. `deploy-cloud.ps1 -ResetData` stops the services, empties Redis, removes every table from the four Azure SQL databases and loads them again, then starts the services. The two are run together, the VM first, because the ledger and the transfer records describe the same transfers. The staff password, HTTPS and the certificate are not affected.
+
+### 6.5 Bringing `order-service` into the running deployment
+
+The deployment files carry the service; the running system does not yet.
+
+| Step | Command | Effect |
+| --- | --- | --- |
+| 1 | `az sql db create --resource-group CooBS-rsg --server <server> --name order_db --service-objective S0 --collation Latin1_General_100_CI_AS_SC_UTF8` | Creates the fifth database, about USD 0.48 a day. The template lists it too |
+| 2 | `az aks scale --resource-group CooBS-rsg --name aks-coobs-dev --nodepool-name agentpool --node-count 2` | A second node, about USD 2.93 a day: the first has 95 percent of its CPU reserved |
+| 3 | `publish-images.ps1 -ImageTag <new tag>` | Builds all fifteen images under one tag |
+| 4 | `deploy-cloud.ps1 -ImageTag <new tag>` | Loads `order_db` (the load job skips the four databases already loaded), starts `order-service` and gives the gateway its address |
+| 5 | `deploy-onprem.ps1 -KeyVaultName <vault> -ImageTag <new tag> -RedisHost <host>` | Moves the on-premises zone to the same tag |
+| 6 | Open `https://<address>/api/v1/shop/products` | Three products answer |
+
+Open points: a collected order is captured into account 9003 (`GL_FEE_INCOME`) as a stand-in, because the seed has no account for shop sales; the API contract's list of internal calls does not yet name `order-service` as a caller of the ledger; and the service has run only on the in-memory database of its tests, never on PostgreSQL or SQL Server.
 
 ## 7. CI/CD and release
 
@@ -471,12 +537,12 @@ Severity states the consequence if the system were used beyond a demonstration. 
 
 | # | Planned | Deployed | Reason | Consequence | Remediation | Severity | Effort |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| G1 | Front Door: TLS, WAF, DDoS | A Caddy pod ends TLS with a Let's Encrypt certificate | Azure: "Free Trial and Student account is forbidden for Azure Frontdoor resources" | No edge filtering; one pod in the request path | On a paid subscription, enable the existing module with an HTTPS origin | High | M |
+| G1 | Front Door: TLS, WAF, DDoS | A Caddy pod ends TLS with a Let's Encrypt certificate | Azure: "Free Trial and Student account is forbidden for Azure Frontdoor resources". Pay-as-you-go since 12 October allows it; the module is unproven and was not switched on before the presentation | No edge filtering; one pod in the request path | Enable the existing module with an HTTPS origin, and prove it | High | M |
 | G2 | VPN Gateway to a datacenter | Two peered Azure networks and an NSG; a VM as the datacenter | Decision: a gateway pair is billed by the hour and slow to create; the target design allows peering in a lab | The link is not a WAN link | Site-to-site VPN or ExpressRoute to a real host | Medium | L |
 | G3 | Azure Database for PostgreSQL | Azure SQL, four S0 databases; T-SQL scripts generated from the PostgreSQL ones | Decision by the project lead. The audit store stays PostgreSQL, because its triggers and hash chain use PL/pgSQL and pgcrypto | The pipeline tests the cloud services on PostgreSQL; SQL Server is exercised by the end-to-end suite | A SQL Server test path in the pipeline | Medium | M |
 | G4 | Event Hubs Standard | One Kafka broker in the cluster | Decision: Event Hubs Standard allows ten event hubs in a namespace and the system uses twenty topics | One broker, one disk, no replication; plain listeners | Managed Kafka, or three brokers with SASL and TLS | High | M |
 | G5 | Azure Cache for Redis | Azure Managed Redis `Balanced_B0`, one node | Azure Cache for Redis can no longer be created | No high availability | Enable it on a paid tier | Low | S |
-| G6 | Three nodes, 12 vCPUs | One node, 2 vCPUs | Decision: the trial allows four vCPUs in the region; Indonesia Central zone 3 is where a usable size is offered | About 80m of CPU left to reserve; no capacity for a second replica | Paid subscription and a quota increase | High | L |
+| G6 | Three nodes, 12 vCPUs | One node, 2 vCPUs | Decision: the trial allowed four vCPUs in the region; Indonesia Central zone 3 is where a usable size is offered. Pay-as-you-go allows ten; one node was kept for cost and because it is the proven state | About 80m of CPU left to reserve (95 percent reserved on 13 October); no capacity for a second replica | Raise the autoscaler ceiling to two (`COOBS_AKS_MAX_NODES=2`), then a larger pool | High | L |
 | G7 | Seven cloud services | Nine: two backend-for-frontend services added | One per client, to give each screens-shaped calls | `staff-bff` is absent from the API contract's list of allowed internal calls | Add it to that list | Low | S |
 | G8 | Flutter for web and Android | Android only | The app is delivered as an installed package; the web target was not taken forward | No web channel for members | Build and host the web target behind the same entry, or remove it from the plan | Low | M |
 | G9 | Zone split deferred | Two networks and a firewall | The Azure deployment went further than the plan | The planning notes still describe the earlier state | Update them | Low | S |
@@ -492,7 +558,7 @@ Severity states the consequence if the system were used beyond a demonstration. 
 | G14 | `staff-bff` in the contract | Not in the API contract's list of internal calls | The source of truth and the code differ | One contract edit | Low | S |
 | G15 | Tracing of the on-premises services | The nine cluster services are traced; the VM's four are not | A request is followed to the ledger's door, with the time the ledger took, not inside it | Add the tracer to the four services in the VM's Compose file | Low | M |
 | G16 | Automated delivery | Pipeline deploy stages are placeholders | Delivery depends on a workstation | Section 7.4, steps 2 to 5 | Medium | M |
-| G17 | A real partner bank | Two unmerged branches; the inbound one disables authentication for that partner by default | Unauthenticated credits if merged as written | Keep authentication on by default; allow-list the partner's address | High | S |
+| G17 | A real partner bank | The `AURABANK` adapter is merged. Its key has a default written in the service's configuration, and the deployment does not carry the key or the partner's address | Once deployed, anyone sending the default key to the public inbound address is treated as the partner | Remove the default; put the key and address in Key Vault and the deployment configuration | High | S |
 
 ### 8.3 Security
 
@@ -522,6 +588,9 @@ Severity states the consequence if the system were used beyond a demonstration. 
 | G34 | Documents behind the system | Some project notes describe earlier states: the database loading notes, the list of settled decisions, and two decisions still marked open that have been made | Correct them in one pass | Low | S |
 | G35 | Architecture diagrams and decision log outside the repository | Kept on the lead's machine, not in the repository | Move the current ones into a tracked folder | Medium | S |
 | G36 | CPU margin on the node | 1822m of 1900m reserved. On 11 October Azure's managed Prometheus and application monitoring were enabled, reserved 766m, and six services were evicted until they were disabled | Count an add-on's reservation before enabling it; a second node removes the constraint | High | L |
+| G37 | `order-service` in the running system | In the code, the local stack and the deployment files; not yet published or started in Azure, and never run on PostgreSQL or SQL Server. Collected orders are captured into `GL_FEE_INCOME` as a stand-in | Section 6.5; seed an account for shop sales | Medium | S |
+| G38 | `order-service` and the API contract | It calls the ledger's hold, capture and release from the cloud; the contract's list of internal calls names only orchestration, account and batch. The unused shop tables are still in the Oracle scripts | Add the call to the contract; remove the Oracle tables once the shop has run on `order_db` | Low | S |
+| G39 | Spending limit | Pay-as-you-go has none. A budget alert is written (`budget.bicep`) and must be deployed with an address to send to; resources left running after the credit ends are charged to a card | Deploy the budget; delete the resource group after the presentation | High | S |
 
 ## 9. Observability
 

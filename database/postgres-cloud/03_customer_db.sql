@@ -177,7 +177,7 @@ VALUES (23, 'MBR-000023', 'christian_javier', 'Christian Rei J.', 'christian.jav
 INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
 VALUES (24, 'MBR-000024', 'barani_sundaram', 'Barani S.', 'barani.sundaram@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.11, 717, 100000.0000);
 INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
-VALUES (25, 'MBR-000025', 'rod_vekez', 'Rod V.', 'rod.vekez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 730, 100000.0000);
+VALUES (25, 'MBR-000025', 'rod_velez', 'Rod V.', 'rod.velez@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.10, 730, 100000.0000);
 INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
 VALUES (26, 'MBR-000026', 'assissi_raval', 'Assissi R.', 'assissi.raval@example.com', 'en', 'TIER_3_FULL', 'VERIFIED', 0.12, 743, 100000.0000);
 INSERT INTO channel_profile (customer_id, membership_number, username, display_name, email, preferred_language, kyc_tier, kyc_status, risk_score, credit_score, daily_limit)
@@ -279,7 +279,7 @@ VALUES (23, 23, 'Christian Rei', NULL, 'Javier', '123 Katipunan Avenue, Quezon C
 INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
 VALUES (24, 24, 'Barani', NULL, 'Sundaram', '124 Taft Avenue, Pasay City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550024', 'VERIFIED', now() - INTERVAL '135 days');
 INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
-VALUES (25, 25, 'Rod', NULL, 'Vekez', '125 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550025', 'VERIFIED', now() - INTERVAL '131 days');
+VALUES (25, 25, 'Rod', NULL, 'Velez', '125 Ortigas Avenue, Pasig City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550025', 'VERIFIED', now() - INTERVAL '131 days');
 INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
 VALUES (26, 26, 'Assissi', NULL, 'Raval', '126 Alabang-Zapote Road, Las Pinas City, Metro Manila', 'SINGLE', 'Private Employee', '+639175550026', 'VERIFIED', now() - INTERVAL '127 days');
 INSERT INTO kyc (kyc_id, customer_id, first_name, middle_initial, last_name, address, civil_status, occupation, mobile_number, status, created_at)
