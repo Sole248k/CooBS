@@ -62,8 +62,11 @@ Every step creates or changes resources. Run them yourself, in order. Steps 1 an
 
    ```
    az acr login --name <new registry name>
-   .\infra\scripts\publish-images.ps1 -ImageTag ent-1 -Registry <new registry name>.azurecr.io
+   az acr show --name <new registry name> --resource-group CooBS-ent-rsg --query loginServer --output tsv
+   .\infra\scripts\publish-images.ps1 -ImageTag ent-1 -Registry <the login server the second line printed>
    ```
+
+   The login server is not `<name>.azurecr.io` on this subscription: Azure adds a suffix, as in `ecoobs-aefbgjeyahddhxdt.azurecr.io`. Pushing to the short name fails with a host name lookup error.
 
 3. **Deploy both clusters.** It prints the public address and the exact commands for steps 4 to 6.
 
@@ -88,6 +91,30 @@ To see what would be applied without Azure or a cluster:
 .\infra\enterprise\deploy-enterprise.ps1 -ImageTag t -RegistryName r -RenderOnly out -SqlServerFqdn s.database.windows.net -SqlAdminLogin coobsadmin -RedisHost r.redis.azure.net
 ```
 
+## Monitoring
+
+Two things watch this deployment.
+
+| What | Covers | State |
+| --- | --- | --- |
+| Container Insights into the Log Analytics workspace | Both clusters: container logs, pod and node health | On from the first deployment; the Bicep sets it. Portal, each cluster, Monitoring, Insights or Logs |
+| Datadog agents | Both clusters and the VM: logs, CPU and memory, and each service's request counts, response times and JVM figures | Off until this deployment's Key Vault holds the key |
+
+To switch Datadog on, put the key and the site into the vault of this deployment, then run the two deploy scripts again. The key goes in from a file so it is not left in the shell's history; delete the file afterwards. The vault's name is in the output of `provision.ps1`.
+
+```
+az keyvault secret set --vault-name <vault> --name datadog-api-key --file <a file holding only the key> --output none
+az keyvault secret set --vault-name <vault> --name datadog-site --value <the site, for example ap1.datadoghq.com> --output none
+.\infra\enterprise\deploy-enterprise.ps1 -ImageTag ent-1 -RegistryName <new registry name> -SkipSchemaLoad
+```
+
+Then run the `deploy-onprem.ps1` line again for the VM's agent. In Datadog the two clusters appear as `aks-coobs-services` and `aks-coobs-channels` with `env:enterprise`, apart from the demo deployment's `env:demo`.
+
+- The VM reports under the host name `vm-coobs-onprem` and `env:demo`, the same as the demo deployment's VM, because the Compose file is shared. With both deployments running, Datadog shows the two VMs as one host.
+- **One command does all of it** when the demo deployment's vault already holds the Datadog secrets: `deploy-enterprise.ps1 ... -SkipSchemaLoad -DatadogFromVault <demo vault> -TraceServices all` copies the secrets, starts the agents and adds the tracer to every Java service, one at a time. Name services in place of `all` to trace only some.
+- **Traces** appear in Datadog under APM with `env:enterprise`. A request is followed across two services only when both are traced; the four services on the VM are not.
+- **Dashboard and monitors** are created once per Datadog account by `infra/scripts/setup-datadog.ps1 -KeyVaultName <vault>`, which needs `datadog-app-key`. The dashboard reads the `coobs.` metrics of every host that reports, so it shows this deployment and the demo one together.
+
 ## Removing it
 
 One command ends every charge of this deployment and leaves the demo deployment as it is.
@@ -110,4 +137,4 @@ The Key Vault stays soft-deleted for 7 days at no cost. To deploy again under th
 ## Not in this folder
 
 - **Event Hubs in place of Kafka.** Kafka still runs as one broker in the services cluster. Event Hubs needs two things first: six services build their Kafka settings in code with no way to pass credentials (`account`, `batch`, `ledger`, `notification`, `orchestration`, `transaction`), and the system uses 20 topics where Event Hubs Standard allows 10 in a namespace, so it needs the Premium tier at USD 1.2024 an hour, about 29 a day (read from the price API on 13 October 2026).
-- Datadog, the tracer, the data reset and the in-cluster TLS proxy. Use the demo deployment's scripts as the model if they are wanted here.
+- The Java tracer, the data reset and the in-cluster TLS proxy. Use the demo deployment's scripts as the model if they are wanted here.

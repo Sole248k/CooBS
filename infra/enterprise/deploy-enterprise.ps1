@@ -13,7 +13,7 @@
       5. Prints the public address and the commands for Front Door, the on-premises zone and E2E.
 
     It changes Azure and both clusters, so run it yourself. It needs the Azure CLI, signed in,
-    and kubectl. Left out on purpose, to keep the first run small: Datadog, the tracer, the
+    and kubectl. Left out on purpose, to keep the first run small: the tracer, the
     in-cluster TLS proxy and the data reset. HTTPS comes from Front Door (README.md).
 
 .EXAMPLE
@@ -32,6 +32,13 @@ param(
     [string]$DeploymentName = "coobs-ent",
     # The databases are loaded once. Use this on every later run.
     [switch]$SkipSchemaLoad,
+    # Copies the Datadog secrets (datadog-api-key, datadog-site, datadog-app-key) from another
+    # Key Vault into this deployment's vault, when they are not there yet. The demo deployment's
+    # vault has them. The values go through a temporary file, never the command line.
+    [string]$DatadogFromVault,
+    # Services to add Datadog's Java tracer to, or "all". Needs the Datadog key in the vault.
+    # Once added the tracer stays; naming a service again is harmless.
+    [ValidatePattern('^[a-z][a-z0-9-]+$')] [string[]]$TraceServices = @(),
     # Writes services.yaml and channels.yaml into this folder and stops, without calling Azure
     # or a cluster. Needs the three values below, which otherwise come from the Bicep outputs.
     [string]$RenderOnly,
@@ -255,6 +262,98 @@ try {
         if (-not $address) { Start-Sleep -Seconds 5 }
     } while (-not $address -and (Get-Date) -lt $deadline)
     if (-not $address) { throw "There is no public address yet. Look again with: kubectl --context $channelsCluster get service coobs-public --namespace $namespace" }
+
+    # -------------------------------------------------------------------------
+    if ($DatadogFromVault) {
+        foreach ($name in "datadog-api-key", "datadog-site", "datadog-app-key") {
+            if (Test-Native { az keyvault secret show --vault-name $vault --name $name --query id --output tsv }) { continue }
+            if (-not (Test-Native { az keyvault secret show --vault-name $DatadogFromVault --name $name --query id --output tsv })) { continue }
+            $copyFile = Join-Path $work "copy-$name"
+            $value = Invoke-Native "az keyvault secret show $name" { az keyvault secret show --vault-name $DatadogFromVault --name $name --query value --output tsv }
+            [System.IO.File]::WriteAllText($copyFile, ($value -join "").Trim(), $noBom)
+            Invoke-Native "az keyvault secret set $name" { az keyvault secret set --vault-name $vault --name $name --file $copyFile --output none } | Out-Null
+            Write-Host "   $name copied from $DatadogFromVault to $vault"
+        }
+    }
+
+    # Monitoring is optional and apart from the system: without the secret datadog-api-key in
+    # this deployment's Key Vault nothing is applied, and a failure here undoes nothing above.
+    # One agent pod per cluster (infra/k8s-monitoring), each reserving 50m of CPU.
+    if (Test-Native { az keyvault secret show --vault-name $vault --name datadog-api-key --query id --output tsv }) {
+        Write-Host "5. Monitoring: the Datadog agent on both clusters" -ForegroundColor Cyan
+        $site = "datadoghq.com"
+        if (Test-Native { az keyvault secret show --vault-name $vault --name datadog-site --query id --output tsv }) {
+            $site = ((Invoke-Native "az keyvault secret show datadog-site" {
+                az keyvault secret show --vault-name $vault --name datadog-site --query value --output tsv
+            }) -join "").Trim()
+        }
+        if ($site -notmatch '^[a-z0-9.-]+$') { throw "The Key Vault secret datadog-site is not a host name" }
+        $keyFile = Join-Path $work "api-key"
+        $key = Invoke-Native "az keyvault secret show datadog-api-key" {
+            az keyvault secret show --vault-name $vault --name datadog-api-key --query value --output tsv
+        }
+        # Trimmed: a key that was put into the vault from a file often ends with a line break.
+        [System.IO.File]::WriteAllText($keyFile, ($key -join "").Trim(), $noBom)
+        $agent = [System.IO.File]::ReadAllText((Join-Path $repo "infra\k8s-monitoring\datadog-agent.yaml"))
+        if (-not $agent.Contains('"aks-coobs-dev"')) { throw "infra/k8s-monitoring/datadog-agent.yaml no longer names the cluster aks-coobs-dev, which this script replaces" }
+        foreach ($cluster in $servicesCluster, $channelsCluster) {
+            # Each cluster under its own name and the environment "enterprise", so Datadog keeps
+            # this deployment apart from the demo one, which reports as "demo".
+            $agentFile = Join-Path $work "datadog-agent-$cluster.yaml"
+            # -replace for the last one: the file's line endings differ between checkouts.
+            $text = $agent.Replace("REPLACE-datadog-site", $site).Replace('"aks-coobs-dev"', "`"$cluster`"") -replace '(name: DD_ENV\r?\n\s+value: )"demo"', '$1"enterprise"'
+            if ($text -notmatch 'value: "enterprise"') { throw "DD_ENV was not found in infra/k8s-monitoring/datadog-agent.yaml" }
+            [System.IO.File]::WriteAllText($agentFile, $text, $noBom)
+            Invoke-Native "kubectl apply datadog agent" { kubectl --context $cluster apply -f $agentFile } | Out-Null
+            $rendered = Invoke-Native "kubectl create secret datadog-secret" {
+                kubectl create secret generic datadog-secret --namespace datadog "--from-file=api-key=$keyFile" --dry-run=client --output yaml
+            }
+            $ddSecretFile = Join-Path $work "datadog-secret.yaml"
+            [System.IO.File]::WriteAllText($ddSecretFile, ($rendered -join "`n"), $noBom)
+            $secretResult = Invoke-Native "kubectl apply datadog-secret" { kubectl --context $cluster apply -f $ddSecretFile }
+            # A pod reads the key once, when it starts.
+            if ($secretResult -match "configured") { kubectl --context $cluster rollout restart daemonset/datadog --namespace datadog | Out-Null }
+            kubectl --context $cluster rollout status daemonset/datadog --namespace datadog --timeout=300s | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "   $cluster : the agent is running and sends to $site"
+            } else {
+                Write-Host "   $cluster : the agent did not become ready. The system itself is deployed; look at: kubectl --context $cluster describe pods --namespace datadog" -ForegroundColor Yellow
+            }
+        }
+
+        # Tracing, per service and opt-in. The tracer is added to the Deployment in whichever
+        # cluster runs it, one at a time, each waited for.
+        $toTrace = $TraceServices
+        if ($TraceServices -contains "all") {
+            $toTrace = @()
+            foreach ($cluster in $servicesCluster, $channelsCluster) {
+                $toTrace += (kubectl --context $cluster get deployments --namespace $namespace --output "jsonpath={.items[*].metadata.name}") -split " " | Where-Object { $_ -and $_ -ne "frontend" }
+            }
+        }
+        $patch = [System.IO.File]::ReadAllText((Join-Path $repo "infra\k8s-monitoring\java-tracer-patch.yaml"))
+        foreach ($service in $toTrace) {
+            $cluster = $null
+            foreach ($candidate in $servicesCluster, $channelsCluster) {
+                if (Test-Native { kubectl --context $candidate get deployment $service --namespace $namespace --output name }) { $cluster = $candidate; break }
+            }
+            if (-not $cluster -or $service -eq "frontend") { throw "-TraceServices: '$service' is not one of the Java services in either cluster" }
+            $patchFile = Join-Path $work "tracer-$service.yaml"
+            # The traces carry the environment "enterprise", like the agents, apart from the demo deployment's.
+            $text = $patch.Replace("REPLACE-service", $service) -replace '(name: DD_ENV\r?\n\s+value: )demo', '$1enterprise'
+            [System.IO.File]::WriteAllText($patchFile, $text, $noBom)
+            Invoke-Native "kubectl patch $service" {
+                kubectl --context $cluster patch deployment $service --namespace $namespace --type strategic --patch-file $patchFile
+            } | Out-Null
+            kubectl --context $cluster rollout status deployment/$service --namespace $namespace --timeout=600s | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                throw "$service did not come back with the tracer. Take it off with: kubectl --context $cluster rollout undo deployment/$service --namespace $namespace"
+            }
+            Write-Host "   $service is traced ($cluster)"
+        }
+    } else {
+        Write-Host "5. Monitoring skipped: Key Vault $vault has no secret datadog-api-key (README.md, Monitoring)"
+        if ($TraceServices) { Write-Host "   -TraceServices was ignored for the same reason" -ForegroundColor Yellow }
+    }
 
     $base = "http://$address"
     if ($frontDoor) {
