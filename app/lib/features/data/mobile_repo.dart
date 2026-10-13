@@ -550,5 +550,135 @@ class MobileRepo {
     }
     return [];
   }
+
+  // --------------------------------------------------------------------------
+  // COOBS ESSENTIALS DEPOT & ORDER-SERVICE (PORT 8096 VIA GATEWAY)
+  // --------------------------------------------------------------------------
+
+  /// Fetches Co-op Essentials grocery catalogue products from order-service.
+  static Future<List<dynamic>> fetchShopProducts() async {
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await _api.get('/shop/products');
+        if (res['data'] is List) return res['data'] as List;
+        if (res['items'] is List) return res['items'] as List;
+        if (res['content'] is List) return res['content'] as List;
+      } catch (_) {}
+    }
+    return [
+      {
+        'productId': 100,
+        'sku': 'RICE-SINANDOMENG-5KG',
+        'name': 'Premium rice',
+        'category': 'Grains & Rice',
+        'unit': '5 kg bag',
+        'price': 320.00,
+        'originalPrice': 380.00,
+        'badge': 'Co-op Subsidy -16%',
+        'farmSource': 'Nueva Ecija Grain Producers Co-op',
+        'stockQuantity': 10,
+        'rating': 4.9,
+      },
+      {
+        'productId': 101,
+        'sku': 'EGGS-BATANGAS-12PC',
+        'name': 'Fresh eggs',
+        'category': 'Dairy & Poultry',
+        'unit': '12 pack',
+        'price': 120.00,
+        'originalPrice': 150.00,
+        'badge': 'Fresh Harvest',
+        'farmSource': 'Batangas Poultry Federation',
+        'stockQuantity': 10,
+        'rating': 4.8,
+      },
+      {
+        'productId': 102,
+        'sku': 'MILK-LAGUNA-1L',
+        'name': 'Fresh milk',
+        'category': 'Dairy & Poultry',
+        'unit': '1 litre',
+        'price': 95.00,
+        'originalPrice': 120.00,
+        'badge': 'Farm Direct',
+        'farmSource': 'Laguna Dairy Cooperative Union',
+        'stockQuantity': 10,
+        'rating': 4.9,
+      },
+    ];
+  }
+
+  /// Creates an order at order-service with two-phase escrow hold placed on ledger.
+  static Future<Map<String, dynamic>> createShopOrder(
+    Map<String, dynamic> body, {
+    String? idempotencyKey,
+  }) async {
+    if (AppConfig.useFixtures) {
+      final refSuffix = DateTime.now().millisecondsSinceEpoch % 10000;
+      return {
+        'orderId': 9000 + refSuffix,
+        'referenceNo': 'PS-DEMO-${1000 + refSuffix}',
+        'holdId': 8000 + refSuffix,
+        'stage': 'HELD',
+        'pickupPassToken': 'PASS-PS-DEMO-$refSuffix',
+      };
+    }
+    return _api.post(
+      '/shop/orders',
+      body: body,
+      isMoneyMovement: true,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  /// Fetches orders placed by the current member.
+  static Future<List<dynamic>> fetchShopOrders() async {
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await _api.get('/shop/orders');
+        if (res['data'] is List) return res['data'] as List;
+        if (res['items'] is List) return res['items'] as List;
+        if (res['content'] is List) return res['content'] as List;
+      } catch (_) {}
+    }
+    return [];
+  }
+
+  /// Fetches single order details by reference number.
+  static Future<Map<String, dynamic>> fetchShopOrderByReference(String referenceNo) async {
+    if (!AppConfig.useFixtures) {
+      try {
+        return await _api.get('/shop/orders/$referenceNo');
+      } catch (_) {}
+    }
+    return {};
+  }
+
+  /// Cancels an order at order-service and releases the ledger escrow hold.
+  static Future<Map<String, dynamic>> cancelShopOrder(String referenceNo) async {
+    if (AppConfig.useFixtures) {
+      return {'referenceNo': referenceNo, 'stage': 'CANCELLED'};
+    }
+    return _api.post('/shop/orders/$referenceNo/cancel');
+  }
+
+  /// Confirms depot pickup and captures escrow hold to merchant account.
+  static Future<Map<String, dynamic>> collectShopOrder(String referenceNo) async {
+    if (AppConfig.useFixtures) {
+      return {'referenceNo': referenceNo, 'stage': 'COMPLETED'};
+    }
+    return _api.post('/shop/depot/orders/$referenceNo/collect');
+  }
+
+  /// Advances order depot preparation stage (PREPARING or READY).
+  static Future<Map<String, dynamic>> advanceShopOrder(String referenceNo, String targetStage) async {
+    if (AppConfig.useFixtures) {
+      return {'referenceNo': referenceNo, 'stage': targetStage};
+    }
+    final endpoint = targetStage.toUpperCase() == 'PREPARING'
+        ? '/shop/depot/orders/$referenceNo/prepare'
+        : '/shop/depot/orders/$referenceNo/ready';
+    return _api.post(endpoint);
+  }
 }
 
