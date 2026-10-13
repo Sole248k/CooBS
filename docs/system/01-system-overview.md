@@ -86,16 +86,16 @@ In scope and built: everything in 1.3. Out of scope or not built: customer self-
 
 ## 1.7 Team and ownership
 
-| Member | Role |
+| Developer | Area |
 | --- | --- |
-| BERNABE, Marveen Antonio | Mobile Backend |
-| CARRANZA, Jared Lev | Cloud and CI/CD Pipeline |
-| COO, Hans Dean Timothy | Backend, Authentication and Customer & Account Service |
-| DE VERA, Wayne Raphael | Web Frontend and Transaction |
-| FLORENDO, Gabriel Enrico | Mobile Frontend |
-| LONTAC, Carl Lawrence | Cloud and Overall Testing |
-| SANCHEZ, Alyssa | Risk Services |
-| TERNAL, April Joy | Backend and Batch Services |
+| Carl (Dev 1, lead) | Contracts, `orchestration-service`, E2E suite, Azure deployment (Cloud and Overall Testing) |
+| Hans (Dev 2) | Identity, `customer-service`, `account-service` (Backend, Authentication and Customer & Account Service) |
+| Wayne (Dev 3) | `transaction-service`, `ledger-service` (PostingEngine), `notification-service` (Web Frontend and Transaction) |
+| Ysa (Dev 4) | `risk-engine`, reversals, inter-bank (Risk Services) |
+| April (Dev 5) | Databases and seed, `batch-service`, `audit-service` (Backend and Batch Services) |
+| Neo (Dev 6) | Flutter foundation (`app/lib/core`) (Mobile Backend) |
+| Gabo (Dev 7) | Flutter features (Mobile Frontend) |
+| Jared (Dev 8) | DevOps, CI, cloud (Cloud and CI/CD Pipeline) |
 
 ## 1.8 Technology summary
 
