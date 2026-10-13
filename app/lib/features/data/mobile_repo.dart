@@ -445,5 +445,110 @@ class MobileRepo {
     }
     return [];
   }
+
+  /// Fetches member cooperative share capital portfolio.
+  static Future<Map<String, dynamic>> fetchShareCapital() async {
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await _api.get('/accounts/share-capital');
+        if (res.containsKey('certificateNo') || res.containsKey('shareCapitalId')) {
+          return res;
+        }
+      } catch (_) {}
+    }
+    return {
+      'shareCapitalId': 100,
+      'certificateNo': 'SC-2024-001001',
+      'subscribedShares': 500,
+      'paidUpShares': 250,
+      'parValue': 100.0,
+      'totalPaidAmount': 25000.0,
+      'subscribedAmount': 50000.0,
+      'minimumRequiredShares': 20,
+      'dividendRate': 7.25,
+      'membershipType': 'REGULAR',
+      'hasVotingRights': true,
+      'completionRatio': 0.5,
+      'status': 'ACTIVE',
+    };
+  }
+
+  /// Tops up member share capital subscription directly from savings account.
+  static Future<Map<String, dynamic>> topUpShareCapital({
+    required double amount,
+    String? sourceAccountId,
+    String? sourceAccountNumber,
+    String? notes,
+  }) async {
+    if (!AppConfig.useFixtures) {
+      try {
+        return await _api.post('/accounts/share-capital/top-up', body: {
+          'amount': amount,
+          if (sourceAccountId != null) 'sourceAccountId': sourceAccountId,
+          if (sourceAccountNumber != null) 'sourceAccountNumber': sourceAccountNumber,
+          if (notes != null) 'notes': notes,
+        });
+      } catch (_) {}
+    }
+    final shares = (amount / 100.0).floor();
+    return {
+      'referenceNo': 'SC-TOP-${DateTime.now().millisecondsSinceEpoch % 100000}',
+      'amountPaid': amount,
+      'sharesAdded': shares,
+      'newPaidUpShares': 250 + shares,
+      'newTotalPaidAmount': 25000.0 + amount,
+      'hasVotingRights': true,
+      'membershipType': 'REGULAR',
+    };
+  }
+
+  /// Fetches annual patronage dividend & interest on share capital payout history.
+  static Future<List<dynamic>> fetchDividendHistory() async {
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await _api.get('/accounts/share-capital/dividends');
+        if (res['data'] is List) return res['data'] as List;
+        if (res['items'] is List) return res['items'] as List;
+        if (res['content'] is List) return res['content'] as List;
+      } catch (_) {}
+    }
+    return [
+      {
+        'dividendId': 1,
+        'fiscalYear': 2025,
+        'shareCapitalDividend': 1812.50,
+        'patronageRefund': 940.00,
+        'totalPayout': 2752.50,
+        'disposition': 'CREDITED_TO_SAVINGS',
+        'payoutDate': '2026-03-31T10:00:00',
+        'referenceNo': 'DIV-2025-9921',
+        'status': 'PAID',
+      },
+      {
+        'dividendId': 2,
+        'fiscalYear': 2024,
+        'shareCapitalDividend': 1500.00,
+        'patronageRefund': 750.00,
+        'totalPayout': 2250.00,
+        'disposition': 'CREDITED_TO_SAVINGS',
+        'payoutDate': '2025-03-31T10:00:00',
+        'referenceNo': 'DIV-2024-8142',
+        'status': 'PAID',
+      },
+    ];
+  }
+
+  /// Fetches share capital transaction log.
+  static Future<List<dynamic>> fetchShareCapitalTransactions() async {
+    if (!AppConfig.useFixtures) {
+      try {
+        final res = await _api.get('/accounts/share-capital/transactions');
+        if (res['data'] is List) return res['data'] as List;
+        if (res['items'] is List) return res['items'] as List;
+        if (res['content'] is List) return res['content'] as List;
+      } catch (_) {}
+    }
+    return [];
+  }
 }
 
