@@ -4,6 +4,7 @@ import '../../core/theme/theme_controller.dart';
 import '../accounts/ui.dart';
 import 'shop_store.dart';
 
+/// Promotional Home Screen Entry Card for CooBS PureSilver Essentials.
 class PureSilverEntry extends StatelessWidget {
   final ShopStore store;
   const PureSilverEntry({super.key, required this.store});
@@ -15,10 +16,47 @@ class PureSilverEntry extends StatelessWidget {
       padding: const EdgeInsets.only(top: 16),
       child: _ShopCard(
         children: [
-          Text(
-            'PURESILVER · SAMPLE SHOP',
-            style: TextStyle(color: kNavyFg, fontWeight: FontWeight.w600),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withAlpha(30),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'PURESILVER · SAMPLE SHOP',
+                  style: TextStyle(
+                    color: Color(0xFF047857),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              if (store.cartCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${store.cartCount} in basket',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
           ),
+          const SizedBox(height: 4),
           Text(
             'Groceries, sorted.',
             style: TextStyle(
@@ -30,6 +68,17 @@ class PureSilverEntry extends StatelessWidget {
           const Text(
             'Explore grocery pickup with sample money. Your bank account is never charged.',
           ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              _featureTag(Icons.shield_outlined, '2-Phase Escrow'),
+              _featureTag(Icons.local_shipping_outlined, 'Branch Pickup'),
+              _featureTag(Icons.percent_rounded, 'Co-op Subsidy'),
+            ],
+          ),
+          const SizedBox(height: 8),
           _action('Shop PureSilver', () => _open(context, false)),
           if (store.orders.isNotEmpty)
             _action(
@@ -39,6 +88,33 @@ class PureSilverEntry extends StatelessWidget {
             ),
         ],
       ),
+    ),
+  );
+
+  static Widget _featureTag(IconData icon, String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+    decoration: BoxDecoration(
+      color: kInBg,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: kLine.withAlpha(80)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: const Color(0xFF047857)),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: kInk,
+            ),
+          ),
+        ),
+      ],
     ),
   );
 
@@ -131,9 +207,17 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
             color: kInBg,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Text(
-            'SAMPLE ONLY · No bank charges or real orders. Shopping data resets when this banking session ends.',
-            style: TextStyle(color: kInk, fontSize: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF047857)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'SAMPLE ONLY · No bank charges or real orders. Shopping data resets when this banking session ends.',
+                  style: TextStyle(color: kInk, fontSize: 12),
+                ),
+              ),
+            ],
           ),
         ),
         ..._content(),
@@ -163,9 +247,32 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
     _Page.help => _help(_view.order!),
   };
 
+  // --------------------------------------------------------------------------
+  // MODERN E-COMMERCE GROCERY CATALOGUE
+  // --------------------------------------------------------------------------
   List<Widget> _catalogue() => [
     _ShopCard(
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withAlpha(30),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'COOPERATIVE ESSENTIALS DEPOT · ZERO MARKUP',
+              style: TextStyle(
+                color: Color(0xFF047857),
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
         Text(
           'Everyday essentials.',
           style: TextStyle(
@@ -178,14 +285,44 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           'Bank-partner shopping concept. Collect at PureSilver Central Mall.',
         ),
         const Text('Sample branch · 4:00–6:00 PM pickup · No substitutions'),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            PureSilverEntry._featureTag(Icons.shield_outlined, '2-Phase Escrow'),
+            PureSilverEntry._featureTag(Icons.storefront_outlined, 'Branch Pickup'),
+            PureSilverEntry._featureTag(Icons.percent_rounded, 'Co-op Subsidized'),
+          ],
+        ),
       ],
     ),
     for (final product in shopProducts)
       Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: store.quantity(product.id) > 0 ? const Color(0xFF047857) : kLine,
+            width: store.quantity(product.id) > 0 ? 1.5 : 1.0,
+          ),
+        ),
+        color: kSurface,
         child: ListTile(
-          contentPadding: const EdgeInsets.all(16),
-          leading: Icon(_icon(product), size: 36, color: kNavyFg),
-          title: Text(product.name),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          leading: Container(
+            height: 48,
+            width: 48,
+            decoration: BoxDecoration(
+              color: kDark ? const Color(0xFF1E293B) : const Color(0xFFE8F5E9),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(_icon(product), size: 28, color: const Color(0xFF047857)),
+          ),
+          title: Text(
+            product.name,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
           subtitle: Text('${product.unit}\n${shopMoney(product.priceCents)}'),
           isThreeLine: true,
           trailing: const Icon(Icons.chevron_right),
@@ -200,26 +337,54 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
     _action('Back to banking', () => Navigator.pop(context), secondary: true),
   ];
 
+  // --------------------------------------------------------------------------
+  // PRODUCT DETAILS
+  // --------------------------------------------------------------------------
   List<Widget> _product(ShopProduct product) => [
     _ShopCard(
       children: [
         Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Icon(_icon(product), size: 96, color: kNavyFg),
+          child: Container(
+            height: 120,
+            width: 120,
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: kDark ? const Color(0xFF1E293B) : const Color(0xFFE8F5E9),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_icon(product), size: 68, color: const Color(0xFF047857)),
           ),
         ),
         Text(
           product.name,
           style: TextStyle(
             fontSize: 24,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: kInk,
           ),
         ),
         Text('${product.unit} · ${shopMoney(product.priceCents)}'),
-        Text(
-          'Sample stock: up to ${product.stock} per basket. Final retailer stock checks are not connected.',
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: kInBg,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '🌱 Farm Source: ${product.farmSource}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: kInk),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Sample stock: up to ${product.stock} per basket. Final retailer stock checks are not connected.',
+                style: TextStyle(fontSize: 11.5, color: kMut),
+              ),
+            ],
+          ),
         ),
       ],
     ),
@@ -265,6 +430,9 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
     ],
   );
 
+  // --------------------------------------------------------------------------
+  // BASKET / CART
+  // --------------------------------------------------------------------------
   List<Widget> _cart() => [
     if (store.cart.isEmpty)
       const _ShopCard(
@@ -286,12 +454,33 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           ),
         ],
       ),
-    _ShopCard(
-      children: [
-        _kv('Pickup fee', shopMoney(0)),
-        _kv('Total', shopMoney(store.cartTotalCents)),
-      ],
-    ),
+    if (store.cart.isNotEmpty)
+      _ShopCard(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF10B981)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Two-Phase Escrow: Funds remain in your account until you collect your basket.',
+                  style: TextStyle(fontSize: 11.5, color: kInk),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 16),
+          _kv('Pickup fee', shopMoney(0)),
+          _kv('Total', shopMoney(store.cartTotalCents)),
+        ],
+      )
+    else
+      _ShopCard(
+        children: [
+          _kv('Pickup fee', shopMoney(0)),
+          _kv('Total', shopMoney(store.cartTotalCents)),
+        ],
+      ),
     _action(
       'Continue to checkout',
       store.cart.isEmpty
@@ -300,6 +489,9 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
     ),
   ];
 
+  // --------------------------------------------------------------------------
+  // REVIEW & RESERVE
+  // --------------------------------------------------------------------------
   List<Widget> _review(ShopQuote quote) => [
     const _ShopCard(
       children: [
@@ -347,17 +539,31 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
 
   void _place(ShopQuote quote, bool loseReply) => _run(() {
     final order = store.placeOrder(quote, loseReply: loseReply);
-    // The completed checkout must not remain in the back stack as a payable form.
     _history.clear();
     _go(_Page.order, order: order, replace: true);
   });
 
+  // --------------------------------------------------------------------------
+  // SAMPLE ORDERS LIST
+  // --------------------------------------------------------------------------
   List<Widget> _orders() => [
     if (store.orders.isEmpty)
       const _ShopCard(children: [Text('No sample orders yet.')]),
     for (final order in store.orders)
       Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: kLine),
+        ),
         child: ListTile(
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF047857).withAlpha(25),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.qr_code_rounded, color: Color(0xFF047857), size: 24),
+          ),
           title: Text(order.reference),
           subtitle: Text('${order.status}\n${shopMoney(order.totalCents)}'),
           isThreeLine: true,
@@ -368,6 +574,9 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
     _action('Shop groceries', () => _go(_Page.shop), secondary: true),
   ];
 
+  // --------------------------------------------------------------------------
+  // ORDER DETAILS & DIGITAL PICKUP VOUCHER
+  // --------------------------------------------------------------------------
   List<Widget> _order(ShopOrder order) => [
     _ShopCard(
       children: [
@@ -387,6 +596,35 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           ),
         ),
         Text('Order total: ${shopMoney(order.totalCents)}'),
+        const SizedBox(height: 8),
+
+        // Digital Pickup Pass Visual Box
+        Center(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.qr_code_2_rounded, size: 84, color: Color(0xFF0F172A)),
+                const SizedBox(height: 4),
+                Text(
+                  'PICKUP PASS: ${order.reference}',
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     ),
     if (order.paymentUnknown) ...[
@@ -408,6 +646,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
             _ =>
               'Money remains held in sample savings. PureSilver has not been paid.',
           }),
+          const Divider(height: 14),
           _kv('Sample available balance', shopMoney(store.availableCents)),
           _kv('Sample ledger balance', shopMoney(store.ledgerCents)),
         ],
@@ -419,14 +658,34 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           ))
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Text(
-                '${order.stage != ShopStage.cancelled && stage.index <= order.stage.index ? '✓' : '○'} ${switch (stage) {
-                  ShopStage.held => 'Order accepted · funds held',
-                  ShopStage.preparing => 'Preparing basket',
-                  ShopStage.ready => 'Ready for pickup',
-                  ShopStage.completed => 'Collected · payment posted',
-                  ShopStage.cancelled => 'Cancelled',
-                }}',
+              child: Row(
+                children: [
+                  Icon(
+                    order.stage != ShopStage.cancelled && stage.index <= order.stage.index
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked,
+                    size: 16,
+                    color: order.stage != ShopStage.cancelled && stage.index <= order.stage.index
+                        ? const Color(0xFF10B981)
+                        : kMut,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      switch (stage) {
+                        ShopStage.held => 'Order accepted · funds held',
+                        ShopStage.preparing => 'Preparing basket',
+                        ShopStage.ready => 'Ready for pickup',
+                        ShopStage.completed => 'Collected · payment posted',
+                        ShopStage.cancelled => 'Cancelled',
+                      },
+                      style: TextStyle(
+                        fontWeight: order.stage == stage ? FontWeight.bold : FontWeight.normal,
+                        color: order.stage == stage ? kInk : kMut,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
@@ -543,7 +802,6 @@ IconData _icon(ShopProduct product) => switch (product.id) {
   _ => Icons.local_drink_outlined,
 };
 
-// statRow's label cannot wrap, so it overflows at large text sizes.
 Widget _kv(String k, String v) => Row(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
@@ -574,12 +832,17 @@ Widget _action(
         : FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: kNavy,
+              backgroundColor: const Color(0xFF047857),
               foregroundColor: Colors.white,
               minimumSize: const Size.fromHeight(52),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            child: Text(label, textAlign: TextAlign.center),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
   ),
 );
@@ -602,7 +865,7 @@ class _ShopCard extends StatelessWidget {
         children: [
           for (final child in children)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: child,
             ),
         ],
