@@ -54,4 +54,31 @@ public class RiskEvaluationRequest {
     private Integer transfersInLast10Min;
 
     private Integer reversalsToday;
+
+    // Advanced Fraud Heuristics (ATO, Geolocation, AMLA Smurfing, Dormant Accounts)
+    private Double latitude;
+
+    private Double longitude;
+
+    private String locationCity;
+
+    private String locationCountry;
+
+    private String deviceFingerprint;
+
+    @Builder.Default
+    private Boolean isNewDevice = false;
+
+    private Integer daysSinceLastActivity;
+
+    @Builder.Default
+    private Boolean isDormantAccount = false;
+
+    @Builder.Default
+    private Boolean isStructuringSuspected = false;
+
+    // Personalized Behavioral Baseline Analytics (Z-score Anomaly Detection)
+    private BigDecimal avgTransactionAmount;
+
+    private BigDecimal stdDevTransactionAmount;
 }

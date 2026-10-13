@@ -41,12 +41,22 @@ public class VelocityCounter {
     private static final String COUNTED_PREFIX = "risk:counted:";
     /** One per reversed transaction, so that a repeated report is not counted twice. */
     private static final String REVERSED_PREFIX = "risk:reversed:";
+    private static final String GEO_LAST_PREFIX = "risk:geo:last:";
+    private static final String DEVICES_PREFIX = "risk:devices:";
     private static final Duration VELOCITY_WINDOW_TTL = Duration.ofMinutes(10);
     private static final Duration DAILY_METRIC_TTL = Duration.ofHours(24);
+    private static final Duration GEO_WINDOW_TTL = Duration.ofHours(24);
+    private static final Duration DEVICE_TTL = Duration.ofDays(90);
+    private static final double MAX_REALISTIC_TRAVEL_SPEED_KMH = 800.0;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Manila");
     /** Amounts have at most four decimals, so one unit is a ten-thousandth of a peso. */
     private static final int UNIT_SCALE = 4;
+    private static final String STATS_PREFIX = "risk:stats:";
+
+    private final java.util.concurrent.ConcurrentHashMap<String, String> inMemoryGeoCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<String, java.util.Set<String>> inMemoryDeviceCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<Long, CustomerSpendStats> inMemoryStatsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     private final StringRedisTemplate redisTemplate;
 
@@ -268,6 +278,194 @@ public class VelocityCounter {
             log.error("Failed to count the reversal of transaction {} for customerId {}: {}",
                     transactionId, customerId, ex.getMessage());
             throw new RiskUnavailableException("The reversal counter cannot be updated.");
+        }
+    }
+
+    @Data
+    @Builder
+    public static class GeoVelocityResult {
+        private final boolean impossibleTravel;
+        private final double distanceKm;
+        private final double speedKmh;
+    }
+
+    @Data
+    @Builder
+    public static class CustomerSpendStats {
+        private final BigDecimal mean;
+        private final BigDecimal stdDev;
+        private final int txCount;
+    }
+
+    public static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    public GeoVelocityResult checkGeoVelocity(Long customerId, Double lat, Double lng, Instant now) {
+        if (customerId == null || lat == null || lng == null) {
+            return GeoVelocityResult.builder().impossibleTravel(false).distanceKm(0.0).speedKmh(0.0).build();
+        }
+
+        String geoKey = GEO_LAST_PREFIX + customerId;
+        String lastData = null;
+        if (redisTemplate != null) {
+            try {
+                lastData = redisTemplate.opsForValue().get(geoKey);
+            } catch (Exception ex) {
+                log.warn("Redis error reading geo for customer {}: {}", customerId, ex.getMessage());
+            }
+        } else {
+            lastData = inMemoryGeoCache.get(geoKey);
+        }
+
+        if (lastData == null || lastData.isBlank()) {
+            updateGeoLocation(customerId, lat, lng, now);
+            return GeoVelocityResult.builder().impossibleTravel(false).distanceKm(0.0).speedKmh(0.0).build();
+        }
+
+        try {
+            String[] parts = lastData.split("\\|");
+            double lastLat = Double.parseDouble(parts[0]);
+            double lastLng = Double.parseDouble(parts[1]);
+            long lastEpoch = Long.parseLong(parts[2]);
+
+            double distanceKm = haversineKm(lastLat, lastLng, lat, lng);
+            long elapsedSeconds = Math.max(1, now.getEpochSecond() - lastEpoch);
+            double elapsedHours = elapsedSeconds / 3600.0;
+            double speedKmh = distanceKm / elapsedHours;
+
+            boolean impossible = speedKmh > MAX_REALISTIC_TRAVEL_SPEED_KMH && distanceKm > 50.0;
+            if (impossible) {
+                log.warn("Impossible travel detected for customer {}: {} km in {}s ({} km/h)",
+                        customerId, Math.round(distanceKm), elapsedSeconds, Math.round(speedKmh));
+            }
+
+            updateGeoLocation(customerId, lat, lng, now);
+
+            return GeoVelocityResult.builder()
+                    .impossibleTravel(impossible)
+                    .distanceKm(distanceKm)
+                    .speedKmh(speedKmh)
+                    .build();
+        } catch (Exception ex) {
+            log.error("Failed parsing geo data '{}' for customer {}: {}", lastData, customerId, ex.getMessage());
+            return GeoVelocityResult.builder().impossibleTravel(false).distanceKm(0.0).speedKmh(0.0).build();
+        }
+    }
+
+    public void updateGeoLocation(Long customerId, Double lat, Double lng, Instant now) {
+        if (customerId == null || lat == null || lng == null) return;
+        String geoKey = GEO_LAST_PREFIX + customerId;
+        long epoch = now != null ? now.getEpochSecond() : Instant.now().getEpochSecond();
+        String val = lat + "|" + lng + "|" + epoch;
+        if (redisTemplate != null) {
+            try {
+                redisTemplate.opsForValue().set(geoKey, val, GEO_WINDOW_TTL);
+            } catch (Exception ex) {
+                log.warn("Redis error setting geo for customer {}: {}", customerId, ex.getMessage());
+            }
+        } else {
+            inMemoryGeoCache.put(geoKey, val);
+        }
+    }
+
+    public boolean isDeviceRecognized(Long customerId, String deviceFingerprint) {
+        if (customerId == null || deviceFingerprint == null || deviceFingerprint.isBlank()) {
+            return true;
+        }
+        String key = DEVICES_PREFIX + customerId;
+        if (redisTemplate != null) {
+            try {
+                Boolean isMember = redisTemplate.opsForSet().isMember(key, deviceFingerprint);
+                return Boolean.TRUE.equals(isMember);
+            } catch (Exception ex) {
+                log.warn("Redis error checking device for customer {}: {}", customerId, ex.getMessage());
+                return true;
+            }
+        } else {
+            java.util.Set<String> set = inMemoryDeviceCache.get(key);
+            return set != null && set.contains(deviceFingerprint);
+        }
+    }
+
+    public void registerDevice(Long customerId, String deviceFingerprint) {
+        if (customerId == null || deviceFingerprint == null || deviceFingerprint.isBlank()) return;
+        String key = DEVICES_PREFIX + customerId;
+        if (redisTemplate != null) {
+            try {
+                redisTemplate.opsForSet().add(key, deviceFingerprint);
+                redisTemplate.expire(key, DEVICE_TTL);
+            } catch (Exception ex) {
+                log.warn("Redis error registering device for customer {}: {}", customerId, ex.getMessage());
+            }
+        } else {
+            inMemoryDeviceCache.computeIfAbsent(key, k -> java.util.concurrent.ConcurrentHashMap.newKeySet()).add(deviceFingerprint);
+        }
+    }
+
+    public CustomerSpendStats getCustomerSpendStats(Long customerId) {
+        if (customerId == null) return null;
+        String key = STATS_PREFIX + customerId;
+        if (redisTemplate != null) {
+            try {
+                Object meanVal = redisTemplate.opsForHash().get(key, "mean");
+                Object stdVal = redisTemplate.opsForHash().get(key, "stdDev");
+                Object countVal = redisTemplate.opsForHash().get(key, "txCount");
+                if (meanVal != null) {
+                    return CustomerSpendStats.builder()
+                            .mean(new BigDecimal(meanVal.toString()))
+                            .stdDev(stdVal != null ? new BigDecimal(stdVal.toString()) : BigDecimal.ZERO)
+                            .txCount(countVal != null ? Integer.parseInt(countVal.toString()) : 1)
+                            .build();
+                }
+            } catch (Exception ex) {
+                log.warn("Redis error reading customer stats for {}: {}", customerId, ex.getMessage());
+            }
+        }
+        return inMemoryStatsCache.get(customerId);
+    }
+
+    public void updateCustomerSpendStats(Long customerId, BigDecimal amount) {
+        if (customerId == null || amount == null) return;
+        CustomerSpendStats current = getCustomerSpendStats(customerId);
+        BigDecimal newMean;
+        BigDecimal newStd;
+        int newCount;
+        if (current == null || current.getMean() == null || current.getTxCount() <= 0) {
+            newMean = amount;
+            newStd = amount.multiply(new BigDecimal("0.30"));
+            newCount = 1;
+        } else {
+            newCount = current.getTxCount() + 1;
+            BigDecimal diff = amount.subtract(current.getMean());
+            newMean = current.getMean().add(diff.divide(BigDecimal.valueOf(newCount), 4, RoundingMode.HALF_UP));
+            newStd = current.getStdDev() != null && current.getStdDev().compareTo(BigDecimal.ZERO) > 0
+                    ? current.getStdDev()
+                    : newMean.multiply(new BigDecimal("0.30"));
+        }
+        CustomerSpendStats updated = CustomerSpendStats.builder()
+                .mean(newMean)
+                .stdDev(newStd)
+                .txCount(newCount)
+                .build();
+        inMemoryStatsCache.put(customerId, updated);
+        if (redisTemplate != null) {
+            try {
+                String key = STATS_PREFIX + customerId;
+                redisTemplate.opsForHash().put(key, "mean", newMean.setScale(2, RoundingMode.HALF_UP).toPlainString());
+                redisTemplate.opsForHash().put(key, "stdDev", newStd.setScale(2, RoundingMode.HALF_UP).toPlainString());
+                redisTemplate.opsForHash().put(key, "txCount", String.valueOf(newCount));
+                redisTemplate.expire(key, Duration.ofDays(365));
+            } catch (Exception ex) {
+                log.warn("Redis error updating customer stats for {}: {}", customerId, ex.getMessage());
+            }
         }
     }
 

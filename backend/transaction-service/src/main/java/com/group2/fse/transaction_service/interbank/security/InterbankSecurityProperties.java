@@ -21,7 +21,14 @@ public class InterbankSecurityProperties {
         if (bankCode == null) {
             return null;
         }
-        return partners.get(bankCode.toUpperCase());
+        PartnerConfig partner = partners.get(bankCode.toUpperCase());
+        if (partner == null) {
+            partner = partners.get(bankCode.toLowerCase());
+        }
+        if (partner == null) {
+            partner = partners.get(bankCode);
+        }
+        return partner;
     }
 
     @Data

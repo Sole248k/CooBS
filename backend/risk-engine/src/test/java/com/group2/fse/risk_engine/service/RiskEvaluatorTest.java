@@ -494,4 +494,187 @@ class RiskEvaluatorTest {
         assertTrue(Double.parseDouble(response.getScore()) >= 0.65);
         assertFalse(response.getFraudCheck().getReasons().contains("CUSTOMER_RISK_RATING"));
     }
+
+    @Test
+    @DisplayName("Impossible travel anomaly is flagged and penalizes composite score by +0.35")
+    void testImpossibleTravelAnomalyFlagged() {
+        when(velocityCounter.getVelocityState(1L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build());
+        when(velocityCounter.checkGeoVelocity(eq(1L), any(), any(), any())).thenReturn(
+                VelocityCounter.GeoVelocityResult.builder()
+                        .impossibleTravel(true)
+                        .distanceKm(9500.0)
+                        .speedKmh(15000.0)
+                        .build());
+
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-geo-anomaly")
+                .customerId(1L)
+                .amount(new BigDecimal("1000.00"))
+                .currency("PHP")
+                .kycTier("TIER_3_ENHANCED")
+                .dailyLimit(new BigDecimal("500000.00"))
+                .latitude(44.4268)
+                .longitude(26.1025)
+                .build());
+
+        assertEquals("DECLINE", response.getDecision());
+        assertTrue(response.getFraudCheck().getReasons().contains("IMPOSSIBLE_TRAVEL_ANOMALY"));
+        assertTrue(response.getFraudCheck().getReasons().contains("REVIEW_REQUIRED"));
+        assertTrue(Double.parseDouble(response.getScore()) >= 0.75);
+    }
+
+    @Test
+    @DisplayName("Unrecognized hardware device is flagged and adds +0.20 score penalty")
+    void testUnrecognizedDeviceFlagged() {
+        when(velocityCounter.getVelocityState(2L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(2)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build());
+        when(velocityCounter.isDeviceRecognized(2L, "unknown-device-hash")).thenReturn(false);
+
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-device-ato")
+                .customerId(2L)
+                .amount(new BigDecimal("25000.00"))
+                .currency("PHP")
+                .kycTier("TIER_2_STANDARD")
+                .dailyLimit(new BigDecimal("50000.00"))
+                .deviceFingerprint("unknown-device-hash")
+                .build());
+
+        assertEquals("DECLINE", response.getDecision());
+        assertTrue(response.getFraudCheck().getReasons().contains("UNRECOGNIZED_DEVICE_HARDWARE"));
+        // Baseline 0.50 + 0.20 device penalty = 0.70
+        assertEquals(0.70, Double.parseDouble(response.getScore()), 0.02);
+    }
+
+    @Test
+    @DisplayName("Dormant account sudden large transfer (>90 days) triggers DORMANT_ACCOUNT_SUDDEN_ACTIVITY (+0.30)")
+    void testDormantAccountSuddenActivityFlagged() {
+        when(velocityCounter.getVelocityState(3L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(1)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build());
+
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-dormant-mule")
+                .customerId(3L)
+                .amount(new BigDecimal("25000.00"))
+                .currency("PHP")
+                .kycTier("TIER_2_STANDARD")
+                .dailyLimit(new BigDecimal("50000.00"))
+                .daysSinceLastActivity(120)
+                .isDormantAccount(true)
+                .build());
+
+        assertEquals("DECLINE", response.getDecision());
+        assertTrue(response.getFraudCheck().getReasons().contains("DORMANT_ACCOUNT_SUDDEN_ACTIVITY"));
+        // Baseline 0.395 + 0.30 dormant penalty = ~0.70
+        assertEquals(0.70, Double.parseDouble(response.getScore()), 0.02);
+    }
+
+    @Test
+    @DisplayName("AMLA Structuring / Smurfing Evasion triggers RULE_AMLA_STRUCTURING_SUSPECTED and sets Score=1.00")
+    void testAmlaStructuringEvasionFlagged() {
+        when(velocityCounter.getVelocityState(4L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(1)
+                        .usedToday(new BigDecimal("95000.00"))
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build());
+
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-amla-smurf")
+                .customerId(4L)
+                .amount(new BigDecimal("450000.00")) // Near 500k ceiling with prior spend
+                .currency("PHP")
+                .kycTier("TIER_3_ENHANCED")
+                .dailyLimit(new BigDecimal("1000000.00"))
+                .isStructuringSuspected(true)
+                .build());
+
+        assertEquals("DECLINE", response.getDecision());
+        assertEquals("1.00", response.getScore());
+        assertTrue(response.getFraudCheck().getReasons().contains("RULE_AMLA_STRUCTURING_SUSPECTED"));
+    }
+
+    @Test
+    @DisplayName("Personalized behavioral baseline: transfer exceeding 3-sigma outlier triggers BEHAVIORAL_AMOUNT_ANOMALY")
+    void testPersonalizedBehavioralAmountAnomalyFlagged() {
+        when(velocityCounter.getVelocityState(5L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(1)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build());
+        when(velocityCounter.getCustomerSpendStats(5L)).thenReturn(
+                VelocityCounter.CustomerSpendStats.builder()
+                        .mean(new BigDecimal("1500.00"))
+                        .stdDev(new BigDecimal("500.00"))
+                        .txCount(15)
+                        .build());
+
+        // Baseline spend is 1,500. Sending 45,000 gives Z = (45,000 - 1,500) / 500 = 87.0 (>> 3.0 sigma)
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-behavioral-spike")
+                .customerId(5L)
+                .amount(new BigDecimal("45000.00"))
+                .currency("PHP")
+                .kycTier("TIER_2_STANDARD")
+                .dailyLimit(new BigDecimal("50000.00"))
+                .build());
+
+        assertEquals("DECLINE", response.getDecision());
+        assertTrue(response.getFraudCheck().getReasons().contains("BEHAVIORAL_AMOUNT_ANOMALY"));
+        assertTrue(response.getFraudCheck().getReasons().contains("REVIEW_REQUIRED"));
+        // Baseline 0.55 + 0.25 behavioral penalty = 0.80
+        assertEquals(0.80, Double.parseDouble(response.getScore()), 0.02);
+    }
+
+    @Test
+    @DisplayName("Personalized behavioral baseline: normal transfer within 3-sigma does not trigger BEHAVIORAL_AMOUNT_ANOMALY")
+    void testPersonalizedBehavioralNormalSpendNotFlagged() {
+        when(velocityCounter.getVelocityState(6L)).thenReturn(
+                VelocityCounter.VelocityState.builder()
+                        .velocity10Min(0)
+                        .usedToday(BigDecimal.ZERO)
+                        .reversalsToday(0)
+                        .redisAvailable(true)
+                        .build());
+        when(velocityCounter.getCustomerSpendStats(6L)).thenReturn(
+                VelocityCounter.CustomerSpendStats.builder()
+                        .mean(new BigDecimal("1500.00"))
+                        .stdDev(new BigDecimal("500.00"))
+                        .txCount(15)
+                        .build());
+        when(velocityCounter.reserve(eq(6L), eq("tx-normal-spend"), any(), any())).thenReturn(true);
+
+        // Spending 2,000 gives Z = (2,000 - 1,500) / 500 = 1.0 (< 3.0 sigma)
+        RiskEvaluationResponse response = riskEvaluator.evaluate(RiskEvaluationRequest.builder()
+                .transactionId("tx-normal-spend")
+                .customerId(6L)
+                .amount(new BigDecimal("2000.00"))
+                .currency("PHP")
+                .kycTier("TIER_2_STANDARD")
+                .dailyLimit(new BigDecimal("50000.00"))
+                .build());
+
+        assertEquals("APPROVE", response.getDecision());
+        assertFalse(response.getFraudCheck().getReasons().contains("BEHAVIORAL_AMOUNT_ANOMALY"));
+        verify(velocityCounter).updateCustomerSpendStats(eq(6L), eq(new BigDecimal("2000.00")));
+    }
 }
