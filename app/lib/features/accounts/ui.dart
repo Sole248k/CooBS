@@ -413,6 +413,7 @@ class Pg extends StatelessWidget {
   final bool tab;
   final List<Widget>? actions;
   final ScrollController? controller;
+  final Future<void> Function()? onRefresh;
 
   const Pg(
     this.title,
@@ -423,6 +424,7 @@ class Pg extends StatelessWidget {
     this.tab = false,
     this.actions,
     this.controller,
+    this.onRefresh,
   });
 
   @override
@@ -474,10 +476,20 @@ class Pg extends StatelessWidget {
                 ]
               : null,
         ),
-        body: ListView(
-          controller: controller,
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          children: kids,
-        ),
+        body: onRefresh != null
+            ? RefreshIndicator(
+                onRefresh: onRefresh!,
+                child: ListView(
+                  controller: controller,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                  children: kids,
+                ),
+              )
+            : ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                children: kids,
+              ),
       );
 }

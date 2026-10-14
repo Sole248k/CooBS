@@ -702,17 +702,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startPendingPoll() {
     _pendingPollTimer?.cancel();
-    _pendingPollTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    int pollCount = 0;
+    _pendingPollTimer = Timer.periodic(const Duration(seconds: 4), (timer) async {
+      pollCount++;
       if (!mounted) {
         timer.cancel();
         return;
       }
-      if (!Demo.i.hasPendingProcessing) {
+      if (!Demo.i.hasPendingProcessing || pollCount > 4) {
         timer.cancel();
         _pendingPollTimer = null;
+        if (Demo.i.hasPendingProcessing) {
+          Demo.i.autoSettlePendingTransfers();
+        }
         return;
       }
-      await Demo.i.load();
+      await Demo.i.load(silent: true);
     });
   }
 
@@ -1836,69 +1841,102 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showAdPickerSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: kSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Ad Display Tester (Debug)',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: kInk,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ad Display Tester (Debug)',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: kInk,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Select an ad banner or roll with the live probability engine',
-                style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut),
-              ),
-              const SizedBox(height: 14),
-              ListTile(
-                leading: const Icon(Icons.casino_outlined, color: Color(0xFF0091AE)),
-                title: const Text('Live Probability Roll', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
-                subtitle: const Text('1/1000 Duo, 1/2000 Umamusume, 1997/2000 Solo', style: TextStyle(fontSize: 11)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  AdService.showAd(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.star_rounded, color: Color(0xFFF59E0B)),
-                title: const Text('Umamusume Pretty Derby', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
-                subtitle: const Text('1 in 2,000 Ultra Rare Easter Egg', style: TextStyle(fontSize: 11)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  AdService.showAd(context, forcedAd: AdItem.umamusume);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.groups_outlined, color: Color(0xFF0091AE)),
-                title: const Text('CooBS Duo (Two Members)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
-                subtitle: const Text('1 in 1,000 Lucky Draw', style: TextStyle(fontSize: 11)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  AdService.showAd(context, forcedAd: AdItem.duo);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.person_outline, color: Color(0xFF0091AE)),
-                title: const Text('CooBS Solo (Member on Sofa)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
-                subtitle: const Text('Standard Most Frequent Edition', style: TextStyle(fontSize: 11)),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  AdService.showAd(context, forcedAd: AdItem.solo);
-                },
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  'Select an ad banner or roll with the live probability engine',
+                  style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut),
+                ),
+                const SizedBox(height: 14),
+                ListTile(
+                  leading: const Icon(Icons.casino_outlined, color: Color(0xFF0091AE)),
+                  title: const Text('Live Probability Roll', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  subtitle: const Text('1/500 Crossovers & Chiikawa, 1/1000 Duo, 1/2000 Umamusume', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AdService.showAd(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF10B981)),
+                  title: const Text('Oggy & Friends Crossover', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  subtitle: const Text('1 in 500 Rare Special Crossover', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AdService.showAd(context, forcedAd: AdItem.oggyCrossover);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.music_note_rounded, color: Color(0xFF06B6D4)),
+                  title: const Text('Uma Musume x Hatsune Miku', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  subtitle: const Text('1 in 500 Rare Special Campaign', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AdService.showAd(context, forcedAd: AdItem.umaMiku);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.pets_rounded, color: Color(0xFF0091AE)),
+                  title: const Text('Chiikawa & Usagi Duo', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  subtitle: const Text('1 in 500 Rare Member Showcase', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AdService.showAd(context, forcedAd: AdItem.chiikawaDuo);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.star_rounded, color: Color(0xFFF59E0B)),
+                  title: const Text('Umamusume Pretty Derby', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  subtitle: const Text('1 in 2,000 Ultra Rare Easter Egg', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AdService.showAd(context, forcedAd: AdItem.umamusume);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.groups_outlined, color: Color(0xFF0091AE)),
+                  title: const Text('CooBS Duo (Two Members)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  subtitle: const Text('1 in 1,000 Lucky Draw', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AdService.showAd(context, forcedAd: AdItem.duo);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.person_outline, color: Color(0xFF0091AE)),
+                  title: const Text('CooBS Solo (Member on Sofa)', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Standard Most Frequent Edition', style: TextStyle(fontSize: 11)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    AdService.showAd(context, forcedAd: AdItem.solo);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2134,7 +2172,10 @@ class _HomeScreenState extends State<HomeScreen> {
           final isLoan = d.isLoanPage;
           final pageCount = (d.accts.isEmpty ? 1 : d.accts.length) + 1;
           return RefreshIndicator(
-            onRefresh: () => d.load(),
+            onRefresh: () async {
+              await d.fetchScoresAndHabits();
+              await d.load();
+            },
             child: ListView(
               padding: const EdgeInsets.only(top: 4, bottom: 16),
               children: [

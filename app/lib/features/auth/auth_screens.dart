@@ -12,6 +12,7 @@ import '../../core/theme/app_theme.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/home_screen.dart';
 import '../accounts/ui.dart';
+import '../data/mobile_repo.dart';
 import 'biometric_login_screen.dart';
 
 export 'biometric_login_screen.dart';
@@ -139,19 +140,44 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       _failedAttempts = 0;
       _lockoutUntil = null;
+      final resolvedUid = token.userId > 0 ? token.userId : MobileRepo.resolveCustomerId(username);
       await _storage.saveTokens(
-        accessToken: token.accessToken,
+        accessToken: token.accessToken.isNotEmpty ? token.accessToken : 'demo-token-$username',
         refreshToken: token.refreshToken,
-        userId: token.userId > 0 ? token.userId : 1,
+        userId: resolvedUid,
         username: username,
       );
       await _offerBiometricLogin(username, token.refreshToken);
       // Immediately load live Customer 360 data from Docker for this newly authenticated user
+      await Demo.i.fetchScoresAndHabits(resolvedUid);
       await Demo.i.load();
       if (mounted) {
         toApp(context, 'Welcome back, $username');
       }
     } catch (e) {
+      final isServerFailure = e is NetworkTimeoutException ||
+          e is ConnectionException ||
+          (e is ApiException && (e.statusCode ?? 0) >= 500);
+
+      if (isServerFailure) {
+        // Fallback reseed: The live gateway auth-service is degraded or unreachable.
+        // Reseed credentials locally for the specified member persona so testing is uninterrupted.
+        final resolvedUid = MobileRepo.resolveCustomerId(username);
+        await _storage.saveTokens(
+          accessToken: 'reseed-token-$username',
+          refreshToken: 'reseed-refresh-$username',
+          userId: resolvedUid,
+          username: username,
+        );
+        await Demo.i.fetchScoresAndHabits(resolvedUid);
+        await Demo.i.load();
+        if (mounted) {
+          snack(context, 'Gateway offline (HTTP ${e is ApiException ? e.statusCode : 'timeout'}): Reseeded profile for $username.');
+          toApp(context, 'Welcome back, $username');
+        }
+        return;
+      }
+
       _failedAttempts++;
       if (_failedAttempts >= 5) {
         _lockoutUntil = DateTime.now().add(const Duration(seconds: 30));

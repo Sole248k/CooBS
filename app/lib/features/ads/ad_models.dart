@@ -50,7 +50,7 @@ class AdItem {
     accentGlowColor: Color(0xFFFBBF24),
   );
 
-  /// Image 3: CooBS Solo Banner (Most Frequent / Remainder 1997/2,000)
+  /// Image 3: CooBS Solo Banner (Most Frequent / Remainder 1985/2,000)
   static const AdItem solo = AdItem(
     id: 'ad_coobs_solo',
     title: 'Sit, Bank, and Relax with CooBS',
@@ -63,5 +63,51 @@ class AdItem {
     accentGlowColor: Color(0xFF2DD4BF),
   );
 
-  static const List<AdItem> all = [duo, umamusume, solo];
+  /// Image 4: Oggy & Friends Special Crossover (Probability 1/500)
+  static const AdItem oggyCrossover = AdItem(
+    id: 'ad_oggy_crossover',
+    title: 'Your Money, Your Way with CooBS',
+    subtitle: 'Oggy, Helios & friends team up for effortless digital banking!',
+    assetPath: 'assets/images/ad_oggy_crossover.jpg',
+    oddsDescription: '1 in 500 Rare Special Crossover',
+    badgeText: '★ SPECIAL CROSSOVER • 1/500 ★',
+    isEasterEgg: true,
+    primaryColor: Color(0xFF10B981),
+    accentGlowColor: Color(0xFF34D399),
+  );
+
+  /// Image 5: Uma Musume x Hatsune Miku Campaign (Probability 1/500)
+  static const AdItem umaMiku = AdItem(
+    id: 'ad_uma_miku',
+    title: 'Your Money, Your Way with CooBS',
+    subtitle: 'Helios, Miku & Optimus Prime celebrate effortless banking!',
+    assetPath: 'assets/images/ad_uma_miku.jpg',
+    oddsDescription: '1 in 500 Rare Special Campaign',
+    badgeText: '★ MIKU & HELIOS CAMPAIGN • 1/500 ★',
+    isEasterEgg: true,
+    primaryColor: Color(0xFF06B6D4),
+    accentGlowColor: Color(0xFF22D3EE),
+  );
+
+  /// Image 6: Chiikawa & Usagi Duo Edition (Probability 1/500)
+  static const AdItem chiikawaDuo = AdItem(
+    id: 'ad_chiikawa_duo',
+    title: 'Sit, Bank, and Relax with CooBS',
+    subtitle: 'Chiikawa & Usagi special member edition! Relax with digital banking.',
+    assetPath: 'assets/images/ad_chiikawa_duo.png',
+    oddsDescription: '1 in 500 Rare Member Showcase',
+    badgeText: 'CHIIKAWA & USAGI • 1/500',
+    isEasterEgg: true,
+    primaryColor: Color(0xFF0091AE),
+    accentGlowColor: Color(0xFF38BDF8),
+  );
+
+  static const List<AdItem> all = [
+    duo,
+    umamusume,
+    solo,
+    oggyCrossover,
+    umaMiku,
+    chiikawaDuo,
+  ];
 }

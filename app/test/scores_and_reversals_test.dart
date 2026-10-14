@@ -183,5 +183,38 @@ void main() {
       expect(newTx.status, 'POSTED');
       expect(Demo.i.hasPendingProcessing, isFalse);
     });
+
+    test('Dynamic Reseeding: Demo.i fetchScoresAndHabits dynamically re-seeds different member personas', () async {
+      final store = Demo.i;
+
+      // Reseed as Maria Santos (Customer 2 -> 790)
+      await store.fetchScoresAndHabits(2);
+      expect(store.creditScore, 790);
+      expect(store.memberName, 'Maria S.');
+      expect(store.totalDeposits, 185000.00);
+      expect(store.spendingBreakdown['Shopping & Retail'], 8400.0);
+
+      // Reseed as Grace Poe (Customer 9 -> 600)
+      await store.fetchScoresAndHabits(9);
+      expect(store.creditScore, 600);
+      expect(store.memberName, 'Grace P.');
+      expect(store.spendingBreakdown['Utilities & Bills'], 5200.0);
+
+      // Reseed as Andrea Ramos (Customer 5 -> 540)
+      await store.fetchScoresAndHabits(5);
+      expect(store.creditScore, 540);
+      expect(store.memberName, 'Andrea R.');
+      expect(store.totalLoans, 25000.0);
+
+      // Reseed as David Kim (Customer 3 -> 735)
+      await store.fetchScoresAndHabits(3);
+      expect(store.creditScore, 735);
+      expect(store.memberName, 'David K.');
+
+      // Reseed back to baseline John Doe (Customer 1 -> 750)
+      await store.fetchScoresAndHabits(1);
+      expect(store.creditScore, 750);
+      expect(store.memberName, 'John D.');
+    });
   });
 }

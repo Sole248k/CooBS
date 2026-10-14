@@ -5,6 +5,14 @@ import '../../core/theme/theme_controller.dart';
 import '../accounts/ui.dart';
 import 'shop_store.dart';
 
+/// Theme-adaptive Emerald & Mint palette for PureSilver grocery depot
+Color get kShopGreen => kDark ? const Color(0xFF34D399) : const Color(0xFF047857);
+Color get kShopGreenBadgeBg =>
+    kDark ? const Color(0xFF064E3B).withAlpha(120) : const Color(0xFF10B981).withAlpha(25);
+Color get kShopGreenBadgeBorder =>
+    kDark ? const Color(0xFF34D399).withAlpha(80) : const Color(0xFF10B981).withAlpha(60);
+Color get kShopButtonBg => kDark ? const Color(0xFF059669) : const Color(0xFF047857);
+
 /// Promotional Home Screen Entry Card for CooBS PureSilver Essentials.
 class PureSilverEntry extends StatelessWidget {
   final ShopStore store;
@@ -13,96 +21,204 @@ class PureSilverEntry extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: store,
-    builder: (context, _) => Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: _ShopCard(
-        children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withAlpha(30),
-                  borderRadius: BorderRadius.circular(8),
+    builder: (context, _) => Container(
+      margin: const EdgeInsets.only(top: 16),
+      decoration: BoxDecoration(
+        color: kDark ? const Color(0xFF0C141F).withAlpha(230) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: kDark ? const Color(0xFF34D399).withAlpha(60) : const Color(0xFF10B981).withAlpha(45),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: kDark ? Colors.black.withAlpha(35) : const Color(0xFF047857).withAlpha(12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: kDark ? const Color(0xFF064E3B).withAlpha(120) : const Color(0xFF047857).withAlpha(20),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(
+                          color: kShopGreenBadgeBorder,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Icon(Icons.storefront_rounded, size: 18, color: kShopGreen),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: kShopGreenBadgeBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: kShopGreenBadgeBorder, width: 0.8),
+                      ),
+                      child: Text(
+                        'PURESILVER · SAMPLE SHOP',
+                        style: TextStyle(
+                          color: kShopGreen,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text(
-                  'PURESILVER · SAMPLE SHOP',
-                  style: TextStyle(
-                    color: Color(0xFF047857),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-              if (store.cartCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${store.cartCount} in basket',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                if (store.cartCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: kShopButtonBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${store.cartCount} in basket',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: kDark ? const Color(0xFF16202E) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: kLine.withAlpha(kDark ? 60 : 100), width: 0.8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: kShopGreen,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Pickup 4–6 PM',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: kInk,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Groceries, sorted.',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: kInk,
+              ],
             ),
-          ),
-          const Text(
-            'Explore grocery pickup with sample money. Your bank account is never charged.',
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              _featureTag(Icons.verified_outlined, 'Co-op Partner'),
-              _featureTag(Icons.local_shipping_outlined, 'Branch Pickup'),
-              _featureTag(Icons.percent_rounded, 'Co-op Subsidy'),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _action('Shop PureSilver', () => _open(context, false)),
-          if (store.orders.isNotEmpty)
-            _action(
-              'My sample orders (${store.orders.length})',
-              () => _open(context, true),
-              secondary: true,
+            const SizedBox(height: 10),
+            Text(
+              'Groceries, sorted.',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: kInk,
+                letterSpacing: -0.3,
+              ),
             ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              'Explore grocery pickup with sample money. Your bank account is never charged.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: kMut,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                _sampleItemChip('🌾 Premium Rice', '₱320'),
+                _sampleItemChip('🥚 Fresh Eggs', '₱120'),
+                _sampleItemChip('🥛 Dairy Milk', '₱95'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                _featureTag(Icons.verified_outlined, 'Co-op Partner'),
+                _featureTag(Icons.storefront_outlined, 'Central Mall Depot'),
+                _featureTag(Icons.percent_rounded, 'Co-op Subsidy'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _action('Shop PureSilver', () => _open(context, false)),
+            if (store.orders.isNotEmpty)
+              _action(
+                'My sample orders (${store.orders.length})',
+                () => _open(context, true),
+                secondary: true,
+              ),
+          ],
+        ),
       ),
     ),
   );
 
-  static Widget _featureTag(IconData icon, String text) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+  static Widget _sampleItemChip(String title, String price) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
     decoration: BoxDecoration(
       color: kInBg,
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: kLine.withAlpha(80)),
+      border: Border.all(color: kLine.withAlpha(60)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 11, color: const Color(0xFF047857)),
+        Text(title, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: kInk)),
+        const SizedBox(width: 4),
+        Text(price, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: kShopGreen)),
+      ],
+    ),
+  );
+
+  static Widget _featureTag(IconData icon, String text) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: kDark ? const Color(0xFF064E3B).withAlpha(100) : const Color(0xFFECFDF5),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: kDark ? const Color(0xFF34D399).withAlpha(60) : const Color(0xFF10B981).withAlpha(40),
+        width: 0.8,
+      ),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: kShopGreen),
         const SizedBox(width: 4),
         Flexible(
           child: Text(
@@ -111,7 +227,7 @@ class PureSilverEntry extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: kInk,
+              color: kShopGreen,
             ),
           ),
         ),
@@ -204,9 +320,24 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _back();
       },
-      child: Pg(_title, [
-        ..._content(),
-      ], onBack: _back),
+      child: Pg(
+        _title,
+        [..._content()],
+        onBack: _back,
+        actions: [
+          if (_view.page != _Page.cart)
+            IconButton(
+              tooltip: 'Shopping basket',
+              icon: Badge(
+                isLabelVisible: store.cartCount > 0,
+                label: Text('${store.cartCount}'),
+                backgroundColor: kShopButtonBg,
+                child: const Icon(Icons.shopping_basket_outlined, size: 22),
+              ),
+              onPressed: () => _go(_Page.cart),
+            ),
+        ],
+      ),
     ),
   );
 
@@ -257,14 +388,15 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withAlpha(30),
+                color: kShopGreenBadgeBg,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: kShopGreenBadgeBorder, width: 0.8),
               ),
-              child: const Text(
+              child: Text(
                 'COOPERATIVE ESSENTIALS DEPOT · ZERO MARKUP',
                 style: TextStyle(
-                  color: Color(0xFF047857),
-                  fontSize: 10.5,
+                  color: kShopGreen,
+                  fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
@@ -275,15 +407,19 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           Text(
             'Everyday essentials.',
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 24,
               fontWeight: FontWeight.w600,
               color: kInk,
             ),
           ),
-          const Text(
+          Text(
             'Bank-partner shopping concept. Collect at PureSilver Central Mall.',
+            style: TextStyle(color: kMut),
           ),
-          const Text('Sample branch · 4:00–6:00 PM pickup · No substitutions'),
+          Text(
+            'Sample branch · 4:00–6:00 PM pickup · No substitutions',
+            style: TextStyle(fontSize: 12, color: kMut),
+          ),
           const SizedBox(height: 4),
           Wrap(
             spacing: 6,
@@ -317,13 +453,13 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                   ),
                 ),
                 backgroundColor: kDark ? const Color(0xFF1E293B) : const Color(0xFFF3F4F6),
-                selectedColor: const Color(0xFF047857),
+                selectedColor: kShopButtonBg,
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                   side: BorderSide(
                     color: _selectedCategory == cat
-                        ? const Color(0xFF047857)
+                        ? kShopButtonBg
                         : (kDark ? Colors.white12 : const Color(0xFFE5E7EB)),
                   ),
                 ),
@@ -337,13 +473,13 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
         ),
       ),
       if (store.isLoading)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Center(
             child: SizedBox(
               height: 20,
               width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF047857)),
+              child: CircularProgressIndicator(strokeWidth: 2, color: kShopGreen),
             ),
           ),
         ),
@@ -354,7 +490,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
             side: BorderSide(
-              color: store.quantity(product.id) > 0 ? const Color(0xFF047857) : kLine,
+              color: store.quantity(product.id) > 0 ? kShopGreen : kLine,
               width: store.quantity(product.id) > 0 ? 1.5 : 1.0,
             ),
           ),
@@ -374,20 +510,23 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                         errorBuilder: (_, __, ___) => Icon(
                           _icon(product),
                           size: 28,
-                          color: const Color(0xFF047857),
+                          color: kShopGreen,
                         ),
                       )
-                    : Icon(_icon(product), size: 28, color: const Color(0xFF047857)),
+                    : Icon(_icon(product), size: 28, color: kShopGreen),
               ),
             ),
             title: Text(
               product.name,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: TextStyle(fontWeight: FontWeight.w600, color: kInk),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${product.unit} · ${product.badge}'),
+                Text(
+                  '${product.unit} · ${product.badge}',
+                  style: TextStyle(color: kMut, fontSize: 12),
+                ),
                 const SizedBox(height: 2),
                 Wrap(
                   spacing: 6,
@@ -396,7 +535,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                   children: [
                     Text(
                       shopMoney(product.priceCents),
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF047857)),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: kShopGreen),
                     ),
                     if (product.originalPriceCents > product.priceCents)
                       Text(
@@ -416,7 +555,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF047857),
+                      color: kShopButtonBg,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -424,7 +563,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                       style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   )
-                : const Icon(Icons.chevron_right),
+                : Icon(Icons.chevron_right, color: kMut),
             onTap: () => _go(_Page.product, product: product),
           ),
         ),
@@ -456,10 +595,10 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                     errorBuilder: (_, __, ___) => Icon(
                       _icon(product),
                       size: 68,
-                      color: const Color(0xFF047857),
+                      color: kShopGreen,
                     ),
                   )
-                : Icon(_icon(product), size: 68, color: const Color(0xFF047857)),
+                : Icon(_icon(product), size: 68, color: kShopGreen),
           ),
         ),
         const SizedBox(height: 8),
@@ -471,15 +610,16 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withAlpha(25),
+                color: kShopGreenBadgeBg,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: kShopGreenBadgeBorder, width: 0.8),
               ),
               child: Text(
                 product.badge,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF047857),
+                  color: kShopGreen,
                 ),
               ),
             ),
@@ -530,10 +670,10 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           children: [
             Text(
               shopMoney(product.priceCents),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF047857),
+                color: kShopGreen,
               ),
             ),
             if (product.originalPriceCents > product.priceCents)
@@ -588,7 +728,10 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                   store.quantity(product.id) - 1,
                 ),
               ),
-        icon: const Icon(Icons.remove_circle_outline),
+        icon: Icon(
+          Icons.remove_circle_outline,
+          color: store.quantity(product.id) == 0 ? kMut.withAlpha(100) : kShopGreen,
+        ),
       ),
       Expanded(
         child: Semantics(
@@ -596,6 +739,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           child: Text(
             'Quantity: ${store.quantity(product.id)}',
             textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.w600, color: kInk),
           ),
         ),
       ),
@@ -609,7 +753,10 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                   store.quantity(product.id) + 1,
                 ),
               ),
-        icon: const Icon(Icons.add_circle_outline),
+        icon: Icon(
+          Icons.add_circle_outline,
+          color: store.quantity(product.id) >= product.stock ? kMut.withAlpha(100) : kShopGreen,
+        ),
       ),
     ],
   );
@@ -619,9 +766,12 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
   // --------------------------------------------------------------------------
   List<Widget> _cart() => [
     if (store.cart.isEmpty)
-      const _ShopCard(
+      _ShopCard(
         children: [
-          Text('Your basket is empty. Add some essentials to get started.'),
+          Text(
+            'Your basket is empty. Add some essentials to get started.',
+            style: TextStyle(color: kMut),
+          ),
         ],
       ),
     for (final line in store.cart)
@@ -630,11 +780,19 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
           _kv(line.product.name, shopMoney(line.totalCents)),
           Text(
             '${shopMoney(line.product.priceCents)} each · ${line.product.unit}',
+            style: TextStyle(color: kMut, fontSize: 12),
           ),
           _quantity(line.product),
-          TextButton(
-            onPressed: () => store.setQuantity(line.product.id, 0),
-            child: Text('Remove ${line.product.name}'),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => store.setQuantity(line.product.id, 0),
+              style: TextButton.styleFrom(
+                foregroundColor: kDark ? const Color(0xFFF87171) : const Color(0xFFDC2626),
+              ),
+              icon: const Icon(Icons.delete_outline_rounded, size: 16),
+              label: Text('Remove ${line.product.name}'),
+            ),
           ),
         ],
       ),
@@ -643,7 +801,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF10B981)),
+              Icon(Icons.verified_user_outlined, size: 16, color: kShopGreen),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -677,10 +835,16 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
   // REVIEW & RESERVE
   // --------------------------------------------------------------------------
   List<Widget> _review(ShopQuote quote) => [
-    const _ShopCard(
+    _ShopCard(
       children: [
-        Text('Pickup · PureSilver Central Mall'),
-        Text('Sample slot: 4:00–6:00 PM. No real pickup is booked.'),
+        Text(
+          'Pickup · PureSilver Central Mall',
+          style: TextStyle(fontWeight: FontWeight.w600, color: kInk),
+        ),
+        Text(
+          'Sample slot: 4:00–6:00 PM. No real pickup is booked.',
+          style: TextStyle(color: kMut, fontSize: 12),
+        ),
       ],
     ),
     _ShopCard(
@@ -691,22 +855,27 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
             shopMoney(line.totalCents),
           ),
         _kv('Pickup fee', shopMoney(0)),
+        const Divider(height: 12),
         _kv('Total to reserve', shopMoney(quote.totalCents)),
       ],
     ),
     _ShopCard(
       children: [
-        const Text('Sample savings •••• 4821'),
+        Text(
+          'Sample savings •••• 4821',
+          style: TextStyle(fontWeight: FontWeight.w600, color: kInk),
+        ),
         _kv('Available', shopMoney(store.availableCents)),
         if (store.availableCents >= quote.totalCents)
           _kv('After hold', shopMoney(store.availableCents - quote.totalCents))
         else
           Text(
             'Not enough sample funds. Reduce your basket or release another eligible sample hold.',
-            style: TextStyle(color: kRed),
+            style: TextStyle(color: kRed, fontWeight: FontWeight.w600),
           ),
-        const Text(
+        Text(
           'Reserve now; simulate collection to pay. Cancel only before preparation begins.',
+          style: TextStyle(color: kMut, fontSize: 11.5),
         ),
       ],
     ),
@@ -732,26 +901,32 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
   // --------------------------------------------------------------------------
   List<Widget> _orders() => [
     if (store.orders.isEmpty)
-      const _ShopCard(children: [Text('No sample orders yet.')]),
+      _ShopCard(children: [Text('No sample orders yet.', style: TextStyle(color: kMut))]),
     for (final order in store.orders)
       Card(
+        elevation: 0,
+        margin: const EdgeInsets.symmetric(vertical: 4),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: kLine),
         ),
+        color: kSurface,
         child: ListTile(
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF047857).withAlpha(25),
+              color: kShopGreenBadgeBg,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.qr_code_rounded, color: Color(0xFF047857), size: 24),
+            child: Icon(Icons.qr_code_rounded, color: kShopGreen, size: 24),
           ),
-          title: Text(order.reference),
-          subtitle: Text('${order.status}\n${shopMoney(order.totalCents)}'),
+          title: Text(order.reference, style: TextStyle(fontWeight: FontWeight.bold, color: kInk)),
+          subtitle: Text(
+            '${order.status}\n${shopMoney(order.totalCents)}',
+            style: TextStyle(color: kMut),
+          ),
           isThreeLine: true,
-          trailing: const Icon(Icons.chevron_right),
+          trailing: Icon(Icons.chevron_right, color: kMut),
           onTap: () => _go(_Page.order, order: order),
         ),
       ),
@@ -766,7 +941,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
       children: [
         Text(
           order.reference,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(fontWeight: FontWeight.w600, color: kMut),
         ),
         Semantics(
           liveRegion: true,
@@ -779,30 +954,47 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
             ),
           ),
         ),
-        Text('Order total: ${shopMoney(order.totalCents)}'),
+        Text(
+          'Order total: ${shopMoney(order.totalCents)}',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kInk),
+        ),
         const SizedBox(height: 8),
 
-        // Digital Pickup Pass Visual Box
+        // Digital Pickup Pass Visual Ticket Box
         Center(
           child: Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(kDark ? 40 : 10),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: Column(
               children: [
                 const Icon(Icons.qr_code_2_rounded, size: 84, color: Color(0xFF0F172A)),
                 const SizedBox(height: 4),
-                Text(
-                  'PICKUP PASS: ${order.pickupPassToken ?? order.reference}',
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                    color: Color(0xFF0F172A),
-                    letterSpacing: 0.8,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'PICKUP PASS: ${order.pickupPassToken ?? order.reference}',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: 0.8,
+                    ),
                   ),
                 ),
               ],
@@ -812,10 +1004,11 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
       ],
     ),
     if (order.paymentUnknown) ...[
-      const _ShopCard(
+      _ShopCard(
         children: [
           Text(
             'The reply was lost. This is not a failed payment. Check the same order; do not pay again.',
+            style: TextStyle(color: kInk),
           ),
         ],
       ),
@@ -823,13 +1016,16 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
     ] else ...[
       _ShopCard(
         children: [
-          Text(switch (order.stage) {
-            ShopStage.completed =>
-              'Sample payment captured once. PureSilver paid.',
-            ShopStage.cancelled => 'Hold released. PureSilver was not paid.',
-            _ =>
-              'Money remains held in sample savings. PureSilver has not been paid.',
-          }),
+          Text(
+            switch (order.stage) {
+              ShopStage.completed =>
+                'Sample payment captured once. PureSilver paid.',
+              ShopStage.cancelled => 'Hold released. PureSilver was not paid.',
+              _ =>
+                'Money remains held in sample savings. PureSilver has not been paid.',
+            },
+            style: TextStyle(color: kInk),
+          ),
           const Divider(height: 14),
           if (order.holdId != null) ...[
             _kv('Authorization Hold', '#${order.holdId}'),
@@ -853,7 +1049,7 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
                         : Icons.radio_button_unchecked,
                     size: 16,
                     color: order.stage != ShopStage.cancelled && stage.index <= order.stage.index
-                        ? const Color(0xFF10B981)
+                        ? (kDark ? const Color(0xFF34D399) : const Color(0xFF10B981))
                         : kMut,
                   ),
                   const SizedBox(width: 8),
@@ -878,11 +1074,15 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
         ],
       ),
       if (order.stage == ShopStage.ready)
-        const _ShopCard(
+        _ShopCard(
           children: [
-            Text('PureSilver Central Mall · 4:00–6:00 PM'),
+            Text(
+              'PureSilver Central Mall · 4:00–6:00 PM',
+              style: TextStyle(fontWeight: FontWeight.bold, color: kInk),
+            ),
             Text(
               'DEMO pickup reference only. No real order can be collected. The store must verify collection in a live integration.',
+              style: TextStyle(color: kMut, fontSize: 12),
             ),
           ],
         ),
@@ -907,7 +1107,11 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
       if (order.stage == ShopStage.completed)
         _ShopCard(
           children: [
-            const Text('Sample receipt · No rewards or cashback promised.'),
+            Text(
+              'Sample receipt · No rewards or cashback promised.',
+              style: TextStyle(fontWeight: FontWeight.bold, color: kInk),
+            ),
+            const Divider(height: 12),
             for (final line in order.quote.lines)
               _kv(
                 '${line.quantity} × ${line.product.name}',
@@ -919,9 +1123,10 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
     if (order.supportCase != null)
       _ShopCard(
         children: [
-          Text('Sample case: ${order.supportCase}'),
-          const Text(
+          Text('Sample case: ${order.supportCase}', style: TextStyle(color: kInk)),
+          Text(
             'Under review in this demo. No staff were contacted. Unpaid orders cannot progress or cancel while under review.',
+            style: TextStyle(color: kMut, fontSize: 12),
           ),
         ],
       ),
@@ -937,12 +1142,14 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
   List<Widget> _confirm(ShopOrder order) => [
     _ShopCard(
       children: [
-        Text(order.reference),
+        Text(order.reference, style: TextStyle(fontWeight: FontWeight.bold, color: kInk)),
         Text(
           'Pay ${shopMoney(order.totalCents)} from the existing sample hold.',
+          style: TextStyle(fontWeight: FontWeight.w600, color: kInk),
         ),
-        const Text(
+        Text(
           'In the real flow, the store verifies collection and you check the goods. Here, this only completes a simulated purchase.',
+          style: TextStyle(color: kMut, fontSize: 12),
         ),
       ],
     ),
@@ -961,18 +1168,20 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
   });
 
   List<Widget> _help(ShopOrder order) => [
-    const _ShopCard(
+    _ShopCard(
       children: [
         Text(
           'PureSilver: products, pickup and cancellation after preparation.',
+          style: TextStyle(fontWeight: FontWeight.bold, color: kInk),
         ),
-        Text('CooBS: holds, debits and payment status.'),
+        Text('CooBS: holds, debits and payment status.', style: TextStyle(color: kInk)),
         Text(
           'This prototype cannot contact either support team or issue refunds. A completed payment needs a separate refund process.',
+          style: TextStyle(color: kMut, fontSize: 12),
         ),
       ],
     ),
-    if (order.supportCase != null) Text('Sample case: ${order.supportCase}'),
+    if (order.supportCase != null) Text('Sample case: ${order.supportCase}', style: TextStyle(color: kInk)),
     _action(
       'Simulate support case',
       () => _run(() {
@@ -986,15 +1195,17 @@ class _PureSilverScreenState extends State<PureSilverScreen> {
 IconData _icon(ShopProduct product) {
   final id = product.id.toLowerCase();
   final name = product.name.toLowerCase();
-  if (id == 'rice' || name.contains('rice')) {
-    return Icons.rice_bowl_outlined;
+  final cat = product.category.toLowerCase();
+  if (id.contains('rice') || name.contains('rice')) return Icons.rice_bowl_outlined;
+  if (id.contains('egg') || name.contains('egg')) return Icons.egg_outlined;
+  if (id.contains('milk') || name.contains('milk')) return Icons.local_drink_outlined;
+  if (name.contains('banana') || name.contains('apple') || cat.contains('produce') || name.contains('tomato')) {
+    return Icons.eco_outlined;
   }
-  if (id == 'eggs' || name.contains('egg')) {
-    return Icons.egg_outlined;
+  if (name.contains('oil') || name.contains('sugar') || cat.contains('pantry')) {
+    return Icons.kitchen_outlined;
   }
-  if (id == 'milk' || name.contains('milk')) {
-    return Icons.local_drink_outlined;
-  }
+  if (cat.contains('bakery')) return Icons.bakery_dining_outlined;
   return Icons.shopping_basket_outlined;
 }
 
@@ -1002,12 +1213,12 @@ Widget _kv(String k, String v) => Row(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
     Expanded(
-      child: Text(k, style: TextStyle(color: kMut)),
+      child: Text(k, style: TextStyle(color: kMut, fontSize: 13)),
     ),
     const SizedBox(width: 12),
     Text(
       v,
-      style: TextStyle(fontWeight: FontWeight.w600, color: kInk),
+      style: TextStyle(fontWeight: FontWeight.w600, color: kInk, fontSize: 13),
     ),
   ],
 );
@@ -1023,21 +1234,30 @@ Widget _action(
     child: secondary
         ? OutlinedButton(
             onPressed: onPressed,
-            child: Text(label, textAlign: TextAlign.center),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: kShopGreen,
+              side: BorderSide(color: kShopGreen.withAlpha(kDark ? 140 : 120)),
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600)),
           )
         : FilledButton(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF047857),
+              backgroundColor: kShopButtonBg,
               foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(52),
+              disabledBackgroundColor: kDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              disabledForegroundColor: kMut,
+              minimumSize: const Size.fromHeight(50),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
             ),
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
             ),
           ),
   ),
@@ -1045,17 +1265,19 @@ Widget _action(
 
 class _ShopCard extends StatelessWidget {
   final List<Widget> children;
-  const _ShopCard({required this.children});
+  final EdgeInsetsGeometry? padding;
+  const _ShopCard({required this.children, this.padding});
   @override
   Widget build(BuildContext context) => Card(
     color: kSurface,
     elevation: 0,
+    margin: const EdgeInsets.symmetric(vertical: 5),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(20),
       side: BorderSide(color: kLine),
     ),
     child: Padding(
-      padding: const EdgeInsets.all(18),
+      padding: padding ?? const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

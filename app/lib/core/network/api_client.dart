@@ -356,6 +356,20 @@ class ApiClient {
     );
   }
 
+  int _resolveMockUserId(String username) {
+    final str = username.toLowerCase().trim();
+    if (str.contains('grace')) return 9;
+    if (str.contains('maria')) return 2;
+    if (str.contains('andrea')) return 5;
+    if (str.contains('juan')) return 4;
+    if (str.contains('robert')) return 3;
+    if (str.contains('lisa')) return 6;
+    if (str.contains('michael')) return 7;
+    if (str.contains('david')) return 8;
+    if (str.contains('pedro')) return 10;
+    return 1;
+  }
+
   /// Intercepts network calls in offline air-gapped fixture mode (Handshake H15).
   Future<Map<String, dynamic>> _interceptWithFixture(
     String method,
@@ -370,7 +384,19 @@ class ApiClient {
     }
 
     final fixtureFile = _resolveFixtureFilename(path, queryParams);
-    return loadFixtureJson(fixtureFile);
+    final res = await loadFixtureJson(fixtureFile);
+    if ((path.contains('login') || path.contains('/auth/token')) && body is Map && body['username'] != null) {
+      final uname = '${body['username']}';
+      final copy = Map<String, dynamic>.from(res);
+      if (copy['authData'] is Map) {
+        final auth = Map<String, dynamic>.from(copy['authData'] as Map);
+        auth['username'] = uname;
+        auth['userId'] = _resolveMockUserId(uname);
+        copy['authData'] = auth;
+        return copy;
+      }
+    }
+    return res;
   }
 
   /// Resolves the corresponding JSON mock fixture filename based on the API route.

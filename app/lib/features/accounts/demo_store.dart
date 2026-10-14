@@ -600,9 +600,11 @@ class Demo extends ChangeNotifier {
   void _alert(String m) => alerts.insert(0, [m, 'Just now']);
 
   /// Loads Customer 360 data from the fixtures (M1, K5, K6, N1) or live gateway.
-  Future<void> load() async {
-    state = LoadState.loading;
-    notifyListeners();
+  Future<void> load({bool silent = false}) async {
+    if (!silent || state == LoadState.loading) {
+      state = LoadState.loading;
+      notifyListeners();
+    }
     try {
       if (forced == 'offline') throw Exception('simulated outage');
       Map<String, dynamic> m1;
@@ -854,7 +856,7 @@ class Demo extends ChangeNotifier {
         if (c3['kycStatus'] != null && !_kycTouched) {
           kyc = '${c3['kycStatus']}';
         }
-        if (c3['displayName'] != null && '${c3['displayName']}'.isNotEmpty && (memberName.isEmpty || memberName == 'Member' || memberName == 'John D.')) {
+        if (c3['displayName'] != null && '${c3['displayName']}'.isNotEmpty) {
           memberName = '${c3['displayName']}';
         }
         if (c3['totals'] is Map) {
@@ -893,7 +895,7 @@ class Demo extends ChangeNotifier {
       if (c3['kycStatus'] != null && !_kycTouched) {
         kyc = '${c3['kycStatus']}';
       }
-      if (c3['displayName'] != null && '${c3['displayName']}'.isNotEmpty && (memberName.isEmpty || memberName == 'Member' || memberName == 'John D.')) {
+      if (c3['displayName'] != null && '${c3['displayName']}'.isNotEmpty) {
         memberName = '${c3['displayName']}';
       }
       if (c3['totals'] is Map) {
@@ -963,6 +965,27 @@ class Demo extends ChangeNotifier {
         if (tx.ref == cleanRef) {
           tx.status = newStatus;
           if (failureCode != null) tx.failureCode = failureCode;
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  void autoSettlePendingTransfers() {
+    bool changed = false;
+    for (final pTx in _pendingLocalTx) {
+      if (pTx.status.toUpperCase() == 'PROCESSING' || pTx.status.toUpperCase() == 'INITIATED') {
+        pTx.status = 'POSTED';
+        changed = true;
+      }
+    }
+    for (final a in accts) {
+      for (final tx in a.tx) {
+        if (tx.status.toUpperCase() == 'PROCESSING' || tx.status.toUpperCase() == 'INITIATED') {
+          tx.status = 'POSTED';
           changed = true;
         }
       }

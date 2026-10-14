@@ -73,20 +73,31 @@ class ShopProduct {
         (json['stock'] as num?)?.toInt() ??
         10;
 
+    final localMatch = shopProducts.where((p) {
+      if (p.id == id) return true;
+      if (sku.isNotEmpty && p.sku != null && p.sku == sku) return true;
+      if (p.name.toLowerCase() == lowerName) return true;
+      return false;
+    }).firstOrNull;
+
+    final resolvedImageUrl = (json['imageUrl'] != null && json['imageUrl'].toString().isNotEmpty)
+        ? json['imageUrl'].toString()
+        : localMatch?.imageUrl;
+
     return ShopProduct(
       id,
       name,
-      json['unit']?.toString() ?? '1 pc',
+      json['unit']?.toString() ?? localMatch?.unit ?? '1 pc',
       priceCents,
       stock,
-      originalPriceCents: originalPriceCents,
-      category: json['category']?.toString() ?? 'Essentials',
-      badge: json['badge']?.toString() ?? 'Co-op Subsidy',
-      rating: (json['rating'] as num?)?.toDouble() ?? 4.9,
-      farmSource: json['farmSource']?.toString() ?? 'Local Producer Co-op',
-      backendProductId: (json['productId'] as num?)?.toInt(),
-      sku: sku.isNotEmpty ? sku : null,
-      imageUrl: json['imageUrl']?.toString(),
+      originalPriceCents: originalPriceCents > 0 ? originalPriceCents : (localMatch?.originalPriceCents ?? 0),
+      category: json['category']?.toString() ?? localMatch?.category ?? 'Essentials',
+      badge: json['badge']?.toString() ?? localMatch?.badge ?? 'Co-op Subsidy',
+      rating: (json['rating'] as num?)?.toDouble() ?? localMatch?.rating ?? 4.9,
+      farmSource: json['farmSource']?.toString() ?? localMatch?.farmSource ?? 'Local Producer Co-op',
+      backendProductId: (json['productId'] as num?)?.toInt() ?? localMatch?.backendProductId,
+      sku: sku.isNotEmpty ? sku : localMatch?.sku,
+      imageUrl: resolvedImageUrl,
     );
   }
 }
@@ -561,7 +572,18 @@ class ShopStore extends ChangeNotifier {
             .map((j) => ShopProduct.fromJson(j))
             .toList();
         if (parsed.isNotEmpty) {
-          _products = parsed;
+          final merged = List<ShopProduct>.of(_products);
+          for (final liveProd in parsed) {
+            final idx = merged.indexWhere(
+              (p) => p.id == liveProd.id || (p.sku != null && liveProd.sku != null && p.sku == liveProd.sku),
+            );
+            if (idx != -1) {
+              merged[idx] = liveProd;
+            } else {
+              merged.add(liveProd);
+            }
+          }
+          _products = merged;
         }
       }
 
