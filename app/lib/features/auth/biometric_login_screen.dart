@@ -11,6 +11,7 @@ import '../../core/storage/secure_storage_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
+import '../data/mobile_repo.dart';
 import 'auth_screens.dart';
 
 /// Dedicated Biometric "Second Login Screen" for returning members.
@@ -96,11 +97,12 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen> with Single
     if (_isLoading || bioUser == null) return;
     setState(() => _isLoading = true);
 
+    String? refreshToken;
     try {
       final authenticated = await _biometrics.authenticate('Log in to CooBS as $bioUser');
       if (!authenticated) return;
 
-      final refreshToken = await _storage.getBiometricRefreshToken();
+      refreshToken = await _storage.getBiometricRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) {
         await _expireBiometricLogin();
         return;
@@ -115,13 +117,15 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen> with Single
         throw UnauthorizedException('Invalid refresh response');
       }
 
+      final resolvedUid = token.userId > 0 ? token.userId : MobileRepo.resolveCustomerId(bioUser);
       await _storage.saveTokens(
-        accessToken: token.accessToken,
+        accessToken: token.accessToken.isNotEmpty ? token.accessToken : 'demo-token-$bioUser',
         refreshToken: token.refreshToken,
-        userId: token.userId > 0 ? token.userId : 1,
+        userId: resolvedUid,
         username: bioUser,
       );
 
+      await Demo.i.fetchScoresAndHabits(resolvedUid);
       await Demo.i.load();
       if (mounted) {
         toApp(context, 'Welcome back, $bioUser');

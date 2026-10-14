@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/storage/secure_storage_service.dart';
 import '../../core/theme/theme_controller.dart';
 import '../accounts/demo_store.dart';
 import '../accounts/ui.dart';
+import '../data/mobile_repo.dart';
 import 'deals_catalog.dart';
 
 /// One debit transaction: activity, receiver, txn no., date, amount, account used.
@@ -83,6 +85,130 @@ class _ScoresPageState extends State<ScoresPage> {
   static const chk = [32.0, 28, 41, 25, 30, 36, 29, 33, 38, 22];
   static const sav = [12.0, 10, 14, 8, 11, 9, 15, 12, 10, 6];
 
+  void _showReseedMemberModal() {
+    final personas = [
+      {'id': 1, 'name': 'John D.', 'score': 750, 'tier': 'Tier 3 Prime', 'user': 'john_doe'},
+      {'id': 2, 'name': 'Maria S.', 'score': 790, 'tier': 'Tier 3 Full', 'user': 'maria_santos'},
+      {'id': 4, 'name': 'Juan D.', 'score': 780, 'tier': 'Tier 3 Full', 'user': 'juan_delacruz'},
+      {'id': 3, 'name': 'David K.', 'score': 735, 'tier': 'Tier 3 Full', 'user': 'david_kim'},
+      {'id': 10, 'name': 'Carmela G.', 'score': 720, 'tier': 'Tier 3 Full', 'user': 'carmela_garcia'},
+      {'id': 9, 'name': 'Grace P.', 'score': 600, 'tier': 'Tier 1 Basic', 'user': 'grace_poe'},
+      {'id': 5, 'name': 'Andrea R.', 'score': 540, 'tier': 'Tier 1 Basic', 'user': 'andrea_ramos'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: kSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Reseed Member Profile',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: kInk,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              Text(
+                'Switch member to immediately reseed live score, tier, and category spending habits.',
+                style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMut),
+              ),
+              const SizedBox(height: 14),
+              for (final p in personas)
+                InkWell(
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await SecureStorageService().saveTokens(
+                      accessToken: 'reseed-token-${p['user']}',
+                      userId: p['id'] as int,
+                      username: p['user'] as String,
+                    );
+                    await Demo.i.fetchScoresAndHabits(p['id']);
+                    if (mounted) {
+                      snack(context, 'Reseeded profile for ${p['name']} (Score: ${p['score']})');
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: (Demo.i.creditScore == p['score']) ? kInBg : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: (Demo.i.creditScore == p['score']) ? kNavyFg : kLine,
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: kDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                              child: Text(
+                                (p['name'] as String).substring(0, 1),
+                                style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, color: kNavyFg),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${p['name']} (@${p['user']})',
+                                  style: TextStyle(fontFamily: 'Poppins', fontSize: 13, fontWeight: FontWeight.w600, color: kInk),
+                                ),
+                                Text(
+                                  '${p['tier']}',
+                                  style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: kMut),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: kNavyFg.withAlpha(20),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${p['score']}',
+                            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold, fontSize: 14, color: kNavyFg),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget scoreCard() {
     final score = Demo.i.creditScore ?? 750;
     final rating = score >= 800 ? 'Exceptional' : (score >= 740 ? 'Very Good' : (score >= 670 ? 'Good' : 'Fair'));
@@ -148,14 +274,49 @@ class _ScoresPageState extends State<ScoresPage> {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              'Range: 300 – 850 · Seeded reference',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: kMut,
-              ),
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                Text(
+                  'Range: 300 – 850 · Seeded reference',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: kMut,
+                  ),
+                ),
+                InkWell(
+                  onTap: _showReseedMemberModal,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: kInBg,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: kNavyFg.withAlpha(60), width: 0.7),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.swap_horiz_rounded, size: 13, color: kNavyFg),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Reseed',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: kNavyFg,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 18),
             ClipRRect(
@@ -1891,20 +2052,22 @@ class _ScoresPageState extends State<ScoresPage> {
         for (final d in all.skip(page * per).take(per)) {
           g.putIfAbsent(d.date, () => []).add(d);
         }
-        return Pg('Scores and Habits', [
-          scoreCard(),
-          const SizedBox(height: 8),
-          financialHealthNudgesCard(),
-          const SizedBox(height: 8),
-          _buildDealsQuickBanner(),
-          const SizedBox(height: 8),
-          totalsCard(),
-          const SizedBox(height: 8),
-          spendingBreakdownCard(),
-          const SizedBox(height: 8),
-          smartEnvelopesCard(),
-          const SizedBox(height: 8),
-          chart(),
+        return Pg(
+          'Scores and Habits',
+          [
+            scoreCard(),
+            const SizedBox(height: 8),
+            financialHealthNudgesCard(),
+            const SizedBox(height: 8),
+            _buildDealsQuickBanner(),
+            const SizedBox(height: 8),
+            totalsCard(),
+            const SizedBox(height: 8),
+            spendingBreakdownCard(),
+            const SizedBox(height: 8),
+            smartEnvelopesCard(),
+            const SizedBox(height: 8),
+            chart(),
           Padding(
             padding: const EdgeInsets.only(top: 20, bottom: 4),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -2001,7 +2164,20 @@ class _ScoresPageState extends State<ScoresPage> {
         ],
         onBack: widget.onBack,
         controller: _scrollController,
+        onRefresh: () async {
+          await Demo.i.fetchScoresAndHabits();
+        },
         actions: [
+          IconButton(
+            icon: const Icon(Icons.sync_rounded),
+            tooltip: 'Reseed & Refresh Profile',
+            onPressed: () async {
+              await Demo.i.fetchScoresAndHabits();
+              if (context.mounted) {
+                snack(context, 'Reseeded profile for ${Demo.i.memberName} (Score: ${Demo.i.creditScore ?? 750})');
+              }
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Center(

@@ -117,12 +117,12 @@ void main() {
       final store = ShopStore();
       addTearDown(store.dispose);
 
-      expect(store.products.length, 3);
+      expect(store.products.length, shopProducts.length);
       expect(store.orders, isEmpty);
 
       // In fixture mode, syncFromBackend safely returns without modifying store
       await store.syncFromBackend();
-      expect(store.products.length, 3);
+      expect(store.products.length, shopProducts.length);
       expect(store.orders, isEmpty);
       expect(store.isLoading, isFalse);
     });

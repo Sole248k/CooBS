@@ -21,7 +21,10 @@ class AdService {
   /// Rolls for an ad based on strict probability rules:
   /// - Image 2 (Umamusume): 1 in 2,000 (0.05%)
   /// - Image 1 (CooBS Duo): 1 in 1,000 (0.10%, i.e. 2 in 2,000)
-  /// - Image 3 (CooBS Solo): Most frequent (1,997 in 2,000 = 99.85%)
+  /// - Image 4 (Oggy Crossover): 1 in 500 (0.20%, i.e. 4 in 2,000)
+  /// - Image 5 (Uma x Miku): 1 in 500 (0.20%, i.e. 4 in 2,000)
+  /// - Image 6 (Chiikawa Duo): 1 in 500 (0.20%, i.e. 4 in 2,000)
+  /// - Image 3 (CooBS Solo): Most frequent (1,985 in 2,000 = 99.25%)
   ///
   /// Pass [forceRoll] (0..1999) or a seeded [random] for deterministic test coverage.
   static AdItem pickAd({Random? random, int? forceRoll}) {
@@ -29,13 +32,22 @@ class AdService {
     final roll = forceRoll ?? rng.nextInt(2000); // 0 .. 1999
 
     if (roll == 0) {
-      // 1 in 2,000 (0.05%) -> Second image
+      // 1 in 2,000 (0.05%) -> Second image (Umamusume Easter Egg)
       return AdItem.umamusume;
     } else if (roll == 1 || roll == 2) {
-      // 2 in 2,000 = 1 in 1,000 (0.10%) -> First image
+      // 2 in 2,000 = 1 in 1,000 (0.10%) -> First image (CooBS Duo)
       return AdItem.duo;
+    } else if (roll >= 3 && roll <= 6) {
+      // 4 in 2,000 = 1 in 500 (0.20%) -> Fourth image (Oggy & Friends Crossover)
+      return AdItem.oggyCrossover;
+    } else if (roll >= 7 && roll <= 10) {
+      // 4 in 2,000 = 1 in 500 (0.20%) -> Fifth image (Uma Musume x Miku Campaign)
+      return AdItem.umaMiku;
+    } else if (roll >= 11 && roll <= 14) {
+      // 4 in 2,000 = 1 in 500 (0.20%) -> Sixth image (Chiikawa & Usagi Duo)
+      return AdItem.chiikawaDuo;
     } else {
-      // 1,997 in 2,000 (99.85%) -> Third image, most frequent
+      // 1,985 in 2,000 (99.25%) -> Third image, most frequent (CooBS Solo)
       return AdItem.solo;
     }
   }

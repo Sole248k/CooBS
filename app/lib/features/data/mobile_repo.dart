@@ -257,19 +257,51 @@ class MobileRepo {
     return body;
   }
 
+  /// Resolves known member aliases or numeric IDs to seeded customer IDs.
+  static int resolveCustomerId([dynamic idOrUsername]) {
+    if (idOrUsername == null) return 1;
+    final str = '$idOrUsername'.toLowerCase().trim();
+    final parsed = int.tryParse(str);
+    if (parsed != null && parsed > 0) return parsed;
+    if (str.contains('grace') || str.contains('pangilinan') || str.contains('poe')) return 9;
+    if (str.contains('maria') || str.contains('santos')) return 2;
+    if (str.contains('andrea') || str.contains('ramos') || str.contains('reyes')) return 5;
+    if (str.contains('juan') || str.contains('delacruz')) return 4;
+    if (str.contains('david') || str.contains('kim')) return 3;
+    if (str.contains('jose') || str.contains('bautista')) return 6;
+    if (str.contains('liza') || str.contains('mercado') || str.contains('lisa')) return 7;
+    if (str.contains('ramon') || str.contains('villanueva')) return 8;
+    if (str.contains('carmela') || str.contains('garcia') || str.contains('pedro')) return 10;
+    if (str.contains('john') || str.contains('doe')) return 1;
+    return 1;
+  }
+
   /// C3: Customer 360 Aggregator (Credit score, spending habits, totals)
   static Future<Map<String, dynamic>> customer360([dynamic customerId]) async {
+    dynamic effectiveId = customerId;
+    if (effectiveId == null || '$effectiveId'.isEmpty || '$effectiveId' == 'me' || '$effectiveId' == '0') {
+      final storedId = await _api.storage.getUserId();
+      if (storedId != null && storedId > 0) {
+        effectiveId = storedId;
+      } else {
+        final storedUsername = await _api.storage.getUsername();
+        if (storedUsername != null && storedUsername.isNotEmpty) {
+          effectiveId = resolveCustomerId(storedUsername);
+        }
+      }
+    }
+
     if (!AppConfig.useFixtures) {
       try {
-        dynamic effectiveId = customerId;
-        if (effectiveId == null || '$effectiveId'.isEmpty || '$effectiveId' == 'me' || '$effectiveId' == '0') {
-          final storedId = await _api.storage.getUserId();
-          if (storedId != null && storedId > 0) {
-            effectiveId = storedId;
+        // 1. Query /customers/me/360 endpoint first (authenticated principal avoids ID mismatch)
+        try {
+          final res = await _api.get('/customers/me/360');
+          if (res.isNotEmpty && (res['creditScore'] != null || res['totals'] != null || res['spendingBreakdown'] != null)) {
+            return res;
           }
-        }
+        } catch (_) {}
 
-        // 1. Query canonical /{customerId}/360 endpoint
+        // 2. Query canonical /{customerId}/360 endpoint
         if (effectiveId != null && '$effectiveId'.isNotEmpty && '$effectiveId' != 'me' && '$effectiveId' != '0') {
           try {
             final res = await _api.get('/customers/$effectiveId/360');
@@ -278,48 +310,124 @@ class MobileRepo {
             }
           } catch (_) {}
         }
-
-        // 2. Query /customers/me/360 endpoint
-        try {
-          final res = await _api.get('/customers/me/360');
-          if (res.isNotEmpty && (res['creditScore'] != null || res['totals'] != null || res['spendingBreakdown'] != null)) {
-            return res;
-          }
-        } catch (_) {}
       } catch (_) {}
     }
     try {
       final fixture = await ApiClient().loadFixtureJson('C3-customer-360.response.json');
-      dynamic effectiveId = customerId;
-      if (effectiveId == null || '$effectiveId'.isEmpty || '$effectiveId' == 'me' || '$effectiveId' == '0') {
-        final storedId = await _api.storage.getUserId();
-        if (storedId != null && storedId > 0) {
-          effectiveId = storedId;
-        }
-      }
-      final cid = int.tryParse('$effectiveId');
-      if (cid != null) {
-        if (cid == 9) {
+      final cid = resolveCustomerId(effectiveId);
+
+      switch (cid) {
+        case 9:
           fixture['customerId'] = 9;
           fixture['displayName'] = 'Grace P.';
           fixture['creditScore'] = 600;
           fixture['kycTier'] = 'TIER_1_BASIC';
-        } else if (cid == 2) {
+          fixture['totals'] = {'deposits': '15400.00', 'loans': '0.00'};
+          fixture['spendingBreakdown'] = {
+            'periodDays': 30,
+            'items': [
+              {'category': 'Utilities & Bills', 'amount': '5200.00', 'count': 4},
+              {'category': 'Groceries & Food', 'amount': '3100.00', 'count': 6},
+              {'category': 'Transportation', 'amount': '2400.00', 'count': 10},
+              {'category': 'Other', 'amount': '1100.00', 'count': 3},
+            ]
+          };
+          break;
+        case 2:
           fixture['customerId'] = 2;
           fixture['displayName'] = 'Maria S.';
           fixture['creditScore'] = 790;
           fixture['kycTier'] = 'TIER_3_FULL';
-        } else if (cid == 5) {
+          fixture['totals'] = {'deposits': '185000.00', 'loans': '0.00'};
+          fixture['spendingBreakdown'] = {
+            'periodDays': 30,
+            'items': [
+              {'category': 'Groceries & Food', 'amount': '12500.00', 'count': 15},
+              {'category': 'Shopping & Retail', 'amount': '8400.00', 'count': 8},
+              {'category': 'Utilities & Bills', 'amount': '3800.00', 'count': 3},
+              {'category': 'Entertainment', 'amount': '2900.00', 'count': 4},
+            ]
+          };
+          break;
+        case 3:
+          fixture['customerId'] = 3;
+          fixture['displayName'] = 'David K.';
+          fixture['creditScore'] = 735;
+          fixture['kycTier'] = 'TIER_3_FULL';
+          fixture['totals'] = {'deposits': '100000.00', 'loans': '0.00'};
+          fixture['spendingBreakdown'] = {
+            'periodDays': 30,
+            'items': [
+              {'category': 'Shopping & Retail', 'amount': '14500.00', 'count': 12},
+              {'category': 'Groceries & Food', 'amount': '8200.00', 'count': 9},
+              {'category': 'Transportation', 'amount': '4100.00', 'count': 7},
+            ]
+          };
+          break;
+        case 5:
           fixture['customerId'] = 5;
           fixture['displayName'] = 'Andrea R.';
           fixture['creditScore'] = 540;
           fixture['kycTier'] = 'TIER_1_BASIC';
-        } else if (cid == 4) {
+          fixture['totals'] = {'deposits': '8250.00', 'loans': '25000.00'};
+          fixture['spendingBreakdown'] = {
+            'periodDays': 30,
+            'items': [
+              {'category': 'Transportation', 'amount': '6800.00', 'count': 18},
+              {'category': 'Utilities & Bills', 'amount': '4300.00', 'count': 5},
+              {'category': 'Groceries & Food', 'amount': '2200.00', 'count': 4},
+              {'category': 'Entertainment', 'amount': '500.00', 'count': 1},
+            ]
+          };
+          break;
+        case 4:
           fixture['customerId'] = 4;
           fixture['displayName'] = 'Juan D.';
           fixture['creditScore'] = 780;
           fixture['kycTier'] = 'TIER_3_FULL';
-        }
+          fixture['totals'] = {'deposits': '72000.00', 'loans': '45000.00'};
+          fixture['spendingBreakdown'] = {
+            'periodDays': 30,
+            'items': [
+              {'category': 'Groceries & Food', 'amount': '9800.00', 'count': 11},
+              {'category': 'Utilities & Bills', 'amount': '4600.00', 'count': 4},
+              {'category': 'Transportation', 'amount': '3200.00', 'count': 9},
+              {'category': 'Shopping & Retail', 'amount': '2800.00', 'count': 5},
+            ]
+          };
+          break;
+        case 10:
+          fixture['customerId'] = 10;
+          fixture['displayName'] = 'Carmela G.';
+          fixture['creditScore'] = 720;
+          fixture['kycTier'] = 'TIER_3_FULL';
+          fixture['totals'] = {'deposits': '8000.00', 'loans': '0.00'};
+          fixture['spendingBreakdown'] = {
+            'periodDays': 30,
+            'items': [
+              {'category': 'Groceries & Food', 'amount': '3400.00', 'count': 5},
+              {'category': 'Utilities & Bills', 'amount': '2100.00', 'count': 3},
+            ]
+          };
+          break;
+        case 1:
+        default:
+          fixture['customerId'] = 1;
+          fixture['displayName'] = 'John D.';
+          fixture['creditScore'] = 750;
+          fixture['kycTier'] = 'TIER_3_FULL';
+          fixture['totals'] = {'deposits': '49625.00', 'loans': '120000.00'};
+          fixture['spendingBreakdown'] = {
+            'periodDays': 30,
+            'items': [
+              {'category': 'Groceries & Food', 'amount': '8450.00', 'count': 12},
+              {'category': 'Utilities & Bills', 'amount': '4200.00', 'count': 4},
+              {'category': 'Shopping & Retail', 'amount': '3150.00', 'count': 5},
+              {'category': 'Transportation', 'amount': '1850.00', 'count': 8},
+              {'category': 'Entertainment', 'amount': '950.00', 'count': 2},
+            ]
+          };
+          break;
       }
       return fixture;
     } catch (_) {
