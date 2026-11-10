@@ -12,6 +12,8 @@ import javax.sql.DataSource;
 @Configuration
 public class AuditDbConfig {
 
+    private static final int AUDIT_TIMEOUT_MS = 2000;
+
     @Bean(name = "auditPostgresDataSource")
     public DataSource auditPostgresDataSource(
             @Value("${postgres.datasource.url:#{null}}") String explicitUrl,
@@ -32,12 +34,18 @@ public class AuditDbConfig {
         dataSource.setMaximumPoolSize(10);
         dataSource.setMinimumIdle(2);
         dataSource.setPoolName("HikariPool-PostgresAudit");
+        // The audit row is written while the posting holds Oracle row locks. Without these a slow
+        // audit store keeps those locks for Hikari's default 30 s; the saga gives up after 2 s.
+        dataSource.setConnectionTimeout(AUDIT_TIMEOUT_MS);
+        dataSource.setValidationTimeout(1000);
 
         return dataSource;
     }
 
     @Bean(name = "auditJdbcTemplate")
     public JdbcTemplate auditJdbcTemplate(@Qualifier("auditPostgresDataSource") DataSource auditPostgresDataSource) {
-        return new JdbcTemplate(auditPostgresDataSource);
+        JdbcTemplate template = new JdbcTemplate(auditPostgresDataSource);
+        template.setQueryTimeout(AUDIT_TIMEOUT_MS / 1000);
+        return template;
     }
 }

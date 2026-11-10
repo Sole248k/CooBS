@@ -4,6 +4,8 @@
 
 param(
     [string]$GatewayUrl = "http://localhost:8080",
+    [string]$Username = "john_doe",
+    [string]$Password = "Password123!",
     [switch]$SkipContainers
 )
 
@@ -37,8 +39,10 @@ $GwUrl = $GatewayUrl.TrimEnd("/")
 Write-Banner "CORE RETAIL BANKING - END-TO-END GOLDEN PATH DEMONSTRATION"
 Write-Host "Target Gateway: $GwUrl"
 Write-Host "Timestamp:      $((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss UTC'))"
+Write-Host "Primary Seed:   $Username"
 
 $Summary = [System.Collections.Generic.List[PSCustomObject]]::new()
+$uniqueSuffix = (Get-Date).Ticks % 1000000
 
 # -----------------------------------------------------------------------------
 # STEP 1: Gateway Actuator and Route Discovery
@@ -68,79 +72,78 @@ try {
     exit 1
 }
 
-try {
-    $routesRes = Invoke-RestMethod -Uri "$GwUrl/actuator/gateway/routes" -Method Get -TimeoutSec 10
-    $routeIds = ($routesRes | ForEach-Object { $_.route_id }) -join ", "
-    Write-PassMessage "Discovered Gateway Routes: $routeIds"
-} catch {
-    Write-WarnMessage "Actuator gateway routes endpoint unavailable, proceeding with standard routes."
-}
-
 # -----------------------------------------------------------------------------
-# STEP 2: Customer Registration (auth-service via Gateway)
+# STEP 2: Seed Customer Authentication (auth-service via Gateway)
 # -----------------------------------------------------------------------------
-Write-StepHeader "2" "Customer Registration and Token Generation (auth-service)"
-$uniqueSuffix = (Get-Date).Ticks % 1000000
-$username = "golden_user_$uniqueSuffix"
-$email = "user_$uniqueSuffix@bankgroup2.fse"
-$corrId2 = [guid]::NewGuid().ToString()
-
-$regObj = @{
-    username      = $username
-    email         = $email
-    password      = "Password123!"
-    firstName     = "Golden"
-    lastName      = "Path"
-    middleInitial = "E"
-    address       = "100 Financial Core Plaza, Manila"
-    mobileNumber  = "+63917$($uniqueSuffix.ToString('000000'))"
-    civilStatus   = "Single"
-    occupation    = "Software Engineer"
-}
-$regBody = $regObj | ConvertTo-Json
+Write-StepHeader "2" "Customer Authentication & JWT Token Issuance (auth-service)"
+$corrId = [guid]::NewGuid().ToString()
 
 $token = $null
 $userId = $null
 
+$loginObj = @{
+    username = $Username
+    password = $Password
+}
+$loginBody = $loginObj | ConvertTo-Json
+
 try {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $regRes = Invoke-RestMethod -Uri "$GwUrl/api/v1/auth/customers/register" -Method Post -Body $regBody -ContentType "application/json" -Headers @{ "X-Correlation-ID" = $corrId2 }
+    $loginRes = Invoke-RestMethod -Uri "$GwUrl/api/v1/auth/customers/login" -Method Post -Body $loginBody -ContentType "application/json" -Headers @{ "X-Correlation-ID" = $corrId }
     $sw.Stop()
     $latencyMs = $sw.ElapsedMilliseconds
-    $token = $regRes.accessToken
-    $userId = $regRes.userId
-    Write-PassMessage "Customer registered: username='$username', userId=$userId [$latencyMs ms]"
-    $tokenPreview = if ($token.Length -gt 25) { $token.Substring(0, 25) } else { $token }
-    Write-PassMessage "Bearer Token Acquired: $tokenPreview... [Len=$($token.Length)]"
-    $Summary.Add([PSCustomObject]@{
-        Tier     = "2. Customer Registration"
-        Endpoint = "POST /api/v1/auth/customers/register"
-        Status   = 201
-        Latency  = "$latencyMs ms"
-        Details  = "UserID: $userId"
-    })
-} catch {
-    Write-WarnMessage "Registration failed or returned error: $_. Falling back to seed customer login..."
-    Write-StepHeader "2b" "Fallback: Authenticating with Seed Customer 'customer1'"
-    try {
-        $loginObj = @{ username = "customer1"; password = "Password123!" }
-        $loginBody = $loginObj | ConvertTo-Json
-        $sw = [System.Diagnostics.Stopwatch]::StartNew()
-        $loginRes = Invoke-RestMethod -Uri "$GwUrl/api/v1/auth/customers/login" -Method Post -Body $loginBody -ContentType "application/json"
-        $sw.Stop()
-        $latencyMs = $sw.ElapsedMilliseconds
+
+    if ($loginRes.authData -and $loginRes.authData.accessToken) {
+        $token = $loginRes.authData.accessToken
+        $userId = if ($loginRes.authData.userId) { $loginRes.authData.userId } else { 1 }
+    } elseif ($loginRes.accessToken) {
         $token = $loginRes.accessToken
         $userId = if ($loginRes.userId) { $loginRes.userId } else { 1 }
-        Write-PassMessage "Fallback login successful: userId=$userId [$latencyMs ms]"
+    }
+
+    if ($token) {
+        Write-PassMessage "Customer '$Username' authenticated successfully: userId=$userId [$latencyMs ms]"
+        $tokenPreview = if ($token.Length -gt 25) { $token.Substring(0, 25) } else { $token }
+        Write-PassMessage "Bearer Token Acquired: $tokenPreview... [Len=$($token.Length)]"
+        $Summary.Add([PSCustomObject]@{
+            Tier     = "2. Customer Login"
+            Endpoint = "POST /api/v1/auth/customers/login"
+            Status   = 200
+            Latency  = "$latencyMs ms"
+            Details  = "User: $Username (ID $userId)"
+        })
+    } else {
+        throw "Login response did not return an access token."
+    }
+} catch {
+    Write-WarnMessage "Authentication failed for '$Username': $_. Falling back to secondary seed 'maria_santos'..."
+    Write-StepHeader "2b" "Fallback: Authenticating with Seed Customer 'maria_santos'"
+    try {
+        $fbObj = @{ username = "maria_santos"; password = "Password123!" }
+        $fbBody = $fbObj | ConvertTo-Json
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $loginRes = Invoke-RestMethod -Uri "$GwUrl/api/v1/auth/customers/login" -Method Post -Body $fbBody -ContentType "application/json" -Headers @{ "X-Correlation-ID" = [guid]::NewGuid().ToString() }
+        $sw.Stop()
+        $latencyMs = $sw.ElapsedMilliseconds
+
+        if ($loginRes.authData -and $loginRes.authData.accessToken) {
+            $token = $loginRes.authData.accessToken
+            $userId = if ($loginRes.authData.userId) { $loginRes.authData.userId } else { 2 }
+        } elseif ($loginRes.accessToken) {
+            $token = $loginRes.accessToken
+            $userId = if ($loginRes.userId) { $loginRes.userId } else { 2 }
+        }
+        Write-PassMessage "Fallback login successful for 'maria_santos': userId=$userId [$latencyMs ms]"
         $Summary.Add([PSCustomObject]@{
             Tier     = "2. Fallback Login"
             Endpoint = "POST /api/v1/auth/customers/login"
             Status   = 200
             Latency  = "$latencyMs ms"
-            Details  = "UserID: $userId"
+            Details  = "User: maria_santos (ID $userId)"
         })
     } catch {
-        Write-FailMessage "Unable to authenticate fallback customer: $_"
+        Write-FailMessage "Unable to authenticate fallback seed customer: $_"
+        Write-Host "Verify auth-service and oracle-core-db are healthy with 03_seed_data.sql applied." -ForegroundColor Red
         exit 1
     }
 }
@@ -174,7 +177,7 @@ try {
             Details  = "$($accRes.Count) Accounts"
         })
     } else {
-        Write-WarnMessage "my-accounts empty, falling back to seed account #1."
+        Write-WarnMessage "my-accounts returned empty list, falling back to seed account #1."
         $Summary.Add([PSCustomObject]@{
             Tier     = "3. Customer Accounts"
             Endpoint = "GET /api/v1/accounts/my-accounts"
@@ -224,20 +227,20 @@ try {
     $transferRes = Invoke-RestMethod -Uri "$GwUrl/api/v1/ledger/transfers" -Method Post -Body $transferPayload -ContentType "application/json" -Headers $transferHeaders
     $sw.Stop()
     $latencyMs = $sw.ElapsedMilliseconds
-    $txnId = if ($transferRes.transactionId) { $transferRes.transactionId } elseif ($transferRes.transferId) { $transferRes.transferId } else { $transferRes.id }
+    $txnId = if ($transferRes.transactionId) { $transferRes.transactionId } elseif ($transferRes.transferId) { $transferRes.transferId } elseif ($transferRes.transferReference) { $transferRes.transferReference } else { $transferRes.id }
     Write-PassMessage "Double-Entry Transfer Executed Successfully [$latencyMs ms]:"
-    Write-Host "     - Transaction ID: $txnId" -ForegroundColor Yellow
-    Write-Host "     - Reference No:   $transferRef"
-    Write-Host ("     - Amount:         $" + $transferAmount.ToString("F2"))
-    Write-Host "     - Source Account: #$srcAcc (Debited)"
-    Write-Host "     - Dest Account:   #$dstAcc (Credited)"
-    Write-Host "     - Idempotency-Key: $idempKey"
+    Write-Host "     - Transaction Ref/ID: $txnId" -ForegroundColor Yellow
+    Write-Host "     - Reference No:       $transferRef"
+    Write-Host ("     - Amount:             PHP " + $transferAmount.ToString("F2"))
+    Write-Host "     - Source Account:     #$srcAcc (Debited)"
+    Write-Host "     - Dest Account:       #$dstAcc (Credited)"
+    Write-Host "     - Idempotency-Key:    $idempKey"
     $Summary.Add([PSCustomObject]@{
         Tier     = "4. Ledger Transfer"
         Endpoint = "POST /api/v1/ledger/transfers"
         Status   = 201
         Latency  = "$latencyMs ms"
-        Details  = "TxnID: $txnId"
+        Details  = "TxnRef: $txnId"
     })
 } catch {
     Write-FailMessage "Fund transfer failed: $_"
@@ -259,10 +262,10 @@ try {
     $replayRes = Invoke-RestMethod -Uri "$GwUrl/api/v1/ledger/transfers" -Method Post -Body $transferPayload -ContentType "application/json" -Headers $replayHeaders
     $sw.Stop()
     $latencyMs = $sw.ElapsedMilliseconds
-    $replayTxnId = if ($replayRes.transactionId) { $replayRes.transactionId } elseif ($replayRes.transferId) { $replayRes.transferId } else { $replayRes.id }
+    $replayTxnId = if ($replayRes.transactionId) { $replayRes.transactionId } elseif ($replayRes.transferId) { $replayRes.transferId } elseif ($replayRes.transferReference) { $replayRes.transferReference } else { $replayRes.id }
     if ($replayTxnId -eq $txnId) {
         Write-PassMessage "Idempotency Replay Verified [$latencyMs ms]:"
-        Write-Host "     - Returned identical TxnID: $replayTxnId"
+        Write-Host "     - Returned identical TxnRef/ID: $replayTxnId"
         Write-Host "     - ZERO duplicate ledger debit occurred."
         Write-Host "     - Redis Idempotency pre-flight mutex prevented double-mutation."
         $Summary.Add([PSCustomObject]@{
@@ -270,16 +273,16 @@ try {
             Endpoint = "POST /api/v1/ledger/transfers"
             Status   = 200
             Latency  = "$latencyMs ms"
-            Details  = "Cached TxnID: $replayTxnId"
+            Details  = "Cached Txn: $replayTxnId"
         })
     } else {
-        Write-WarnMessage "Replay returned distinct TxnID: $replayTxnId (Expected $txnId)"
+        Write-WarnMessage "Replay returned distinct Txn: $replayTxnId (Expected $txnId)"
         $Summary.Add([PSCustomObject]@{
             Tier     = "5. Idempotent Replay"
             Endpoint = "POST /api/v1/ledger/transfers"
             Status   = 200
             Latency  = "$latencyMs ms"
-            Details  = "WARN: New Txn"
+            Details  = "WARN: Distinct Txn"
         })
     }
 } catch {
@@ -329,15 +332,15 @@ try {
 # -----------------------------------------------------------------------------
 Write-StepHeader "7" "Forensic Audit Verification and Cryptographic Hash Chaining"
 $AuditVerified = $false
+$targetAccountId = if ($srcAcc) { $srcAcc } else { 1 }
 
 # 7A. Attempt verification via API Gateway REST endpoint (/api/v1/audit/verify-chain)
 try {
-    $targetAccountId = if ($srcAcc) { $srcAcc } else { 1 }
     $AuditHeaders = @{
         "Authorization" = "Bearer $token"
         "Accept"        = "application/json"
     }
-    $AuditUrl = "$GatewayUrl/api/v1/audit/verify-chain/$targetAccountId"
+    $AuditUrl = "$GwUrl/api/v1/audit/verify-chain/$targetAccountId"
     $AuditResponse = Invoke-RestMethod -Uri $AuditUrl -Method Get -Headers $AuditHeaders -TimeoutSec 5 -ErrorAction Stop
     if ($AuditResponse) {
         Write-PassMessage "Audit Service REST Chain Verification Confirmed (via API Gateway):"
@@ -364,7 +367,7 @@ try {
 # 7B. Fallback to direct PostgreSQL audit store query if REST gateway wasn't reached
 if (-not $AuditVerified -and -not $SkipContainers) {
     try {
-        $query = "SELECT audit_id, transaction_id, transaction_type, amount, current_hash FROM audit_store.ledger_mutation_audit WHERE account_id = $AccountId ORDER BY audit_id DESC LIMIT 1;"
+        $query = "SELECT audit_id, transaction_id, transaction_type, amount, current_hash FROM audit_store.ledger_mutation_audit WHERE account_id = $targetAccountId ORDER BY audit_id DESC LIMIT 1;"
         $auditOut = docker exec postgres-audit-db psql -U postgres -d audit_store -t -A -F "|" -c "$query" 2>$null
         if ($auditOut -and $auditOut.Contains("|")) {
             $parts = $auditOut.Split("|")

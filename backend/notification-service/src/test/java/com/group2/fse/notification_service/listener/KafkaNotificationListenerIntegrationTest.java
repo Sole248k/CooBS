@@ -28,7 +28,7 @@ import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 @DirtiesContext
-@EmbeddedKafka(partitions = 1, topics = {"ledger.mutation.completed.v1"})
+@EmbeddedKafka(partitions = 1, topics = {"ledger.mutation.completed.v1", "notification.dispatched.v1"})
 @TestPropertySource(properties = {
         "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
         "notification.kafka.auto-startup=true"

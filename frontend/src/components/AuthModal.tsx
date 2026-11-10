@@ -57,7 +57,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       username: 'admin',
       role: 'ROLE_ADMIN',
       userType: 'ADMIN' as const,
-      description: 'System administrator with full gateway actuator & audit inspection access',
+      description: 'Branch manager with supervisory oversight & audit inspection access',
       color: 'var(--color-warning)'
     }
   ];

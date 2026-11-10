@@ -1,0 +1,9 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "status": "INITIATED",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "createdAt": "2026-10-03T11:40:00Z",
+  "timelineUrl": "/api/v1/mobile/transactions/TX-20261003-8F3A21C0/timeline"
+}

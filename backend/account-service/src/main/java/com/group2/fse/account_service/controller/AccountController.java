@@ -60,7 +60,7 @@ public class AccountController {
             return ResponseEntity.ok(accountService.getAllAccounts());
         }
         log.info("Fetching accounts for customer ID {}", principal != null ? principal.getUserId() : null);
-        List<AccountResponse> accounts = accountService.getCustomerAccounts(principal != null ? principal.getUserId() : 1L);
+        List<AccountResponse> accounts = accountService.getCustomerAccounts(principal.getUserId());
         return ResponseEntity.ok(accounts);
     }
 
@@ -75,7 +75,7 @@ public class AccountController {
         return ResponseEntity.ok(response);
     }
 
-    @PatchMapping("/{accountId}/status")
+    @RequestMapping(value = "/{accountId}/status", method = {RequestMethod.PATCH, RequestMethod.POST})
     @PreAuthorize("hasAnyRole('TELLER', 'ADMIN')")
     public ResponseEntity<AccountResponse> updateAccountStatus(
             @PathVariable Long accountId,
@@ -90,13 +90,25 @@ public class AccountController {
     // =========================================================================
 
     @PostMapping("/{accountId}/closure-request")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'TELLER', 'ADMIN')")
     public ResponseEntity<ClosureRequestResponse> submitClosureRequest(
             @PathVariable Long accountId,
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestBody(required = false) AccountClosureRequestDto request) {
-        log.info("Customer ID {} submitting closure request for account ID {}", principal.getUserId(), accountId);
-        ClosureRequestResponse response = accountClosureService.submitClosureRequest(accountId, principal.getUserId(), request);
+        boolean isStaff = principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_TELLER") || a.getAuthority().equals("ROLE_ADMIN"));
+
+        Long customerId = principal.getUserId();
+        if (isStaff) {
+            AccountResponse acc = accountService.getAccountById(accountId, principal.getUserId(), true);
+            customerId = acc.getCustomerId();
+            log.info("Staff member {} submitting closure request on behalf of customer ID {} for account ID {}",
+                    principal.getUsername(), customerId, accountId);
+        } else {
+            log.info("Customer ID {} submitting closure request for account ID {}", customerId, accountId);
+        }
+
+        ClosureRequestResponse response = accountClosureService.submitClosureRequest(accountId, customerId, request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 

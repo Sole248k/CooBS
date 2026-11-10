@@ -1,149 +1,169 @@
-import React from 'react';
-import { ShieldCheck, Bell, UserCircle, Activity } from 'lucide-react';
+import type { FC } from 'react';
+import { ShieldCheck, LogOut, Users, Activity } from 'lucide-react';
 import type { AuthSession } from '../types';
 
 interface HeaderProps {
   session: AuthSession | null;
   gatewayStatus: string;
   latencyMs: number;
-  unreadCount: number;
-  onOpenNotifications: () => void;
-  onOpenAuth: () => void;
+  onSwitchUser: () => void;
+  onLogout: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export const Header: FC<HeaderProps> = ({
   session,
   gatewayStatus,
   latencyMs,
-  unreadCount,
-  onOpenNotifications,
-  onOpenAuth
+  onSwitchUser,
+  onLogout
 }) => {
-  const isOnline = gatewayStatus === 'ONLINE' || gatewayStatus === 'DEMO_STANDALONE';
+  const isTeller = session?.userType === 'TELLER';
+  const isAdmin = session?.userType === 'ADMIN';
+
+  const getRoleBadge = () => {
+    if (isTeller) return <span className="badge badge-role-teller">Branch Teller</span>;
+    if (isAdmin) return <span className="badge badge-role-admin">Branch Manager</span>;
+    return <span className="badge badge-neutral">Staff</span>;
+  };
 
   return (
-    <header className="header glass-card" style={{
-      margin: '16px auto',
-      width: 'calc(100% - 32px)',
-      maxWidth: '1320px',
+    <header style={{
+      background: '#ffffff',
+      borderBottom: '1px solid #e2e8f0',
       padding: '14px 28px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       position: 'sticky',
-      top: '16px',
-      zIndex: 50,
-      backdropFilter: 'blur(20px)',
-      borderRadius: '16px'
+      top: 0,
+      zIndex: 40,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
     }}>
-      {/* Brand & Platform Identity */}
+      {/* Brand Identity */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <div style={{
-          width: '42px',
-          height: '42px',
-          borderRadius: '12px',
-          background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
+          width: '38px',
+          height: '38px',
+          borderRadius: '9px',
+          background: 'linear-gradient(135deg, #1d4ed8, #2563eb)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 4px 15px rgba(14, 165, 233, 0.4)'
+          color: '#ffffff',
+          boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)'
         }}>
-          <ShieldCheck size={24} color="#ffffff" strokeWidth={2.5} />
+          <ShieldCheck size={22} />
         </div>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.02em', color: '#ffffff' }}>
-              CooBS
+            <span style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em' }}>
+              CooBS <span style={{ color: '#2563eb' }}>Staff Console</span>
             </span>
-            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--accent-cyan)', background: 'rgba(56, 189, 248, 0.1)', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-              CORE BANKING
-            </span>
+            {getRoleBadge()}
           </div>
-          <p style={{ fontSize: '11px', color: 'var(--text-subtle)', marginTop: '1px' }}>
-            High-Throughput Double-Entry Ledger & Edge Gateway Platform
-          </p>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>
+            {isTeller && 'Teller & Branch Operations Terminal (WEB-03 to WEB-09)'}
+            {isAdmin && 'Supervisory & Back-Office Branch Management (WEB-03 to WEB-10)'}
+          </div>
         </div>
       </div>
 
-      {/* Edge Gateway Status Indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+      {/* Right Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {/* Gateway Health Indicator */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          padding: '6px 14px',
-          borderRadius: '9999px',
-          background: isOnline ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)',
-          border: `1px solid ${isOnline ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`,
+          gap: '6px',
+          fontSize: '12px',
+          color: '#059669',
+          background: '#ecfdf5',
+          padding: '4px 10px',
+          borderRadius: '20px',
+          border: '1px solid #a7f3d0'
         }}>
-          <span className="pulse-dot" style={{ color: isOnline ? 'var(--color-success)' : 'var(--color-danger)' }}></span>
-          <Activity size={14} color={isOnline ? 'var(--color-success)' : 'var(--color-danger)'} />
-          <span style={{ fontSize: '12px', fontWeight: '700', color: isOnline ? 'var(--color-success)' : 'var(--color-danger)', letterSpacing: '0.04em' }}>
-            GATEWAY: 8080
-          </span>
-          <span style={{ fontSize: '11px', color: 'var(--text-subtle)', fontFamily: 'var(--font-mono)' }}>
-            ({latencyMs}ms)
-          </span>
+          <Activity size={13} />
+          <span>Core Gateway: {gatewayStatus}</span>
+          <span style={{ color: '#047857', fontWeight: '600' }}>({latencyMs}ms)</span>
         </div>
 
-        {/* In-App Notification Bell */}
-        <button
-          onClick={onOpenNotifications}
-          className="btn-secondary"
-          style={{
-            position: 'relative',
-            padding: '8px',
-            borderRadius: '10px',
-            cursor: 'pointer',
-            border: '1px solid var(--border-subtle)',
-            background: 'rgba(30, 41, 59, 0.6)'
-          }}
-          title="In-App Notifications"
-        >
-          <Bell size={18} color="var(--text-main)" />
-          {unreadCount > 0 && (
-            <span style={{
-              position: 'absolute',
-              top: '-4px',
-              right: '-4px',
-              background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)',
-              color: '#ffffff',
-              fontSize: '10px',
-              fontWeight: '800',
-              padding: '2px 6px',
-              borderRadius: '9999px',
-              border: '2px solid var(--bg-base)',
-              boxShadow: '0 0 10px rgba(244, 63, 94, 0.5)'
-            }}>
-              {unreadCount}
-            </span>
-          )}
-        </button>
-
-        {/* Active Customer Profile Badge */}
-        <button
-          onClick={onOpenAuth}
-          className="btn-secondary"
-          style={{
+        {/* User Identity Details */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          padding: '4px 12px',
+          borderRadius: '8px',
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0'
+        }}>
+          <div style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            background: isTeller ? '#4338ca' : '#0f172a',
+            color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '6px 14px',
-            borderRadius: '10px',
-            cursor: 'pointer',
-            border: '1px solid var(--border-subtle)',
-            background: 'rgba(30, 41, 59, 0.6)'
-          }}
-        >
-          <UserCircle size={18} color="var(--accent-cyan)" />
+            justifyContent: 'center',
+            fontSize: '11px',
+            fontWeight: '700'
+          }}>
+            {(session?.username || 'ST').substring(0, 2).toUpperCase()}
+          </div>
           <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '12px', fontWeight: '700', color: '#ffffff' }}>
-              {session?.username || 'customer1'}
+            <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+              {session?.username || 'Staff'}
             </div>
-            <div style={{ fontSize: '10px', color: 'var(--accent-cyan)', fontWeight: '600' }}>
-              {session?.userType || 'CUSTOMER'}
+            <div style={{ fontSize: '10px', color: '#64748b' }}>
+              {isTeller ? 'Branch Staff' : 'Branch Manager'}
             </div>
           </div>
+        </div>
+
+        {/* Switch Staff Role Button */}
+        <button
+          type="button"
+          onClick={onSwitchUser}
+          style={{
+            padding: '7px 12px',
+            fontSize: '12px',
+            fontWeight: '600',
+            color: '#475569',
+            background: '#ffffff',
+            border: '1px solid #cbd5e1',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+          title="Switch between Teller and Branch Manager"
+        >
+          <Users size={14} />
+          <span>Switch Role</span>
+        </button>
+
+        {/* Safe Logout Button */}
+        <button
+          type="button"
+          onClick={onLogout}
+          style={{
+            padding: '7px 12px',
+            fontSize: '12px',
+            fontWeight: '600',
+            color: '#dc2626',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <LogOut size={14} />
+          <span>Sign Out</span>
         </button>
       </div>
     </header>

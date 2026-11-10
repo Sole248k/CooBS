@@ -1,0 +1,533 @@
+# ==============================================================================
+# CooBS - Azure Pipelines
+#
+# Stages
+#   1. Validate   config, scripts, SQL files, Bicep, manifests  (every run)
+#   2. Infra      audit-store triggers, seed, Redis, Kafka      (every run)
+#   3. Test       backend services, staff console, mobile app   (every run)
+#   4. Package    container images, pushed when publishImages   (main, release/*, v* tags)
+#   5. Deploy     placeholder for dev / prod environments       (only when deployEnabled = true)
+#
+# A pull request build runs only what its changes can affect: stage 2 when database/,
+# scripts/ or Compose change, and in stage 3 the tests of the services and clients it touches.
+# scripts/ci_scope.py decides. A build of dev, main, release/* or a tag runs everything.
+#
+# Stages 1 and 2 are one job each on purpose. There is one hosted agent, every job waits
+# for an agent of its own, and that wait was longer than the checks themselves.
+#
+# Pull requests: Azure Repos ignores a `pr:` block in YAML. PR validation is
+# switched on by a Build Validation branch policy that points at this pipeline.
+# See integrated-capstone-plans/BRANCH_POLICY_PLAN.md.
+#
+# Owner: Carl & Jared. To add a service, add one entry to the `services` parameter.
+# ==============================================================================
+
+trigger: none
+  # While a run is in progress on a branch, later pushes to it wait and are built together
+  # in one run. Several merges in a row therefore cost one run, not one each.
+  #batch: true
+  #branches:
+  #  include:
+  #    - main
+  #    - dev
+  #    - release/*
+  #tags:
+  #  include:
+  #    - v*
+  #paths:
+  #  exclude:
+  #    - docs/*
+  #    - integrated-capstone-plans/*
+  #    - contracts/*
+  #    - '*.md'
+      # The two clients are checked by pull request builds. A push that changes nothing else
+      # starts no run, so it does not hold the one agent for a full backend run.
+  #    - frontend/*
+  #    - app/*
+
+parameters:
+  # needsInfra records which test suites talk to Oracle / PostgreSQL / Redis / Kafka.
+  # A pull request build starts the infrastructure only when a suite it runs needs it
+  # (scripts/ci_scope.py). If a suite fails on a refused connection in a pull request
+  # build, its flag here is wrong: set it to true.
+  - name: services
+    type: object
+    default:
+      - { name: api-gateway,           needsInfra: false }
+      - { name: auth-service,          needsInfra: true  }
+      - { name: account-service,       needsInfra: true  }
+      - { name: ledger-service,        needsInfra: true  }
+      - { name: notification-service,  needsInfra: true  }
+      - { name: audit-service,         needsInfra: true  }
+      - { name: customer-service,      needsInfra: true  }
+      - { name: transaction-service,   needsInfra: false }
+      - { name: orchestration-service, needsInfra: false }
+      - { name: risk-engine,           needsInfra: false }
+      - { name: batch-service,         needsInfra: false }
+      - { name: mobile-bff,            needsInfra: false }
+      - { name: staff-bff,             needsInfra: false }
+      - { name: order-service,         needsInfra: false }
+
+  # Turn on once a container registry and its service connection exist.
+  - name: publishImages
+    displayName: Push images to the container registry
+    type: boolean
+    default: false
+  - name: registryServiceConnection
+    displayName: Docker registry service connection name
+    type: string
+    default: coobs-acr
+  - name: imageRepositoryPrefix
+    displayName: Image repository prefix
+    type: string
+    default: coobs
+
+  # Turn on once the Azure environment and its manifests exist under infra/.
+  - name: deployEnabled
+    displayName: Run deployment stages
+    type: boolean
+    default: false
+
+variables:
+  vmImage: ubuntu-latest
+  # The Flutter release app/ was created with (app/.metadata).
+  flutterVersion: 3.44.8
+  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
+  MAVEN_ARGS: -B --no-transfer-progress -Dmaven.repo.local=$(Pipeline.Workspace)/.m2/repository
+  isMain: ${{ eq(variables['Build.SourceBranch'], 'refs/heads/main') }}
+  isRelease: ${{ or(startsWith(variables['Build.SourceBranch'], 'refs/heads/release/'), startsWith(variables['Build.SourceBranch'], 'refs/tags/v')) }}
+  # Image tag: the git tag for a release tag, otherwise the build number.
+  ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/v') }}:
+    imageTag: $(Build.SourceBranchName)
+  ${{ else }}:
+    imageTag: $(Build.BuildNumber)
+
+pool:
+  vmImage: $(vmImage)
+
+stages:
+  # ============================================================================
+  # 1. VALIDATE
+  # ============================================================================
+  - stage: Validate
+    displayName: 1. Validate configuration
+    jobs:
+      - job: config
+        displayName: Compose, scripts, SQL files, Bicep and manifests
+        steps:
+          # Depth 2: the scope step reads the two parents of a pull request's merge commit.
+          - checkout: self
+            fetchDepth: 2
+
+          # Stages 2 and 3 read the RUN_ variables from this step.
+          - script: |
+              set -e
+              python3 scripts/ci_scope.py --self-test
+              python3 scripts/ci_scope.py --stage-output
+            name: scope
+            displayName: Work out what this build has to run
+            env:
+              SERVICES_JSON: ${{ convertToJson(parameters.services) }}
+
+          - script: |
+              set -e
+              cp .env.example .env
+              test -f .env
+            displayName: Prepare .env from template
+
+          - script: |
+              set -e
+              docker compose config --quiet
+              docker compose --profile app --profile expansion --profile observability config --quiet
+              echo "docker-compose.yml is valid for every profile."
+            displayName: Validate docker-compose.yml
+
+          - script: |
+              set -e
+              for script in scripts/*.sh infra/onprem/*.sh; do
+                [ -f "$script" ] || continue
+                bash -n "$script"
+                echo "  [VALID] $script"
+              done
+            displayName: Validate shell script syntax
+
+          - pwsh: |
+              $failed = $false
+              foreach ($file in Get-ChildItem scripts, infra/scripts -Filter *.ps1) {
+                $errors = $null
+                [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors)
+                if ($errors) { $failed = $true; Write-Host ("  [INVALID] " + $file.Name + ": " + $errors[0].Message) }
+                else { Write-Host ("  [VALID] " + $file.Name) }
+              }
+              if ($failed) { exit 1 }
+            displayName: Validate PowerShell script syntax
+
+          - ${{ each svc in parameters.services }}:
+              - script: |
+                  set -e
+                  test -f "backend/${{ svc.name }}/pom.xml"    || { echo "pom.xml missing"; exit 1; }
+                  test -f "backend/${{ svc.name }}/mvnw"       || { echo "mvnw missing"; exit 1; }
+                  test -f "backend/${{ svc.name }}/Dockerfile" || { echo "Dockerfile missing"; exit 1; }
+                  grep -q "<module>${{ svc.name }}</module>" backend/pom.xml || { echo "not listed in backend/pom.xml"; exit 1; }
+                displayName: Check layout of ${{ svc.name }}
+
+          - script: |
+              set -e
+              test -f database/oracle/01_init_user.sql
+              test -f database/oracle/02_create_tables.sql
+              test -f database/oracle/03_seed_data.sql
+              test -f database/postgres/01_init_db.sql
+              test -f database/postgres-cloud/01_create_databases.sql
+              # Tables every build must define. Dev 5 updates this list when the
+              # Oracle schema is rebuilt (ROLE and USER leave, HOLD and OUTBOX arrive).
+              TABLES="CUSTOMER KYC ACCOUNT BALANCE TRANSFER_REQUEST TRANSACTION"
+              for tbl in $TABLES; do
+                grep -qiE "CREATE TABLE[[:space:]]+\"?$tbl\"?" database/oracle/02_create_tables.sql \
+                  || { echo "  [MISSING] $tbl"; exit 1; }
+                echo "  [FOUND] $tbl"
+              done
+            displayName: Validate Oracle and PostgreSQL DDL files
+
+          - script: |
+              set -e
+              if ! command -v bicep &> /dev/null; then
+                az bicep install || true
+              fi
+              az bicep build --file infra/bicep/main.bicep
+              echo "PASS: Bicep IaC compiled and validated for Indonesia Central."
+            displayName: Compile and validate Bicep templates
+
+          - script: |
+              set -e
+              kubectl kustomize infra/k8s > /dev/null
+              kubectl kustomize infra/k8s-https > /dev/null
+              echo "PASS: infra/k8s and infra/k8s-https render."
+            displayName: Render the Kubernetes manifests
+
+  # ============================================================================
+  # 2. INFRASTRUCTURE CHECKS
+  # ============================================================================
+  - stage: Infra
+    displayName: 2. Infrastructure checks
+    dependsOn: Validate
+    # Skipped for a pull request that changes nothing these checks look at.
+    condition: and(succeeded(), eq(dependencies.Validate.outputs['config.scope.RUN_INFRA_CHECKS'], 'true'))
+    jobs:
+      - job: checks
+        displayName: Audit store, seed scripts, Redis and Kafka
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - script: |
+              set -e
+              docker run -d --name pg-ci \
+                -e POSTGRES_PASSWORD=ci-only-password \
+                -e POSTGRES_DB=audit_store \
+                -p 5432:5432 postgres:16-alpine
+              until docker exec pg-ci pg_isready -U postgres -d audit_store; do sleep 2; done
+            displayName: Start PostgreSQL 16
+
+          - script: |
+              set -e
+              for f in $(ls database/postgres/*.sql | sort); do
+                echo "Applying $f"
+                docker exec -i pg-ci psql -v ON_ERROR_STOP=1 -U postgres -d audit_store < "$f"
+              done
+            displayName: Apply every script in database/postgres in order
+
+          - script: |
+              set -e
+              COUNT=$(docker exec pg-ci psql -U postgres -d audit_store -t -A -c "SELECT count(*) FROM audit_store.ledger_mutation_audit;")
+              [ "$COUNT" -ge 3 ] || { echo "FAIL: expected >= 3 seed audit rows, found $COUNT"; exit 1; }
+              HASH=$(docker exec pg-ci psql -U postgres -d audit_store -t -A -c "SELECT current_hash FROM audit_store.ledger_mutation_audit ORDER BY audit_id DESC LIMIT 1;")
+              [ "${#HASH}" -eq 64 ] || { echo "FAIL: hash length ${#HASH}, expected 64"; exit 1; }
+              echo "PASS: $COUNT audit rows, SHA-256 chain present."
+            displayName: Verify SHA-256 hash chain
+
+          - script: |
+              OUTPUT=$(docker exec pg-ci psql -U postgres -d audit_store -c "UPDATE audit_store.ledger_mutation_audit SET amount = 999999 WHERE audit_id = (SELECT min(audit_id) FROM audit_store.ledger_mutation_audit);" 2>&1 || true)
+              echo "$OUTPUT"
+              echo "$OUTPUT" | grep -q "55000" || { echo "FAIL: UPDATE on the audit table was not blocked"; exit 1; }
+              OUTPUT=$(docker exec pg-ci psql -U postgres -d audit_store -c "DELETE FROM audit_store.ledger_mutation_audit;" 2>&1 || true)
+              echo "$OUTPUT" | grep -q "55000" || { echo "FAIL: DELETE on the audit table was not blocked"; exit 1; }
+              echo "PASS: audit table is append-only."
+            displayName: Verify immutability trigger
+
+          - script: |
+              set -e
+              python3 database/seed/generate_seed.py
+              git diff --exit-code -- database/ || { echo "FAIL: generated seed files differ from the generator. Re-run database/seed/generate_seed.py and commit."; exit 1; }
+            displayName: Generated seed matches the generator
+          - script: |
+              set -e
+              docker run -d --name pg-cloud-ci -e POSTGRES_PASSWORD=ci-only-password                 -v "$(Build.SourcesDirectory)/database/postgres-cloud:/docker-entrypoint-initdb.d:ro" postgres:16-alpine
+              docker run -d --name pg-target-ci -e POSTGRES_PASSWORD=ci-only-password -e POSTGRES_DB=audit_store                 -v "$(Build.SourcesDirectory)/database/next/postgres:/docker-entrypoint-initdb.d:ro" postgres:16-alpine
+              sleep 25
+              for c in pg-cloud-ci pg-target-ci; do
+                if docker logs "$c" 2>&1 | grep -iE "ERROR|FATAL"; then echo "FAIL: $c reported errors while loading"; exit 1; fi
+              done
+              docker exec pg-cloud-ci psql -U postgres -d identity_db -t -A -c "select count(*) from app_user" | grep -qE "^[1-9]"
+              docker exec pg-target-ci psql -U postgres -d audit_store -t -A -c "select count(*) from batch.batch_run" | grep -qE "^[1-9]"
+              echo "PASS: cloud and on-premises PostgreSQL seeds load without errors."
+            displayName: Load cloud and target PostgreSQL seeds
+
+          - script: cp .env.example .env
+            displayName: Prepare .env
+          - script: |
+              set -e
+              docker compose up -d redis-cache kafka-broker kafka-init-topics
+              timeout 60s bash -c 'until docker exec redis-cache redis-cli ping | grep -q PONG; do sleep 2; done'
+              # kafka-init-topics creates the topics one at a time and then exits. Waiting only for the
+              # first topic let the checks below run while the later ones did not exist yet.
+              INIT_EXIT=$(timeout 240s docker wait kafka-init-topics) || INIT_EXIT="timed out"
+              [ "$INIT_EXIT" = "0" ] || { echo "FAIL: kafka-init-topics exited with '$INIT_EXIT'"; docker logs kafka-init-topics --tail 40; exit 1; }
+            displayName: Start Redis and Kafka
+          - script: |
+              set -e
+              KEY="idemp:txn:ci-$(date +%s)"
+              FIRST=$(docker exec redis-cache redis-cli SET "$KEY" PROCESSING EX 30 NX)
+              RETRY=$(docker exec redis-cache redis-cli SET "$KEY" PROCESSING EX 30 NX)
+              [ "$FIRST" = "OK" ] && [ -z "$RETRY" ] || { echo "FAIL: SETNX lock (first=$FIRST retry=$RETRY)"; exit 1; }
+              echo "PASS: Redis SETNX lock."
+            displayName: Redis SETNX idempotency lock
+
+          - script: |
+              chmod +x scripts/test_redis_velocity.sh
+              ./scripts/test_redis_velocity.sh
+            displayName: Verify Redis velocity keys and TTL lifecycle (FIN-803)
+          - script: |
+              set -e
+              echo '{"eventId":"ci-101","accountId":"ACC_1001","status":"COMPLETED"}' | docker exec -i kafka-broker \
+                /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 --topic ledger.mutation.completed.v1
+              sleep 2
+              CONSUMED=$(docker exec kafka-broker /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+                --topic ledger.mutation.completed.v1 --from-beginning --max-messages 1 --timeout-ms 10000)
+              echo "$CONSUMED" | grep -q "ACC_1001" || { echo "FAIL: message not consumed"; exit 1; }
+              LIST=$(docker exec kafka-broker /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list)
+              for topic in transaction.stage.changed.v1 notification.dispatched.v1 ledger.transfer.completed.v1.DLT; do
+                echo "$LIST" | grep -qx "$topic" || { echo "FAIL: topic $topic was not created"; exit 1; }
+              done
+              echo "PASS: Kafka round trip and expansion topics."
+            displayName: Kafka produce, consume and topic list
+
+  # ============================================================================
+  # 3. BUILD AND TEST
+  # ============================================================================
+  - stage: Test
+    displayName: 3. Build and test services
+    dependsOn:
+      - Validate
+      - Infra
+    # Runs when stage 2 passed or was skipped; a skipped stage would otherwise skip this one too.
+    condition: and(not(canceled()), in(dependencies.Validate.result, 'Succeeded', 'SucceededWithIssues'), in(dependencies.Infra.result, 'Succeeded', 'SucceededWithIssues', 'Skipped'))
+    jobs:
+      - job: backend
+        displayName: Backend services (Java 21)
+        timeoutInMinutes: 60
+        # Skipped only when the scope step said no service is touched. Any other answer runs it.
+        condition: and(succeeded(), ne(stageDependencies.Validate.config.outputs['scope.RUN_BACKEND_TESTS'], 'false'))
+        steps:
+          - checkout: self
+            fetchDepth: 2
+
+          # Sets NEED_INFRA and one TEST_<service> variable per service for the steps below.
+          - script: python3 scripts/ci_scope.py
+            displayName: Work out which services to test
+            env:
+              SERVICES_JSON: ${{ convertToJson(parameters.services) }}
+
+          - task: JavaToolInstaller@0
+            displayName: Use Java 21
+            inputs:
+              versionSpec: '21'
+              jdkArchitectureOption: x64
+              jdkSourceOption: PreInstalled
+
+          - task: Cache@2
+            displayName: Cache Maven repository
+            inputs:
+              key: 'maven | "$(Agent.OS)" | backend/**/pom.xml'
+              restoreKeys: |
+                maven | "$(Agent.OS)"
+              path: $(MAVEN_CACHE_FOLDER)
+
+          - script: cp .env.example .env
+            displayName: Prepare .env
+
+          - script: |
+              set -e
+              # postgres-cloud-db holds identity_db and customer_db, which the auth-service and
+              # customer-service tests connect to on port 5435.
+              docker compose up -d oracle-core-db postgres-audit-db postgres-cloud-db redis-cache kafka-broker kafka-init-topics
+              timeout 60s bash -c 'until docker exec redis-cache redis-cli ping | grep -q PONG; do sleep 2; done'
+              timeout 60s bash -c 'until docker exec postgres-audit-db pg_isready -U postgres -d audit_store; do sleep 2; done'
+              # Over TCP on purpose: while the init scripts load, PostgreSQL listens on its socket only,
+              # so a socket check would pass before the seed is in.
+              timeout 120s bash -c 'until docker exec postgres-cloud-db pg_isready -h 127.0.0.1 -U postgres -d identity_db; do sleep 2; done'
+              timeout 90s bash -c 'until docker exec kafka-broker /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; do sleep 3; done'
+            displayName: Start Oracle, both PostgreSQL servers, Redis and Kafka
+            condition: and(succeeded(), eq(variables['NEED_INFRA'], 'true'))
+
+          - script: |
+              set -euo pipefail
+              set -a; source .env; set +a
+              timeout 300s bash -c '
+                until docker exec oracle-core-db bash -lc "
+                  printf \"WHENEVER SQLERROR EXIT SQL.SQLCODE\\nSELECT 1 FROM dual;\\nEXIT;\\n\" |
+                  sqlplus -L -s \"\${APP_USER}/\${APP_USER_PASSWORD}@//localhost:1521/\${ORACLE_DATABASE}\" |
+                  grep -Eq \"^[[:space:]]*1[[:space:]]*$\"
+                "; do
+                  echo "Oracle pluggable database still starting..."
+                  sleep 5
+                done
+              '
+              echo "Oracle is ready."
+            displayName: Wait for Oracle application user
+            condition: and(succeeded(), eq(variables['NEED_INFRA'], 'true'))
+
+          - ${{ each svc in parameters.services }}:
+              - script: |
+                  set -e
+                  set -a; source .env; set +a
+                  cd backend/${{ svc.name }}
+                  chmod +x mvnw
+                  ./mvnw clean test $(MAVEN_ARGS)
+                displayName: Test ${{ svc.name }}
+                condition: and(succeeded(), eq(variables['TEST_${{ replace(svc.name, '-', '_') }}'], 'true'))
+
+          - task: PublishTestResults@2
+            displayName: Publish test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: 'backend/*/target/surefire-reports/TEST-*.xml'
+              testRunTitle: Backend services
+              failTaskOnFailedTests: true
+
+          - script: |
+              docker ps -a
+              docker logs oracle-core-db --tail 200 || true
+            displayName: Dump infrastructure diagnostics
+            condition: failed()
+
+      # One job for both clients, so a run waits for one more agent and not two.
+      - job: clients
+        displayName: Staff console and mobile app
+        timeoutInMinutes: 30
+        condition: and(succeeded(), or(ne(stageDependencies.Validate.config.outputs['scope.RUN_CONSOLE'], 'false'), ne(stageDependencies.Validate.config.outputs['scope.RUN_APP'], 'false')))
+        variables:
+          runConsole: $[ stageDependencies.Validate.config.outputs['scope.RUN_CONSOLE'] ]
+          runApp: $[ stageDependencies.Validate.config.outputs['scope.RUN_APP'] ]
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          # The version frontend/Dockerfile builds with.
+          - task: UseNode@1
+            displayName: Use Node 22
+            condition: and(succeeded(), ne(variables['runConsole'], 'false'))
+            inputs:
+              version: '22.x'
+
+          - script: |
+              set -e
+              cd frontend
+              npm ci --no-audit --no-fund
+              npm run lint
+              npm run build
+            displayName: Install, lint and build the staff console
+            condition: and(succeeded(), ne(variables['runConsole'], 'false'))
+
+          - script: |
+              set -e
+              git clone --quiet --depth 1 --branch $(flutterVersion) https://github.com/flutter/flutter.git "$(Agent.TempDirectory)/flutter"
+              export PATH="$(Agent.TempDirectory)/flutter/bin:$PATH"
+              cd app
+              flutter pub get
+              flutter test
+            displayName: Test the mobile app
+            condition: and(succeededOrFailed(), ne(variables['runApp'], 'false'))
+
+  # ============================================================================
+  # 4. PACKAGE - build every image once, which proves every Dockerfile works.
+  # Each image is pushed as it is built when publishImages is true.
+  # ============================================================================
+  - stage: Package
+    displayName: 4. Build container images
+    dependsOn: Test
+    condition: and(succeeded(), or(eq(variables.isMain, 'True'), eq(variables.isRelease, 'True')))
+    jobs:
+      - job: images
+        displayName: Build images
+        timeoutInMinutes: 60
+        steps:
+          - checkout: self
+            fetchDepth: 1
+          - ${{ each svc in parameters.services }}:
+              - ${{ if eq(parameters.publishImages, true) }}:
+                  - task: Docker@2
+                    displayName: Build and push ${{ svc.name }}
+                    inputs:
+                      command: buildAndPush
+                      containerRegistry: ${{ parameters.registryServiceConnection }}
+                      repository: ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}
+                      dockerfile: backend/${{ svc.name }}/Dockerfile
+                      buildContext: backend/${{ svc.name }}
+                      tags: |
+                        $(imageTag)
+                        $(Build.SourceVersion)
+              - ${{ else }}:
+                  - script: |
+                      set -e
+                      export DOCKER_BUILDKIT=1
+                      docker build \
+                        -t ${{ parameters.imageRepositoryPrefix }}/${{ svc.name }}:$(imageTag) \
+                        --label org.opencontainers.image.revision=$(Build.SourceVersion) \
+                        --label org.opencontainers.image.version=$(imageTag) \
+                        backend/${{ svc.name }}
+                    displayName: Build image ${{ svc.name }}
+
+  # ============================================================================
+  # 5. DEPLOY - emitted only when deployEnabled is true.
+  # Each environment is an Azure DevOps Environment; add approvals and checks
+  # on the environment itself, not in this file.
+  # Both stages wait on Package only. A tag build skips the dev deployment, and a
+  # stage that waits on a skipped one never runs.
+  # ============================================================================
+  - ${{ if eq(parameters.deployEnabled, true) }}:
+      - stage: Deploy_Dev
+        displayName: 5a. Deploy to dev
+        dependsOn: Package
+        condition: and(succeeded(), eq(variables.isMain, 'True'))
+        jobs:
+          - deployment: dev
+            displayName: Deploy to coobs-dev
+            environment: coobs-dev
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - checkout: self
+                    - script: |
+                        echo "Apply manifests under infra/ with image tag $(imageTag)."
+                        echo "Dev 8: replace this step with the real deployment task."
+                      displayName: Deploy (placeholder)
+                    - script: |
+                        echo "Run postman/e2e against the dev gateway and fail the stage on any failure."
+                      displayName: Smoke test (placeholder)
+
+      - stage: Deploy_Prod
+        displayName: 5b. Deploy release
+        dependsOn: Package
+        condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/v'))
+        jobs:
+          - deployment: prod
+            displayName: Deploy to coobs-demo
+            environment: coobs-demo   # add a manual approval check on this environment
+            strategy:
+              runOnce:
+                deploy:
+                  steps:
+                    - script: echo "Deploy release $(imageTag). Roll back by redeploying the previous tag."
+                      displayName: Deploy release (placeholder)

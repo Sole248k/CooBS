@@ -1,0 +1,10 @@
+{
+  "accountId": 2,
+  "accountNumber": "ACC_10000002",
+  "customerId": 2,
+  "accountType": "CHECKING",
+  "currency": "PHP",
+  "status": "ACTIVE",
+  "hasActiveFlag": false,
+  "ownerDisplayName": "Maria S."
+}

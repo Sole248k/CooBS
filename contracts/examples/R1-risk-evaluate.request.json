@@ -1,0 +1,11 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "customerId": 1,
+  "amount": "2500.00",
+  "currency": "PHP",
+  "channel": "APP",
+  "customerRiskScore": "0.15",
+  "kycTier": "TIER_3_FULL",
+  "dailyLimit": "100000.00",
+  "isNewBeneficiary": false
+}

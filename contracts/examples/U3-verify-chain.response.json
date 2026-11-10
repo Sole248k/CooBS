@@ -1,0 +1,8 @@
+{
+  "accountId": 1,
+  "totalRecordsVerified": 42,
+  "isChainIntact": true,
+  "latestHash": "a3f5b8…",
+  "verifiedAt": "2026-10-03T11:45:00",
+  "message": "Audit chain integrity verified successfully."
+}

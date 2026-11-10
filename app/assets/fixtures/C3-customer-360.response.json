@@ -1,0 +1,82 @@
+{
+  "customerId": 1,
+  "displayName": "John D.",
+  "membershipNumber": "MBR-000001",
+  "kycStatus": "VERIFIED",
+  "kycTier": "TIER_3_FULL",
+  "creditScore": 750,
+  "riskScore": "0.15",
+  "accounts": [
+    {
+      "accountId": 1,
+      "accountNumber": "ACC_10000001",
+      "accountType": "SAVINGS",
+      "currency": "PHP",
+      "status": "ACTIVE",
+      "availableBalance": "49625.00",
+      "ledgerBalance": "49625.00",
+      "heldAmount": "0.00"
+    },
+    {
+      "accountId": 7,
+      "accountNumber": "LN_10000007",
+      "accountType": "LOAN",
+      "currency": "PHP",
+      "status": "ACTIVE",
+      "outstandingPrincipal": "120000.00",
+      "nextDueDate": "2026-10-15",
+      "nextDueAmount": "5450.00"
+    }
+  ],
+  "totals": {
+    "deposits": "49625.00",
+    "loans": "120000.00"
+  },
+  "recentTransactions": [
+    {
+      "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+      "referenceNo": "TX-20261003-8F3A21C0",
+      "direction": "OUT",
+      "counterpartyName": "Maria S.",
+      "counterpartyAccountNumber": "ACC_10000002",
+      "amount": "2500.00",
+      "category": "TRANSFER",
+      "status": "POSTED",
+      "createdAt": "2026-10-03T11:40:00Z"
+    }
+  ],
+  "spendingBreakdown": {
+    "periodDays": 30,
+    "items": [
+      {
+        "category": "TRANSFER",
+        "amount": "7500.00",
+        "count": 3
+      },
+      {
+        "category": "LOAN_REPAYMENT",
+        "amount": "5450.00",
+        "count": 1
+      },
+      {
+        "category": "UTILITIES",
+        "amount": "2199.00",
+        "count": 1
+      },
+      {
+        "category": "FOOD",
+        "amount": "1450.00",
+        "count": 2
+      }
+    ]
+  },
+  "beneficiaries": [
+    {
+      "beneficiaryId": 1,
+      "nickname": "Maria S.",
+      "destinationAccountNumber": "ACC_10000002",
+      "destinationBankCode": "COOBS"
+    }
+  ],
+  "asOf": "2026-10-08T08:00:00Z"
+}

@@ -1,0 +1,7 @@
+{
+  "customerId": 1,
+  "riskScore": "0.15",
+  "kycTier": "TIER_3_FULL",
+  "kycStatus": "VERIFIED",
+  "dailyLimit": "100000.00"
+}

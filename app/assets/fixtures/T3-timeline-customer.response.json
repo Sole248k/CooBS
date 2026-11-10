@@ -1,0 +1,23 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "status": "PROCESSING",
+  "view": "CUSTOMER",
+  "stages": [
+    {
+      "stageName": "INITIATED",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.010Z"
+    },
+    {
+      "stageName": "PROCESSING",
+      "outcome": "PENDING",
+      "occurredAt": null
+    },
+    {
+      "stageName": "POSTED",
+      "outcome": "PENDING",
+      "occurredAt": null
+    }
+  ],
+  "failureMessage": null
+}

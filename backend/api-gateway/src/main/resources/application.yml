@@ -1,5 +1,11 @@
 server:
   port: ${SERVER_PORT:8080}
+  ssl:
+    enabled: ${SSL_ENABLED:false}
+    key-store: ${SSL_KEY_STORE:classpath:keystore/keystore.p12}
+    key-store-password: ${SSL_KEY_STORE_PASSWORD:changeit}
+    key-store-type: ${SSL_KEY_STORE_TYPE:PKCS12}
+    key-alias: ${SSL_KEY_ALIAS:coobs-gateway}
 
 spring:
   application:
@@ -11,17 +17,29 @@ spring:
       timeout: 2000ms
   cloud:
     gateway:
+      # A target that cannot be reached (a service down, the on-premises link cut) is answered
+      # 503 after the connect timeout, and one that accepts the call but never answers is 504
+      # after the response timeout. Without these the caller waits on the gateway indefinitely.
+      httpclient:
+        connect-timeout: ${GATEWAY_CONNECT_TIMEOUT_MS:3000}
+        response-timeout: ${GATEWAY_RESPONSE_TIMEOUT:15s}
       filter:
         request-rate-limiter:
           deny-empty-key: false
+      # The browser's origin is judged here, once (globalcors below), and not passed on. Every
+      # service has a CORS list of its own, and in Azure the on-premises ones answered
+      # "Invalid CORS request" to calls from the console's address that this gateway had allowed.
+      default-filters:
+        - RemoveRequestHeader=Origin
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins:
-              - "http://localhost:3000"
-              - "http://localhost:5173"
-              - "http://127.0.0.1:3000"
-              - "http://127.0.0.1:5173"
+            # Where the console is served from once it is hosted, comma-separated. Any port on
+            # this machine is allowed by the patterns below, so local work needs nothing set.
+            allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+            allowedOriginPatterns:
+              - "http://localhost:*"
+              - "http://127.0.0.1:*"
             allowedMethods:
               - GET
               - POST
@@ -57,7 +75,7 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@ipKeyResolver}"
 
-        # 2. Account Service Routes (Customers & Accounts Lifecycle)
+        # 2. Account Service Routes (Accounts Lifecycle, Closure & Holds)
         # Operational query limits: 50 req/s, burst 100
         - id: account-service-accounts-route
           uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
@@ -71,8 +89,9 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
-        - id: account-service-customers-route
-          uri: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+        # 2b. Customer Service Routes (Profile, KYC & Beneficiaries)
+        - id: customer-service-route
+          uri: ${CUSTOMER_SERVICE_URL:http://localhost:8089}
           predicates:
             - Path=/api/v1/customers/**
           filters:
@@ -125,16 +144,104 @@ spring:
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userOrIpKeyResolver}"
 
+        # 6. Transaction Service Routes (transfer ingress, timeline, reversal, DLQ replay)
+        - id: transaction-service-route
+          uri: ${TRANSACTION_SERVICE_URL:http://localhost:8090}
+          predicates:
+            - Path=/api/v1/transactions/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 7. Inter-bank Routes (partner banks; signed requests, hosted by transaction-service)
+        - id: transaction-service-interbank-route
+          uri: ${TRANSACTION_SERVICE_URL:http://localhost:8090}
+          predicates:
+            - Path=/api/v1/interbank/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 8. Batch Service Routes (on-demand end-of-day pipeline)
+        - id: batch-service-route
+          uri: ${BATCH_SERVICE_URL:http://localhost:8093}
+          predicates:
+            - Path=/api/v1/batch/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 9. Mobile BFF Routes (Screen Aggregation & Stepper Adapter)
+        - id: mobile-bff-route
+          uri: ${MOBILE_BFF_URL:http://localhost:8094}
+          predicates:
+            - Path=/api/v1/mobile/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 9b. Staff BFF Routes (Teller & Admin Console Screen Aggregation)
+        - id: staff-bff-route
+          uri: ${STAFF_BFF_URL:http://localhost:8095}
+          predicates:
+            - Path=/api/v1/staff/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # 10. Order Service Routes (Co-op Essentials Depot & Escrow Reservations)
+        - id: order-service-route
+          uri: ${ORDER_SERVICE_URL:http://localhost:8096}
+          predicates:
+            - Path=/api/v1/shop/**, /api/v1/orders/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userOrIpKeyResolver}"
+
+        # The orchestrator has no route: it has no public endpoint. transaction-service starts a
+        # saga and reads its state over /internal/v1/sagas, inside the network.
+
+        # No route exists for any /internal/** path. The risk engine is called by the orchestrator
+        # inside the network, never through this gateway.
+
+        # 11. Swagger UI & OpenAPI Specification Routes (Testing Portal)
+        - id: swagger-ui-route
+          uri: ${SWAGGER_UI_URL:http://localhost:8086}
+          predicates:
+            - Path=/swagger-ui, /swagger-ui/**, /v3/api-docs/**, /openapi.yaml
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway,metrics,prometheus
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
-    gateway:
-      enabled: true
     prometheus:
       enabled: true
   metrics:

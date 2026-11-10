@@ -1,0 +1,22 @@
+[
+  {
+    "accountId": 2,
+    "customerId": 1,
+    "accountNumber": "ACC_10000002",
+    "accountType": "CHECKING",
+    "currency": "PHP",
+    "status": "ACTIVE",
+    "availableBalance": 12500.5,
+    "hasActiveFlags": false
+  },
+  {
+    "accountId": 1,
+    "customerId": 1,
+    "accountNumber": "ACC_10000001",
+    "accountType": "SAVINGS",
+    "currency": "PHP",
+    "status": "ACTIVE",
+    "availableBalance": 50000.0,
+    "hasActiveFlags": false
+  }
+]

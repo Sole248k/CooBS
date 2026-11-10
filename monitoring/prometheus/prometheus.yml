@@ -88,3 +88,87 @@ scrape_configs:
         labels:
           service: 'audit-service'
           tier: 'forensic'
+
+  # ----------------------------------------------------------------------------
+  # customer-service (cloud) - Channel profile, beneficiaries and Customer 360 aggregator
+  # ----------------------------------------------------------------------------
+  - job_name: 'customer-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['customer-service:8089']
+        labels:
+          service: 'customer-service'
+          tier: 'domain'
+
+  # ----------------------------------------------------------------------------
+  # transaction-service (cloud) - Transfer ingress, timeline, inter-bank endpoints and DLQ replay
+  # ----------------------------------------------------------------------------
+  - job_name: 'transaction-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['transaction-service:8090']
+        labels:
+          service: 'transaction-service'
+          tier: 'domain'
+
+  # ----------------------------------------------------------------------------
+  # orchestration-service (cloud) - Transfer and reversal saga coordinator
+  # ----------------------------------------------------------------------------
+  - job_name: 'orchestration-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['orchestration-service:8091']
+        labels:
+          service: 'orchestration-service'
+          tier: 'saga'
+
+  # ----------------------------------------------------------------------------
+  # risk-engine (cloud) - Fraud and limit decision engine
+  # ----------------------------------------------------------------------------
+  - job_name: 'risk-engine'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['risk-engine:8092']
+        labels:
+          service: 'risk-engine'
+          tier: 'risk'
+
+  # ----------------------------------------------------------------------------
+  # batch-service (onprem) - On-demand end-of-day batch pipeline
+  # ----------------------------------------------------------------------------
+  - job_name: 'batch-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['batch-service:8093']
+        labels:
+          service: 'batch-service'
+          tier: 'batch'
+
+  # ----------------------------------------------------------------------------
+  # mobile-bff (edge) - Mobile Backend for Frontend Aggregator
+  # ----------------------------------------------------------------------------
+  - job_name: 'mobile-bff'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['mobile-bff:8094']
+        labels:
+          service: 'mobile-bff'
+          tier: 'edge'
+
+  # ----------------------------------------------------------------------------
+  # order-service (core) - Co-op Essentials Depot orders and ledger escrow
+  # ----------------------------------------------------------------------------
+  - job_name: 'order-service'
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['order-service:8096']
+        labels:
+          service: 'order-service'
+          tier: 'core'

@@ -21,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -35,6 +36,10 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationDispatcher notificationDispatcher;
+    private final org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+
+    @org.springframework.beans.factory.annotation.Value("${notification.kafka.topics.dispatched:notification.dispatched.v1}")
+    private String dispatchedTopic = "notification.dispatched.v1";
 
     @Transactional
     public void processMutationEvent(LedgerMutationEvent event) {
@@ -53,10 +58,22 @@ public class NotificationService {
         Long customerId = p.getCustomerId() != null ? p.getCustomerId() : p.getAccountId();
         String type = p.getTransactionType() != null ? p.getTransactionType().toUpperCase() : "MUTATION";
 
-        String title = "DEBIT".equals(type) ? "Account Debited" : "Account Credited";
-        String actionVerb = "DEBIT".equals(type) ? "debited from" : "credited to";
-        String message = String.format("PHP %s was %s account %s. New balance: PHP %s.",
-                p.getAmount(), actionVerb, p.getAccountNumber(), p.getNewBalance());
+        String title;
+        String message;
+        if ("INTEREST_CREDIT".equalsIgnoreCase(type)) {
+            title = "Monthly Interest Credited";
+            String accNum = p.getAccountNumber() != null ? p.getAccountNumber() : "ACC_" + String.format("%08d", p.getAccountId());
+            message = String.format("Monthly Interest Credited: ₱%s has been added to your savings account %s.",
+                    p.getAmount(), accNum);
+        } else if ("DEBIT".equalsIgnoreCase(type)) {
+            title = "Account Debited";
+            message = String.format("PHP %s was debited from account %s. New balance: PHP %s.",
+                    p.getAmount(), p.getAccountNumber(), p.getNewBalance());
+        } else {
+            title = "Account Credited";
+            message = String.format("PHP %s was credited to account %s. New balance: PHP %s.",
+                    p.getAmount(), p.getAccountNumber(), p.getNewBalance());
+        }
 
         Notification notification = Notification.builder()
                 .customerId(customerId)
@@ -82,7 +99,9 @@ public class NotificationService {
         }
 
         String eventId = event.getEventId();
-        if (eventId != null && notificationRepository.existsByEventId(eventId)) {
+        // A transfer is stored as two rows, <eventId>_SRC and <eventId>_DEST, so those are what a repeat finds.
+        if (eventId != null && (notificationRepository.existsByEventId(eventId + "_SRC")
+                || notificationRepository.existsByEventId(eventId + "_DEST"))) {
             log.info("Idempotent skip: Transfer Event [{}] already processed.", eventId);
             return;
         }
@@ -125,6 +144,44 @@ public class NotificationService {
             notificationDispatcher.dispatch(savedDest);
         }
 
+        // Publish notification.dispatched.v1 to Kafka (Day 5 Event Propagation)
+        try {
+            java.util.List<Long> customerIds = new java.util.ArrayList<>();
+            if (sourceCustId != null) customerIds.add(sourceCustId);
+            if (destCustId != null) customerIds.add(destCustId);
+
+            com.group2.fse.notification_service.event.NotificationDispatchedEvent dispatchedEvent =
+                    com.group2.fse.notification_service.event.NotificationDispatchedEvent.builder()
+                            .eventId("evt_" + java.util.UUID.randomUUID())
+                            .eventType("NOTIFICATION_DISPATCHED")
+                            .timestamp(Instant.now())
+                            .version("1.0")
+                            .payload(com.group2.fse.notification_service.event.NotificationDispatchedEvent.DispatchedPayload.builder()
+                                    .referenceNo(p.getTransferReference())
+                                    .sourceEventId(eventId)
+                                    .customerIds(customerIds)
+                                    .channel("IN_APP")
+                                    .dispatchedAt(Instant.now())
+                                    .build())
+                            .build();
+
+            String messageKey = p.getTransferReference() != null ? p.getTransferReference() : eventId;
+            var future = kafkaTemplate.send(dispatchedTopic, messageKey, dispatchedEvent);
+            if (future != null) {
+                future.whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish NotificationDispatchedEvent for ref [{}]: {}",
+                                p.getTransferReference(), ex.getMessage());
+                    } else {
+                        log.info("Published NotificationDispatchedEvent to topic [{}] for ref [{}]",
+                                dispatchedTopic, p.getTransferReference());
+                    }
+                });
+            }
+        } catch (Exception ex) {
+            log.error("Error publishing NotificationDispatchedEvent for ref [{}]: {}", p.getTransferReference(), ex.getMessage(), ex);
+        }
+
         log.info("Processed LedgerTransferEvent [{}] ref [{}]", eventId, p.getTransferReference());
     }
 
@@ -142,11 +199,20 @@ public class NotificationService {
         }
 
         AccountClosureEvent.ClosurePayload p = event.getPayload();
+        Long customerId = p.getCustomerId() != null ? p.getCustomerId() : p.getAccountId();
+        if (customerId == null) {
+            log.warn("Discarding AccountClosureEvent [{}] because customerId is missing", eventId);
+            return;
+        }
+
+        BigDecimal finalBal = p.getFinalBalance() != null ? p.getFinalBalance() : BigDecimal.ZERO;
         Notification notification = Notification.builder()
-                .customerId(p.getCustomerId())
+                .customerId(customerId)
                 .title("Account Closed")
                 .message(String.format("Account %s closure request #%s has been finalized. Final balance: PHP %s.",
-                        p.getAccountNumber(), p.getClosureRequestId(), p.getFinalBalance()))
+                        p.getAccountNumber() != null ? p.getAccountNumber() : "N/A",
+                        p.getClosureRequestId() != null ? p.getClosureRequestId() : "N/A",
+                        finalBal.toPlainString()))
                 .channel(NotificationChannel.IN_APP)
                 .isRead(false)
                 .eventId(eventId)

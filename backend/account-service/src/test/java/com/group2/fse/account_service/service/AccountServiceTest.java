@@ -4,15 +4,12 @@ import com.group2.fse.account_service.dto.AccountResponse;
 import com.group2.fse.account_service.dto.CreateAccountRequest;
 import com.group2.fse.account_service.entity.Account;
 import com.group2.fse.account_service.entity.Balance;
-import com.group2.fse.account_service.entity.Customer;
 import com.group2.fse.account_service.event.AccountCreatedEvent;
 import com.group2.fse.account_service.event.AccountEventPublisher;
 import com.group2.fse.account_service.exception.AccountNotFoundException;
-import com.group2.fse.account_service.exception.InvalidKycStateException;
 import com.group2.fse.account_service.exception.UnauthorizedAccountAccessException;
 import com.group2.fse.account_service.repository.AccountRepository;
 import com.group2.fse.account_service.repository.BalanceRepository;
-import com.group2.fse.account_service.repository.CustomerRepository;
 import com.group2.fse.account_service.service.impl.AccountServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,38 +39,19 @@ class AccountServiceTest {
     private BalanceRepository balanceRepository;
 
     @Mock
-    private CustomerRepository customerRepository;
-
-    @Mock
     private AccountEventPublisher accountEventPublisher;
 
     @InjectMocks
     private AccountServiceImpl accountService;
 
-    private Customer verifiedCustomer;
-    private Customer pendingCustomer;
     private Account mockAccount;
     private Balance mockBalance;
 
     @BeforeEach
     void setUp() {
-        verifiedCustomer = Customer.builder()
-                .customerId(101L)
-                .username("john_doe")
-                .email("john.doe@example.com")
-                .kycStatus("VERIFIED")
-                .build();
-
-        pendingCustomer = Customer.builder()
-                .customerId(102L)
-                .username("unverified_jane")
-                .email("jane@example.com")
-                .kycStatus("PENDING")
-                .build();
-
         mockAccount = Account.builder()
                 .accountId(305L)
-                .customer(verifiedCustomer)
+                .customerId(101L)
                 .accountNumber("ACC_10000005")
                 .accountType("SAVINGS")
                 .currency("PHP")
@@ -90,9 +68,8 @@ class AccountServiceTest {
     }
 
     @Test
-    @DisplayName("[ACC-001] Should successfully create new deposit account with 0.0000 PHP balance for verified customer")
-    void shouldCreateAccountSuccessfullyForVerifiedCustomer() {
-        when(customerRepository.findById(101L)).thenReturn(Optional.of(verifiedCustomer));
+    @DisplayName("[ACC-001] Should successfully create new deposit account with 0.0000 PHP balance")
+    void shouldCreateAccountSuccessfully() {
         when(accountRepository.existsByAccountNumber(anyString())).thenReturn(false);
         when(accountRepository.save(any(Account.class))).thenAnswer(i -> {
             Account acc = i.getArgument(0);
@@ -127,26 +104,9 @@ class AccountServiceTest {
     }
 
     @Test
-    @DisplayName("[ACC-002] Should reject account opening if customer KYC status is not VERIFIED")
-    void shouldRejectAccountOpeningWhenKycNotVerified() {
-        when(customerRepository.findById(102L)).thenReturn(Optional.of(pendingCustomer));
-
-        CreateAccountRequest request = CreateAccountRequest.builder()
-                .customerId(102L)
-                .accountType("SAVINGS")
-                .currency("PHP")
-                .build();
-
-        assertThrows(InvalidKycStateException.class, () -> accountService.createAccount(request));
-        verify(accountRepository, never()).save(any(Account.class));
-        verify(balanceRepository, never()).save(any(Balance.class));
-    }
-
-    @Test
-    @DisplayName("[ACC-003] Should list all deposit accounts owned by customer with balances")
+    @DisplayName("[ACC-002] Should list all deposit accounts owned by customer with balances")
     void shouldGetCustomerAccountsSuccessfully() {
-        when(customerRepository.existsById(101L)).thenReturn(true);
-        when(accountRepository.findByCustomer_CustomerId(101L)).thenReturn(List.of(mockAccount));
+        when(accountRepository.findByCustomerId(101L)).thenReturn(List.of(mockAccount));
         when(balanceRepository.findByAccount_AccountId(305L)).thenReturn(Optional.of(mockBalance));
 
         List<AccountResponse> accounts = accountService.getCustomerAccounts(101L);
@@ -158,7 +118,7 @@ class AccountServiceTest {
     }
 
     @Test
-    @DisplayName("[ACC-004] Should allow customer to access their own account metadata")
+    @DisplayName("[ACC-003] Should allow customer to access their own account metadata")
     void shouldAllowCustomerToGetOwnAccount() {
         when(accountRepository.findById(305L)).thenReturn(Optional.of(mockAccount));
         when(balanceRepository.findByAccount_AccountId(305L)).thenReturn(Optional.of(mockBalance));
@@ -170,7 +130,7 @@ class AccountServiceTest {
     }
 
     @Test
-    @DisplayName("[ACC-005] Should reject customer attempting to access another customer's account")
+    @DisplayName("[ACC-004] Should reject customer attempting to access another customer's account")
     void shouldRejectUnauthorizedCustomerAccess() {
         when(accountRepository.findById(305L)).thenReturn(Optional.of(mockAccount));
 
@@ -180,7 +140,7 @@ class AccountServiceTest {
     }
 
     @Test
-    @DisplayName("[ACC-006] Should allow staff / teller to inspect any account metadata")
+    @DisplayName("[ACC-005] Should allow staff / teller to inspect any account metadata")
     void shouldAllowStaffAccessToAnyAccount() {
         when(accountRepository.findById(305L)).thenReturn(Optional.of(mockAccount));
         when(balanceRepository.findByAccount_AccountId(305L)).thenReturn(Optional.of(mockBalance));
@@ -190,6 +150,19 @@ class AccountServiceTest {
 
         assertNotNull(response);
         assertEquals(305L, response.getAccountId());
+    }
+
+    @Test
+    @DisplayName("[ACC-006] Should retrieve account by account number")
+    void shouldGetAccountByNumberSuccessfully() {
+        when(accountRepository.findByAccountNumber("ACC_10000005")).thenReturn(Optional.of(mockAccount));
+        when(balanceRepository.findByAccount_AccountId(305L)).thenReturn(Optional.of(mockBalance));
+
+        AccountResponse response = accountService.getAccountByNumber("ACC_10000005");
+
+        assertNotNull(response);
+        assertEquals(305L, response.getAccountId());
+        assertEquals("ACC_10000005", response.getAccountNumber());
     }
 
     @Test

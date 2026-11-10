@@ -1,0 +1,209 @@
+# Transfer ingress, timeline and the inbound inter-bank endpoint.
+# Values mirror the transaction-service block in docker-compose.yml; names are in contracts/runtime/RUNTIME_SETTINGS.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-service
+  labels:
+    app.kubernetes.io/name: transaction-service
+    app.kubernetes.io/part-of: coobs
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: transaction-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: transaction-service
+        app.kubernetes.io/part-of: coobs
+    spec:
+      automountServiceAccountToken: false
+      # No service-link variables (<NAME>_SERVICE_HOST, <NAME>_PORT): every address comes from coobs-config.
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: transaction-service
+          image: coobs/transaction-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8090
+          env:
+            - name: SERVER_PORT
+              value: "8090"
+            - name: JAVA_OPTS
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: JAVA_OPTS
+            # Azure SQL, database transaction_db. SQL_SERVER_FQDN must stay above the URL that uses it.
+            - name: SQL_SERVER_FQDN
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: SQL_SERVER_FQDN
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:sqlserver://$(SQL_SERVER_FQDN):1433;databaseName=transaction_db;encrypt=true;trustServerCertificate=false;loginTimeout=30"
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: CLOUD_DB_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: CLOUD_DB_PASSWORD
+            - name: SPRING_JPA_DATABASE_PLATFORM
+              value: "org.hibernate.dialect.SQLServerDialect"
+            - name: SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT
+              value: "org.hibernate.dialect.SQLServerDialect"
+            # Still named in application.properties with no default, so it is supplied as well.
+            - name: POSTGRES_CLOUD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: CLOUD_DB_PASSWORD
+            - name: POSTGRES_CLOUD_SCHEMA
+              value: "txn"
+            - name: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+              value: "20"
+            - name: SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE
+              value: "5"
+            - name: SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT
+              value: "5000"
+            - name: SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD
+              value: "15000"
+            # Redis. The key and TLS switch are Spring's own names; no service reads them from a custom variable.
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: REDIS_PORT
+            - name: SPRING_DATA_REDIS_SSL_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: REDIS_SSL_ENABLED
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: REDIS_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
+            - name: KAFKA_CONSUMER_GROUP
+              value: "transaction-service-group"
+            - name: ORCHESTRATION_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: ORCHESTRATION_SERVICE_URL
+            # Crosses the link
+            - name: ACCOUNT_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: ACCOUNT_SERVICE_URL
+            # application.properties still carries defaults for these two; set them so the defaults are never used.
+            - name: INTERBANK_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: INTERBANK_SHARED_SECRET
+            - name: INTERBANK_BANKB_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: INTERBANK_BANKB_SECRET
+            - name: INTERBANK_AURABANK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: INTERBANK_AURABANK_API_KEY
+                  optional: true
+            - name: INTERBANK_AURABANK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: INTERBANK_AURABANK_URL
+                  optional: true
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coobs-app-secrets
+                  key: JWT_SECRET
+            - name: JWT_EXPIRATION_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: JWT_EXPIRATION_MS
+            - name: CORS_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: CORS_ALLOWED_ORIGINS
+          # Eight JVMs start together on two vCPUs, so the first start is allowed six minutes.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 72
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              # 50m, not 100m: the node has 1900m to give, AKS's own pods reserve about 1160m of it,
+              # and at 100m four pods found no room on the first deployment. It is not a limit.
+              cpu: 50m
+              memory: 384Mi
+            limits:
+              memory: 640Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transaction-service
+  labels:
+    app.kubernetes.io/name: transaction-service
+    app.kubernetes.io/part-of: coobs
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: transaction-service
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http

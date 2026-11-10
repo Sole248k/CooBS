@@ -1,0 +1,10 @@
+{
+  "holdId": 9001,
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "accountId": 1,
+  "amount": "2500.00",
+  "status": "RESERVED",
+  "availableBalance": "47125.00",
+  "ledgerBalance": "49625.00",
+  "createdAt": "2026-10-03T11:40:00.200Z"
+}

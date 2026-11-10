@@ -5,11 +5,13 @@ services:
   # 1. ORACLE DATABASE (Master System of Record & Pessimistic Row Locking)
   # ============================================================================
   oracle-core-db:
-    image: gvenzl/oracle-free:latest
+    # Pinned to the image the E2E runs passed on (pulled as latest; built five weeks before 10 October 2026).
+    # A tag such as latest moves, and a new pull would bring a version nobody has tested.
+    image: gvenzl/oracle-free@sha256:7ed34d0ade89c91a553c9cbe9d42457c758fa29a762aaaa3137541ff30a2d1cb
     container_name: oracle-core-db
     ports:
-      - "${ORACLE_PORT:-1522}:1521"
-      - "${ORACLE_OEM_PORT:-5501}:5500"
+      - "127.0.0.1:${ORACLE_PORT:-1522}:1521"
+      - "127.0.0.1:${ORACLE_OEM_PORT:-5501}:5500"
     environment:
       ORACLE_PASSWORD: ${ORACLE_PASSWORD:?ORACLE_PASSWORD is required}
       APP_USER: ${APP_USER:-core_user}
@@ -19,10 +21,10 @@ services:
       - ./database/oracle:/container-entrypoint-initdb.d:ro
       - oracle_data:/opt/oracle/oradata
     healthcheck:
-      test: ["CMD-SHELL", "printf 'WHENEVER SQLERROR EXIT SQL.SQLCODE\\nSELECT 1 FROM dual;\\nEXIT;\\n' | sqlplus -L -s ${APP_USER:-core_user}/${APP_USER_PASSWORD}@//localhost:1521/${ORACLE_DATABASE:-XEPDB1} | grep -Eq '^[[:space:]]*1[[:space:]]*$' || exit 1"]
-      interval: 10s
-      timeout: 10s
-      retries: 36
+      test: ["CMD", "/opt/oracle/healthcheck.sh"]
+      interval: 20s
+      timeout: 15s
+      retries: 20
       start_period: 60s
     restart: unless-stopped
     networks:
@@ -35,7 +37,7 @@ services:
     image: postgres:16-alpine
     container_name: postgres-audit-db
     ports:
-      - "${POSTGRES_PORT:-5434}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -59,7 +61,7 @@ services:
     image: redis:7.4-alpine
     container_name: redis-cache
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
@@ -76,10 +78,11 @@ services:
   # 4. APACHE KAFKA (KRaft Mode Single Broker Event Streaming)
   # ============================================================================
   kafka-broker:
-    image: apache/kafka:latest
+    # Pinned like Oracle above (pulled as latest; built three months before 10 October 2026).
+    image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
     container_name: kafka-broker
     ports:
-      - "${KAFKA_PORT:-9092}:9092"
+      - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -110,7 +113,7 @@ services:
   # 5. KAFKA TOPIC INITIALIZER (Auto-creates domain topics on boot)
   # ============================================================================
   kafka-init-topics:
-    image: apache/kafka:latest
+    image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
     container_name: kafka-init-topics
     depends_on:
       kafka-broker:
@@ -127,6 +130,19 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic account.created.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.submitted.v1 --partitions 3 --replication-factor 1
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.evaluated.v1 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic transaction.stage.changed.v1 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.dispatched.v1 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic batch.eod.step.completed.v1 --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic ledger.mutation.completed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic ledger.transfer.completed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic ledger.transfer.failed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic account.closure.completed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic account.created.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.submitted.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic kyc.request.evaluated.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic transaction.stage.changed.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.dispatched.v1.DLT --partitions 3 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --create --if-not-exists --topic notification.events.DLT --partitions 3 --replication-factor 1
         echo "Available topics:"
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-broker:29092 --list
     networks:
@@ -139,7 +155,7 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
     ports:
-      - "${KAFKA_UI_PORT:-8088}:8080"
+      - "127.0.0.1:${KAFKA_UI_PORT:-8088}:8080"
     depends_on:
       kafka-broker:
         condition: service_healthy
@@ -147,6 +163,24 @@ services:
       KAFKA_CLUSTERS_0_NAME: local-core-banking-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-broker:29092
       DYNAMIC_CONFIG_ENABLED: "true"
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ============================================================================
+  # 6b. SWAGGER UI (Interactive OpenAPI 3.0 Testing Console & API Documentation)
+  # ============================================================================
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: swagger-ui
+    ports:
+      - "127.0.0.1:${SWAGGER_UI_PORT:-8086}:8080"
+    environment:
+      SWAGGER_JSON: /openapi.yaml
+      BASE_URL: /swagger-ui
+      VALIDATOR_URL: "none"
+    volumes:
+      - ./contracts/api/openapi.yaml:/openapi.yaml:ro
     restart: unless-stopped
     networks:
       - core-banking-net
@@ -162,7 +196,7 @@ services:
       dockerfile: Dockerfile
     container_name: ledger-service
     ports:
-      - "${LEDGER_PORT:-8083}:8083"
+      - "127.0.0.1:${LEDGER_PORT:-8083}:8083"
     depends_on:
       oracle-core-db:
         condition: service_healthy
@@ -190,6 +224,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
       interval: 15s
@@ -211,24 +249,28 @@ services:
       dockerfile: Dockerfile
     container_name: auth-service
     ports:
-      - "${AUTH_PORT:-8081}:8081"
+      - "127.0.0.1:${AUTH_PORT:-8081}:8081"
     depends_on:
-      oracle-core-db:
+      postgres-cloud-db:
         condition: service_healthy
       redis-cache:
         condition: service_healthy
     environment:
       SERVER_PORT: 8081
-      ORACLE_HOST: oracle-core-db
-      ORACLE_PORT: 1521
-      ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
-      APP_USER: ${APP_USER:-core_user}
-      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD is required}
+      POSTGRES_CLOUD_HOST: postgres-cloud-db
+      POSTGRES_CLOUD_PORT: 5432
+      POSTGRES_CLOUD_DB: identity_db
+      POSTGRES_CLOUD_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_CLOUD_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       REDIS_HOST: redis-cache
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
       interval: 15s
@@ -250,7 +292,7 @@ services:
       dockerfile: Dockerfile
     container_name: account-service
     ports:
-      - "${ACCOUNT_PORT:-8082}:8082"
+      - "127.0.0.1:${ACCOUNT_PORT:-8082}:8082"
     depends_on:
       oracle-core-db:
         condition: service_healthy
@@ -260,6 +302,7 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 8082
+      LEDGER_SERVICE_URL: http://ledger-service:8083
       ORACLE_HOST: oracle-core-db
       ORACLE_PORT: 1521
       ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
@@ -271,6 +314,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
       interval: 15s
@@ -292,21 +339,25 @@ services:
       dockerfile: Dockerfile
     container_name: notification-service
     ports:
-      - "${NOTIFICATION_PORT:-8084}:8084"
+      - "127.0.0.1:${NOTIFICATION_PORT:-8084}:8084"
     depends_on:
       kafka-broker:
         condition: service_healthy
-      postgres-audit-db:
+      postgres-cloud-db:
         condition: service_healthy
     environment:
       SERVER_PORT: 8084
       KAFKA_BOOTSTRAP_SERVERS: kafka-broker:29092
       KAFKA_CONSUMER_GROUP: notification-service-group
-      DATABASE_URL: jdbc:postgresql://postgres-audit-db:5432/${POSTGRES_DB:-audit_store}
+      DATABASE_URL: jdbc:postgresql://postgres-cloud-db:5432/notification_db
       DATABASE_DRIVER: org.postgresql.Driver
-      DATABASE_USERNAME: ${POSTGRES_USER:-postgres}
+      DATABASE_USERNAME: ${POSTGRES_CLOUD_USER:-postgres}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
       interval: 15s
@@ -328,7 +379,7 @@ services:
       dockerfile: Dockerfile
     container_name: audit-service
     ports:
-      - "${AUDIT_PORT:-8085}:8085"
+      - "127.0.0.1:${AUDIT_PORT:-8085}:8085"
     depends_on:
       postgres-audit-db:
         condition: service_healthy
@@ -342,6 +393,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 5
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
+      SPRING_DATASOURCE_HIKARI_LEAK_DETECTION_THRESHOLD: 15000
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
       interval: 15s
@@ -384,14 +439,436 @@ services:
       LEDGER_SERVICE_URL: http://ledger-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8084
       AUDIT_SERVICE_URL: http://audit-service:8085
+      CUSTOMER_SERVICE_URL: http://customer-service:8089
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      BATCH_SERVICE_URL: http://batch-service:8093
+      MOBILE_BFF_URL: http://mobile-bff:8094
+      STAFF_BFF_URL: http://staff-bff:8095
+      ORDER_SERVICE_URL: http://order-service:8096
+      SWAGGER_UI_URL: http://swagger-ui:8080
       REDIS_HOST: redis-cache
       REDIS_PORT: 6379
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      SPRING_CONFIG_ADDITIONAL_LOCATION: "optional:file:/app/application.yml"
+    volumes:
+      - ./backend/api-gateway/src/main/resources/application.yml:/app/application.yml:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ============================================================================
+  # EXPANSION SERVICES (profile: expansion)
+  # Start with: docker compose --profile app --profile expansion up -d --build
+  # Datasource, Redis, Kafka and service URL variables are defined here for every service.
+  # The names are handshakes H12 and H13: see contracts/runtime/RUNTIME_SETTINGS.md.
+  # Each owner reads them from the service's own application.properties.
+  # ============================================================================
+  postgres-cloud-db:
+    profiles:
+      - app
+      - expansion
+    image: postgres:16-alpine
+    container_name: postgres-cloud-db
+    ports:
+      - "127.0.0.1:${POSTGRES_CLOUD_PORT:-5435}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: postgres
+    volumes:
+      - ./database/postgres-cloud:/docker-entrypoint-initdb.d:ro
+      - postgres_cloud_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_CLOUD_USER:-postgres} -d identity_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # customer-service (cloud) - Channel profile, beneficiaries and Customer 360 aggregator
+  # ----------------------------------------------------------------------------
+  customer-service:
+    profiles:
+      - app
+      - expansion
+    build:
+      context: ./backend/customer-service
+      dockerfile: Dockerfile
+    container_name: customer-service
+    ports:
+      - "127.0.0.1:${CUSTOMER_SERVICE_PORT:-8089}:8089"
+    depends_on:
+      postgres-cloud-db:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8089
+      POSTGRES_CLOUD_HOST: postgres-cloud-db
+      POSTGRES_CLOUD_PORT: 5432
+      POSTGRES_CLOUD_DB: customer_db
+      POSTGRES_CLOUD_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_CLOUD_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis-cache
+      REDIS_PORT: 6379
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8089/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # transaction-service (cloud) - Transfer ingress, timeline, inter-bank endpoints and DLQ replay
+  # ----------------------------------------------------------------------------
+  transaction-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/transaction-service
+      dockerfile: Dockerfile
+    container_name: transaction-service
+    ports:
+      - "127.0.0.1:${TRANSACTION_SERVICE_PORT:-8090}:8090"
+    depends_on:
+      postgres-cloud-db:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8090
+      POSTGRES_CLOUD_HOST: postgres-cloud-db
+      POSTGRES_CLOUD_PORT: 5432
+      POSTGRES_CLOUD_DB: transaction_db
+      POSTGRES_CLOUD_SCHEMA: txn
+      POSTGRES_CLOUD_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_CLOUD_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      REDIS_HOST: redis-cache
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka-broker:29092
+      KAFKA_CONSUMER_GROUP: transaction-service-group
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      ORCHESTRATION_SERVICE_URL: http://orchestration-service:8091
+      INTERBANK_BANKB_SECRET: ${INTERBANK_BANKB_SECRET:?INTERBANK_BANKB_SECRET is required}
+      INTERBANK_AURABANK_URL: ${INTERBANK_AURABANK_URL:-}
+      INTERBANK_AURABANK_API_KEY: ${INTERBANK_AURABANK_API_KEY:-AURABANK-SECURE-KEY-2026}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # orchestration-service (cloud) - Transfer and reversal saga coordinator
+  # ----------------------------------------------------------------------------
+  orchestration-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/orchestration-service
+      dockerfile: Dockerfile
+    container_name: orchestration-service
+    ports:
+      - "127.0.0.1:${ORCHESTRATION_SERVICE_PORT:-8091}:8091"
+    depends_on:
+      postgres-cloud-db:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8091
+      POSTGRES_CLOUD_HOST: postgres-cloud-db
+      POSTGRES_CLOUD_PORT: 5432
+      POSTGRES_CLOUD_DB: transaction_db
+      POSTGRES_CLOUD_SCHEMA: saga
+      POSTGRES_CLOUD_USER: ${POSTGRES_CLOUD_USER:-postgres}
+      POSTGRES_CLOUD_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka-broker:29092
+      KAFKA_CONSUMER_GROUP: orchestration-service-group
+      CUSTOMER_SERVICE_URL: http://customer-service:8089
+      RISK_ENGINE_URL: http://risk-engine:8092
+      LEDGER_SERVICE_URL: http://ledger-service:8083
+      # The inter-bank gateway (I4): an outbound transfer is sent to the partner bank from there.
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8091/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # risk-engine (cloud) - Fraud and limit decision engine
+  # ----------------------------------------------------------------------------
+  risk-engine:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/risk-engine
+      dockerfile: Dockerfile
+    container_name: risk-engine
+    ports:
+      - "127.0.0.1:${RISK_ENGINE_PORT:-8092}:8092"
+    depends_on:
+      redis-cache:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8092
+      REDIS_HOST: redis-cache
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET is required}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8092/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # batch-service (onprem) - On-demand end-of-day batch pipeline
+  # ----------------------------------------------------------------------------
+  batch-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/batch-service
+      dockerfile: Dockerfile
+    container_name: batch-service
+    ports:
+      - "127.0.0.1:${BATCH_SERVICE_PORT:-8093}:8093"
+    depends_on:
+      postgres-audit-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8093
+      POSTGRES_HOST: postgres-audit-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-audit_store}
+      POSTGRES_SCHEMA: batch
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      # Read only: the owner of an account for the interest notice, and the journal for GL reconciliation.
+      ORACLE_HOST: oracle-core-db
+      ORACLE_PORT: 1521
+      ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
+      APP_USER: ${APP_USER:-core_user}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?APP_USER_PASSWORD is required}
+      LEDGER_SERVICE_URL: http://ledger-service:8083
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8093/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # mobile-bff (cloud) - Mobile Backend-for-Frontend middleware
+  # ----------------------------------------------------------------------------
+  mobile-bff:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/mobile-bff
+      dockerfile: Dockerfile
+    container_name: mobile-bff
+    ports:
+      - "127.0.0.1:${MOBILE_BFF_PORT:-8094}:8094"
+    depends_on:
+      customer-service:
+        condition: service_healthy
+      account-service:
+        condition: service_healthy
+      transaction-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8094
+      CUSTOMER_SERVICE_URL: http://customer-service:8089
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8094/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # order-service (cloud) - Co-op Essentials Depot orders; pays through the ledger's holds
+  # ----------------------------------------------------------------------------
+  order-service:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    ports:
+      - "127.0.0.1:${ORDER_PORT:-8096}:8096"
+    depends_on:
+      postgres-cloud-db:
+        condition: service_healthy
+      ledger-service:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8096
+      DATABASE_URL: jdbc:postgresql://postgres-cloud-db:5432/order_db
+      DATABASE_DRIVER: org.postgresql.Driver
+      DATABASE_USERNAME: ${POSTGRES_CLOUD_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      LEDGER_SERVICE_URL: http://ledger-service:8083
+      # 9003 is GL_FEE_INCOME, a stand-in until the seed has an account for shop sales.
+      SHOP_MERCHANT_ACCOUNT_ID: ${SHOP_MERCHANT_ACCOUNT_ID:-9003}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 20
+      SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: 5000
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8096/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # staff-bff (cloud/staff) - Staff Backend-for-Frontend middleware (Tellers & Admins)
+  # ----------------------------------------------------------------------------
+  staff-bff:
+    profiles:
+      - expansion
+    build:
+      context: ./backend/staff-bff
+      dockerfile: Dockerfile
+    container_name: staff-bff
+    ports:
+      - "127.0.0.1:${STAFF_BFF_PORT:-8095}:8095"
+    depends_on:
+      customer-service:
+        condition: service_healthy
+      account-service:
+        condition: service_healthy
+      ledger-service:
+        condition: service_healthy
+      transaction-service:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
+      batch-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8095
+      CUSTOMER_SERVICE_URL: http://customer-service:8089
+      ACCOUNT_SERVICE_URL: http://account-service:8082
+      LEDGER_SERVICE_URL: http://ledger-service:8083
+      TRANSACTION_SERVICE_URL: http://transaction-service:8090
+      AUDIT_SERVICE_URL: http://audit-service:8085
+      BATCH_SERVICE_URL: http://batch-service:8093
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      JAVA_OPTS: "-Xmx256m -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8095/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - core-banking-net
+
+  # ----------------------------------------------------------------------------
+  # frontend (web) - Staff Portal React SPA served via Nginx
+  # ----------------------------------------------------------------------------
+  frontend:
+    profiles:
+      - expansion
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      # The built files are inside the image (see frontend/Dockerfile). Do not mount ./frontend/dist
+      # here: it would hide them behind whatever build happens to be on this machine.
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+      staff-bff:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
     networks:
       - core-banking-net
@@ -406,7 +883,7 @@ services:
     image: prom/prometheus:v2.50.0
     container_name: prometheus
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -430,7 +907,7 @@ services:
     image: grafana/grafana:10.3.1
     container_name: grafana
     ports:
-      - "${GRAFANA_PORT:-3001}:3000"
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
@@ -457,9 +934,9 @@ services:
     image: jaegertracing/all-in-one:1.57
     container_name: jaeger
     ports:
-      - "${JAEGER_UI_PORT:-16686}:16686"
-      - "${JAEGER_OTLP_GRPC_PORT:-4317}:4317"
-      - "${JAEGER_OTLP_HTTP_PORT:-4318}:4318"
+      - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686"
+      - "127.0.0.1:${JAEGER_OTLP_GRPC_PORT:-4317}:4317"
+      - "127.0.0.1:${JAEGER_OTLP_HTTP_PORT:-4318}:4318"
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     restart: unless-stopped
@@ -476,7 +953,7 @@ services:
     image: grafana/loki:2.9.4
     container_name: loki
     ports:
-      - "${LOKI_PORT:-3100}:3100"
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
     volumes:
       - ./monitoring/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
@@ -512,6 +989,8 @@ volumes:
     driver: local
   postgres_data:
     driver: local
+  postgres_cloud_data:
+    driver: local
   redis_data:
     driver: local
   kafka_data:
@@ -526,4 +1005,8 @@ volumes:
 networks:
   core-banking-net:
     driver: bridge
+    labels:
+      com.group2.fse.security.zone: "internal-core-banking"
+      com.group2.fse.network.perimeter: "isolated"
+
 

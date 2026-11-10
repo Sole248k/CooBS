@@ -1,14 +1,11 @@
 import React from 'react';
-import { Network, Server, Database, Radio, Cpu, ShieldCheck, ExternalLink } from 'lucide-react';
-import type { GatewayRoute } from '../types';
+import { Network, Server, Database, Radio, Cpu, ShieldCheck } from 'lucide-react';
 
 interface TopologyViewProps {
-  routes: GatewayRoute[];
   gatewayStatus: string;
 }
 
 export const TopologyView: React.FC<TopologyViewProps> = ({
-  routes,
   gatewayStatus
 }) => {
   const isOnline = gatewayStatus === 'ONLINE' || gatewayStatus === 'DEMO_STANDALONE';
@@ -182,57 +179,6 @@ export const TopologyView: React.FC<TopologyViewProps> = ({
               </div>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Discovered Gateway Routes Catalog */}
-      <div className="glass-card" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
-            <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#ffffff' }}>
-              Spring Cloud Gateway Dynamic Route Catalog
-            </h3>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Discovered from Spring Cloud Gateway Actuator: /actuator/gateway/routes
-            </p>
-          </div>
-          <a
-            href="http://localhost:8080/actuator/gateway/routes"
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-outline"
-            style={{ fontSize: '11px', padding: '6px 10px' }}
-          >
-            <span>Inspect Actuator JSON</span>
-            <ExternalLink size={12} />
-          </a>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-subtle)' }}>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>ROUTE ID</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>PATH PREDICATE</th>
-                <th style={{ padding: '10px 14px', fontWeight: '600' }}>TARGET DOWNSTREAM URI</th>
-              </tr>
-            </thead>
-            <tbody>
-              {routes.map(r => (
-                <tr key={r.route_id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
-                  <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', fontWeight: '600' }}>
-                    {r.route_id}
-                  </td>
-                  <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)' }}>
-                    {Array.isArray(r.predicates) ? r.predicates.join(', ') : String(r.predicates)}
-                  </td>
-                  <td style={{ padding: '12px 14px', fontFamily: 'var(--font-mono)', color: 'var(--color-success)' }}>
-                    {r.uri}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 

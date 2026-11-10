@@ -1,0 +1,13 @@
+{
+  "batchRunId": 31,
+  "stepName": "INTEREST_ACCRUAL",
+  "postings": [
+    {
+      "referenceNo": "EOD-20261003-INT-000001",
+      "debitAccountId": 9002,
+      "creditAccountId": 1,
+      "amount": "4.08",
+      "remarks": "Daily savings interest"
+    }
+  ]
+}

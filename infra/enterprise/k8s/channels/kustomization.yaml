@@ -1,0 +1,127 @@
+# The channels cluster: the staff console, api-gateway, mobile-bff and staff-bff. It holds the
+# only public address, which Front Door fronts.
+#
+#   kubectl kustomize infra/enterprise/k8s/channels
+#
+# It is infra/k8s with the business services and Kafka taken out. Their Service names stay, with
+# no selector: business-services.yaml points each at the services cluster's internal load
+# balancer, the way onprem-services.yaml points at the on-premises VM. So the gateway and the
+# BFFs call http://auth-service:8081 exactly as they do in one cluster.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: coobs
+
+resources:
+  - ../../../k8s
+  - business-services.yaml
+
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: auth-service
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: customer-service
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: transaction-service
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: orchestration-service
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: risk-engine
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: notification-service
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: order-service
+  - patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: kafka-broker
+  - patch: |-
+      $patch: delete
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: kafka-init-topics
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: kafka-broker
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: kafka-external
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: orchestration-service
+  - patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: risk-engine
+  - target:
+      kind: Service
+      name: auth-service
+    patch: |-
+      - op: remove
+        path: /spec/selector
+  - target:
+      kind: Service
+      name: customer-service
+    patch: |-
+      - op: remove
+        path: /spec/selector
+  - target:
+      kind: Service
+      name: transaction-service
+    patch: |-
+      - op: remove
+        path: /spec/selector
+  - target:
+      kind: Service
+      name: notification-service
+    patch: |-
+      - op: remove
+        path: /spec/selector
+  - target:
+      kind: Service
+      name: order-service
+    patch: |-
+      - op: remove
+        path: /spec/selector

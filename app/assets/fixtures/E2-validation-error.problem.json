@@ -1,0 +1,15 @@
+{
+  "type": "https://api.coobs.example/problems/validation-failed",
+  "title": "Validation Failed",
+  "status": 400,
+  "detail": "One or more fields are invalid.",
+  "instance": "/api/v1/ledger/transfers",
+  "errorCode": "VALIDATION_FAILED",
+  "timestamp": "2026-10-07T09:16:00Z",
+  "invalidParams": [
+    {
+      "name": "destinationAccountNumber",
+      "reason": "must differ from the source account"
+    }
+  ]
+}

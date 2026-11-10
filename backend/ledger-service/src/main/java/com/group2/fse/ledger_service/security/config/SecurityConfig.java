@@ -65,7 +65,9 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/error"
                         ).permitAll()
-                        .requestMatchers("/api/v1/ledger/**").authenticated()
+                        .requestMatchers("/internal/v1/**").hasRole("SERVICE")
+                        // Staff console only (contract section 3). Customers move money through T1.
+                        .requestMatchers("/api/v1/ledger/**").hasAnyRole("TELLER", "ADMIN")
                         .anyRequest().authenticated()
                 )
 

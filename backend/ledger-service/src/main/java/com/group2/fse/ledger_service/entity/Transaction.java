@@ -48,6 +48,10 @@ public class Transaction {
     @JoinColumn(name = "approved_by")
     private User approvedBy;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reverses_transaction_id")
+    private Transaction reversesTransaction;
+
     @Builder.Default
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

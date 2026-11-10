@@ -16,5 +16,13 @@
         <module>ledger-service</module>
         <module>notification-service</module>
         <module>audit-service</module>
+        <module>customer-service</module>
+        <module>transaction-service</module>
+        <module>orchestration-service</module>
+        <module>risk-engine</module>
+        <module>batch-service</module>
+        <module>mobile-bff</module>
+        <module>staff-bff</module>
+        <module>order-service</module>
     </modules>
 </project>

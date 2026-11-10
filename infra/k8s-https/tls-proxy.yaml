@@ -1,0 +1,149 @@
+# HTTPS at the public entry, for a subscription that may not create Front Door (a free trial
+# may not). One Caddy pod takes ports 80 and 443 of the public address, gets a certificate
+# for the address's Azure host name by itself, and passes everything on to the console's
+# nginx, which is unchanged. Plain HTTP is answered with a redirect to HTTPS.
+#
+# The certificate comes from Let's Encrypt, or from ZeroSSL when Let's Encrypt refuses: the
+# host name ends in cloudapp.azure.com, which shares one weekly allowance with every other
+# Azure customer. ZeroSSL needs the e-mail address below.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tls-proxy-config
+  labels:
+    app.kubernetes.io/name: tls-proxy
+    app.kubernetes.io/part-of: coobs
+data:
+  Caddyfile: |
+    {
+        # Unprivileged ports inside the pod; the Service maps 80 and 443 onto them.
+        http_port 8080
+        https_port 8443
+        email REPLACE-acme-email
+    }
+
+    REPLACE-public-host {
+        header Strict-Transport-Security "max-age=31536000"
+        reverse_proxy frontend:3000
+    }
+---
+# Keeps the certificate across restarts. Asking for a new one on every restart would run into
+# the issuer's limit of five identical certificates a week.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tls-proxy-data
+  labels:
+    app.kubernetes.io/name: tls-proxy
+    app.kubernetes.io/part-of: coobs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tls-proxy
+  labels:
+    app.kubernetes.io/name: tls-proxy
+    app.kubernetes.io/part-of: coobs
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  # The disk attaches to one pod at a time, so the old pod goes before the new one comes.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tls-proxy
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tls-proxy
+        app.kubernetes.io/part-of: coobs
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: caddy
+          image: caddy:2.10.0-alpine@sha256:ae4458638da8e1a91aafffb231c5f8778e964bca650c8a8cb23a7e8ac557aa3c
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: https
+              containerPort: 8443
+          # The HTTP port, because it answers before there is a certificate. A probe on 8443
+          # would keep the pod out of the Service while the certificate is being fetched,
+          # and the fetch itself comes in through the Service.
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            # The image's caddy binary carries this one capability as a file attribute. If it
+            # is not allowed here, the kernel can refuse to start the binary at all.
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_BIND_SERVICE"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/caddy
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: state
+              mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: tls-proxy-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: tls-proxy-data
+        - name: state
+          emptyDir: {}
+---
+# The console's nginx by name, for the proxy. Without this overlay the public Service points
+# at that pod directly and nothing else needs to find it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: coobs
+spec:
+  selector:
+    app.kubernetes.io/name: frontend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

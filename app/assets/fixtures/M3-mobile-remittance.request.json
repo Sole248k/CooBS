@@ -1,0 +1,9 @@
+{
+  "sourceAccountNumber": "ACC_10000001",
+  "destinationAccountNumber": "ACC_10000002",
+  "destinationBankCode": "COOBS",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "category": "TRANSFER",
+  "remarks": "Lunch money"
+}

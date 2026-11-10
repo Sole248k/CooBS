@@ -1,0 +1,51 @@
+{
+  "currency": "PHP",
+  "scale": 2,
+  "limits": {
+    "minAmount": 0.01,
+    "maxAmount": 500000.0
+  },
+  "categories": [
+    "TRANSFER",
+    "BILLS",
+    "ALLOWANCE",
+    "OTHER"
+  ],
+  "banks": [
+    {
+      "code": "COOBS",
+      "name": "CooBS (same bank)",
+      "fee": 0.0,
+      "accountPattern": "^([aA][cC][cC][-_]?)?\\d{4,8}$",
+      "accountHint": "ACC_ followed by 8 digits (e.g. ACC_10000002)"
+    },
+    {
+      "code": "AURABANK",
+      "name": "AuraBank",
+      "fee": 15.0,
+      "accountPattern": "^(\\d{4}-\\d{4}-\\d{4}|\\d{10,16})$",
+      "accountHint": "1000-2000-3001"
+    },
+    {
+      "code": "BDO",
+      "name": "BDO Unibank",
+      "fee": 15.0,
+      "accountPattern": "^\\d{10,12}$",
+      "accountHint": "10 to 12 digits"
+    },
+    {
+      "code": "BPI",
+      "name": "Bank of the Philippine Islands",
+      "fee": 15.0,
+      "accountPattern": "^\\d{10,12}$",
+      "accountHint": "10 to 12 digits"
+    },
+    {
+      "code": "UBP",
+      "name": "UnionBank",
+      "fee": 15.0,
+      "accountPattern": "^\\d{10,12}$",
+      "accountHint": "10 to 12 digits"
+    }
+  ]
+}

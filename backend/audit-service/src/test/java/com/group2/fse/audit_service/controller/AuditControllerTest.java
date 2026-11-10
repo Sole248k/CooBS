@@ -162,4 +162,46 @@ class AuditControllerTest {
                 .andExpect(jsonPath("$.isChainIntact").value(false))
                 .andExpect(jsonPath("$.message").value("Chain linkage mismatch at audit ID 5"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/audit/seals/{businessDate} - Returns 200 OK with seal details")
+    void testGetDailySeal_Success() throws Exception {
+        com.group2.fse.audit_service.dto.DailySealResponseDto sealDto = com.group2.fse.audit_service.dto.DailySealResponseDto.builder()
+                .businessDate(java.time.LocalDate.of(2026, 10, 3))
+                .lastAuditId(48L)
+                .sealHash("c7d1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789ab")
+                .sealedAt(java.time.Instant.parse("2026-10-03T17:00:06Z"))
+                .build();
+
+        when(auditQueryService.getDailySeal(java.time.LocalDate.of(2026, 10, 3))).thenReturn(sealDto);
+
+        mockMvc.perform(get("/api/v1/audit/seals/2026-10-03"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.businessDate").value("2026-10-03"))
+                .andExpect(jsonPath("$.lastAuditId").value(48))
+                .andExpect(jsonPath("$.sealHash").value("c7d1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef0123456789ab"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/audit/seals/{businessDate} - Returns 404 when seal not found")
+    void testGetDailySeal_NotFound() throws Exception {
+        when(auditQueryService.getDailySeal(java.time.LocalDate.of(2026, 10, 4)))
+                .thenThrow(new ResourceNotFoundException("Daily audit seal not found for date: 2026-10-04"));
+
+        mockMvc.perform(get("/api/v1/audit/seals/2026-10-04"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Daily audit seal not found for date: 2026-10-04"));
+    }
+
+    @Test
+    @DisplayName("Account data endpoints are staff only: none checks who owns the account")
+    void accountDataEndpoints_doNotAdmitCustomers() {
+        for (String method : java.util.List.of("getAccountStatement", "getTransactionForensics", "verifyChainIntegrity")) {
+            java.lang.reflect.Method endpoint = java.util.Arrays.stream(AuditController.class.getDeclaredMethods())
+                    .filter(m -> m.getName().equals(method)).findFirst().orElseThrow();
+            String rule = endpoint.getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class).value();
+            org.junit.jupiter.api.Assertions.assertFalse(rule.contains("CUSTOMER"), method + " admits customers: " + rule);
+        }
+    }
 }

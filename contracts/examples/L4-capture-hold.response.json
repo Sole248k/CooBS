@@ -1,0 +1,14 @@
+{
+  "holdId": 9001,
+  "status": "POSTED",
+  "transferReference": "TX-20261003-8F3A21C0",
+  "debitTransactionId": 5001,
+  "creditTransactionId": 5002,
+  "sourceAccountId": 1,
+  "destinationAccountId": 2,
+  "amount": "2500.00",
+  "sourceNewBalance": "47125.00",
+  "destinationNewBalance": "27875.00",
+  "auditHash": "a3f5b8e9c1d0…",
+  "timestamp": "2026-10-03T11:40:00.900Z"
+}
