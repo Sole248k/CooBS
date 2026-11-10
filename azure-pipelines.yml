@@ -22,28 +22,28 @@
 # Owner: Carl & Jared. To add a service, add one entry to the `services` parameter.
 # ==============================================================================
 
-trigger:
+trigger: none
   # While a run is in progress on a branch, later pushes to it wait and are built together
   # in one run. Several merges in a row therefore cost one run, not one each.
-  batch: true
-  branches:
-    include:
-      - main
-      - dev
-      - release/*
-  tags:
-    include:
-      - v*
-  paths:
-    exclude:
-      - docs/*
-      - integrated-capstone-plans/*
-      - contracts/*
-      - '*.md'
+  #batch: true
+  #branches:
+  #  include:
+  #    - main
+  #    - dev
+  #    - release/*
+  #tags:
+  #  include:
+  #    - v*
+  #paths:
+  #  exclude:
+  #    - docs/*
+  #    - integrated-capstone-plans/*
+  #    - contracts/*
+  #    - '*.md'
       # The two clients are checked by pull request builds. A push that changes nothing else
       # starts no run, so it does not hold the one agent for a full backend run.
-      - frontend/*
-      - app/*
+  #    - frontend/*
+  #    - app/*
 
 parameters:
   # needsInfra records which test suites talk to Oracle / PostgreSQL / Redis / Kafka.
