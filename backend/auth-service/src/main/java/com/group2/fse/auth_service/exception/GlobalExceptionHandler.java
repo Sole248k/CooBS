@@ -104,25 +104,6 @@ public class GlobalExceptionHandler {
                 .body(problem);
     }
 
-    @ExceptionHandler(MfaVerificationException.class)
-    public ResponseEntity<Map<String, Object>> handleMfaVerification(
-            MfaVerificationException ex, HttpServletRequest request) {
-        log.warn("MFA verification failure on {}: {}", request.getRequestURI(), ex.getMessage());
-
-        Map<String, Object> problem = createProblemDetails(
-                "https://api.corebank.local/errors/MFA_VERIFICATION_FAILED",
-                "MFA Verification Failed",
-                HttpStatus.BAD_REQUEST.value(),
-                ex.getMessage(),
-                request.getRequestURI(),
-                "MFA_VERIFICATION_FAILED"
-        );
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-                .body(problem);
-    }
 
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidToken(

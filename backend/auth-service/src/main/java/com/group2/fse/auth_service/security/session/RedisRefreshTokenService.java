@@ -43,7 +43,7 @@ public class RedisRefreshTokenService {
         try {
             String json = objectMapper.writeValueAsString(data);
             stringRedisTemplate.opsForValue().set(KEY_PREFIX + token, json, Duration.ofMillis(refreshExpirationMs));
-            log.info("Created refresh token in Redis: user={}, token={}", username, token);
+            log.info("Created refresh token in Redis for user {}", username);
             return token;
         } catch (Exception e) {
             log.error("Failed to serialize refresh token data: {}", e.getMessage(), e);
@@ -77,7 +77,7 @@ public class RedisRefreshTokenService {
     public void revokeRefreshToken(String refreshToken) {
         if (refreshToken != null && !refreshToken.isBlank()) {
             stringRedisTemplate.delete(KEY_PREFIX + refreshToken);
-            log.info("Revoked refresh token: {}", refreshToken);
+            log.info("Revoked a refresh token");
         }
     }
 }

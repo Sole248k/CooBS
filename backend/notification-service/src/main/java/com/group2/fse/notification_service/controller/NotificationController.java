@@ -27,7 +27,7 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @PreAuthorize("hasRole('CUSTOMER') or hasRole('ROLE_CUSTOMER')")
-    @GetMapping("/my-notifications")
+    @GetMapping({"", "/my-notifications"})
     public ResponseEntity<NotificationPageResponseDto> getMyNotifications(
             @RequestParam(defaultValue = "false") boolean unreadOnly,
             @RequestParam(defaultValue = "0") int page,

@@ -54,12 +54,6 @@ public class SecurityConfig {
                                 "/webjars/**",
                                 "/error"
                         ).permitAll()
-                        // Customer & KYC endpoints
-                        .requestMatchers("/api/v1/customers/me").hasRole("CUSTOMER")
-                        .requestMatchers("/api/v1/customers/kyc/submit").hasRole("CUSTOMER")
-                        .requestMatchers("/api/v1/customers/kyc/update-request").hasRole("CUSTOMER")
-                        .requestMatchers("/api/v1/customers/kyc/update-requests/**").hasAnyRole("TELLER", "ADMIN")
-                        .requestMatchers("/api/v1/customers/{customerId}").hasAnyRole("TELLER", "ADMIN")
                         
                         // Account endpoints
                         .requestMatchers("/api/v1/accounts/my-accounts").hasAnyRole("CUSTOMER", "TELLER", "ADMIN")
@@ -68,11 +62,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/accounts/closure-requests").hasAnyRole("TELLER", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/accounts/closure-requests/*/approve").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/accounts/closure-requests/*/reject").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/accounts/*/closure-request").hasRole("CUSTOMER")
-                        .requestMatchers(HttpMethod.PATCH, "/api/v1/accounts/*/status").hasAnyRole("TELLER", "ADMIN")
+                        .requestMatchers("/api/v1/accounts/*/closure-request").hasAnyRole("CUSTOMER", "TELLER", "ADMIN")
+                        .requestMatchers("/api/v1/accounts/*/status").hasAnyRole("TELLER", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/accounts/*/flags").hasAnyRole("TELLER", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/accounts/*/flags/*").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/accounts/*").hasAnyRole("CUSTOMER", "TELLER", "ADMIN")
+                        .requestMatchers("/internal/v1/**").hasRole("SERVICE")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

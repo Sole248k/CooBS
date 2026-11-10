@@ -20,9 +20,8 @@ public class Account {
     @Column(name = "account_id")
     private Long accountId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "customer_id", nullable = false)
-    private Customer customer;
+    @Column(name = "customer_id", nullable = false)
+    private Long customerId;
 
     @Column(name = "account_number", length = 34, nullable = false, unique = true)
     private String accountNumber;

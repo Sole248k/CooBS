@@ -1,0 +1,122 @@
+# The four on-premises services, seen from the cluster.
+#
+# Each Service has no selector; its EndpointSlice points at the on-premises VM. Cloud workloads
+# therefore use the same names as in Compose (http://ledger-service:8083), and the VM's address
+# lives in one place: ONPREM_VM_IP in config.yaml, which kustomization.yaml copies into the four
+# addresses below. Traffic leaves the cluster over the VNet peering; the NSG on the on-premises
+# subnet is what limits it to these four ports.
+apiVersion: v1
+kind: Service
+metadata:
+  name: account-service
+  labels:
+    app.kubernetes.io/part-of: coobs
+    coobs/zone: onprem
+spec:
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: account-service-onprem
+  labels:
+    kubernetes.io/service-name: account-service
+    coobs/zone: onprem
+addressType: IPv4
+ports:
+  - name: http
+    port: 8082
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.250.0.4"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger-service
+  labels:
+    app.kubernetes.io/part-of: coobs
+    coobs/zone: onprem
+spec:
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: ledger-service-onprem
+  labels:
+    kubernetes.io/service-name: ledger-service
+    coobs/zone: onprem
+addressType: IPv4
+ports:
+  - name: http
+    port: 8083
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.250.0.4"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-service
+  labels:
+    app.kubernetes.io/part-of: coobs
+    coobs/zone: onprem
+spec:
+  ports:
+    - name: http
+      port: 8085
+      targetPort: 8085
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: audit-service-onprem
+  labels:
+    kubernetes.io/service-name: audit-service
+    coobs/zone: onprem
+addressType: IPv4
+ports:
+  - name: http
+    port: 8085
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.250.0.4"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: batch-service
+  labels:
+    app.kubernetes.io/part-of: coobs
+    coobs/zone: onprem
+spec:
+  ports:
+    - name: http
+      port: 8093
+      targetPort: 8093
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: batch-service-onprem
+  labels:
+    kubernetes.io/service-name: batch-service
+    coobs/zone: onprem
+addressType: IPv4
+ports:
+  - name: http
+    port: 8093
+    protocol: TCP
+endpoints:
+  - addresses:
+      - "10.250.0.4"

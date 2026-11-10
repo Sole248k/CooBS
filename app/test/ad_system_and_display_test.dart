@@ -1,0 +1,320 @@
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:app/core/theme/theme_controller.dart';
+import 'package:app/features/ads/ad_liquid_crystal_dialog.dart';
+import 'package:app/features/ads/ad_models.dart';
+import 'package:app/features/ads/ad_service.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    AdService.resetSession();
+    AdService.enableAutoShow = false;
+  });
+
+  tearDown(() {
+    AdService.resetSession();
+    AdService.enableAutoShow = false;
+  });
+
+  group('Ad Probability & Sampling Engine', () {
+    test('Strict probability boundaries match required specifications', () {
+      // 1 in 2,000 -> roll 0
+      final roll0 = AdService.pickAd(forceRoll: 0);
+      expect(roll0.id, equals(AdItem.umamusume.id));
+      expect(roll0.isEasterEgg, isTrue);
+      expect(roll0.oddsDescription, contains('1 in 2,000'));
+
+      // 1 in 1,000 -> roll 1 or 2 (2 out of 2,000 = 1/1,000)
+      final roll1 = AdService.pickAd(forceRoll: 1);
+      final roll2 = AdService.pickAd(forceRoll: 2);
+      expect(roll1.id, equals(AdItem.duo.id));
+      expect(roll2.id, equals(AdItem.duo.id));
+      expect(roll1.oddsDescription, contains('1 in 1,000'));
+
+      // 1 in 500 for Oggy Crossover -> rolls 3 through 6 (4 out of 2,000 = 1/500)
+      final roll3 = AdService.pickAd(forceRoll: 3);
+      final roll6 = AdService.pickAd(forceRoll: 6);
+      expect(roll3.id, equals(AdItem.oggyCrossover.id));
+      expect(roll6.id, equals(AdItem.oggyCrossover.id));
+      expect(roll3.oddsDescription, contains('1 in 500'));
+
+      // 1 in 500 for Uma x Miku -> rolls 7 through 10 (4 out of 2,000 = 1/500)
+      final roll7 = AdService.pickAd(forceRoll: 7);
+      final roll10 = AdService.pickAd(forceRoll: 10);
+      expect(roll7.id, equals(AdItem.umaMiku.id));
+      expect(roll10.id, equals(AdItem.umaMiku.id));
+      expect(roll7.oddsDescription, contains('1 in 500'));
+
+      // 1 in 500 for Chiikawa Duo -> rolls 11 through 14 (4 out of 2,000 = 1/500)
+      final roll11 = AdService.pickAd(forceRoll: 11);
+      final roll14 = AdService.pickAd(forceRoll: 14);
+      expect(roll11.id, equals(AdItem.chiikawaDuo.id));
+      expect(roll14.id, equals(AdItem.chiikawaDuo.id));
+      expect(roll11.oddsDescription, contains('1 in 500'));
+
+      // Most frequent remainder -> rolls 15 through 1999
+      final roll15 = AdService.pickAd(forceRoll: 15);
+      final roll1999 = AdService.pickAd(forceRoll: 1999);
+      expect(roll15.id, equals(AdItem.solo.id));
+      expect(roll1999.id, equals(AdItem.solo.id));
+      expect(roll15.isEasterEgg, isFalse);
+    });
+
+    test('Empirical distribution over 20,000 rolls conforms to probability targets', () {
+      final seededRng = Random(42);
+      int countUmamusume = 0;
+      int countDuo = 0;
+      int countOggy = 0;
+      int countUmaMiku = 0;
+      int countChiikawa = 0;
+      int countSolo = 0;
+      const totalRolls = 20000;
+
+      for (var i = 0; i < totalRolls; i++) {
+        final ad = AdService.pickAd(random: seededRng);
+        if (ad.id == AdItem.umamusume.id) {
+          countUmamusume++;
+        } else if (ad.id == AdItem.duo.id) {
+          countDuo++;
+        } else if (ad.id == AdItem.oggyCrossover.id) {
+          countOggy++;
+        } else if (ad.id == AdItem.umaMiku.id) {
+          countUmaMiku++;
+        } else if (ad.id == AdItem.chiikawaDuo.id) {
+          countChiikawa++;
+        } else if (ad.id == AdItem.solo.id) {
+          countSolo++;
+        }
+      }
+
+      // Expected: Umamusume ~ 10 (1/2000 * 20000)
+      // Expected: Duo ~ 20 (2/2000 * 20000)
+      // Expected: Oggy / UmaMiku / Chiikawa ~ 40 each (4/2000 * 20000 = 1/500)
+      // Expected: Solo ~ 19850 (1985/2000 * 20000)
+      expect(countUmamusume, inInclusiveRange(3, 22));
+      expect(countDuo, inInclusiveRange(10, 35));
+      expect(countOggy, inInclusiveRange(22, 65));
+      expect(countUmaMiku, inInclusiveRange(22, 65));
+      expect(countChiikawa, inInclusiveRange(22, 65));
+      expect(countSolo, greaterThan(19700));
+
+      // New ads have higher odds than Duo and Uma
+      expect(countOggy + countUmaMiku + countChiikawa, greaterThan(countDuo * 3));
+    });
+
+    test('Session lifecycle marks shown and resets properly', () {
+      expect(AdService.hasShownThisSession, isFalse);
+      AdService.markShown();
+      expect(AdService.hasShownThisSession, isTrue);
+      AdService.resetSession();
+      expect(AdService.hasShownThisSession, isFalse);
+    });
+  });
+
+  group('Liquid Crystal Display (LCD) UI Widget', () {
+    testWidgets('Renders Liquid Crystal Display dialog with Solo ad banner', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => AdLiquidCrystalDialog.show(context, AdItem.solo),
+                  child: const Text('Show Dialog'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Dialog'));
+      await tester.pumpAndSettle();
+
+      // Verify LCD status bar, badges and typography
+      expect(find.text('COOBS EXCLUSIVE'), findsOneWidget);
+      expect(find.text(AdItem.solo.title), findsOneWidget);
+      expect(find.text(AdItem.solo.oddsDescription), findsOneWidget);
+      expect(find.text('Continue to CooBS'), findsOneWidget);
+      expect(find.text('Dismiss'), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+
+      // Dismiss dialog
+      await tester.tap(find.text('Dismiss'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('COOBS EXCLUSIVE'), findsNothing);
+    });
+
+    testWidgets('Renders Ultra Rare Umamusume Easter Egg with golden LCD styling', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => AdLiquidCrystalDialog.show(context, AdItem.umamusume),
+                  child: const Text('Show Easter Egg'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Easter Egg'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AdItem.umamusume.badgeText), findsOneWidget);
+      expect(find.text(AdItem.umamusume.title), findsOneWidget);
+      expect(find.text(AdItem.umamusume.oddsDescription), findsOneWidget);
+      expect(find.text('View Campaign'), findsOneWidget);
+
+      // Close via X button
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AdItem.umamusume.title), findsNothing);
+    });
+
+    testWidgets('Renders CooBS Duo (1/1000 Lucky Draw) ad banner cleanly', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => AdLiquidCrystalDialog.show(context, AdItem.duo),
+                  child: const Text('Show Duo'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Duo'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AdItem.duo.badgeText), findsOneWidget);
+      expect(find.text(AdItem.duo.title), findsOneWidget);
+      expect(find.text(AdItem.duo.oddsDescription), findsOneWidget);
+    });
+
+    testWidgets('Renders Oggy & Friends Crossover (1/500) ad banner with emerald glow', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => AdLiquidCrystalDialog.show(context, AdItem.oggyCrossover),
+                  child: const Text('Show Oggy'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Oggy'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AdItem.oggyCrossover.badgeText), findsOneWidget);
+      expect(find.text(AdItem.oggyCrossover.title), findsAtLeastNWidgets(1));
+      expect(find.text(AdItem.oggyCrossover.oddsDescription), findsOneWidget);
+    });
+
+    testWidgets('Renders Uma Musume x Miku Campaign (1/500) ad banner cleanly', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => AdLiquidCrystalDialog.show(context, AdItem.umaMiku),
+                  child: const Text('Show Uma Miku'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Uma Miku'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AdItem.umaMiku.badgeText), findsOneWidget);
+      expect(find.text(AdItem.umaMiku.title), findsAtLeastNWidgets(1));
+      expect(find.text(AdItem.umaMiku.oddsDescription), findsOneWidget);
+    });
+
+    testWidgets('Renders Chiikawa & Usagi Duo (1/500) ad banner cleanly', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => AdLiquidCrystalDialog.show(context, AdItem.chiikawaDuo),
+                  child: const Text('Show Chiikawa'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Chiikawa'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(AdItem.chiikawaDuo.badgeText), findsOneWidget);
+      expect(find.text(AdItem.chiikawaDuo.title), findsAtLeastNWidgets(1));
+      expect(find.text(AdItem.chiikawaDuo.oddsDescription), findsOneWidget);
+    });
+
+    testWidgets('Liquid Crystal Display dynamically follows light and dark theme mode', (tester) async {
+      await ThemeController.i.setDark(false);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => AdLiquidCrystalDialog.show(context, AdItem.solo),
+                  child: const Text('Show Dialog'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Dialog'));
+      await tester.pumpAndSettle();
+
+      // In light mode, verify title text uses dark ink color (0xFF000107)
+      final lightTitle = tester.widget<Text>(find.text(AdItem.solo.title));
+      expect(lightTitle.style?.color, equals(const Color(0xFF000107)));
+
+      // Toggle to dark mode
+      await ThemeController.i.setDark(true);
+      await tester.pump();
+
+      // In dark mode, verify title text updates to pure white
+      final darkTitle = tester.widget<Text>(find.text(AdItem.solo.title));
+      expect(darkTitle.style?.color, equals(Colors.white));
+
+      // Revert theme
+      await ThemeController.i.setDark(false);
+      await tester.pump();
+      final revertedTitle = tester.widget<Text>(find.text(AdItem.solo.title));
+      expect(revertedTitle.style?.color, equals(const Color(0xFF000107)));
+    });
+  });
+}

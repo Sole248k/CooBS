@@ -1,0 +1,1845 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.48.1.52935",
+      "templateHash": "18286663191857110908"
+    }
+  },
+  "parameters": {
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "dev",
+      "allowedValues": [
+        "dev",
+        "demo",
+        "prod"
+      ],
+      "metadata": {
+        "description": "Environment identifier (dev, demo, prod)"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region. Indonesia Central: Southeast Asia offers the trial subscription no usable VM size"
+      }
+    },
+    "baseName": {
+      "type": "string",
+      "defaultValue": "coobs",
+      "metadata": {
+        "description": "Base application prefix for naming resources"
+      }
+    },
+    "acrName": {
+      "type": "string",
+      "defaultValue": "CooBS",
+      "metadata": {
+        "description": "Name of the container registry that already exists in this resource group"
+      }
+    },
+    "sqlAdminLogin": {
+      "type": "string",
+      "defaultValue": "coobsadmin",
+      "metadata": {
+        "description": "Azure SQL administrator login"
+      }
+    },
+    "sqlAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Azure SQL administrator password. Given at deploy time; never written to a file in this repository"
+      }
+    },
+    "onPremAdminSshPublicKey": {
+      "type": "string",
+      "metadata": {
+        "description": "SSH public key for the on-premises VM administrator"
+      }
+    },
+    "keyVaultAdminObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "Object ID of the person who seeds and reads Key Vault secrets (az ad signed-in-user show --query id)"
+      }
+    },
+    "deployManagedRedis": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Create Azure Managed Redis. Set false to run Redis in the cluster instead (infra/k8s/optional/redis-in-cluster.yaml)"
+      }
+    },
+    "enableContainerInsights": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Send container logs to Log Analytics"
+      }
+    },
+    "deployFrontDoor": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Put Front Door (HTTPS) in front of the public address. Leave false for the first deployment: the address does not exist yet"
+      }
+    },
+    "frontDoorOriginHost": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Public address of the coobs-public load balancer, as printed by infra/scripts/deploy-cloud.ps1. Needed only when deployFrontDoor is true"
+      }
+    },
+    "aksMaxNodeCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "maxValue": 3,
+      "metadata": {
+        "description": "Most AKS nodes the autoscaler may run. 1 keeps the single fixed node; 2 allows one more when pods find no room"
+      }
+    },
+    "uniqueSuffix": {
+      "type": "string",
+      "defaultValue": "[uniqueString(resourceGroup().id)]",
+      "metadata": {
+        "description": "Unique suffix for globally unique resources (SQL, Key Vault, Redis)"
+      }
+    }
+  },
+  "variables": {
+    "cleanUniqueSuffix": "[take(parameters('uniqueSuffix'), 6)]",
+    "tags": {
+      "Project": "CooBS",
+      "Capstone": "Omnichannel Real-Time Remittance & Fraud Screening",
+      "Environment": "[parameters('environmentName')]",
+      "CostCenter": "Capstone-DevOps",
+      "ManagedBy": "Bicep"
+    },
+    "onPremVmPrivateIp": "10.250.0.4",
+    "kafkaInternalLoadBalancerIp": "10.240.15.200"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-network",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "cloudVnetName": {
+            "value": "[format('vnet-{0}-cloud-{1}', parameters('baseName'), parameters('environmentName'))]"
+          },
+          "onPremVnetName": {
+            "value": "[format('vnet-{0}-onprem-{1}', parameters('baseName'), parameters('environmentName'))]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "12696888122902232183"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all network resources"
+              }
+            },
+            "cloudVnetName": {
+              "type": "string",
+              "defaultValue": "vnet-coobs-cloud",
+              "metadata": {
+                "description": "Cloud virtual network name"
+              }
+            },
+            "onPremVnetName": {
+              "type": "string",
+              "defaultValue": "vnet-coobs-onprem",
+              "metadata": {
+                "description": "On-premises (simulated) virtual network name"
+              }
+            },
+            "cloudVnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.240.0.0/16",
+              "metadata": {
+                "description": "Cloud VNet address prefix"
+              }
+            },
+            "aksSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.240.0.0/20",
+              "metadata": {
+                "description": "AKS nodes and pods. The Kafka internal load balancer takes a fixed address in here"
+              }
+            },
+            "privateEndpointSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.240.16.0/24",
+              "metadata": {
+                "description": "Private endpoints (Azure Managed Redis)"
+              }
+            },
+            "onPremVnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.250.0.0/16",
+              "metadata": {
+                "description": "On-premises VNet address prefix"
+              }
+            },
+            "onPremSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.250.0.0/24",
+              "metadata": {
+                "description": "The one on-premises subnet: the VM running ledger, account, audit, batch and their databases"
+              }
+            },
+            "onPremServicePorts": {
+              "type": "array",
+              "defaultValue": [
+                "8082",
+                "8083",
+                "8085",
+                "8093"
+              ],
+              "metadata": {
+                "description": "Ports of account, ledger, audit and batch (contracts/runtime/RUNTIME_SETTINGS.md)"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2023-09-01",
+              "name": "nsg-coobs-onprem",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "Allow-Cluster-To-Core-Services",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourceAddressPrefix": "[parameters('aksSubnetPrefix')]",
+                      "sourcePortRange": "*",
+                      "destinationAddressPrefix": "[parameters('onPremSubnetPrefix')]",
+                      "destinationPortRanges": "[parameters('onPremServicePorts')]"
+                    }
+                  },
+                  {
+                    "name": "Deny-Everything-Else-From-Cloud",
+                    "properties": {
+                      "priority": 4000,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourceAddressPrefix": "[parameters('cloudVnetPrefix')]",
+                      "sourcePortRange": "*",
+                      "destinationAddressPrefix": "*",
+                      "destinationPortRange": "*"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2023-09-01",
+              "name": "pip-coobs-onprem-nat",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static"
+              }
+            },
+            {
+              "type": "Microsoft.Network/natGateways",
+              "apiVersion": "2023-09-01",
+              "name": "nat-coobs-onprem",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "idleTimeoutInMinutes": 4,
+                "publicIpAddresses": [
+                  {
+                    "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'pip-coobs-onprem-nat')]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', 'pip-coobs-onprem-nat')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('cloudVnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('cloudVnetPrefix')]"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "snet-aks",
+                    "properties": {
+                      "addressPrefix": "[parameters('aksSubnetPrefix')]",
+                      "serviceEndpoints": [
+                        {
+                          "service": "Microsoft.Sql"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "snet-private-endpoints",
+                    "properties": {
+                      "addressPrefix": "[parameters('privateEndpointSubnetPrefix')]"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-05-01",
+              "name": "[parameters('onPremVnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('onPremVnetPrefix')]"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "snet-core",
+                    "properties": {
+                      "addressPrefix": "[parameters('onPremSubnetPrefix')]",
+                      "defaultOutboundAccess": false,
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-coobs-onprem')]"
+                      },
+                      "natGateway": {
+                        "id": "[resourceId('Microsoft.Network/natGateways', 'nat-coobs-onprem')]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/natGateways', 'nat-coobs-onprem')]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-coobs-onprem')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', parameters('cloudVnetName'), 'peer-cloud-to-onprem')]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('onPremVnetName'))]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": false,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('cloudVnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('onPremVnetName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2024-05-01",
+              "name": "[format('{0}/{1}', parameters('onPremVnetName'), 'peer-onprem-to-cloud')]",
+              "properties": {
+                "remoteVirtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('cloudVnetName'))]"
+                },
+                "allowVirtualNetworkAccess": true,
+                "allowForwardedTraffic": false,
+                "allowGatewayTransit": false,
+                "useRemoteGateways": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('cloudVnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('onPremVnetName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/virtualNetworkPeerings', parameters('cloudVnetName'), 'peer-cloud-to-onprem')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "cloudVnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('cloudVnetName'))]"
+            },
+            "cloudVnetName": {
+              "type": "string",
+              "value": "[parameters('cloudVnetName')]"
+            },
+            "onPremVnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('onPremVnetName'))]"
+            },
+            "onPremVnetName": {
+              "type": "string",
+              "value": "[parameters('onPremVnetName')]"
+            },
+            "aksSubnetId": {
+              "type": "string",
+              "value": "[format('{0}/subnets/snet-aks', resourceId('Microsoft.Network/virtualNetworks', parameters('cloudVnetName')))]"
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "value": "[format('{0}/subnets/snet-private-endpoints', resourceId('Microsoft.Network/virtualNetworks', parameters('cloudVnetName')))]"
+            },
+            "onPremSubnetId": {
+              "type": "string",
+              "value": "[format('{0}/subnets/snet-core', resourceId('Microsoft.Network/virtualNetworks', parameters('onPremVnetName')))]"
+            },
+            "natPublicIpAddress": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', 'pip-coobs-onprem-nat'), '2023-09-01').ipAddress]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-monitoring",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workspaceName": {
+            "value": "[format('law-{0}-{1}', parameters('baseName'), parameters('environmentName'))]"
+          },
+          "appInsightsName": {
+            "value": "[format('appi-{0}-{1}', parameters('baseName'), parameters('environmentName'))]"
+          },
+          "dailyQuotaGb": {
+            "value": 1
+          },
+          "retentionInDays": {
+            "value": 30
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "10714655503753042275"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for monitoring resources"
+              }
+            },
+            "workspaceName": {
+              "type": "string",
+              "defaultValue": "law-coobs-dev",
+              "metadata": {
+                "description": "Log Analytics Workspace name"
+              }
+            },
+            "appInsightsName": {
+              "type": "string",
+              "defaultValue": "appi-coobs-dev",
+              "metadata": {
+                "description": "Application Insights name"
+              }
+            },
+            "dailyQuotaGb": {
+              "type": "int",
+              "defaultValue": 1,
+              "metadata": {
+                "description": "Daily ingestion quota in GB (FinOps cap: 0.5 GB/day to prevent runaway costs)"
+              }
+            },
+            "retentionInDays": {
+              "type": "int",
+              "defaultValue": 30,
+              "metadata": {
+                "description": "Retention in days (30 days included in free ingestion)"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2022-10-01",
+              "name": "[parameters('workspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": "[parameters('retentionInDays')]",
+                "workspaceCapping": {
+                  "dailyQuotaGb": "[parameters('dailyQuotaGb')]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[parameters('appInsightsName')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]",
+                "IngestionMode": "LogAnalytics"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "workspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+            },
+            "workspaceCustomerId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName')), '2022-10-01').customerId]"
+            },
+            "appInsightsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-keyvault",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "keyVaultName": {
+            "value": "[format('kv-{0}-{1}', parameters('baseName'), variables('cleanUniqueSuffix'))]"
+          },
+          "keyVaultAdminObjectId": {
+            "value": "[parameters('keyVaultAdminObjectId')]"
+          },
+          "cloudDbPassword": {
+            "value": "[parameters('sqlAdminPassword')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "3211614264233754676"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for Key Vault"
+              }
+            },
+            "keyVaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault globally unique name (3-24 alphanumerics and dashes)"
+              }
+            },
+            "keyVaultAdminObjectId": {
+              "type": "string",
+              "metadata": {
+                "description": "Object ID of the person who seeds and reads the secrets. Owner of the subscription is not enough: with RBAC authorisation the data plane needs its own role"
+              }
+            },
+            "cloudDbPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Azure SQL administrator password, stored as cloud-db-password"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "secretsOfficerRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2023-07-01",
+              "name": "[parameters('keyVaultName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "family": "A",
+                  "name": "standard"
+                },
+                "tenantId": "[subscription().tenantId]",
+                "enableRbacAuthorization": true,
+                "enabledForDeployment": false,
+                "enabledForTemplateDeployment": true,
+                "enabledForDiskEncryption": false,
+                "enableSoftDelete": true,
+                "softDeleteRetentionInDays": 7
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), parameters('keyVaultAdminObjectId'), variables('secretsOfficerRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('secretsOfficerRoleDefinitionId')]",
+                "principalId": "[parameters('keyVaultAdminObjectId')]",
+                "principalType": "User"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', parameters('keyVaultName'), 'cloud-db-password')]",
+              "properties": {
+                "value": "[parameters('cloudDbPassword')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "keyVaultId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+            },
+            "keyVaultName": {
+              "type": "string",
+              "value": "[parameters('keyVaultName')]"
+            },
+            "keyVaultUri": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), '2023-07-01').vaultUri]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-sql",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "serverName": {
+            "value": "[format('sql-{0}-{1}', parameters('baseName'), variables('cleanUniqueSuffix'))]"
+          },
+          "administratorLogin": {
+            "value": "[parameters('sqlAdminLogin')]"
+          },
+          "administratorLoginPassword": {
+            "value": "[parameters('sqlAdminPassword')]"
+          },
+          "allowedSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.aksSubnetId.value]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "5260813497221046084"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the logical server"
+              }
+            },
+            "serverName": {
+              "type": "string",
+              "metadata": {
+                "description": "Logical server name, globally unique"
+              }
+            },
+            "administratorLogin": {
+              "type": "string",
+              "metadata": {
+                "description": "Administrator login"
+              }
+            },
+            "administratorLoginPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Administrator password"
+              }
+            },
+            "allowedSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet allowed to reach the server: the AKS subnet, which carries the Microsoft.Sql service endpoint"
+              }
+            },
+            "skuName": {
+              "type": "string",
+              "defaultValue": "S0",
+              "metadata": {
+                "description": "Service objective of each database. S0 is 10 DTUs"
+              }
+            },
+            "skuTier": {
+              "type": "string",
+              "defaultValue": "Standard",
+              "metadata": {
+                "description": "Tier that goes with skuName"
+              }
+            },
+            "databaseNames": {
+              "type": "array",
+              "defaultValue": [
+                "identity_db",
+                "customer_db",
+                "transaction_db",
+                "notification_db",
+                "order_db"
+              ],
+              "metadata": {
+                "description": "The five cloud databases (contracts/runtime/RUNTIME_SETTINGS.md section 3)"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "collation": "Latin1_General_100_CI_AS_SC_UTF8"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Sql/servers",
+              "apiVersion": "2021-11-01",
+              "name": "[parameters('serverName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "administratorLogin": "[parameters('administratorLogin')]",
+                "administratorLoginPassword": "[parameters('administratorLoginPassword')]",
+                "version": "12.0",
+                "minimalTlsVersion": "1.2",
+                "publicNetworkAccess": "Enabled"
+              }
+            },
+            {
+              "type": "Microsoft.Sql/servers/virtualNetworkRules",
+              "apiVersion": "2021-11-01",
+              "name": "[format('{0}/{1}', parameters('serverName'), 'allow-aks-subnet')]",
+              "properties": {
+                "virtualNetworkSubnetId": "[parameters('allowedSubnetId')]",
+                "ignoreMissingVnetServiceEndpoint": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "databases",
+                "count": "[length(parameters('databaseNames'))]"
+              },
+              "type": "Microsoft.Sql/servers/databases",
+              "apiVersion": "2021-11-01",
+              "name": "[format('{0}/{1}', parameters('serverName'), parameters('databaseNames')[copyIndex()])]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('skuName')]",
+                "tier": "[parameters('skuTier')]"
+              },
+              "properties": {
+                "collation": "[variables('collation')]",
+                "zoneRedundant": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "serverName": {
+              "type": "string",
+              "value": "[parameters('serverName')]"
+            },
+            "serverFqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Sql/servers', parameters('serverName')), '2021-11-01').fullyQualifiedDomainName]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployManagedRedis')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-redis",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "redisName": {
+            "value": "[format('redis-{0}-{1}', parameters('baseName'), variables('cleanUniqueSuffix'))]"
+          },
+          "privateEndpointSubnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.privateEndpointSubnetId.value]"
+          },
+          "linkedVnetIds": {
+            "value": [
+              "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.cloudVnetId.value]",
+              "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.onPremVnetId.value]"
+            ]
+          },
+          "keyVaultName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-keyvault'), '2025-04-01').outputs.keyVaultName.value]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "4536659932642125257"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for Redis"
+              }
+            },
+            "redisName": {
+              "type": "string",
+              "metadata": {
+                "description": "Redis name, globally unique"
+              }
+            },
+            "skuName": {
+              "type": "string",
+              "defaultValue": "Balanced_B0",
+              "metadata": {
+                "description": "Smallest Balanced size"
+              }
+            },
+            "privateEndpointSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet for the private endpoint"
+              }
+            },
+            "linkedVnetIds": {
+              "type": "array",
+              "metadata": {
+                "description": "Networks whose services use Redis: the cloud VNet and the on-premises VNet"
+              }
+            },
+            "keyVaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault that receives the access key as the secret redis-key"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "privateDnsZoneName": "privatelink.redis.azure.net"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Cache/redisEnterprise",
+              "apiVersion": "2025-04-01",
+              "name": "[parameters('redisName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('skuName')]"
+              },
+              "properties": {
+                "minimumTlsVersion": "1.2",
+                "highAvailability": "Disabled"
+              }
+            },
+            {
+              "type": "Microsoft.Cache/redisEnterprise/databases",
+              "apiVersion": "2025-04-01",
+              "name": "[format('{0}/{1}', parameters('redisName'), 'default')]",
+              "properties": {
+                "clientProtocol": "Encrypted",
+                "port": 10000,
+                "clusteringPolicy": "EnterpriseCluster",
+                "evictionPolicy": "VolatileLRU",
+                "accessKeysAuthentication": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cache/redisEnterprise', parameters('redisName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('privateDnsZoneName')]",
+              "location": "global",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "copy": {
+                "name": "dnsLinks",
+                "count": "[length(parameters('linkedVnetIds'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', variables('privateDnsZoneName'), format('link-{0}', last(split(parameters('linkedVnetIds')[copyIndex()], '/'))))]",
+              "location": "global",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[parameters('linkedVnetIds')[copyIndex()]]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-09-01",
+              "name": "[format('pe-{0}', parameters('redisName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('privateEndpointSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "redis",
+                    "properties": {
+                      "privateLinkServiceId": "[resourceId('Microsoft.Cache/redisEnterprise', parameters('redisName'))]",
+                      "groupIds": [
+                        "redisEnterprise"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cache/redisEnterprise/databases', parameters('redisName'), 'default')]",
+                "[resourceId('Microsoft.Cache/redisEnterprise', parameters('redisName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-09-01",
+              "name": "[format('{0}/{1}', format('pe-{0}', parameters('redisName')), 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "redis",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneName'))]",
+                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}', parameters('redisName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', parameters('keyVaultName'), 'redis-key')]",
+              "properties": {
+                "value": "[listKeys(resourceId('Microsoft.Cache/redisEnterprise/databases', parameters('redisName'), 'default'), '2025-04-01').primaryKey]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cache/redisEnterprise/databases', parameters('redisName'), 'default')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "redisId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Cache/redisEnterprise', parameters('redisName'))]"
+            },
+            "redisHostName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Cache/redisEnterprise', parameters('redisName')), '2025-04-01').hostName]"
+            },
+            "redisPort": {
+              "type": "int",
+              "value": 10000
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-keyvault')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-aks",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "clusterName": {
+            "value": "[format('aks-{0}-{1}', parameters('baseName'), parameters('environmentName'))]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.aksSubnetId.value]"
+          },
+          "acrName": {
+            "value": "[parameters('acrName')]"
+          },
+          "logAnalyticsWorkspaceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-monitoring'), '2025-04-01').outputs.workspaceId.value]"
+          },
+          "enableContainerInsights": {
+            "value": "[parameters('enableContainerInsights')]"
+          },
+          "maxNodeCount": {
+            "value": "[parameters('aksMaxNodeCount')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "12019873915790859841"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for AKS"
+              }
+            },
+            "clusterName": {
+              "type": "string",
+              "metadata": {
+                "description": "AKS Cluster name"
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Subnet Resource ID for AKS cluster"
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace Resource ID for Container Insights"
+              }
+            },
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing container registry the cluster pulls from (AcrPull)"
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "defaultValue": "Standard_E2as_v5",
+              "metadata": {
+                "description": "2 vCPUs and 16 GB. Eight JVMs and Kafka share one node, so memory is the limit, not CPU"
+              }
+            },
+            "nodeCount": {
+              "type": "int",
+              "defaultValue": 1,
+              "metadata": {
+                "description": "Nodes the pool starts with. One runs the whole cloud zone; its CPU reservations are 95 percent taken"
+              }
+            },
+            "maxNodeCount": {
+              "type": "int",
+              "defaultValue": 1,
+              "minValue": 1,
+              "maxValue": 3,
+              "metadata": {
+                "description": "Most nodes the autoscaler may add. Equal to nodeCount (the default) leaves autoscaling off. 2 lets a rollout that finds no room add one node, and caps the cost at two"
+              }
+            },
+            "availabilityZones": {
+              "type": "array",
+              "defaultValue": [
+                "3"
+              ],
+              "metadata": {
+                "description": "The only zone in which the trial subscription may create this size"
+              }
+            },
+            "kubernetesVersion": {
+              "type": "string",
+              "defaultValue": "1.35",
+              "metadata": {
+                "description": "The Free tier takes 1.34 to 1.36 in Indonesia Central; 1.31 to 1.33 are long-term-support only, which needs the Premium tier"
+              }
+            },
+            "enableContainerInsights": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Send container logs to Log Analytics. The agent takes a few hundred MB of the node"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "networkContributorRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4d97b98b-1d4f-4787-a291-c67834d212e7')]",
+            "vnetName": "[split(parameters('subnetId'), '/')[8]]",
+            "acrPullRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('{0}-identity', parameters('clusterName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+              "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('clusterName'))), resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), variables('networkContributorRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('networkContributorRoleDefinitionId')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('clusterName'))), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('clusterName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ContainerService/managedClusters",
+              "apiVersion": "2024-02-01",
+              "name": "[parameters('clusterName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Base",
+                "tier": "Free"
+              },
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('clusterName'))))]": {}
+                }
+              },
+              "properties": {
+                "kubernetesVersion": "[parameters('kubernetesVersion')]",
+                "dnsPrefix": "[parameters('clusterName')]",
+                "enableRBAC": true,
+                "agentPoolProfiles": [
+                  {
+                    "name": "agentpool",
+                    "count": "[parameters('nodeCount')]",
+                    "vmSize": "[parameters('vmSize')]",
+                    "osType": "Linux",
+                    "mode": "System",
+                    "vnetSubnetID": "[parameters('subnetId')]",
+                    "availabilityZones": "[parameters('availabilityZones')]",
+                    "enableAutoScaling": "[greater(parameters('maxNodeCount'), parameters('nodeCount'))]",
+                    "minCount": "[if(greater(parameters('maxNodeCount'), parameters('nodeCount')), parameters('nodeCount'), null())]",
+                    "maxCount": "[if(greater(parameters('maxNodeCount'), parameters('nodeCount')), parameters('maxNodeCount'), null())]",
+                    "maxPods": 60,
+                    "osDiskSizeGB": 64,
+                    "type": "VirtualMachineScaleSets"
+                  }
+                ],
+                "networkProfile": {
+                  "networkPlugin": "azure",
+                  "serviceCidr": "10.0.0.0/16",
+                  "dnsServiceIP": "10.0.0.10",
+                  "loadBalancerSku": "standard"
+                },
+                "addonProfiles": {
+                  "omsagent": "[if(parameters('enableContainerInsights'), createObject('enabled', true(), 'config', createObject('logAnalyticsWorkspaceResourceID', parameters('logAnalyticsWorkspaceId'))), createObject('enabled', false()))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('clusterName')))]",
+                "[extensionResourceId(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-identity', parameters('clusterName'))), resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), variables('networkContributorRoleDefinitionId')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName')), resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), variables('acrPullRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('acrPullRoleDefinitionId')]",
+                "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName')), '2024-02-01').identityProfile.kubeletidentity.objectId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "clusterId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName'))]"
+            },
+            "clusterName": {
+              "type": "string",
+              "value": "[parameters('clusterName')]"
+            },
+            "kubeletIdentityObjectId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterName')), '2024-02-01').identityProfile.kubeletidentity.objectId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-monitoring')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-onprem-vm",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "vmName": {
+            "value": "[format('vm-{0}-onprem', parameters('baseName'))]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.onPremSubnetId.value]"
+          },
+          "privateIpAddress": {
+            "value": "[variables('onPremVmPrivateIp')]"
+          },
+          "adminSshPublicKey": {
+            "value": "[parameters('onPremAdminSshPublicKey')]"
+          },
+          "acrName": {
+            "value": "[parameters('acrName')]"
+          },
+          "keyVaultName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-keyvault'), '2025-04-01').outputs.keyVaultName.value]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "1789487154740022022"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the VM"
+              }
+            },
+            "vmName": {
+              "type": "string",
+              "defaultValue": "vm-coobs-onprem",
+              "metadata": {
+                "description": "VM name"
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "defaultValue": "Standard_B2as_v2",
+              "metadata": {
+                "description": "2 vCPUs and 8 GB. With the AKS node this uses the whole 4 vCPU quota of the trial"
+              }
+            },
+            "availabilityZone": {
+              "type": "string",
+              "defaultValue": "3",
+              "metadata": {
+                "description": "The only zone in which the trial subscription may create this size"
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "On-premises subnet"
+              }
+            },
+            "privateIpAddress": {
+              "type": "string",
+              "defaultValue": "10.250.0.4",
+              "metadata": {
+                "description": "Fixed private address. infra/k8s/config.yaml (ONPREM_VM_IP) must carry the same value"
+              }
+            },
+            "adminUsername": {
+              "type": "string",
+              "defaultValue": "coobsadmin",
+              "metadata": {
+                "description": "Administrator user name"
+              }
+            },
+            "adminSshPublicKey": {
+              "type": "string",
+              "metadata": {
+                "description": "SSH public key of the administrator. Password sign-in is off"
+              }
+            },
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing container registry the VM pulls its four service images from"
+              }
+            },
+            "keyVaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Key Vault the VM reads its secrets from"
+              }
+            },
+            "osDiskSizeGb": {
+              "type": "int",
+              "defaultValue": 64,
+              "metadata": {
+                "description": "OS disk size. Oracle Database Free and its data take most of it"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "variables": {
+            "$fxv#0": "#cloud-config\n# First boot of the on-premises VM: Docker with the Compose plugin, and a helper that signs\n# Docker in to the container registry with the VM's managed identity. Nothing here starts a\n# service; the Compose file for ledger, account, audit, batch and the two databases is copied\n# to /opt/coobs and started afterwards.\npackage_update: true\npackages:\n  - docker.io\n  - docker-compose-v2\n  - curl\n  - jq\n\nwrite_files:\n  - path: /usr/local/bin/acr-login\n    permissions: '0755'\n    content: |\n      #!/bin/sh\n      # Usage: acr-login <registry login server>\n      # Exchanges the VM identity's token for a registry token (the identity holds AcrPull),\n      # so no registry password is stored on the VM.\n      set -eu\n      REGISTRY=\"$1\"\n      TOKEN=$(curl -fsS -H Metadata:true \"http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fmanagement.azure.com%2F\" | jq -r .access_token)\n      REFRESH=$(curl -fsS -X POST --data-urlencode \"grant_type=access_token\" --data-urlencode \"service=$REGISTRY\" --data-urlencode \"access_token=$TOKEN\" \"https://$REGISTRY/oauth2/exchange\" | jq -r .refresh_token)\n      echo \"$REFRESH\" | docker login \"$REGISTRY\" --username 00000000-0000-0000-0000-000000000000 --password-stdin\n\nruncmd:\n  - systemctl enable --now docker\n  - usermod -aG docker __ADMIN_USER__\n  - install -d -m 0750 -o __ADMIN_USER__ -g docker /opt/coobs\n",
+            "cloudInit": "[replace(variables('$fxv#0'), '__ADMIN_USER__', parameters('adminUsername'))]",
+            "acrPullRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+            "secretsUserRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2023-09-01",
+              "name": "[format('nic-{0}', parameters('vmName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig1",
+                    "properties": {
+                      "privateIPAllocationMethod": "Static",
+                      "privateIPAddress": "[parameters('privateIpAddress')]",
+                      "subnet": {
+                        "id": "[parameters('subnetId')]"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('vmName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "zones": [
+                "[parameters('availabilityZone')]"
+              ],
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "storageProfile": {
+                  "imageReference": {
+                    "publisher": "Canonical",
+                    "offer": "ubuntu-24_04-lts",
+                    "sku": "server",
+                    "version": "latest"
+                  },
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "diskSizeGB": "[parameters('osDiskSizeGb')]",
+                    "managedDisk": {
+                      "storageAccountType": "StandardSSD_LRS"
+                    }
+                  }
+                },
+                "osProfile": {
+                  "computerName": "coobs-onprem",
+                  "adminUsername": "[parameters('adminUsername')]",
+                  "customData": "[base64(variables('cloudInit'))]",
+                  "linuxConfiguration": {
+                    "disablePasswordAuthentication": true,
+                    "ssh": {
+                      "publicKeys": [
+                        {
+                          "path": "[format('/home/{0}/.ssh/authorized_keys', parameters('adminUsername'))]",
+                          "keyData": "[parameters('adminSshPublicKey')]"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}', parameters('vmName')))]"
+                    }
+                  ]
+                },
+                "diagnosticsProfile": {
+                  "bootDiagnostics": {
+                    "enabled": true
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', format('nic-{0}', parameters('vmName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.Compute/virtualMachines', parameters('vmName')), resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), variables('acrPullRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('acrPullRoleDefinitionId')]",
+                "principalId": "[reference(resourceId('Microsoft.Compute/virtualMachines', parameters('vmName')), '2024-03-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', parameters('vmName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+              "name": "[guid(resourceId('Microsoft.Compute/virtualMachines', parameters('vmName')), resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), variables('secretsUserRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('secretsUserRoleDefinitionId')]",
+                "principalId": "[reference(resourceId('Microsoft.Compute/virtualMachines', parameters('vmName')), '2024-03-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Compute/virtualMachines', parameters('vmName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vmName": {
+              "type": "string",
+              "value": "[parameters('vmName')]"
+            },
+            "privateIpAddress": {
+              "type": "string",
+              "value": "[parameters('privateIpAddress')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-keyvault')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployFrontDoor')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-frontdoor",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "profileName": {
+            "value": "[format('afd-{0}-{1}', parameters('baseName'), parameters('environmentName'))]"
+          },
+          "endpointName": {
+            "value": "[format('{0}-{1}', parameters('baseName'), variables('cleanUniqueSuffix'))]"
+          },
+          "originHost": {
+            "value": "[parameters('frontDoorOriginHost')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "14293777016285489130"
+            }
+          },
+          "parameters": {
+            "profileName": {
+              "type": "string",
+              "metadata": {
+                "description": "Front Door profile name"
+              }
+            },
+            "endpointName": {
+              "type": "string",
+              "metadata": {
+                "description": "Endpoint name. The public host name is <this>-<hash>.<zone>.azurefd.net"
+              }
+            },
+            "originHost": {
+              "type": "string",
+              "metadata": {
+                "description": "Public address of the coobs-public load balancer, as printed by deploy-cloud.ps1"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tags"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Cdn/profiles",
+              "apiVersion": "2024-02-01",
+              "name": "[parameters('profileName')]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard_AzureFrontDoor"
+              }
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/afdEndpoints",
+              "apiVersion": "2024-02-01",
+              "name": "[format('{0}/{1}', parameters('profileName'), parameters('endpointName'))]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "enabledState": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles', parameters('profileName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/originGroups",
+              "apiVersion": "2024-02-01",
+              "name": "[format('{0}/{1}', parameters('profileName'), 'coobs-public')]",
+              "properties": {
+                "loadBalancingSettings": {
+                  "sampleSize": 4,
+                  "successfulSamplesRequired": 3,
+                  "additionalLatencyInMilliseconds": 50
+                },
+                "healthProbeSettings": {
+                  "probePath": "/",
+                  "probeRequestType": "HEAD",
+                  "probeProtocol": "Http",
+                  "probeIntervalInSeconds": 120
+                },
+                "sessionAffinityState": "Disabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles', parameters('profileName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/originGroups/origins",
+              "apiVersion": "2024-02-01",
+              "name": "[format('{0}/{1}/{2}', parameters('profileName'), 'coobs-public', 'cluster-load-balancer')]",
+              "properties": {
+                "hostName": "[parameters('originHost')]",
+                "originHostHeader": "[parameters('originHost')]",
+                "httpPort": 80,
+                "httpsPort": 443,
+                "priority": 1,
+                "weight": 1000,
+                "enabledState": "Enabled",
+                "enforceCertificateNameCheck": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles/originGroups', parameters('profileName'), 'coobs-public')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Cdn/profiles/afdEndpoints/routes",
+              "apiVersion": "2024-02-01",
+              "name": "[format('{0}/{1}/{2}', parameters('profileName'), parameters('endpointName'), 'everything')]",
+              "properties": {
+                "originGroup": {
+                  "id": "[resourceId('Microsoft.Cdn/profiles/originGroups', parameters('profileName'), 'coobs-public')]"
+                },
+                "supportedProtocols": [
+                  "Http",
+                  "Https"
+                ],
+                "patternsToMatch": [
+                  "/*"
+                ],
+                "forwardingProtocol": "HttpOnly",
+                "httpsRedirect": "Enabled",
+                "linkToDefaultDomain": "Enabled",
+                "enabledState": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cdn/profiles/afdEndpoints', parameters('profileName'), parameters('endpointName'))]",
+                "[resourceId('Microsoft.Cdn/profiles/originGroups/origins', parameters('profileName'), 'coobs-public', 'cluster-load-balancer')]",
+                "[resourceId('Microsoft.Cdn/profiles/originGroups', parameters('profileName'), 'coobs-public')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "hostName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Cdn/profiles/afdEndpoints', parameters('profileName'), parameters('endpointName')), '2024-02-01').hostName]"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "aksClusterName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-aks'), '2025-04-01').outputs.clusterName.value]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-keyvault'), '2025-04-01').outputs.keyVaultName.value]"
+    },
+    "sqlServerFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-sql'), '2025-04-01').outputs.serverFqdn.value]"
+    },
+    "sqlAdminLogin": {
+      "type": "string",
+      "value": "[parameters('sqlAdminLogin')]"
+    },
+    "redisHostName": {
+      "type": "string",
+      "value": "[if(parameters('deployManagedRedis'), reference(resourceId('Microsoft.Resources/deployments', 'deploy-redis'), '2025-04-01').outputs.redisHostName.value, '')]"
+    },
+    "redisPort": {
+      "type": "int",
+      "value": 10000
+    },
+    "onPremVmName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-onprem-vm'), '2025-04-01').outputs.vmName.value]"
+    },
+    "onPremVmPrivateIp": {
+      "type": "string",
+      "value": "[variables('onPremVmPrivateIp')]"
+    },
+    "kafkaInternalLoadBalancerIp": {
+      "type": "string",
+      "value": "[variables('kafkaInternalLoadBalancerIp')]"
+    },
+    "onPremOutboundPublicIp": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.natPublicIpAddress.value]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-monitoring'), '2025-04-01').outputs.workspaceId.value]"
+    },
+    "frontDoorHostName": {
+      "type": "string",
+      "value": "[if(parameters('deployFrontDoor'), reference(resourceId('Microsoft.Resources/deployments', 'deploy-frontdoor'), '2025-04-01').outputs.hostName.value, '')]"
+    }
+  }
+}

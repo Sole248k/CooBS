@@ -1,0 +1,227 @@
+# Kafka: one KRaft broker in the cluster, same image and settings as kafka-broker in docker-compose.yml.
+#
+# Two listeners for clients:
+#   INTERNAL  kafka-broker:29092         the eight cloud services (same address as in Compose)
+#   EXTERNAL  <KAFKA_EXTERNAL_IP>:9094   the on-premises VM, through an internal load balancer
+# The EXTERNAL listener is plain text. It is reachable only inside the two peered VNets.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-broker
+  labels:
+    app.kubernetes.io/name: kafka-broker
+    app.kubernetes.io/part-of: coobs
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kafka-broker
+  ports:
+    - name: internal
+      port: 29092
+      targetPort: internal
+---
+# Private address for the on-premises VM. The address is KAFKA_EXTERNAL_IP in config.yaml;
+# kustomization.yaml copies it into the annotation below, and the broker advertises the same value.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-external
+  labels:
+    app.kubernetes.io/name: kafka-broker
+    app.kubernetes.io/part-of: coobs
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    service.beta.kubernetes.io/azure-load-balancer-ipv4: "10.240.15.200"
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: kafka-broker
+  ports:
+    - name: external
+      port: 9094
+      targetPort: external
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka-broker
+  labels:
+    app.kubernetes.io/name: kafka-broker
+    app.kubernetes.io/part-of: coobs
+spec:
+  serviceName: kafka-broker
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka-broker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka-broker
+        app.kubernetes.io/part-of: coobs
+    spec:
+      automountServiceAccountToken: false
+      # Required here: service links would add KAFKA_BROKER_* variables, and the image reads
+      # every KAFKA_* variable as a broker setting.
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kafka
+          # The same image, by digest, as docker-compose.yml: the one the E2E runs passed on.
+          image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: internal
+              containerPort: 29092
+            - name: external
+              containerPort: 9094
+            - name: controller
+              containerPort: 9093
+          env:
+            - name: KAFKA_EXTERNAL_IP
+              valueFrom:
+                configMapKeyRef:
+                  name: coobs-config
+                  key: KAFKA_EXTERNAL_IP
+            - name: KAFKA_NODE_ID
+              value: "1"
+            - name: KAFKA_PROCESS_ROLES
+              value: "broker,controller"
+            - name: KAFKA_LISTENERS
+              value: "INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093"
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "INTERNAL://kafka-broker:29092,EXTERNAL://$(KAFKA_EXTERNAL_IP):9094"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT"
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: "1@localhost:9093"
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: "CONTROLLER"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "INTERNAL"
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_LOG_FLUSH_INTERVAL_MESSAGES
+              value: "1"
+            - name: CLUSTER_ID
+              value: "4L62EnNxTQl-GHmeeAhCwA"
+            - name: KAFKA_LOG_DIRS
+              value: "/var/lib/kafka/data"
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xms384m -Xmx384m"
+          startupProbe:
+            tcpSocket:
+              port: internal
+            periodSeconds: 5
+            failureThreshold: 36
+          livenessProbe:
+            tcpSocket:
+              port: internal
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: internal
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/kafka/data
+              # A fresh disk has a lost+found folder at its root, which the broker rejects.
+              subPath: kafka
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 8Gi
+---
+# Creates the same topics as kafka-init-topics in docker-compose.yml. Safe to run again.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init-topics
+  labels:
+    app.kubernetes.io/name: kafka-init-topics
+    app.kubernetes.io/part-of: coobs
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kafka-init-topics
+        app.kubernetes.io/part-of: coobs
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      restartPolicy: OnFailure
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: init-topics
+          image: apache/kafka@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              BOOTSTRAP=kafka-broker:29092
+              TOPICS="
+              ledger.mutation.completed.v1
+              ledger.transfer.completed.v1
+              ledger.transfer.failed.v1
+              account.closure.completed.v1
+              account.created.v1
+              kyc.request.submitted.v1
+              kyc.request.evaluated.v1
+              transaction.stage.changed.v1
+              notification.dispatched.v1
+              batch.eod.step.completed.v1
+              ledger.mutation.completed.v1.DLT
+              ledger.transfer.completed.v1.DLT
+              ledger.transfer.failed.v1.DLT
+              account.closure.completed.v1.DLT
+              account.created.v1.DLT
+              kyc.request.submitted.v1.DLT
+              kyc.request.evaluated.v1.DLT
+              transaction.stage.changed.v1.DLT
+              notification.dispatched.v1.DLT
+              notification.events.DLT
+              "
+              for topic in $TOPICS; do
+                /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BOOTSTRAP" \
+                  --create --if-not-exists --topic "$topic" --partitions 3 --replication-factor 1
+              done
+              /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$BOOTSTRAP" --list
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]

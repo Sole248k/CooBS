@@ -1,0 +1,11 @@
+{
+  "batchRunId": 31,
+  "businessDate": "2026-10-03",
+  "stepNo": 1,
+  "stepName": "INTEREST_ACCRUAL",
+  "status": "COMPLETED",
+  "itemsProcessed": 3,
+  "totalAmount": "12.24",
+  "durationMs": 820,
+  "message": null
+}

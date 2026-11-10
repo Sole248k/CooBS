@@ -1,0 +1,9 @@
+{
+  "accountId": 1,
+  "currency": "PHP",
+  "availableBalance": 49625.0,
+  "ledgerBalance": 49625.0,
+  "heldAmount": 0.0,
+  "asOfTimestamp": "2026-10-03T11:30:00Z",
+  "isCached": true
+}

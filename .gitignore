@@ -82,7 +82,7 @@ pnpm-debug.log*
 # ------------------------------------------------------------------------------
 # Local Docker & Persistent Data Directories
 # ------------------------------------------------------------------------------
-data/
+/data/
 *.rdb
 *.aof
 dump.rdb
@@ -90,6 +90,9 @@ dump.rdb
 # Antigravity Workspace Agent Customizations
 .agents/
 Agents.md
+.claude/
+CLAUDE.md
+
 
 CAPSTONE FSE.docx
 *.docx
@@ -100,9 +103,21 @@ generate_report*.py
 *PERSONAL_NOTES*.md
 *STUDY_GUIDE*.md
 *ARCHITECTURE_AND_ENGINEERING_GUIDE*.md
-*ENGINEERING_GUIDE*.md
+# Temporary docs staging and archive files
+docs/docs-new/
+docs/*.zip
 docs/
+graphify-out/
 
 
 tasks/
-
+graphify-out/
+scratch/
+# TLS Private Keys & Keystores (FIN-807)
+*.p12
+*.key
+backend/api-gateway/src/main/resources/keystore/*.p12
+infra/certs/*.p12
+infra/certs/*.key
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

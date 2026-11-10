@@ -15,6 +15,7 @@ import com.group2.fse.ledger_service.exception.InsufficientFundsException;
 import com.group2.fse.ledger_service.exception.InvalidTransactionException;
 import com.group2.fse.ledger_service.event.LedgerMutationEvent;
 import com.group2.fse.ledger_service.event.LedgerTransferEvent;
+import com.group2.fse.ledger_service.posting.PostingEngineImpl;
 import com.group2.fse.ledger_service.repository.BalanceRepository;
 import com.group2.fse.ledger_service.repository.TransactionRepository;
 import com.group2.fse.ledger_service.service.impl.AccountBalanceServiceImpl;
@@ -23,7 +24,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -51,7 +51,6 @@ class AccountBalanceServiceTransferTest {
     @Mock
     private org.springframework.context.ApplicationEventPublisher applicationEventPublisher;
 
-    @InjectMocks
     private AccountBalanceServiceImpl balanceService;
 
     private Balance sourceBalance;
@@ -59,11 +58,17 @@ class AccountBalanceServiceTransferTest {
 
     @BeforeEach
     void setUp() {
+        // Real posting engine over the mocked repositories: the service no longer does its own balance math
+        balanceService = new AccountBalanceServiceImpl(
+                balanceRepository,
+                new PostingEngineImpl(balanceRepository, transactionRepository, dualWriteAuditService),
+                applicationEventPublisher);
         Account sourceAccount = Account.builder().accountId(10L).accountNumber("ACC-10").build();
         sourceBalance = Balance.builder()
                 .balanceId(10L)
                 .account(sourceAccount)
                 .availableBalance(new BigDecimal("5000.0000"))
+                .ledgerBalance(new BigDecimal("5000.0000"))
                 .build();
 
         Account destAccount = Account.builder().accountId(20L).accountNumber("ACC-20").build();
@@ -71,6 +76,7 @@ class AccountBalanceServiceTransferTest {
                 .balanceId(20L)
                 .account(destAccount)
                 .availableBalance(new BigDecimal("1000.0000"))
+                .ledgerBalance(new BigDecimal("1000.0000"))
                 .build();
     }
 

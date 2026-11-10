@@ -1,0 +1,87 @@
+# The CooBS cloud zone: ten services, the staff console and Kafka on one AKS cluster.
+#
+#   kubectl kustomize infra/k8s          render and check, needs no cluster
+#   kubectl apply -k infra/k8s           apply
+#
+# Not included on purpose: secret.template.yaml (the Secret is created at deploy time),
+# optional/redis-in-cluster.yaml (fallback), ingress-tls.yaml (target state, see README.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: coobs
+
+resources:
+  - namespace.yaml
+  - config.yaml
+  - onprem-services.yaml
+  - kafka.yaml
+  - frontend.yaml
+  - api-gateway.yaml
+  - mobile-bff.yaml
+  - staff-bff.yaml
+  - auth-service.yaml
+  - customer-service.yaml
+  - transaction-service.yaml
+  - orchestration-service.yaml
+  - risk-engine.yaml
+  - notification-service.yaml
+  - order-service.yaml
+
+# The registry is the one that already exists in CooBS-rsg. Set newTag to the tag the pipeline
+# pushed (its build number); CHANGE_ME is deliberate so a forgotten tag fails loudly.
+images:
+  - name: coobs/frontend
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/frontend
+    newTag: CHANGE_ME
+  - name: coobs/api-gateway
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/api-gateway
+    newTag: CHANGE_ME
+  - name: coobs/mobile-bff
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/mobile-bff
+    newTag: CHANGE_ME
+  - name: coobs/staff-bff
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/staff-bff
+    newTag: CHANGE_ME
+  - name: coobs/auth-service
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/auth-service
+    newTag: CHANGE_ME
+  - name: coobs/customer-service
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/customer-service
+    newTag: CHANGE_ME
+  - name: coobs/transaction-service
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/transaction-service
+    newTag: CHANGE_ME
+  - name: coobs/orchestration-service
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/orchestration-service
+    newTag: CHANGE_ME
+  - name: coobs/risk-engine
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/risk-engine
+    newTag: CHANGE_ME
+  - name: coobs/notification-service
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/notification-service
+    newTag: CHANGE_ME
+  - name: coobs/order-service
+    newName: coobs-asfagkfjadgsgfcf.azurecr.io/coobs/order-service
+    newTag: CHANGE_ME
+
+# Two addresses are set once in config.yaml and copied to the places that cannot read a ConfigMap.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: coobs-config
+      fieldPath: data.ONPREM_VM_IP
+    targets:
+      - select:
+          kind: EndpointSlice
+        fieldPaths:
+          - endpoints.0.addresses.0
+  - source:
+      kind: ConfigMap
+      name: coobs-config
+      fieldPath: data.KAFKA_EXTERNAL_IP
+    targets:
+      - select:
+          kind: Service
+          name: kafka-external
+        fieldPaths:
+          - metadata.annotations.[service.beta.kubernetes.io/azure-load-balancer-ipv4]

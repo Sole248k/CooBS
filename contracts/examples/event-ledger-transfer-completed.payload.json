@@ -1,0 +1,14 @@
+{
+  "transferReference": "TX-20261003-8F3A21C0",
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "sourceAccountId": 1,
+  "destinationAccountId": 2,
+  "amount": 2500.0,
+  "sourcePreviousBalance": 49625.0,
+  "sourceNewBalance": 47125.0,
+  "destinationPreviousBalance": 25375.0,
+  "destinationNewBalance": 27875.0,
+  "sourceCustomerId": 1,
+  "destinationCustomerId": 2,
+  "auditHash": "a3f5b8e9c1d0…"
+}

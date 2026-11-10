@@ -32,6 +32,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -235,5 +237,24 @@ class AccountControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.flagId").value(12))
                 .andExpect(jsonPath("$.status").value("REMOVED"));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/accounts/{id}/status takes ACTIVE, FROZEN or DORMANT; CLOSED and any other text are 400")
+    void shouldRefuseAStatusThatCannotBeSetDirectly() throws Exception {
+        when(accountService.updateAccountStatus(1L, "frozen"))
+                .thenReturn(AccountResponse.builder().accountId(1L).status("FROZEN").build());
+
+        mockMvc.perform(patch("/api/v1/accounts/1/status")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"frozen\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FROZEN"));
+
+        for (String refused : List.of("CLOSED", "FROZE", "")) {
+            mockMvc.perform(patch("/api/v1/accounts/1/status")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"" + refused + "\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+        verify(accountService, times(1)).updateAccountStatus(any(), any());
     }
 }

@@ -1,0 +1,10 @@
+{
+  "type": "https://api.coobs.example/problems/insufficient-funds",
+  "title": "Insufficient Funds",
+  "status": 422,
+  "detail": "Available balance is lower than the transfer amount plus fees.",
+  "instance": "/api/v1/ledger/transfers",
+  "errorCode": "INSUFFICIENT_FUNDS",
+  "timestamp": "2026-10-07T09:15:00Z",
+  "invalidParams": []
+}

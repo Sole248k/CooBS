@@ -1,0 +1,30 @@
+{
+  "transactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11",
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "status": "PROCESSING",
+  "view": "CUSTOMER",
+  "stages": [
+    {
+      "stageName": "INITIATED",
+      "title": "Transfer submitted",
+      "subtitle": "We received your transfer request.",
+      "outcome": "PASSED",
+      "occurredAt": "2026-10-03T11:40:00.010Z"
+    },
+    {
+      "stageName": "PROCESSING",
+      "title": "Security and clearing",
+      "subtitle": "We are checking and processing your transfer.",
+      "outcome": "PENDING",
+      "occurredAt": null
+    },
+    {
+      "stageName": "POSTED",
+      "title": "Transfer completed",
+      "subtitle": "The money has reached the recipient's account.",
+      "outcome": "PENDING",
+      "occurredAt": null
+    }
+  ],
+  "failureMessage": null
+}

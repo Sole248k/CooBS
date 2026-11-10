@@ -154,13 +154,6 @@ def main():
         print(f"\n{RED}Ensure API Gateway is running on port 8080 (e.g., mvnw spring-boot:run or docker compose up api-gateway).{RESET}")
         return 1
 
-    routes_res = http_request(f"{gw_url}/actuator/gateway/routes")
-    if routes_res["status"] == 200 and isinstance(routes_res["json"], list):
-        route_ids = [r.get("route_id") for r in routes_res["json"]]
-        log_pass(f"Discovered {len(route_ids)} Gateway Routes: {', '.join(route_ids)}")
-    else:
-        log_warn("Gateway routes endpoint not reachable or empty, proceeding with standard routes.")
-
     summary_records.append(("1. Gateway Health", "GET /actuator/health", health_res["status"], f"{health_res['latency_ms']}ms", "UP"))
 
     # -------------------------------------------------------------------------

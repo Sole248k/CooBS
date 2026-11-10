@@ -28,7 +28,6 @@ public class AccountClosureServiceImpl implements AccountClosureService {
     private final BalanceRepository balanceRepository;
     private final AccountClosureRequestRepository closureRequestRepository;
     private final AccountFlagRepository accountFlagRepository;
-    private final UserRepository userRepository;
     private final AccountEventPublisher accountEventPublisher;
 
     @Override
@@ -38,7 +37,7 @@ public class AccountClosureServiceImpl implements AccountClosureService {
                 .orElseThrow(() -> new AccountNotFoundException("Account not found with ID: " + accountId));
 
         // 1. Ownership check
-        if (customerId == null || !account.getCustomer().getCustomerId().equals(customerId)) {
+        if (customerId == null || !account.getCustomerId().equals(customerId)) {
             throw new UnauthorizedAccountAccessException("You do not own this account and cannot request its closure.");
         }
 
@@ -83,7 +82,7 @@ public class AccountClosureServiceImpl implements AccountClosureService {
                 .accountNumber(account.getAccountNumber())
                 .accountType(account.getAccountType())
                 .customerId(customerId)
-                .customerName(account.getCustomer().getUsername())
+                .customerName("Customer #" + customerId)
                 .availableBalance(availBal)
                 .reason(saved.getReason())
                 .status("PENDING")
@@ -98,7 +97,7 @@ public class AccountClosureServiceImpl implements AccountClosureService {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new AccountNotFoundException("Account not found with ID: " + accountId));
 
-        if (customerId != null && !account.getCustomer().getCustomerId().equals(customerId)) {
+        if (customerId != null && !account.getCustomerId().equals(customerId)) {
             throw new UnauthorizedAccountAccessException("You do not own this account.");
         }
 
@@ -147,27 +146,25 @@ public class AccountClosureServiceImpl implements AccountClosureService {
             throw new AccountNonZeroBalanceException(account.getAccountNumber(), availBal);
         }
 
-        User adminUser = adminUserId != null ? userRepository.findById(adminUserId).orElse(null) : null;
-
         // Transition account status to CLOSED
         account.setStatus("CLOSED");
         accountRepository.save(account);
 
         // Update request status to APPROVED
         req.setStatus("APPROVED");
-        req.setApprovedBy(adminUser);
+        req.setApprovedBy(adminUserId);
         req.setReviewedAt(LocalDateTime.now());
         closureRequestRepository.save(req);
 
         log.info("Admin ID {} APPROVED closure request #{} for account {}. Customer profile {} remains ACTIVE.",
-                adminUserId, req.getClosureRequestId(), account.getAccountNumber(), account.getCustomer().getCustomerId());
+                adminUserId, req.getClosureRequestId(), account.getAccountNumber(), account.getCustomerId());
 
         // Emit domain event to Kafka
         AccountClosureCompletedEvent event = AccountClosureCompletedEvent.builder()
                 .closureRequestId(req.getClosureRequestId())
                 .accountId(account.getAccountId())
                 .accountNumber(account.getAccountNumber())
-                .customerId(account.getCustomer().getCustomerId())
+                .customerId(account.getCustomerId())
                 .approvedBy(adminUserId)
                 .timestamp(LocalDateTime.now())
                 .build();
@@ -195,11 +192,9 @@ public class AccountClosureServiceImpl implements AccountClosureService {
             throw new IllegalStateException("Closure request is not PENDING (current: " + req.getStatus() + ")");
         }
 
-        User adminUser = adminUserId != null ? userRepository.findById(adminUserId).orElse(null) : null;
-
         req.setStatus("REJECTED");
         req.setRejectionReason(rejectionReason);
-        req.setApprovedBy(adminUser);
+        req.setApprovedBy(adminUserId);
         req.setReviewedAt(LocalDateTime.now());
         closureRequestRepository.save(req);
 
@@ -221,20 +216,20 @@ public class AccountClosureServiceImpl implements AccountClosureService {
 
     private ClosureRequestResponse mapToClosureResponse(AccountClosureRequest req, BigDecimal availBal) {
         Account acc = req.getAccount();
-        Customer cust = acc.getCustomer();
+        Long custId = acc.getCustomerId();
         return ClosureRequestResponse.builder()
                 .closureRequestId(req.getClosureRequestId())
                 .accountId(acc.getAccountId())
                 .accountNumber(acc.getAccountNumber())
                 .accountType(acc.getAccountType())
-                .customerId(cust.getCustomerId())
-                .customerName(cust.getUsername())
+                .customerId(custId)
+                .customerName("Customer #" + custId)
                 .availableBalance(availBal)
                 .reason(req.getReason())
                 .status(req.getStatus())
                 .requestedAt(req.getRequestedAt())
                 .reviewedAt(req.getReviewedAt())
-                .approvedBy(req.getApprovedBy() != null ? req.getApprovedBy().getUserId() : null)
+                .approvedBy(req.getApprovedBy())
                 .rejectionReason(req.getRejectionReason())
                 .build();
     }

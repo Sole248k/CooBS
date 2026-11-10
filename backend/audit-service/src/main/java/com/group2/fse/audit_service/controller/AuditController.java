@@ -24,14 +24,17 @@ import com.group2.fse.audit_service.service.AuditQueryService;
 @RequestMapping("/api/v1/audit")
 public class AuditController {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final AuditQueryService auditQueryService;
 
     public AuditController(AuditQueryService auditQueryService) {
         this.auditQueryService = auditQueryService;
     }
 
+    // Staff only: nothing here checks who owns the account, so a member could read another member's history.
     @GetMapping("/accounts/{accountId}/statement")
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'TELLER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TELLER', 'ADMIN')")
     public ResponseEntity<Page<AuditStatementResponseDto>> getAccountStatement(
             @PathVariable Long accountId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
@@ -45,7 +48,7 @@ public class AuditController {
         Sort.Direction direction = (sortParams.length > 1 && sortParams[1].equalsIgnoreCase("asc"))
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortProperty));
+        Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE), Sort.by(direction, sortProperty));
 
         Page<AuditStatementResponseDto> statement = auditQueryService.getAccountStatement(
                 accountId, startDate, endDate, pageable);
@@ -54,16 +57,28 @@ public class AuditController {
     }
 
     @GetMapping("/transactions/{transactionId}")
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'TELLER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('TELLER', 'ADMIN')")
     public ResponseEntity<ForensicAuditResponseDto> getTransactionForensics(@PathVariable Long transactionId) {
         ForensicAuditResponseDto forensics = auditQueryService.getTransactionForensics(transactionId);
         return ResponseEntity.ok(forensics);
     }
 
     @GetMapping("/verify-chain/{accountId}")
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'TELLER', 'ADMIN', 'AUDITOR')")
+    @PreAuthorize("hasAnyRole('TELLER', 'ADMIN', 'AUDITOR')")
     public ResponseEntity<ChainVerificationResponseDto> verifyChainIntegrity(@PathVariable Long accountId) {
         ChainVerificationResponseDto verification = auditQueryService.verifyChainIntegrity(accountId);
         return ResponseEntity.ok(verification);
+    }
+
+    /**
+     * U4: Get Daily Audit Seal for a given business date.
+     * Roles: CUSTOMER, TELLER, ADMIN, AUDITOR
+     */
+    @GetMapping("/seals/{businessDate}")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'TELLER', 'ADMIN', 'AUDITOR')")
+    public ResponseEntity<com.group2.fse.audit_service.dto.DailySealResponseDto> getDailySeal(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate businessDate) {
+        com.group2.fse.audit_service.dto.DailySealResponseDto response = auditQueryService.getDailySeal(businessDate);
+        return ResponseEntity.ok(response);
     }
 }

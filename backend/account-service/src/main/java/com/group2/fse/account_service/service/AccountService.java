@@ -10,5 +10,6 @@ public interface AccountService {
     List<AccountResponse> getCustomerAccounts(Long customerId);
     List<AccountResponse> getAllAccounts();
     AccountResponse getAccountById(Long accountId, Long customerId, boolean isStaff);
+    AccountResponse getAccountByNumber(String accountNumber);
     AccountResponse updateAccountStatus(Long accountId, String status);
 }

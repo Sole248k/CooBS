@@ -1,0 +1,18 @@
+# Points the one public address at the TLS proxy, opens port 443 beside port 80, and gives
+# the address its Azure host name: <label>.<region>.cloudapp.azure.com.
+apiVersion: v1
+kind: Service
+metadata:
+  name: coobs-public
+  annotations:
+    service.beta.kubernetes.io/azure-dns-label-name: REPLACE-dns-label
+spec:
+  selector:
+    app.kubernetes.io/name: tls-proxy
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https

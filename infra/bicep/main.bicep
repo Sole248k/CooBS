@@ -1,0 +1,214 @@
+// CooBS demo deployment: the in-depth architecture cut to what the demo budget allows.
+// Drawn in docs/architecture-diagrams/demo-deployment.eraserdiagram; explained in infra/README.md.
+//
+//   Cloud VNet        one AKS node (ten services, the staff console and Kafka), Azure SQL, Azure Managed Redis
+//   On-premises VNet  one VM running Docker Compose (ledger, account, audit, batch, Oracle, audit store)
+//   Link              VNet peering, with an NSG on the on-premises subnet as the firewall
+//
+// The container registry already exists in this resource group and is not created here.
+targetScope = 'resourceGroup'
+
+@description('Environment identifier (dev, demo, prod)')
+@allowed([
+  'dev'
+  'demo'
+  'prod'
+])
+param environmentName string = 'dev'
+
+@description('Azure region. Indonesia Central: Southeast Asia offers the trial subscription no usable VM size')
+param location string = resourceGroup().location
+
+@description('Base application prefix for naming resources')
+param baseName string = 'coobs'
+
+@description('Name of the container registry that already exists in this resource group')
+param acrName string = 'CooBS'
+
+@description('Azure SQL administrator login')
+param sqlAdminLogin string = 'coobsadmin'
+
+@description('Azure SQL administrator password. Given at deploy time; never written to a file in this repository')
+@secure()
+param sqlAdminPassword string
+
+@description('SSH public key for the on-premises VM administrator')
+param onPremAdminSshPublicKey string
+
+@description('Object ID of the person who seeds and reads Key Vault secrets (az ad signed-in-user show --query id)')
+param keyVaultAdminObjectId string
+
+@description('Create Azure Managed Redis. Set false to run Redis in the cluster instead (infra/k8s/optional/redis-in-cluster.yaml)')
+param deployManagedRedis bool = true
+
+@description('Send container logs to Log Analytics')
+param enableContainerInsights bool = true
+
+@description('Put Front Door (HTTPS) in front of the public address. Leave false for the first deployment: the address does not exist yet')
+param deployFrontDoor bool = false
+
+@description('Public address of the coobs-public load balancer, as printed by infra/scripts/deploy-cloud.ps1. Needed only when deployFrontDoor is true')
+param frontDoorOriginHost string = ''
+
+@description('Most AKS nodes the autoscaler may run. 1 keeps the single fixed node; 2 allows one more when pods find no room')
+@minValue(1)
+@maxValue(3)
+param aksMaxNodeCount int = 1
+
+@description('Unique suffix for globally unique resources (SQL, Key Vault, Redis)')
+param uniqueSuffix string = uniqueString(resourceGroup().id)
+
+var cleanUniqueSuffix = take(uniqueSuffix, 6)
+var tags = {
+  Project: 'CooBS'
+  Capstone: 'Omnichannel Real-Time Remittance & Fraud Screening'
+  Environment: environmentName
+  CostCenter: 'Capstone-DevOps'
+  ManagedBy: 'Bicep'
+}
+
+// Fixed private addresses that infra/k8s/config.yaml also carries. Change both together.
+var onPremVmPrivateIp = '10.250.0.4'
+var kafkaInternalLoadBalancerIp = '10.240.15.200'
+
+// =============================================================================
+// 1. Networking: cloud VNet, on-premises VNet, peering, firewall NSG, NAT gateway
+// =============================================================================
+module network './modules/network.bicep' = {
+  name: 'deploy-network'
+  params: {
+    location: location
+    cloudVnetName: 'vnet-${baseName}-cloud-${environmentName}'
+    onPremVnetName: 'vnet-${baseName}-onprem-${environmentName}'
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 2. Monitoring
+// =============================================================================
+module monitoring './modules/monitoring.bicep' = {
+  name: 'deploy-monitoring'
+  params: {
+    location: location
+    workspaceName: 'law-${baseName}-${environmentName}'
+    appInsightsName: 'appi-${baseName}-${environmentName}'
+    dailyQuotaGb: 1
+    retentionInDays: 30
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 3. Key Vault
+// =============================================================================
+module keyvault './modules/keyvault.bicep' = {
+  name: 'deploy-keyvault'
+  params: {
+    location: location
+    keyVaultName: 'kv-${baseName}-${cleanUniqueSuffix}'
+    keyVaultAdminObjectId: keyVaultAdminObjectId
+    cloudDbPassword: sqlAdminPassword
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 4. Azure SQL: identity_db, customer_db, transaction_db, notification_db
+// =============================================================================
+module sql './modules/sql.bicep' = {
+  name: 'deploy-sql'
+  params: {
+    location: location
+    serverName: 'sql-${baseName}-${cleanUniqueSuffix}'
+    administratorLogin: sqlAdminLogin
+    administratorLoginPassword: sqlAdminPassword
+    allowedSubnetId: network.outputs.aksSubnetId
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 5. Azure Managed Redis (Balanced B0), reached by both networks through a private endpoint
+// =============================================================================
+module redis './modules/redis.bicep' = if (deployManagedRedis) {
+  name: 'deploy-redis'
+  params: {
+    location: location
+    redisName: 'redis-${baseName}-${cleanUniqueSuffix}'
+    privateEndpointSubnetId: network.outputs.privateEndpointSubnetId
+    linkedVnetIds: [
+      network.outputs.cloudVnetId
+      network.outputs.onPremVnetId
+    ]
+    keyVaultName: keyvault.outputs.keyVaultName
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 6. AKS: one node, Free tier
+// =============================================================================
+module aks './modules/aks.bicep' = {
+  name: 'deploy-aks'
+  params: {
+    location: location
+    clusterName: 'aks-${baseName}-${environmentName}'
+    subnetId: network.outputs.aksSubnetId
+    acrName: acrName
+    logAnalyticsWorkspaceId: monitoring.outputs.workspaceId
+    enableContainerInsights: enableContainerInsights
+    maxNodeCount: aksMaxNodeCount
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 7. On-premises VM (the simulated datacenter)
+// =============================================================================
+module onPremVm './modules/onprem-vm.bicep' = {
+  name: 'deploy-onprem-vm'
+  params: {
+    location: location
+    vmName: 'vm-${baseName}-onprem'
+    subnetId: network.outputs.onPremSubnetId
+    privateIpAddress: onPremVmPrivateIp
+    adminSshPublicKey: onPremAdminSshPublicKey
+    acrName: acrName
+    keyVaultName: keyvault.outputs.keyVaultName
+    tags: tags
+  }
+}
+
+// =============================================================================
+// 8. Front Door: HTTPS in front of the one public address. Off until E2E has passed.
+// =============================================================================
+module frontDoor './modules/frontdoor.bicep' = if (deployFrontDoor) {
+  name: 'deploy-frontdoor'
+  params: {
+    profileName: 'afd-${baseName}-${environmentName}'
+    endpointName: '${baseName}-${cleanUniqueSuffix}'
+    originHost: frontDoorOriginHost
+    tags: tags
+  }
+}
+
+// =============================================================================
+// Outputs: the values infra/k8s/config.yaml and the on-premises Compose file need
+// =============================================================================
+output aksClusterName string = aks.outputs.clusterName
+output keyVaultName string = keyvault.outputs.keyVaultName
+output sqlServerFqdn string = sql.outputs.serverFqdn
+output sqlAdminLogin string = sqlAdminLogin
+#disable-next-line BCP318
+output redisHostName string = deployManagedRedis ? redis.outputs.redisHostName : ''
+output redisPort int = 10000
+output onPremVmName string = onPremVm.outputs.vmName
+output onPremVmPrivateIp string = onPremVmPrivateIp
+output kafkaInternalLoadBalancerIp string = kafkaInternalLoadBalancerIp
+output onPremOutboundPublicIp string = network.outputs.natPublicIpAddress
+output logAnalyticsWorkspaceId string = monitoring.outputs.workspaceId
+// Empty while Front Door is off. deploy-cloud.ps1 reads it to allow the HTTPS origin and to
+// close the load balancer to everything but Front Door.
+#disable-next-line BCP318
+output frontDoorHostName string = deployFrontDoor ? frontDoor.outputs.hostName : ''

@@ -1,0 +1,10 @@
+{
+  "transactionId": "c4b7e2d9-5a13-4f86-b0c2-7d9e1a3f5b64",
+  "referenceNo": "RV-20261003-11AA22BB",
+  "status": "INITIATED",
+  "amount": "2500.00",
+  "currency": "PHP",
+  "createdAt": "2026-10-03T11:55:00Z",
+  "timelineUrl": "/api/v1/transactions/c4b7e2d9-5a13-4f86-b0c2-7d9e1a3f5b64/timeline",
+  "reversesTransactionId": "6f1c0e0a-3a52-4c0e-9d0b-2f0c8b7a1e11"
+}

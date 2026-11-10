@@ -1,0 +1,14 @@
+{
+  "authData": {
+    "accessToken": "<jwt>",
+    "refreshToken": "<opaque>",
+    "tokenType": "Bearer",
+    "expiresIn": 900,
+    "userId": 1,
+    "username": "john_doe",
+    "roles": [
+      "ROLE_CUSTOMER"
+    ],
+    "userType": "CUSTOMER"
+  }
+}

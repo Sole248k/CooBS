@@ -1,0 +1,15 @@
+{
+  "auditId": 9012,
+  "transactionId": 5001,
+  "accountId": 1,
+  "referenceNo": "TX-20261003-8F3A21C0",
+  "transactionType": "DEBIT",
+  "amount": 2500.0,
+  "oldBalance": 49625.0,
+  "newBalance": 47125.0,
+  "previousHash": "e8d2a1…",
+  "currentHash": "a3f5b8…",
+  "actorId": 1,
+  "clientIp": "203.0.113.10",
+  "eventTimestamp": "2026-10-03T11:40:00"
+}

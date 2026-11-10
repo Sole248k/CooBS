@@ -1,0 +1,27 @@
+# ==============================================================================
+# Opt-in override: run the on-premises databases on the REBUILT schema and seed.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.target.yml --profile app --profile expansion up -d --build
+#
+# Use it on your own machine while you move your service to the target schema
+# (no ROLE / "USER" tables, HOLD and OUTBOX present, audit rows matching the new seed).
+# It uses separate data volumes, so your normal stack and its data are untouched.
+# When auth-service, account-service and ledger-service all run on the target schema,
+# Dev 8 moves these two mounts into docker-compose.yml and this file is deleted.
+# ==============================================================================
+services:
+  oracle-core-db:
+    volumes: !override
+      - ./database/next/oracle:/container-entrypoint-initdb.d:ro
+      - oracle_target_data:/opt/oracle/oradata
+
+  postgres-audit-db:
+    volumes: !override
+      - ./database/next/postgres:/docker-entrypoint-initdb.d:ro
+      - postgres_target_data:/var/lib/postgresql/data
+
+volumes:
+  oracle_target_data:
+    driver: local
+  postgres_target_data:
+    driver: local

@@ -1,0 +1,270 @@
+{
+  "title": "CooBS services",
+  "description": "Requests, response times, errors and resource use of the CooBS services in both zones. Built on the metrics the Datadog agents read from /actuator/prometheus (prefix coobs.) and on container figures. Import: Dashboards, New Dashboard, then Import dashboard JSON. Source: infra/k8s-monitoring/datadog-dashboard.json.",
+  "layout_type": "ordered",
+  "reflow_type": "auto",
+  "template_variables": [
+    { "name": "application", "prefix": "application", "default": "*" },
+    { "name": "zone", "prefix": "zone", "default": "*" }
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "title": "Requests per second, by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.http_server_requests_seconds.count{$application,$zone} by {application}.as_rate()" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Average response time in seconds, by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.http_server_requests_seconds.sum{$application,$zone} by {application}.as_count()" },
+              { "data_source": "metrics", "name": "query2", "query": "sum:coobs.http_server_requests_seconds.count{$application,$zone} by {application}.as_count()" }
+            ],
+            "formulas": [ { "formula": "query1 / query2" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Server errors (5xx), by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.http_server_requests_seconds.count{status:5*,$application,$zone} by {application}.as_count()" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "bars"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Refused requests (4xx), by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.http_server_requests_seconds.count{status:4*,$application,$zone} by {application}.as_count()" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "bars"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Slowest endpoints, average seconds",
+        "type": "toplist",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.http_server_requests_seconds.sum{$application,$zone} by {application,uri}.as_count()", "aggregator": "sum" },
+              { "data_source": "metrics", "name": "query2", "query": "sum:coobs.http_server_requests_seconds.count{$application,$zone} by {application,uri}.as_count()", "aggregator": "sum" }
+            ],
+            "formulas": [ { "formula": "query1 / query2", "limit": { "count": 10, "order": "desc" } } ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Busiest endpoints, requests",
+        "type": "toplist",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.http_server_requests_seconds.count{$application,$zone} by {application,uri}.as_count()", "aggregator": "sum" }
+            ],
+            "formulas": [ { "formula": "query1", "limit": { "count": 10, "order": "desc" } } ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Requests through the gateway, by route",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.spring_cloud_gateway_requests_seconds.count{*} by {routeid}.as_rate()" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Error lines logged, by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.logback_events.count{level:error,$application,$zone} by {application}.as_count()" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "bars"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "JVM memory used, by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.jvm_memory_used_bytes{$application,$zone} by {application}" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Database connections in use, by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:coobs.hikaricp_connections_active{$application,$zone} by {application}" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Container CPU on the cluster, by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:container.cpu.usage{kube_namespace:coobs} by {kube_deployment}" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Container memory on the cluster, by service",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:container.memory.usage{kube_namespace:coobs} by {kube_deployment}" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Container CPU on the VM",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:container.cpu.usage{host:vm-coobs-onprem} by {container_name}" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Container memory on the VM",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:container.memory.usage{host:vm-coobs-onprem} by {container_name}" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Container restarts on the cluster",
+        "type": "timeseries",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "queries": [
+              { "data_source": "metrics", "name": "query1", "query": "sum:kubernetes.containers.restarts{kube_namespace:coobs} by {kube_deployment}" }
+            ],
+            "formulas": [ { "formula": "query1" } ],
+            "display_type": "line"
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Latest error log lines",
+        "type": "list_stream",
+        "requests": [
+          {
+            "response_format": "event_list",
+            "query": { "data_source": "logs_stream", "query_string": "status:error", "indexes": [] },
+            "columns": [
+              { "field": "status_line", "width": "auto" },
+              { "field": "timestamp", "width": "auto" },
+              { "field": "service", "width": "auto" },
+              { "field": "content", "width": "auto" }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

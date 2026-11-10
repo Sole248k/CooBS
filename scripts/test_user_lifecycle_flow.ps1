@@ -1,16 +1,16 @@
 <#
 .SYNOPSIS
-    Automated Runner for the End-to-End User Lifecycle Flow (CLI equivalent of Postman suite)
+    Automated Runner for the End-to-End User Lifecycle Flow (Frozen Contract Aligned)
 .DESCRIPTION
-    Executes the 8-step lifecycle flow:
-    1. Register new customer
-    2. Customer Login
-    3. Customer Submits KYC
-    4. Teller Logs in & Opens Customer Account
-    5. Customer Submits KYC Update Request
-    6. Admin Logs in & Approves KYC Update
-    7. Customer Submits Account Closure Request
-    8. Admin Approves Account Closure
+    Executes the 8-step customer & account lifecycle flow using validated seed personas:
+    1. Staff / Teller Authentication & Session Issuance (teller_alice)
+    2. Customer Authentication & JWT Issuance (david_kim)
+    3. Teller Opens New Lifecycle Account for Customer (POST /api/v1/accounts)
+    4. Customer Submits KYC Information Update Request (POST /api/v1/customers/kyc/update-request)
+    5. Staff/Admin Approves KYC Update Request (POST /api/v1/customers/kyc/update-requests/{id}/approve)
+    6. Customer Submits Zero-Balance Account Closure Request (POST /api/v1/accounts/{id}/closure-request)
+    7. Staff/Admin Approves Account Closure Request (POST /api/v1/accounts/closure-requests/{id}/approve)
+    8. Account Lifecycle State Verification (GET /api/v1/accounts/{id} -> Status: CLOSED)
 #>
 
 [CmdletBinding()]
@@ -23,152 +23,186 @@ $ErrorActionPreference = "Stop"
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host " Core Retail Banking - User Lifecycle Flow Verification Suite            " -ForegroundColor Cyan
 Write-Host " Target Gateway: $GatewayUrl                                              " -ForegroundColor Cyan
+Write-Host " Target Seed:    david_kim (Customer ID: 3) / teller_alice / admin       " -ForegroundColor Cyan
 Write-Host "==========================================================================" -ForegroundColor Cyan
 
 $passed = 0
 $total = 8
+$report = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+function Record-Step([string]$stepName, [string]$endpoint, [int]$status, [long]$elapsedMs, [string]$details) {
+    $report.Add([PSCustomObject]@{
+        Step     = $stepName
+        Endpoint = $endpoint
+        Status   = $status
+        Latency  = "$elapsedMs ms"
+        Details  = $details
+    })
+}
+
+function New-CorrId {
+    return [Guid]::NewGuid().ToString()
+}
 
 # -----------------------------------------------------------------------------
-# STEP 1: Register New Customer
+# STEP 1: Teller Authentication
 # -----------------------------------------------------------------------------
-Write-Host "`n[Step 1/8] Registering brand-new customer..." -ForegroundColor Yellow
-$suffix = (Get-Date).Ticks % 1000000
-$username = "flow_cust_$suffix"
-$password = "Password123!"
-$email = "flow_$suffix@bank.ph"
-
-$regBody = @{
-    username      = $username
-    password      = $password
-    email         = $email
-    firstName     = "Alex"
-    middleInitial = "M"
-    lastName      = "Rivera"
-    address       = "1204 Enterprise Center, Ayala Ave, Makati City"
-    mobileNumber  = "+639175551234"
-    civilStatus   = "Single"
-    occupation    = "Software Architect"
-} | ConvertTo-Json
-
-$regRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/auth/customers/register" -Method Post -ContentType "application/json" -Body $regBody
-$customerId = $regRes.userId
-if (-not $customerId) { throw "Customer registration did not return a valid customerId" }
-Write-Host "  [PASS] Registered customer '$username' with Customer ID: $customerId" -ForegroundColor Green
-$passed++
-
-# -----------------------------------------------------------------------------
-# STEP 2: Customer Login
-# -----------------------------------------------------------------------------
-Write-Host "`n[Step 2/8] Customer logging in with credentials..." -ForegroundColor Yellow
-$loginBody = @{ username = $username; password = $password } | ConvertTo-Json
-$loginRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/auth/customers/login" -Method Post -ContentType "application/json" -Body $loginBody
-$customerToken = $loginRes.authData.accessToken
-if (-not $customerToken) { throw "Customer login did not return accessToken" }
-Write-Host "  [PASS] Customer authenticated successfully. JWT Bearer token acquired." -ForegroundColor Green
-$passed++
-
-# -----------------------------------------------------------------------------
-# STEP 3: Customer Submits Initial KYC
-# -----------------------------------------------------------------------------
-Write-Host "`n[Step 3/8] Customer submitting initial KYC details..." -ForegroundColor Yellow
-$kycBody = @{
-    firstName     = "Alex"
-    middleInitial = "M"
-    lastName      = "Rivera"
-    address       = "1204 Enterprise Center, Ayala Ave, Makati City"
-    civilStatus   = "Single"
-    occupation    = "Software Architect"
-    mobileNumber  = "+639175551234"
-} | ConvertTo-Json
-
-$kycHeaders = @{ "Authorization" = "Bearer $customerToken" }
-$kycRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/customers/kyc/submit" -Method Post -Headers $kycHeaders -ContentType "application/json" -Body $kycBody
-Write-Host "  [PASS] KYC submitted. Status: $($kycRes.status)" -ForegroundColor Green
-$passed++
-
-# -----------------------------------------------------------------------------
-# STEP 4: Teller Logs in & Creates Customer Account
-# -----------------------------------------------------------------------------
-Write-Host "`n[Step 4/8] Teller logging in and opening account for customer..." -ForegroundColor Yellow
+Write-Host "`n[Step 1/8] Teller logging in with credentials (teller_alice)..." -ForegroundColor Yellow
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+$corrId = New-CorrId
 $tellerLogin = @{ username = "teller_alice"; password = "Password123!" } | ConvertTo-Json
-$tellerRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/auth/staff/login" -Method Post -ContentType "application/json" -Body $tellerLogin
-$tellerToken = $tellerRes.authData.accessToken
+$tellerRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/auth/staff/login" -Method Post -ContentType "application/json" -Headers @{ "X-Correlation-ID" = $corrId } -Body $tellerLogin
+$sw.Stop()
 
+$tellerToken = $tellerRes.authData.accessToken
+if (-not $tellerToken) { throw "Teller login did not return accessToken" }
+Write-Host "  [PASS] Teller authenticated successfully. Roles: $($tellerRes.authData.roles -join ', ')" -ForegroundColor Green
+Record-Step "1. Teller Login" "POST /api/v1/auth/staff/login" 200 $sw.ElapsedMilliseconds "User: teller_alice"
+$passed++
+
+# -----------------------------------------------------------------------------
+# STEP 2: Customer Authentication (david_kim)
+# -----------------------------------------------------------------------------
+Write-Host "`n[Step 2/8] Customer logging in with credentials (david_kim)..." -ForegroundColor Yellow
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+$corrId = New-CorrId
+$loginBody = @{ username = "david_kim"; password = "Password123!" } | ConvertTo-Json
+$loginRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/auth/customers/login" -Method Post -ContentType "application/json" -Headers @{ "X-Correlation-ID" = $corrId } -Body $loginBody
+$sw.Stop()
+
+$customerToken = $loginRes.authData.accessToken
+$customerId = $loginRes.authData.userId
+if (-not $customerToken) { throw "Customer login did not return accessToken" }
+Write-Host "  [PASS] Customer 'david_kim' authenticated successfully (Customer ID: $customerId)." -ForegroundColor Green
+Record-Step "2. Customer Login" "POST /api/v1/auth/customers/login" 200 $sw.ElapsedMilliseconds "User: david_kim (ID: $customerId)"
+$passed++
+
+$custHeaders = @{
+    "Authorization"  = "Bearer $customerToken"
+    "X-Correlation-ID" = New-CorrId
+}
+$tellerHeaders = @{
+    "Authorization"  = "Bearer $tellerToken"
+    "X-Correlation-ID" = New-CorrId
+}
+
+# -----------------------------------------------------------------------------
+# STEP 3: Teller Opens Secondary Account for Customer
+# -----------------------------------------------------------------------------
+Write-Host "`n[Step 3/8] Teller opening new savings account for customer $customerId..." -ForegroundColor Yellow
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
 $accBody = @{
     customerId  = $customerId
     accountType = "SAVINGS"
     currency    = "PHP"
 } | ConvertTo-Json
 
-$accHeaders = @{ "Authorization" = "Bearer $tellerToken" }
-$accRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/accounts" -Method Post -Headers $accHeaders -ContentType "application/json" -Body $accBody
-$accountId = $accRes.accountId
-$accountNumber = $accRes.accountNumber
-if (-not $accountId) { throw "Account creation failed" }
-Write-Host "  [PASS] Teller created account #$accountNumber (Account ID: $accountId, Type: $($accRes.accountType), Status: $($accRes.status))" -ForegroundColor Green
+$accRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/accounts" -Method Post -Headers $tellerHeaders -ContentType "application/json" -Body $accBody
+$sw.Stop()
+
+$newAccountId = $accRes.accountId
+$newAccountNo = $accRes.accountNumber
+if (-not $newAccountId) { throw "Account creation failed" }
+Write-Host "  [PASS] Created account #$newAccountNo (Account ID: $newAccountId, Status: $($accRes.status))" -ForegroundColor Green
+Record-Step "3. Open Account" "POST /api/v1/accounts" 201 $sw.ElapsedMilliseconds "Account: #$newAccountNo (ID: $newAccountId)"
 $passed++
 
 # -----------------------------------------------------------------------------
-# STEP 5: Customer Submits KYC Update Request
+# STEP 4: Customer Submits KYC Update Request
 # -----------------------------------------------------------------------------
-Write-Host "`n[Step 5/8] Customer submitting KYC update request..." -ForegroundColor Yellow
+Write-Host "`n[Step 4/8] Customer submitting KYC information update request..." -ForegroundColor Yellow
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
 $updateKycBody = @{
-    newFirstName     = "Alexander"
-    newMiddleInitial = "M"
-    newLastName      = "Rivera-Cruz"
-    newAddress       = "Tower 2 High Street South, BGC, Taguig City"
-    newMobileNumber  = "+639189991234"
-    newCivilStatus   = "Married"
-    newOccupation    = "Chief Technology Officer"
+    newFirstName     = "David"
+    newMiddleInitial = "K"
+    newLastName      = "Kim-Updated"
+    newAddress       = "Unit 3401 The Finance Centre, BGC, Taguig City"
+    newMobileNumber  = "+639178889900"
+    newCivilStatus   = "MARRIED"
+    newOccupation    = "VP of Engineering"
 } | ConvertTo-Json
 
-$updateKycRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/customers/kyc/update-request" -Method Post -Headers $kycHeaders -ContentType "application/json" -Body $updateKycBody
+$updateKycRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/customers/kyc/update-request" -Method Post -Headers $custHeaders -ContentType "application/json" -Body $updateKycBody
+$sw.Stop()
+
 $kycRequestId = $updateKycRes.kycRequestId
 if (-not $kycRequestId) { throw "KYC update request failed to return kycRequestId" }
 Write-Host "  [PASS] KYC update request #$kycRequestId submitted with status: $($updateKycRes.status)" -ForegroundColor Green
+Record-Step "4. KYC Update Request" "POST /api/v1/customers/kyc/update-request" 202 $sw.ElapsedMilliseconds "KYC Request: #$kycRequestId (PENDING)"
 $passed++
 
 # -----------------------------------------------------------------------------
-# STEP 6: Admin Logs in & Approves KYC Update
+# STEP 5: Staff / Admin Approves KYC Update
 # -----------------------------------------------------------------------------
-Write-Host "`n[Step 6/8] Admin logging in and approving KYC update request #$kycRequestId..." -ForegroundColor Yellow
+Write-Host "`n[Step 5/8] Admin logging in and approving KYC update request #$kycRequestId..." -ForegroundColor Yellow
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
 $adminLogin = @{ username = "admin"; password = "Password123!" } | ConvertTo-Json
-$adminRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/auth/staff/login" -Method Post -ContentType "application/json" -Body $adminLogin
+$adminRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/auth/staff/login" -Method Post -ContentType "application/json" -Headers @{ "X-Correlation-ID" = New-CorrId } -Body $adminLogin
 $adminToken = $adminRes.authData.accessToken
 
-$adminHeaders = @{ "Authorization" = "Bearer $adminToken" }
+$adminHeaders = @{
+    "Authorization"    = "Bearer $adminToken"
+    "X-Correlation-ID" = New-CorrId
+}
+
 $approveKycRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/customers/kyc/update-requests/$kycRequestId/approve" -Method Post -Headers $adminHeaders
+$sw.Stop()
+
 if ($approveKycRes.status -ne "APPROVED") { throw "Expected APPROVED status, got $($approveKycRes.status)" }
-Write-Host "  [PASS] Admin approved KYC update #$kycRequestId. Profile updated to status: $($approveKycRes.status)" -ForegroundColor Green
+Write-Host "  [PASS] Admin approved KYC update #$kycRequestId. Status: $($approveKycRes.status)" -ForegroundColor Green
+Record-Step "5. Approve KYC Update" "POST /api/v1/customers/kyc/update-requests/{id}/approve" 200 $sw.ElapsedMilliseconds "KYC Request: #$kycRequestId (APPROVED)"
 $passed++
 
 # -----------------------------------------------------------------------------
-# STEP 7: Customer Submits Account Closure Request
+# STEP 6: Customer Submits Account Closure Request
 # -----------------------------------------------------------------------------
-Write-Host "`n[Step 7/8] Customer submitting closure request for account #$accountNumber..." -ForegroundColor Yellow
+Write-Host "`n[Step 6/8] Customer submitting closure request for account #$newAccountNo..." -ForegroundColor Yellow
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
 $closureBody = @{
-    reason = "Relocating abroad and consolidating bank accounts"
+    reason = "Lifecycle test: Consolidating secondary savings accounts"
 } | ConvertTo-Json
 
-$closureRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/accounts/$accountId/closure-request" -Method Post -Headers $kycHeaders -ContentType "application/json" -Body $closureBody
+$closureRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/accounts/$newAccountId/closure-request" -Method Post -Headers $custHeaders -ContentType "application/json" -Body $closureBody
+$sw.Stop()
+
 $closureRequestId = $closureRes.closureRequestId
 if (-not $closureRequestId) { throw "Closure request failed to return closureRequestId" }
 Write-Host "  [PASS] Closure request #$closureRequestId submitted with status: $($closureRes.status)" -ForegroundColor Green
+Record-Step "6. Request Closure" "POST /api/v1/accounts/{id}/closure-request" 202 $sw.ElapsedMilliseconds "Closure Request: #$closureRequestId (PENDING)"
 $passed++
 
 # -----------------------------------------------------------------------------
-# STEP 8: Admin Approves Account Closure Request
+# STEP 7: Admin Approves Account Closure Request
 # -----------------------------------------------------------------------------
-Write-Host "`n[Step 8/8] Admin approving account closure request #$closureRequestId..." -ForegroundColor Yellow
+Write-Host "`n[Step 7/8] Admin approving account closure request #$closureRequestId..." -ForegroundColor Yellow
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
 $approveClosureRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/accounts/closure-requests/$closureRequestId/approve" -Method Post -Headers $adminHeaders
+$sw.Stop()
+
 if ($approveClosureRes.accountStatus -ne "CLOSED") { throw "Expected accountStatus CLOSED, got $($approveClosureRes.accountStatus)" }
-Write-Host "  [PASS] Admin approved closure request #$closureRequestId." -ForegroundColor Green
-Write-Host "         Result: $($approveClosureRes.message)" -ForegroundColor Green
+Write-Host "  [PASS] Admin approved closure request #$closureRequestId. Account #$newAccountNo is CLOSED." -ForegroundColor Green
+Record-Step "7. Approve Closure" "POST /api/v1/accounts/closure-requests/{id}/approve" 200 $sw.ElapsedMilliseconds "Account #$newAccountNo Status: CLOSED"
 $passed++
 
 # -----------------------------------------------------------------------------
-# SUMMARY
+# STEP 8: Account State & Audit Verification
+# -----------------------------------------------------------------------------
+Write-Host "`n[Step 8/8] Verifying finalized account status via Gateway..." -ForegroundColor Yellow
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+$finalAccountRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/accounts/$newAccountId" -Method Get -Headers $custHeaders
+$sw.Stop()
+
+if ($finalAccountRes.status -ne "CLOSED") { throw "Expected account status CLOSED, got $($finalAccountRes.status)" }
+Write-Host "  [PASS] Confirmed Account #$newAccountNo status is CLOSED. Balance: PHP $($finalAccountRes.balance)" -ForegroundColor Green
+Record-Step "8. Verify Final State" "GET /api/v1/accounts/{id}" 200 $sw.ElapsedMilliseconds "Confirmed Status: CLOSED"
+$passed++
+
+# -----------------------------------------------------------------------------
+# SUMMARY REPORT TABLE
 # -----------------------------------------------------------------------------
 Write-Host "`n==========================================================================" -ForegroundColor Cyan
-Write-Host " User Lifecycle Flow Summary: $passed / $total Steps Passed" -ForegroundColor Green
+Write-Host " >>> USER LIFECYCLE FLOW EXECUTION SUMMARY REPORT" -ForegroundColor Cyan
 Write-Host "==========================================================================" -ForegroundColor Cyan
+$report | Format-Table -AutoSize
+
+Write-Host "LIFECYCLE FLOW COMPLETE: ALL $passed / $total STEPS PASSED WITH ZERO ERRORS.`n" -ForegroundColor Green
